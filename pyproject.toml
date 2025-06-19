@@ -1,7 +1,7 @@
 [project]
 name = "hikari-risa"
 version = "0.1.0"
-description = "Add your description here"
+description = "A stateless component manager for hikari."
 readme = "README.md"
 authors = [
     { name = "Christopher", email = "github.android206@passmail.net" }
@@ -17,4 +17,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/risa"]
+
+[dependency-groups]
+nox = [
+    "nox[uv]>=2025.5.1",
+]
 
