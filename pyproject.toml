@@ -1,6 +1,6 @@
 [project]
 name = "hikari-risa"
-version = "0.1.0"
+version = "0.0.1"
 description = "A stateless component manager for hikari."
 readme = "README.md"
 authors = [
@@ -22,7 +22,20 @@ packages = ["risa"]
 nox = [
     "nox[uv]>=2025.5.1",
 ]
+pyright = [
+    "pyright>=1.1.402",
+]
 ruff = [
     "ruff>=0.12.0",
 ]
+
+[tool.pyright]
+include = ["risa"]
+exclude = [
+    "**/__init__.py",
+]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+
+reportUnnecessaryTypeIgnoreComment = "error"
 
