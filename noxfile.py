@@ -27,7 +27,7 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 
-nox.options.sessions = ["reformat", "ruff"]
+nox.options.sessions = ["reformat", "ruff", "pyright"]
 nox.options.default_venv_backend = "uv"
 
 
@@ -47,6 +47,13 @@ def ruff(session: nox.Session) -> None:
     sync(session, groups=["ruff"], self=True)
 
     session.run("ruff", "check", *PYTHON_PATHS, *session.posargs)
+
+@nox.session(reuse_venv=True)
+def pyright(session: nox.Session) -> None:
+    sync(session, groups=["pyright"], self=True)
+
+    session.run("pyright")
+
 
 
 # uv_sync taken from: https://github.com/hikari-py/hikari/blob/master/pipelines/nox.py#L46
