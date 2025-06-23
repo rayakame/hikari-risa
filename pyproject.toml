@@ -31,7 +31,9 @@ ruff = [
 
 [tool.pyright]
 include = ["risa"]
-exclude = []
+exclude = [
+    "**/__init__.py"
+]
 pythonVersion = "3.10"
 typeCheckingMode = "strict"
 
