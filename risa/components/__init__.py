@@ -17,15 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""A python library build to handle components when using hikari."""
+"""Package containing every component."""
 
 from __future__ import annotations
 
-from risa._about import __author__
-from risa._about import __copyright__
-from risa._about import __discord_invite__
-from risa._about import __license__
-from risa._about import __url__
-from risa._about import __version__
-from risa.client import *
-from risa.components import *
+from .button import Button

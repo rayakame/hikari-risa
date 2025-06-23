@@ -26,6 +26,3 @@ __all__ = ("RisaClient",)
 
 class RisaClient:
     """RisaClient."""
-
-
-
