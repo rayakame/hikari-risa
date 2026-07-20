@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same ref supersedes an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_COLOR: "1"
+
+# setup-uv is pinned to an exact tag on purpose: astral-sh/setup-uv does not
+# publish a floating `v8` major alias (its major tags stop at v7), so `@v8`
+# fails to resolve. actions/* do publish major aliases and use them.
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - run: uv run --group nox nox -s format-check
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - run: uv run --group nox nox -s ruff
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - run: uv run --group nox nox -s pyright
+
+  audit:
+    name: audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - run: uv run --group nox nox -s audit
+
+  test:
+    name: test (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+          # Sets UV_PYTHON, which is what the nox session's venv is built from.
+          python-version: ${{ matrix.python-version }}
+
+      - run: uv run --group nox nox -s pytest
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - run: uv build
+
+      # Flat layout means a packaging mistake is invisible until install time.
+      # Assert the marker and the package actually made it into the wheel.
+      - name: Check wheel contents
+        run: |
+          uv run --no-project python - <<'PY'
+          import glob
+          import sys
+          import zipfile
+
+          wheel = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(wheel).namelist()
+          missing = [n for n in ("risa/py.typed", "risa/__init__.py", "risa/errors.py") if n not in names]
+          if missing:
+              sys.exit(f"missing from {wheel}: {missing}\ncontents: {names}")
+          print(f"{wheel} OK")
+          PY
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
