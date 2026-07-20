@@ -3,5 +3,6 @@
     "extends": ["config:recommended", "helpers:pinGitHubActionDigestsToSemver"],
     "lockFileMaintenance": {
         "enabled": true
-    }
+    },
+    "prHourlyLimit": 5
 }
