@@ -27,11 +27,11 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 
-nox.options.sessions = ["reformat", "ruff", "pyright"]
+nox.options.sessions = ["reformat", "ruff", "pyright", "pytest"]
 nox.options.default_venv_backend = "uv"
 
 
-PYTHON_PATHS = ["noxfile.py", "risa/"]
+PYTHON_PATHS = ["noxfile.py", "risa/", "tests/"]
 
 
 @nox.session(reuse_venv=True)
@@ -51,9 +51,17 @@ def ruff(session: nox.Session) -> None:
 
 @nox.session(reuse_venv=True)
 def pyright(session: nox.Session) -> None:
-    sync(session, groups=["pyright"], self=True)
+    # The pytest group is required so that `tests/` type-checks too.
+    sync(session, groups=["pyright", "pytest"], self=True)
 
     session.run("pyright")
+
+
+@nox.session(reuse_venv=True)
+def pytest(session: nox.Session) -> None:
+    sync(session, groups=["pytest"], self=True)
+
+    session.run("pytest", *session.posargs)
 
 
 # uv_sync taken from: https://github.com/hikari-py/hikari/blob/master/pipelines/nox.py#L46

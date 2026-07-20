@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Tool caches
+.nox/
+.ruff_cache/
+.pytest_cache/
+
+# IDEs
+.idea/
+.vscode/
