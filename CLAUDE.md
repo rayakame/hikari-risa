@@ -68,7 +68,7 @@ first time rather than discovering it from lint output.
 
 ## Layout
 
-```
+```text
 risa/
   __init__.py    star re-exports of the public API
   _about.py      package metadata (__version__, __author__, ...)
