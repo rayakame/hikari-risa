@@ -27,7 +27,7 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 
-nox.options.sessions = ["reformat", "ruff", "pyright", "pytest"]
+nox.options.sessions = ["reformat", "ruff", "pyright", "pytest", "audit"]
 nox.options.default_venv_backend = "uv"
 
 
@@ -40,6 +40,15 @@ def reformat(session: nox.Session) -> None:
 
     session.run("ruff", "format", *PYTHON_PATHS, *session.posargs)
     session.run("ruff", "check", *PYTHON_PATHS, "--select", "I", "--fix", *session.posargs)
+
+
+@nox.session(name="format-check", reuse_venv=True)
+def format_check(session: nox.Session) -> None:
+    # Non-mutating counterpart to `reformat`, for CI.
+    sync(session, groups=["ruff"], self=True)
+
+    session.run("ruff", "format", "--check", *PYTHON_PATHS, *session.posargs)
+    session.run("ruff", "check", *PYTHON_PATHS, "--select", "I", *session.posargs)
 
 
 @nox.session(reuse_venv=True)
@@ -62,6 +71,13 @@ def pytest(session: nox.Session) -> None:
     sync(session, groups=["pytest"], self=True)
 
     session.run("pytest", *session.posargs)
+
+
+@nox.session(reuse_venv=True)
+def audit(session: nox.Session) -> None:
+    # Scans uv.lock against the advisory databases. Requires uv >= 0.9; the
+    # subcommand is still behind a preview flag.
+    session.run("uv", "audit", "--preview-features", "audit-command", *session.posargs, external=True)
 
 
 # uv_sync taken from: https://github.com/hikari-py/hikari/blob/master/pipelines/nox.py#L46

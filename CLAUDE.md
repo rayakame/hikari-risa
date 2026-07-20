@@ -23,13 +23,23 @@ application: the public API surface and its type annotations are the product.
 Everything runs through `uv` and `nox`. Do not `pip install` anything.
 
 ```sh
-uv run --group nox nox            # reformat, ruff, pyright, pytest
+uv run --group nox nox            # reformat, ruff, pyright, pytest, audit
 uv run --group nox nox -s ruff    # a single session
 uv run --group pytest pytest -q   # fast inner loop while iterating
 uv lock                           # after ANY dependency change
+uv lock --upgrade                 # periodically; plain `uv lock` never bumps existing pins
 ```
 
 `uv.lock` is committed. The nox sessions run `uv sync --locked`, so a stale lockfile fails CI.
+
+The `audit` session runs `uv audit`, which needs **uv >= 0.9** (the subcommand is still behind
+`--preview-features audit-command`). Because `nox[uv]` puts uv in the lockfile, the project's
+uv is pinned per-project and the copy in `.venv` shadows any global install. If `audit` fails
+with `unrecognized subcommand`, the fix is `uv lock --upgrade`, not `uv self update`.
+
+Note that plain `uv lock` is conservative — it resolves only what changed and leaves existing
+pins alone. Without a periodic `uv lock --upgrade`, the lockfile silently rots and `audit`
+starts failing on transitive dependencies.
 
 ## Toolchain
 
