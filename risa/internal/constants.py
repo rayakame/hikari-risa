@@ -17,19 +17,21 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""A component handler for hikari with first-class Components V2 support."""
+"""Constants shared across the library.
+
+Limits imposed by Discord live here alongside the attribute names risa stamps
+onto user classes, so that every module reads them from one place rather than
+repeating magic values that must agree.
+"""
 
 from __future__ import annotations
 
-from risa._about import __author__
-from risa._about import __copyright__
-from risa._about import __discord_invite__
-from risa._about import __license__
-from risa._about import __url__
-from risa._about import __version__
-from risa.client import *
-from risa.context import *
-from risa.di import *
-from risa.errors import *
-from risa.state import *
-from risa.view import *
+import typing
+
+__all__ = ("MAX_CUSTOM_ID_LENGTH", "VIEW_META")
+
+# The hard limit on the length of a component's ``custom_id``.
+MAX_CUSTOM_ID_LENGTH: typing.Final[int] = 100
+
+# Attribute ``@risa.register`` stamps onto a class to hold its ``ViewMeta``.
+VIEW_META: typing.Final[str] = "__risa_view_meta__"

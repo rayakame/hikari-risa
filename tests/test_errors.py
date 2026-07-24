@@ -27,14 +27,22 @@ import risa
 @pytest.mark.parametrize(
     "exc_type",
     [
+        risa.ArgBindError,
         risa.CustomIdOverflowError,
+        risa.DuplicateHandlerError,
+        risa.DuplicateViewError,
+        risa.HandlerSignatureError,
         risa.LayoutError,
         risa.LockTimeoutError,
+        risa.NotAHandlerError,
+        risa.NotAViewError,
         risa.SchemaMismatchError,
         risa.SerializationError,
+        risa.SignatureMismatchError,
         risa.StateConflictError,
         risa.StateError,
         risa.StateNotFoundError,
+        risa.ViewDeclarationError,
     ],
 )
 def test_every_error_inherits_from_risa_error(exc_type: type[Exception]) -> None:

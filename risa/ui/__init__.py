@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Rayakame
+# Copyright (c) 2025-present Rayakame
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -17,19 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""A component handler for hikari with first-class Components V2 support."""
+"""The nodes a view is built out of."""
 
 from __future__ import annotations
 
-from risa._about import __author__
-from risa._about import __copyright__
-from risa._about import __discord_invite__
-from risa._about import __license__
-from risa._about import __url__
-from risa._about import __version__
-from risa.client import *
-from risa.context import *
-from risa.di import *
-from risa.errors import *
-from risa.state import *
-from risa.view import *
+from risa.ui.nodes import *

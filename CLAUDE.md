@@ -68,9 +68,17 @@ first time rather than discovering it from lint output.
 - **Numpy docstring convention.** Module, class and public function docstrings are mandatory.
 - **`__all__` is a tuple, sorted alphabetically**, declared right after the module docstring
   and imports.
+- **Exceptions are named with an `Error` suffix** and live in `risa/errors.py`.
 - **Exceptions build their own messages in `__init__`** and expose structured attributes.
   `TRY003` and `EM101` forbid long message literals at the raise site, and callers should be
   able to branch on fields rather than parse strings. See `risa/errors.py` for the pattern.
+- **Nothing fails silently.** No `contextlib.suppress`, no bare `except: pass` for anything
+  that changes behaviour — log it or raise it. Each module logs through
+  `_LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.<module>")`; the library
+  never configures logging itself.
+- **Type as strictly as Python allows.** `typing.Any` is not an acceptable shortcut, and
+  neither is loosening a signature to satisfy a lint rule — restructure the code instead.
+- **Few inline comments.** A reason worth recording goes in the docstring, not beside the code.
 - `**/__init__.py` is excluded from pyright and exempt from `F401`/`F403`, so it is the one
   place star re-exports are acceptable.
 - Prefer `# type: ignore[rule]` over `# pyright: ignore[rule]` where both work.
@@ -80,21 +88,39 @@ first time rather than discovering it from lint output.
 
 ```text
 risa/
-  __init__.py    star re-exports of the public API
-  _about.py      package metadata (__version__, __author__, ...)
-  errors.py      RisaError-rooted exception hierarchy
+  __init__.py       star re-exports of the public API
+  _about.py         package metadata (__version__, __author__, ...)
+  client.py         Client ABC + Gateway/Rest implementations, dispatch, factories
+  context.py        Context handed to a handler
+  di.py             Contexts (DEFAULT/COMPONENT/MODAL), INJECTED re-export
+  errors.py         RisaError-rooted hierarchy
+  view.py           View base, @register and @handler
+  internal/         not public API; modules here carry no leading underscore
+    codec.py        custom_id encode/decode, cookie and handler tokens
+    constants.py    Discord limits and the attribute names risa stamps
+    registry.py     ViewMeta and the cookie -> view registries
   py.typed
 tests/
-noxfile.py       reformat / ruff / pyright / pytest sessions
-ruff.toml        lint + format config (NOT in pyproject.toml)
+noxfile.py          reformat / format-check / ruff / pyright / pytest / audit
+ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
 
 Flat layout, not `src/`. Package config lives in `pyproject.toml` except ruff, which has its
-own `ruff.toml`.
+own `ruff.toml`. Anything under `internal/` is private by virtue of living there — those
+modules do not take a leading underscore.
 
 ## Design direction
 
-Decided but not yet built. Useful context; treat as intent, not as an implemented contract.
+Built so far: the `custom_id` codec with arg converters and the signature fingerprint, the
+view registry, `@register` and versioned `@handler` with `bind()`, dependency injection, the
+state store (`MemoryStore`, per-key locks, CAS), the node layer for
+Container/Section/Row/TextDisplay/Button, full stateful dispatch including
+`on_state_missing` and `on_outdated`, and props-only views via `persist=False`. Not yet built: the remaining node types (selects,
+link/premium buttons, media, separators, files, thumbnails), everything on `Context` beyond
+read-only properties (responses, auto-defer, `rerender`), modals, `RedisStore`, and state
+migrations.
+
+Treat the rest as intent, not as an implemented contract.
 
 - **Components V2 is the model; V1 falls out of it.** V1 is just a tree whose top level
   contains only action rows. There is one tree type and one layout pass. Do not hard-wire the
@@ -107,17 +133,31 @@ Decided but not yet built. Useful context; treat as intent, not as an implemente
 - **State lives in a pluggable store, keyed by a random token in the `custom_id`.** Random
   keys (not message IDs or anything shard-derived) are what make resharding a non-event.
   `MemoryStore` is the zero-infra default and is only safe single-process; a shared store such
-  as Redis is required for multi-process shards or a REST bot behind a load balancer.
-- **`custom_id` wire format:** `[ver:1][cookie:6][handler:2][mode:1][payload]` within Discord's
-  100-character limit. The cookie hashes the view name *and* its schema version, so a schema
-  change fails closed rather than deserialising into the wrong shape. Unrecognised
-  `custom_id`s must be ignored silently so risa can coexist with other handlers.
+  as Redis is required for multi-process shards or a REST bot behind a load balancer. A view
+  registered with `persist=False` opts out of the store entirely: its fields become
+  render-only props and dispatch rebuilds it from defaults (DESIGN.md §7.6).
+- **`custom_id` wire format:** `[ver:1][cookie:6][handler:2][payload]` within Discord's
+  100-character limit, where the payload is `state key ‖ fingerprint ‖ args`. The cookie
+  hashes the view name *and* its schema version, and the handler token hashes the handler id
+  *and* its version, so schema and signature changes alike fail closed rather than
+  deserialising into the wrong shape; the 2-char fingerprint catches a signature edited
+  without a version bump (DESIGN.md §6.4). Unrecognised `custom_id`s must be ignored silently
+  so risa can coexist with other handlers; a recognised one that resolves to nothing is
+  logged, since that means a genuine routing failure.
+- **Dependency injection is linkd**, so a manager can be shared with lightbulb. Handlers are
+  dispatched inside `Contexts.DEFAULT` nested with `Contexts.COMPONENT`; `ctx` is passed
+  positionally rather than injected, so handlers keep working when DI is disabled.
 - **Auto-defer sits above the handler, not inside it.** Store I/O happens during dispatch,
   before user code runs, so the defer timer starts at decode. Default to
   `DEFERRED_MESSAGE_UPDATE` (silent ack), not `DEFERRED_MESSAGE_CREATE`.
-- **hikari validates almost nothing about component layout.** Rejecting invalid trees at build
-  time with a path-qualified error is a large share of this library's value, so encode the
-  nesting rules as data rather than as branching logic.
+- **Discord's layout limits are deliberately not policed.** Do not add a rule table for "5 per
+  row", "1-3 text displays", "40 total" and the like. A stale table that is *too strict* blocks
+  users outright when Discord loosens a limit, while one that is too lax merely lets the
+  request fail as it would have anyway — and Discord loosens far more often than it tightens.
+  The structural half (a container may not nest a container, a section takes only text
+  displays, a row takes only interactive components) is already enforced for free by the node
+  constructors' parameter types. risa checks only what Discord cannot: `custom_id` overflow,
+  and a component whose handler belongs to a different view.
 
 ## Gotchas
 
