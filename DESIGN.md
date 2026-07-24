@@ -148,7 +148,7 @@ risa/
 
 ## 5. The node layer
 
-### 5.1 Node types **[decided in shape, names open]**
+### 5.1 Node types **[decided; built as `risa/ui/nodes.py`]**
 
 Mirror the V2 spec one-to-one. Every node is an immutable-ish value object; `render()`
 returns a fresh tree each time.
