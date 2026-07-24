@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import abc
 import collections.abc
+import enum
 import inspect
 import logging
 import typing
@@ -48,6 +49,7 @@ if typing.TYPE_CHECKING:
     from risa import ui
 
 __all__ = (
+    "AutoDefer",
     "BoundHandler",
     "BoundHandlerMethod",
     "HandlerFunction",
@@ -59,6 +61,45 @@ __all__ = (
 )
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.view")
+
+
+class AutoDefer(enum.Enum):
+    """What the watchdog sends when a handler is slower than Discord's deadline.
+
+    Discord allows three seconds for an initial response. risa runs a watchdog
+    beside every dispatch that acknowledges the interaction shortly before that
+    deadline if the handler has not responded yet, so slow handlers keep
+    working without any explicit ``defer`` call. This enum picks what that
+    acknowledgement looks like -- set per view on ``@risa.register(defer=...)``
+    and overridden per handler on ``@risa.handler(defer=...)``.
+    """
+
+    UPDATE = "update"
+    """Silently acknowledge; the user sees nothing. The default.
+
+    Right for the usual component handler, which is about to edit its own
+    message via ``rerender``.
+    """
+
+    THINKING = "thinking"
+    """Show the "thinking…" spinner.
+
+    Right for a handler that answers with a *new* message via ``respond``,
+    which is also what eventually replaces the spinner. A handler that only
+    ``rerender``\\s after this leaves the spinner hanging -- pick ``UPDATE``
+    for those.
+    """
+
+    THINKING_EPHEMERAL = "thinking_ephemeral"
+    """Show the "thinking…" spinner, visible only to whoever clicked."""
+
+    OFF = "off"
+    """No watchdog; the handler is on its own against the deadline.
+
+    Required for handlers that respond with a modal, which must be the initial
+    response and so cannot risk the watchdog acknowledging first.
+    """
+
 
 type HandlerFunction[V: View, **P] = collections.abc.Callable[
     typing.Concatenate[V, context.ComponentContext, P],
@@ -236,13 +277,14 @@ class HandlerMethod[V: View, **P]:
     which is what ``render()`` builds components from.
     """
 
-    __slots__ = ("_callback", "_fn", "_handler_id", "_signature", "_token", "_version")
+    __slots__ = ("_callback", "_defer", "_fn", "_handler_id", "_signature", "_token", "_version")
 
-    def __init__(self, fn: HandlerFunction[V, P], *, handler_id: str, version: int) -> None:
+    def __init__(self, fn: HandlerFunction[V, P], *, handler_id: str, version: int, defer: AutoDefer | None) -> None:
         self._fn = fn
         self._callback: registry.Handler = typing.cast("registry.Handler", linkd.inject(fn))
         self._handler_id = handler_id
         self._version = version
+        self._defer = defer
         self._token = codec.make_handler_token(handler_id, version)
         self._signature: codec.HandlerSignature | None = None
 
@@ -255,6 +297,11 @@ class HandlerMethod[V: View, **P]:
     def version(self) -> int:
         """The handler's version."""
         return self._version
+
+    @property
+    def defer(self) -> AutoDefer | None:
+        """The auto-defer override, or ``None`` to follow the view's setting."""
+        return self._defer
 
     @property
     def token(self) -> str:
@@ -420,8 +467,9 @@ class View(msgspec.Struct):
         worth telling apart.
 
         Overriding this is how a view says what it wants said. The default only
-        logs, because the interaction is left unanswered otherwise, and Discord
-        shows the user an error once the response window closes.
+        logs: under the default auto-defer the click is silently acknowledged
+        and nothing visible happens, and with :attr:`AutoDefer.OFF` Discord
+        shows an error once the response window closes.
 
         Parameters
         ----------
@@ -445,8 +493,8 @@ class View(msgspec.Struct):
 
         Overriding it also acknowledges that components are retired on
         purpose, which is what downgrades the client's token-miss log from a
-        warning to debug. The default only logs, because the interaction is
-        left unanswered otherwise.
+        warning to debug. The default only logs: under the default auto-defer
+        the click is silently acknowledged and nothing visible happens.
 
         Parameters
         ----------
@@ -470,6 +518,7 @@ def handler[V: View, **P](
     *,
     handler_id: str | None = ...,
     version: int = ...,
+    defer: AutoDefer | None = ...,
 ) -> collections.abc.Callable[[HandlerFunction[V, P]], HandlerMethod[V, P]]: ...
 
 
@@ -479,6 +528,7 @@ def handler[V: View, **P](
     *,
     handler_id: str | None = None,
     version: int = 1,
+    defer: AutoDefer | None = None,
 ) -> HandlerMethod[V, P] | collections.abc.Callable[[HandlerFunction[V, P]], HandlerMethod[V, P]]:
     """Mark a method as a component callback.
 
@@ -516,6 +566,11 @@ def handler[V: View, **P](
         Stable identity for the callback. Defaults to the method's name.
     version
         Version of the callback's wire identity. Defaults to ``1``.
+    defer
+        What the auto-defer watchdog sends if this handler outruns Discord's
+        response deadline. Defaults to ``None``, which follows the view's own
+        ``defer`` setting; pass :attr:`AutoDefer.OFF` for a handler that must
+        issue the initial response itself, such as one opening a modal.
 
     Returns
     -------
@@ -525,7 +580,7 @@ def handler[V: View, **P](
     """
 
     def decorate(f: HandlerFunction[V, P]) -> HandlerMethod[V, P]:
-        return HandlerMethod(f, handler_id=handler_id or f.__name__, version=version)
+        return HandlerMethod(f, handler_id=handler_id or f.__name__, version=version, defer=defer)
 
     if fn is not None:
         return decorate(fn)
@@ -538,6 +593,7 @@ def register[T: View](
     version: int = 1,
     ttl: float | None = None,
     persist: bool = True,
+    defer: AutoDefer = AutoDefer.UPDATE,
 ) -> collections.abc.Callable[[type[T]], type[T]]:
     """Declare a view and make its components routable.
 
@@ -593,6 +649,11 @@ def register[T: View](
         have one, and a handler must refill whatever its redraw renders from.
         For views that are a pure function of external data plus wire args,
         such as a leaderboard rendered from the bot's own database.
+    defer
+        What the auto-defer watchdog sends for this view's handlers when one
+        outruns Discord's response deadline. Defaults to the silent
+        :attr:`AutoDefer.UPDATE`. Individual handlers override this with
+        ``@risa.handler(defer=...)``.
 
     Returns
     -------
@@ -648,6 +709,7 @@ def register[T: View](
                 handler_id=member.handler_id,
                 version=member.version,
                 signature=signature,
+                defer=member.defer,
             )
 
         outdated_definer = next(klass for klass in cls.__mro__ if "on_outdated" in vars(klass))
@@ -659,6 +721,7 @@ def register[T: View](
             handlers=handlers,
             stateless=not persist or not fields,
             handles_outdated=outdated_definer is not View,
+            defer=defer,
             ttl=ttl,
         )
         setattr(cls, constants.VIEW_META, meta)

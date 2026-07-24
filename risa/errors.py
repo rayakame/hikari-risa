@@ -28,6 +28,7 @@ from __future__ import annotations
 from risa.internal.constants import MAX_CUSTOM_ID_LENGTH
 
 __all__ = (
+    "AlreadyRespondedError",
     "ArgBindError",
     "CustomIdOverflowError",
     "DuplicateHandlerError",
@@ -160,6 +161,25 @@ class NotAViewError(RisaError):
     def __init__(self, class_name: str) -> None:
         self.class_name = class_name
         super().__init__(f"{class_name!r} is missing view metadata; decorate it with @risa.register")
+
+
+class AlreadyRespondedError(RisaError):
+    """Raised when an action needed to be the initial response but came too late.
+
+    A defer or a modal can only ever be the first response to an interaction.
+    Anything sent earlier -- by the handler or by the auto-defer watchdog --
+    forecloses them, and this error names what got there first. Handlers that
+    open modals should disable auto-defer for exactly this reason.
+
+    Attributes
+    ----------
+    attempted
+        The action that arrived too late, for example ``"defer"``.
+    """
+
+    def __init__(self, attempted: str) -> None:
+        self.attempted = attempted
+        super().__init__(f"cannot {attempted}: an initial response was already issued for this interaction")
 
 
 class ViewDeclarationError(RisaError):

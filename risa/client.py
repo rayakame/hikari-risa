@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import abc
+import asyncio
 import logging
 import typing
 
@@ -54,10 +55,6 @@ __all__ = (
 )
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.client")
-
-type _ResponseBuilder = (
-    hikari.api.InteractionDeferredBuilder | hikari.api.InteractionMessageBuilder | hikari.api.InteractionModalBuilder
-)
 
 
 @typing.runtime_checkable
@@ -277,10 +274,34 @@ class Client(abc.ABC):
     async def _process_component_interaction(
         self,
         interaction: hikari.ComponentInteraction,
-    ) -> _ResponseBuilder | None:
+        ctx: context.ComponentContext,
+        state: context.DispatchState,
+    ) -> None:
+        """Route one component interaction and settle its watchdog either way.
+
+        A dispatch that finishes cleanly without responding gets the deferred
+        acknowledgement issued immediately; one that raises gets the watchdog
+        cancelled instead, so the failure stays visible rather than being
+        acked into silence. The acknowledgement gate opens in both cases,
+        which is what lets a REST listener stop waiting.
+        """
+        try:
+            await self._route_component_interaction(interaction, ctx, state)
+        except Exception:
+            await context.conclude_dispatch(state, interaction, failed=True)
+            raise
+        else:
+            await context.conclude_dispatch(state, interaction, failed=False)
+
+    async def _route_component_interaction(
+        self,
+        interaction: hikari.ComponentInteraction,
+        ctx: context.ComponentContext,
+        state: context.DispatchState,
+    ) -> None:
         custom_id = codec.decode_custom_id(interaction.custom_id)
         if custom_id is None:
-            return None
+            return
 
         meta = self._resolve(custom_id.raw_cookie)
         if meta is None:
@@ -290,16 +311,24 @@ class Client(abc.ABC):
                 interaction.id,
                 custom_id.raw_cookie,
             )
-            return None
+            return
+
+        record = meta.handlers.get(custom_id.handler)
+        if meta.stateless:
+            state_key, args_payload = "", custom_id.payload
+        else:
+            state_key = custom_id.payload[: codec.STATE_KEY_LENGTH]
+            args_payload = custom_id.payload[codec.STATE_KEY_LENGTH :]
+
+        autodefer = meta.defer if record is None or record.defer is None else record.defer
+        context.prepare_dispatch(state, interaction, meta=meta, state_key=state_key or None, autodefer=autodefer)
 
         async with (
             self._di.enter_context(di_.Contexts.DEFAULT),
             self._di.enter_context(di_.Contexts.COMPONENT) as container,
         ):
-            ctx = context.ComponentContext(self, interaction)
             container.add_value(context.ComponentContext, ctx)
 
-            record = meta.handlers.get(custom_id.handler)
             if record is None:
                 _LOGGER.log(
                     logging.DEBUG if meta.handles_outdated else logging.WARNING,
@@ -310,13 +339,7 @@ class Client(abc.ABC):
                     custom_id.handler,
                 )
                 await meta.cls.on_outdated(ctx)
-                return None
-
-            if meta.stateless:
-                state_key, args_payload = "", custom_id.payload
-            else:
-                state_key = custom_id.payload[: codec.STATE_KEY_LENGTH]
-                args_payload = custom_id.payload[codec.STATE_KEY_LENGTH :]
+                return
 
             try:
                 args = codec.decode_args(
@@ -333,24 +356,30 @@ class Client(abc.ABC):
                     interaction.id,
                 )
                 await meta.cls.on_outdated(ctx)
-                return None
+                return
 
             if meta.stateless:
-                await record.callback(meta.cls(), ctx, *args)
+                instance = meta.cls()
+                context.supply_view(state, instance)
+                await record.callback(instance, ctx, *args)
             else:
-                await self._dispatch_stateful(meta, record.callback, ctx, state_key, args)
+                await self._dispatch_stateful(meta, record.callback, ctx, state, state_key, args)
 
-        return None
-
-    async def _dispatch_stateful(
+    async def _dispatch_stateful(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
         self,
         meta: registry.ViewMeta,
         callback: registry.Handler,
         ctx: context.ComponentContext,
+        state: context.DispatchState,
         state_key: str,
         args: tuple[object, ...],
     ) -> None:
         """Rebuild a view from the store, run a handler on it, and write it back.
+
+        Whether the handler changed anything is computed, not declared: the
+        view is re-encoded afterwards and compared with the loaded bytes. An
+        unchanged view skips the write -- a sliding TTL is refreshed with a
+        ``touch`` instead -- so a read-only handler costs no store write.
 
         The lock is held across the whole sequence rather than around the write
         alone, because two people pressing the same button otherwise read the
@@ -413,11 +442,18 @@ class Client(abc.ABC):
                 await meta.cls.on_state_missing(ctx)
                 return
 
+            context.supply_view(state, view_)
             await callback(view_, ctx, *args)
+
+            encoded = serde.dumps(view_, meta=meta)
+            if encoded == raw:
+                if meta.ttl is not None:
+                    await self._store.touch(state_key, ttl=meta.ttl)
+                return
 
             written = await self._store.put_if_version(
                 state_key,
-                serde.dumps(view_, meta=meta),
+                encoded,
                 expected=version,
                 ttl=meta.ttl,
             )
@@ -465,7 +501,9 @@ class GatewayEnabledClient(Client):
         return self._app
 
     async def _on_interaction_create(self, event: hikari.ComponentInteractionCreateEvent) -> None:
-        await self._process_component_interaction(event.interaction)
+        state = context.DispatchState()
+        ctx = context.ComponentContext(self, event.interaction, state)
+        await self._process_component_interaction(event.interaction, ctx, state)
 
 
 class RestEnabledClient(Client):
@@ -507,8 +545,44 @@ class RestEnabledClient(Client):
         """The application this client was created from."""
         return self._app
 
-    async def _on_interaction(self, interaction: hikari.ComponentInteraction) -> _ResponseBuilder | None:
-        return await self._process_component_interaction(interaction)
+    async def _on_interaction(
+        self,
+        interaction: hikari.ComponentInteraction,
+    ) -> collections.abc.AsyncGenerator[None, None]:
+        """Answer Discord's webhook once dispatch has responded out-of-band.
+
+        Dispatch runs as a task and issues its responses through the same REST
+        calls the gateway transport uses; this listener only waits for the
+        first of them (the auto-defer watchdog guarantees one within its
+        delay) and then yields ``None``, which hikari turns into a
+        ``204 No Content`` -- "already handled". The dispatch task is awaited
+        after the yield, inside the background task hikari keeps for
+        generator listeners, so a handler is never cut short by the webhook
+        being answered.
+        """
+        state = context.DispatchState()
+        ctx = context.ComponentContext(self, interaction, state)
+        task = asyncio.create_task(self._process_component_interaction(interaction, ctx, state))
+
+        acknowledged = True
+        try:
+            async with asyncio.timeout(constants.REST_ACK_TIMEOUT):
+                await state.acknowledged.wait()
+        except TimeoutError:
+            acknowledged = False
+        if not acknowledged:
+            _LOGGER.error(
+                "no response was issued for interaction %s within %.0f seconds; Discord will show the"
+                " click as failed. The handler was not cancelled and is still running.",
+                interaction.id,
+                constants.REST_ACK_TIMEOUT,
+            )
+        yield
+
+        try:
+            await task
+        except Exception:
+            _LOGGER.exception("dispatch for interaction %s raised", interaction.id)
 
 
 @typing.overload

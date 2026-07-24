@@ -115,9 +115,10 @@ Built so far: the `custom_id` codec with arg converters and the signature finger
 view registry, `@register` and versioned `@handler` with `bind()`, dependency injection, the
 state store (`MemoryStore`, per-key locks, CAS), the node layer for
 Container/Section/Row/TextDisplay/Button, full stateful dispatch including
-`on_state_missing` and `on_outdated`, and props-only views via `persist=False`. Not yet built: the remaining node types (selects,
-link/premium buttons, media, separators, files, thumbnails), everything on `Context` beyond
-read-only properties (responses, auto-defer, `rerender`), modals, `RedisStore`, and state
+`on_state_missing` and `on_outdated`, props-only views via `persist=False`, and the Context
+response surface: `respond`/`rerender`/`edit(layout)`/`defer` with the auto-defer watchdog
+(`risa.AutoDefer`), skip-write-if-unchanged persistence, and the event/204 REST transport. Not yet built: the remaining node types (selects,
+link/premium buttons, media, separators, files, thumbnails), modals, `RedisStore`, and state
 migrations.
 
 Treat the rest as intent, not as an implemented contract.

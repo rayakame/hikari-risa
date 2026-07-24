@@ -419,23 +419,28 @@ Policy: **pessimistic lock for liveness, version check for correctness.**
 ```python
 async with store.lock(key):
     raw, version = await store.get_versioned(key)
-    view = codec.loads(view_cls, raw)
+    view = serde.loads(raw, meta=meta)
     await handler(view, ctx, *args)
-    if ctx.state_dirty:
-        if not await store.put_if_version(key, codec.dumps(view), expected=version, ttl=ttl):
-            raise StateConflictError(key)
+    encoded = serde.dumps(view, meta=meta)
+    if encoded == raw:
+        await store.touch(key, ttl=ttl)      # unchanged: refresh expiry, skip the write
+    elif not await store.put_if_version(key, encoded, expected=version, ttl=ttl):
+        raise StateConflictError(key)
 ```
 
 The lock makes conflicts rare; the version check makes the rare case loud instead of a silent
 lost update. **Do not retry on conflict** — a retried handler that already sent a followup
 would double-send.
 
-Opt out per handler for read-only callbacks:
+**Whether state changed is computed, not declared. [decided]** Dispatch re-encodes the view
+after the handler and compares bytes with what it loaded: identical means no write (just a
+``touch`` to refresh a sliding TTL), different means the CAS write. There is no
+``ctx.state_dirty`` flag — an API that cannot be forgotten or wrong, because it does not
+exist. Corollary: ``rerender()`` renders and edits but never writes; **dispatch owns the
+single write-back**, at handler end, so a click costs at most one store write.
 
-```python
-@risa.handler(lock=False)
-async def show_details(self, ctx: risa.Context) -> None: ...
-```
+A per-handler ``lock=False`` opt-out for read-only callbacks remains possible later, but
+skip-if-unchanged removes most of its motivation; deferred until someone measures a need.
 
 ### 7.4 Key allocation **[decided]**
 
@@ -507,38 +512,71 @@ that lives nowhere else (poll votes, wizard progress) wants the store.
 
 ## 8. Context, responses, auto-defer
 
-### 8.1 Auto-defer sits above the handler **[decided]**
+### 8.1 Auto-defer is a watchdog above the handler **[decided]**
 
-Store I/O happens during dispatch, before user code runs, so the timer starts at **decode**.
+Discord starts a 3-second stopwatch at the click; some response must go out before it runs
+out. risa runs a watchdog beside every dispatch: sleep ~2s (leaving ~1s of network slack),
+then, under the context's response lock, re-check whether anything was sent and defer if
+not. The handler never knows it was slow.
+
+- **The timer starts at decode**, before store I/O — the stopwatch started at the click,
+  so store latency counts against risa's budget, not the user's. (miru starts its timer at
+  callback dispatch, after its own overhead; deliberately not copied.)
+- Default response is **`DEFERRED_MESSAGE_UPDATE`**, the silent ack — a component is
+  usually about to edit its own message. The knob is ``risa.AutoDefer``:
+  ``UPDATE`` (default) / ``THINKING`` / ``THINKING_EPHEMERAL`` / ``OFF``, settable per view
+  on ``@risa.register(defer=...)`` and overridden per handler on
+  ``@risa.handler(defer=...)``. ``OFF`` exists for handlers that respond with a modal,
+  which must be the *initial* response and so cannot race a watchdog.
+- **Every** response path funnels through one initial-response gate — a single
+  ``asyncio.Lock`` plus an issued flag — that the watchdog also takes. Whoever wins the
+  lock is the initial response; the loser sees the flag. The watchdog issues its REST call
+  inline rather than calling ``ctx.defer()``, which would deadlock on the same lock.
+- End-of-dispatch behaviour differs by outcome: a handler that **finishes cleanly without
+  responding** gets the deferred ack issued immediately (silent, no user-visible error); a
+  handler that **raises** gets the watchdog cancelled, so the failure stays visible instead
+  of being acked into silence.
+
+### 8.2 Context surface **[decided]**
+
+Four verbs, split by *which message* they touch — no ``edit=`` flags changing what a method
+means:
 
 ```python
-defer_task = asyncio.create_task(self._autodefer(interaction, state))
-try:
-    await self._dispatch(decoded, interaction, state)
-finally:
-    defer_task.cancel()
+await ctx.respond(content, ephemeral=..., ...)  # a NEW message; mirrors hikari's kwargs
+await ctx.rerender()                            # redraw the component's message from state
+await ctx.edit(layout)                          # replace the component's message with a tree
+await ctx.defer(thinking=False, ephemeral=False)
 ```
 
-- Sleep ~2s, leaving ~1s of slack against Discord's 3s deadline.
-- Default to **`DEFERRED_MESSAGE_UPDATE` (6)**, the silent ack — not
-  `DEFERRED_MESSAGE_CREATE` (5), which shows a "thinking…" spinner. A component is usually
-  about to edit its own message.
-- Funnel **every** respond path through one `_create_response` that cancels the pending
-  defer. miru does this and it is the reason their version cannot get out of sync.
+**Each surface mirrors the thing that defines the message it touches.** Followups are
+ordinary Discord messages risa does not own, so ``respond()`` mirrors hikari. The origin
+message is defined by ``render()``, so ``edit()`` takes exactly a ``ui.Layout`` — built
+against the same view and state key, so components in an ad-hoc tree still route. Offering
+hikari's kwargs on the origin would be a trap: a V2 message cannot carry ``content`` or
+``embeds``, so the familiar-looking parameters could only ever raise.
 
-### 8.2 Context surface **[open — exact names]**
+``rerender()`` is literally sugar — ``rerender() ≡ edit(self.render())`` — and is the
+documented default posture: *the message is always ``render(state)``*. ``edit(layout)`` is
+the escape hatch for terminal screens (``await ctx.edit(ui.TextDisplay("Poll closed."))``);
+its docstring warns that an ad-hoc tree with interactive components will be overwritten by
+the next ``rerender``, since state no longer describes what is on screen.
 
-```python
-await ctx.respond(...)                 # MESSAGE_CREATE
-await ctx.edit(...)                    # MESSAGE_UPDATE
-await ctx.rerender()                   # re-run render(), save state, edit message
-await ctx.defer(ephemeral=False)
-await ctx.prompt(SomeModal, on_submit=self.handler)
-ctx.state_dirty                        # set by rerender/mutation, drives the save
-```
+``respond()`` returns a small **`Response` handle** (``edit`` / ``delete`` / ``fetch``) —
+an object rather than lightbulb's ``-1`` sentinel snowflake or miru's awaitable proxy.
 
-`rerender()` is the headline ergonomic: mutate `self`, call it, done. No decode-mutate-encode
-dance like flare's tictactoe.
+The origin-message routing handles the case both miru and lightbulb push onto the user:
+after a *thinking* defer or a ``respond()``, ``edit_initial_response`` targets the wrong
+message. risa's ``rerender``/``edit`` always land on the component's message:
+
+| Call | Nothing sent | After defer (update) | After defer (thinking) or respond() |
+|---|---|---|---|
+| ``respond()`` | initial `MESSAGE_CREATE` | webhook `execute()` | webhook `execute()` |
+| ``rerender()`` / ``edit()`` | initial `MESSAGE_UPDATE` | `edit_initial_response()` | REST edit of the origin message |
+| ``defer()`` | initial `DEFERRED_*` | `AlreadyRespondedError` | `AlreadyRespondedError` |
+
+``ctx.prompt(SomeModal, ...)`` remains the modal chapter's problem; the initial-response
+gate is built to accommodate it.
 
 ### 8.3 Rendered is the whole message **[decided]**
 
@@ -632,9 +670,28 @@ version check on in all modes — it is what catches you when the "local" assump
 | polymorphic | yes | **no** — one listener per interaction class |
 | initial response | `create_initial_response(...)` (HTTP) | *return* a builder (no HTTP) |
 
-miru's approach is the right one: an `asyncio.Future` on the context. Under REST the handler
-resolves the future with a builder and the client `await asyncio.wait_for(fut, timeout=3.0)`
-hands it back to hikari's interaction server. Everything else is shared.
+**The event/204 pattern, not the builder future. [decided — revised]** An earlier draft
+followed miru: an `asyncio.Future[ResponseBuilder]` on the context, resolved by the first
+response call and returned as the webhook HTTP body. Rejected after comparison with
+lightbulb v3, on two facts: the interaction callback endpoint accepts responses via plain
+REST even for HTTP-received interactions, and hikari's `InteractionServer` supports
+async-*generator* listeners — yield `None` and it answers Discord's webhook POST with
+`204 No Content` ("handled out-of-band"), then keeps driving the generator in a background
+task it awaits on shutdown.
+
+So risa responds to **everything on both transports through the same REST calls**, and the
+entire transport difference is one listener: spawn dispatch as a task, wait for the
+context's acknowledged event (set by any first response, or at dispatch end), yield `None`,
+then await the task. The future pattern would have leaked the transport into every response
+method and duplicated every payload as both kwargs and builders; the cost of the event
+pattern is one extra HTTP round trip on the *initial* response, REST bots only.
+
+Two deliberate deviations from lightbulb: the acknowledged event is also set when dispatch
+finishes (so a foreign or unroutable component answers 204 promptly instead of burning the
+whole wait window), and **a handler that misses the window is never cancelled** — the
+interaction is dead either way, but the handler may be mid-write in the user's database,
+and killing user work to save a doomed ack is the wrong trade. Log at ERROR and let it
+finish.
 
 hikari has no combined Gateway+REST ABC, so a `runtime_checkable` Protocol intersecting
 `RESTAware` + `EventManagerAware` is needed (miru calls it `GatewayBotLike`).
@@ -713,9 +770,11 @@ new types ad hoc:
 | wire args predate a signature edit | `SignatureMismatchError` (caught in dispatch: logged, routed to `on_outdated`) |
 | handler signature unusable for wire args | `HandlerSignatureError` (at import) |
 | `bind()` args don't fit the wire parameters | `ArgBindError` (at render) |
+| defer/modal after a response already went out | `AlreadyRespondedError` |
 
-**[open]** No `ResponseError` / `NoResponseIssuedError` yet. Needed if RESTBot support lands
-in v0 — that is the "handler never resolved the future within 3s" case.
+**[decided]** There is no `NoResponseIssuedError`. Under the event/204 pattern (§11) a
+handler that never responds has no caller to throw to — the REST listener logs at ERROR and
+answers 204, and Discord shows the user the timeout it would have shown anyway.
 
 ---
 
@@ -743,6 +802,15 @@ Ordered by cost of changing later.
   everything after belongs to DI.** See §6.3.
 - **`persist=False` on `@risa.register` declares a props-only view.** Fields become render
   inputs, nothing is stored, dispatch constructs the view from its defaults. See §7.6.
+- **The Context surface is `respond` / `rerender` / `edit(layout)` / `defer`,** each
+  mirroring the thing that defines the message it touches; `respond` returns a `Response`
+  handle. See §8.2.
+- **Auto-defer is a watchdog with its timer at decode,** configured by `risa.AutoDefer`
+  per view and per handler. See §8.1.
+- **Write-back is computed, not declared:** re-encode and compare, skip the write (and
+  `touch` the TTL) when unchanged; `rerender()` never writes. See §7.3.
+- **Both transports respond through the same REST calls** (the event/204 pattern); the
+  builder-future approach was considered and rejected. See §11.
 - **`msgspec.Struct` for view state.** `View` subclasses `msgspec.Struct`, so a view's
   annotated attributes are its persisted state. Note this rules out lightbulb-style class
   kwargs (`class Poll(View, name="poll")`) — `StructMeta` accepts none — which is why the

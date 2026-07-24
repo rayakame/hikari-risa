@@ -30,6 +30,7 @@ ignore = [
     "DOC",     # docstrings
     "S101",    # use of assert
     "PLR2004", # magic value comparison
+    "PLR6301", # no-self-use; test view handlers legitimately ignore self
 ]
 
 [lint.isort]

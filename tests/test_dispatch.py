@@ -31,76 +31,11 @@ from risa import ui
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
-
-if typing.TYPE_CHECKING:
-    import contextlib
-
-
-class Write(msgspec.Struct, frozen=True):
-    """One call to :meth:`RecordingStore.put`."""
-
-    key: str
-    ttl: float | None
-
-
-class RecordingStore(risa.Store):
-    """A store that keeps a log of what was written, and defers to a real one.
-
-    Lets a test assert on what the client asked the store to do without reading
-    the store's internals, which is the only part of this a test has any business
-    knowing about.
-    """
-
-    __slots__ = ("_inner", "writes")
-
-    def __init__(self) -> None:
-        self._inner = risa.MemoryStore()
-        self.writes: list[Write] = []
-
-    @typing.override
-    async def get(self, key: str) -> bytes | None:
-        return await self._inner.get(key)
-
-    @typing.override
-    async def get_versioned(self, key: str) -> tuple[bytes, int] | None:
-        return await self._inner.get_versioned(key)
-
-    @typing.override
-    async def put(self, key: str, value: bytes, *, ttl: float | None = None) -> None:
-        self.writes.append(Write(key=key, ttl=ttl))
-        await self._inner.put(key, value, ttl=ttl)
-
-    @typing.override
-    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None = None) -> bool:
-        self.writes.append(Write(key=key, ttl=ttl))
-        return await self._inner.put_if_version(key, value, expected=expected, ttl=ttl)
-
-    @typing.override
-    async def delete(self, key: str) -> None:
-        await self._inner.delete(key)
-
-    @typing.override
-    async def touch(self, key: str, *, ttl: float) -> None:
-        await self._inner.touch(key, ttl=ttl)
-
-    @typing.override
-    def lock(self, key: str) -> contextlib.AbstractAsyncContextManager[None]:
-        return self._inner.lock(key)
-
-
-class StubClient(risa.Client):
-    """A client detached from any bot, so dispatch can be driven directly."""
-
-    __slots__ = ()
-
-    @property
-    @typing.override
-    def app(self) -> hikari.RESTAware:
-        raise NotImplementedError
-
-    async def dispatch(self, interaction: hikari.ComponentInteraction) -> None:
-        """Feed an interaction in, standing in for a gateway event or a request."""
-        await self._process_component_interaction(interaction)
+from tests.helpers import RecordingStore
+from tests.helpers import StubClient
+from tests.helpers import all_custom_ids
+from tests.helpers import first_custom_id
+from tests.helpers import interaction
 
 
 @risa.register(name="test-poll", version=1)
@@ -243,43 +178,6 @@ def client(store: RecordingStore) -> StubClient:
     return built
 
 
-def interaction(custom_id: str) -> hikari.ComponentInteraction:
-    mock = unittest.mock.Mock(spec=hikari.ComponentInteraction)
-    mock.custom_id = custom_id
-    mock.id = 1
-    return typing.cast("hikari.ComponentInteraction", mock)
-
-
-def find_custom_ids(node: object) -> list[str]:
-    """Return every ``custom_id`` anywhere in a built payload, in order."""
-    found: list[str] = []
-    if isinstance(node, dict):
-        value = typing.cast("dict[str, object]", node).get("custom_id")
-        if isinstance(value, str):
-            found.append(value)
-        for nested in typing.cast("dict[str, object]", node).values():
-            found.extend(find_custom_ids(nested))
-    elif isinstance(node, list):
-        for item in typing.cast("list[object]", node):
-            found.extend(find_custom_ids(item))
-    return found
-
-
-async def all_custom_ids(client: StubClient, view: risa.View) -> list[str]:
-    builders = await client.build(view)
-    found: list[str] = []
-    for builder in builders:
-        payload, _ = builder.build()
-        found.extend(find_custom_ids(payload))
-    return found
-
-
-async def first_custom_id(client: StubClient, view: risa.View) -> str:
-    found = await all_custom_ids(client, view)
-    assert found
-    return found[0]
-
-
 def test_a_view_with_fields_is_not_stateless() -> None:
     meta = typing.cast("registry.ViewMeta", getattr(Poll, constants.VIEW_META))
     assert meta.stateless is False
@@ -413,9 +311,10 @@ async def test_a_view_ttl_reaches_every_write_it_causes() -> None:
     custom_id = await first_custom_id(built, Ephemeral(question="?"))
     await built.dispatch(interaction(custom_id))
 
-    # The write on build and the write-back after the handler: the clock is reset
-    # on both, so a view still being clicked never expires.
-    assert [write.ttl for write in store.writes] == [60.0, 60.0]
+    # The build writes with the ttl; the handler changed nothing, so the click
+    # refreshes the clock with a touch instead of rewriting the state.
+    assert [write.ttl for write in store.writes] == [60.0]
+    assert [touch.ttl for touch in store.touches] == [60.0]
 
 
 async def test_a_view_without_a_ttl_stores_state_that_does_not_expire(

@@ -37,6 +37,7 @@ from risa import errors as errors_
 
 if typing.TYPE_CHECKING:
     from risa.internal import codec
+    from risa.view import AutoDefer
     from risa.view import View
 
 __all__ = (
@@ -66,12 +67,16 @@ class HandlerRecord(msgspec.Struct, frozen=True):
     signature
         The handler's wire signature, which incoming payloads are decoded
         against.
+    defer
+        The handler's auto-defer override, or ``None`` to follow the view's
+        own setting.
     """
 
     callback: Handler
     handler_id: str
     version: int
     signature: codec.HandlerSignature
+    defer: AutoDefer | None
 
 
 class ViewMeta(msgspec.Struct, frozen=True):
@@ -97,6 +102,9 @@ class ViewMeta(msgspec.Struct, frozen=True):
         Whether the view overrides ``on_outdated``. An override acknowledges
         that components are retired deliberately, which is what downgrades the
         token-miss log from a warning to debug.
+    defer
+        What the auto-defer watchdog sends for this view's handlers, unless a
+        handler overrides it.
     ttl
         Seconds a stored state entry lives for, refreshed on every interaction,
         or ``None`` to keep it until it is deleted or evicted.
@@ -109,6 +117,7 @@ class ViewMeta(msgspec.Struct, frozen=True):
     handlers: dict[str, HandlerRecord]
     stateless: bool
     handles_outdated: bool
+    defer: AutoDefer
     ttl: float | None = None
 
 
