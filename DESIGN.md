@@ -64,14 +64,24 @@ routed against a flat `dict[str, Handler]`. **Tree depth costs nothing at runtim
 
 Do not walk the tree on dispatch. Walk it once, at build.
 
-### 2.3 State lives in a store, keyed by a random token in the custom_id **[decided]**
+### 2.3 State rides the message; a store is the opt-in for what cannot **[decided — revised]**
 
-`custom_id` carries *identity* (which view, which handler) plus a *key*. The state itself
-lives in a pluggable store.
+`custom_id` carries *identity* (which view, which handler) plus an *anchor* for the view's
+durable state. The anchor comes in two dialects, chosen per view at registration:
 
-Random keys — not message IDs, not anything shard-derived — are what make resharding a
-non-event. A message ID cannot be used anyway: components go into the send payload, so the
-ID does not exist yet when the `custom_id` is built.
+- **`InMessage` (the default)**: the state *itself*, serialized and chunked across the
+  spare `custom_id` characters of the components the view renders. Zero infrastructure,
+  restart-proof by construction, capacity-bounded (~85 chars per interactive component);
+  state lives exactly as long as the message. This is flare's idea scaled ~40× by V2.
+- **`InStore`**: a random 96-bit key, with the state living as one record in a pluggable,
+  developer-chosen `Store` (memory, Redis, their own). Unbounded size, expirable, and with
+  a distributed store multi-process-correct — miru's ergonomics made durable.
+
+Both are "state reachable from the message" — one embeds the value, the other a pointer —
+riding one chunk pipeline, so handler code is byte-identical under either. Random keys (not
+message IDs, not anything shard-derived) keep resharding a non-event for the store dialect;
+a message ID could not be used anyway, since components enter the send payload before the
+ID exists.
 
 ---
 
@@ -82,7 +92,21 @@ Verified against hikari master; re-check if these change.
 - **`ComponentInteraction` does not expose the V2 `id` field.** hikari never deserialises it
   (`impl/entity_factory.py:3181`). `custom_id` is the only routing channel. Structural /
   id-based addressing is off the table.
-- **`custom_id` is capped at 100 characters** by Discord.
+- **`custom_id` is capped at 100 Unicode code points**, minimum 1. *Measured*
+  against the live API (2026-07-26, hikari 2.5.0, 124 requests, binary search per
+  character class, REST `create_message` + `fetch_message`); Discord documents only
+  "100 characters". UTF-8 bytes, UTF-16 units and graphemes were each ruled out by
+  counter-example — 100 CJK characters (300 bytes) and 100 astral emoji (200 UTF-16
+  units) are both accepted, while 50 NFD `e´` pairs (100 code points) are rejected at
+  51. So Python's `len` is the correct check and `len(s.encode())` is not.
+  Discord treats the field as an opaque string: no normalisation (NFD survives as
+  NFD), no trimming, no stripping of zero-width characters, byte-exact round trip,
+  and no character was rejected — including NUL, `\x1f`, newlines and quotes.
+  Note the client counts UTF-16 units instead, which is why emoji count double in
+  the Discord UI; `custom_id` has no client-side counter, so only the backend rule
+  applies. **Not yet measured:** the interaction payload path (round-trip was
+  verified through REST only), select `option.value`, and modal ids — re-run the
+  probe before relying on any of this in a new API version.
 - **A message with `IS_COMPONENTS_V2` cannot carry `content` or `embeds`.** Everything is
   components. So a view renders *the whole message body*, not just its component list.
 - **`ComponentBuilder.build()` returns `(payload, attachments)`**, a tuple — unlike
@@ -100,24 +124,28 @@ Verified against hikari master; re-check if these change.
 
 ## 4. Architecture
 
-Four passes out, the mirror image in.
+Passes out, the mirror image in — one pipeline, parameterized by the view's `StateSchema`
+and placement.
 
 ```text
 OUTBOUND
   render()   → node tree          pure, user code, no I/O
-  flatten    → routing table      dict[handler_key, handler] + hikari builders
-  commit     → store write        allocate key, persist state
+  load()     → props filled       DI-injected refetch hook, awaited first
+  flatten    → slots              interactive leaves + spare capacity per leaf
+  anchor     → fragments          InMessage: encode+chunk state; InStore: store write, key
+  emit       → hikari builders    fragments + args distributed into custom_ids
 
 INBOUND
-  decode     → (cookie, handler, payload)
-  load       → state              ← I/O HAPPENS HERE, before user code
-  lock       → held for the handler's duration
-  dispatch   → user callback
-  save       → store write, if the handler mutated state
+  decode     → (cookie, handler, fragment, args)
+  session    → lock + load        per-key lock; gather chunks / store read  ← I/O HERE
+  refresh    → props via load()   before user code
+  dispatch   → user callback      rerender() = full commit (CAS-then-edit / edit-is-write)
+  commit     → final dirty check  auto-commit if mutated without rerender; release
 ```
 
 The position of the I/O in the inbound path is load-bearing: it is why auto-defer must start
-at *decode*, not at handler entry (§8).
+at *decode*, not at handler entry (§8). Locks bracket only this pipeline — never a modal
+wait (§7.3, §9).
 
 ### Module layout
 
@@ -125,23 +153,31 @@ at *decode*, not at handler entry (§8).
 risa/
   __init__.py       public re-exports                          [exists]
   _about.py         metadata                                   [exists]
-  client.py         Client ABC, transports, dispatch           [exists]
-  context.py        Context, responses, auto-defer             [partial: respond only]
+  client.py         Client ABC, transports, dispatch           [exists; rewiring in pivot]
+  context.py        Context, responses, auto-defer             [exists; rewiring in pivot]
   di.py             Contexts, INJECTED re-export               [exists]
   errors.py         exception hierarchy                        [exists]
-  view.py           View base, @register, @handler             [exists]
+  view.py           View base, @register(state=), @handler, Prop, load()
+  modal.py          Modal base, @modal, TextInput, prompt machinery   [pivot step 5]
   internal/
-    codec.py        custom_id encode/decode, cookies, tokens   [exists]
+    wire.py         the printable alphabet every id is written in
+    codec.py        custom_id layout: header, fragment slot, args, fingerprints
+    anchor.py       anchor dialects, splitting and rejoining across components
     constants.py    Discord limits, stamped attribute names    [exists]
     registry.py     ViewMeta, cookie -> view registries        [exists]
-  ui/               node types + flatten                       [partial]
-    nodes.py        Container, Section, TextDisplay, Row, Button, selects, ...  [partial]
-    build.py        flatten + emit hikari builders
+    reader.py       message-component walk for chunk reassembly [pivot]
+  ui/
+    nodes.py        full V2 node set                           [done]
+    build.py        two-phase flatten + emit                   [exists; two-phase in pivot]
   state/
-    store.py        Store protocol, MemoryStore
-    redis.py        RedisStore                                 [extra: redis]
-    codec.py        msgspec encode/decode + migrations
-  modal.py
+    store.py        Store protocol, MemoryStore                [exists; hardening in pivot]
+    schema.py       StateSchema: durable fields, packing, prefix fingerprints
+    backend.py      StateBackend/StateSession protocols        [pivot]
+    message.py      MessageSession + version cache             [pivot]
+    stored.py       StoredSession                              [pivot]
+    serde.py        store-entry envelope {v,n,f,d}             [exists; fingerprint in pivot]
+    redis.py        RedisStore                                 [extra: redis; roadmap]
+    testing.py      verify_store conformance kit               [roadmap]
 ```
 
 ---
@@ -202,32 +238,32 @@ Body`, whose path indexes the built payload rather than the tree that produced i
 
 Adding a rule table later is additive: the build pass walks the tree regardless.
 
-### 5.3 Syntax **[decided: both]**
+### 5.3 Syntax **[decided: literals only]**
 
-Nested literals are the core API; `with`-blocks are an optional layer that builds the *same*
-node objects, so neither is privileged.
+Nested literals are the API; loops and conditionals use comprehensions and splats.
 
 ```python
-# literals — explicit, fully type-checkable
 def render(self) -> ui.Layout:
     return ui.Container(
         ui.TextDisplay(f"## {self.question}"),
         ui.Separator(),
-        ui.Section(ui.TextDisplay("**Yes**"), accessory=ui.Button(self.vote_yes, label="Yes")),
+        *[
+            ui.Section(
+                ui.TextDisplay(f"**{o.name}** — {o.count}"),
+                accessory=ui.Button(self.vote.bind(o.id), label="Vote"),
+            )
+            for o in self.options
+        ],
     )
-
-# with-blocks — indentation is the tree; better for loops and conditionals
-def render(self) -> ui.Layout:
-    with ui.Container(accent_color=0x5865F2) as root:
-        ui.TextDisplay(f"## {self.question}")
-        for option in self.options:
-            with ui.Section(accessory=ui.Button(self.vote.bind(option.id), label="Vote")):
-                ui.TextDisplay(f"**{option.name}** — {option.count}")
-    return root
 ```
 
-The `with` form needs a contextvar-based implicit parent stack. Build literals first; the
-block form is sugar on top and can come later.
+An earlier draft also planned a dominate-style ``with``-block form (indentation as the
+tree, via a contextvar parent stack). **Rejected**: it adds no capability, it needs claim
+semantics to avoid double-attaching nodes that are both constructed inside an open block
+and passed to a constructor, and — decisively — children arriving dynamically through a
+parent stack cannot be type-checked, so the structural nesting rules §5.2 gets for free
+from constructor parameter types would have had to be re-enforced at runtime. A syntax
+that trades away the library's static guarantees to save a splat is a bad trade.
 
 ---
 
@@ -236,20 +272,45 @@ block form is sugar on top and can come later.
 ### 6.1 Wire format **[decided]**
 
 ```text
-┌─────┬──────────┬───────────┬─────────────────────────────────────┐
-│ ver │  cookie  │  handler  │ payload                             │
-│  1  │    6     │     2     │ ≤ 91                                │
-└─────┴──────────┴───────────┴─────────────────────────────────────┘
+┌─────┬──────────┬───────────┬─────┬──────────┬──────────┬──────────────┐
+│ ver │  cookie  │  handler  │ idx │ frag_len │ fragment │  sig ‖ args  │
+│  1  │    6     │     2     │  1  │    1     │  0..n    │   the rest   │
+└─────┴──────────┴───────────┴─────┴──────────┴──────────┴──────────────┘
 
-ver      codec version. Bumping it fails every old component closed.
-cookie   b64(blake2s(view_name + ":" + schema_version, digest_size=4))[:6]
-handler  b64(blake2s(handler_id + ":" + handler_version, digest_size=2))[:2]
-payload  stateful view: 16-char state key ‖ sig ‖ args
-         stateless view: sig ‖ args
-sig      2-char signature fingerprint, present exactly when args are (§6.4)
+ver       codec version (this format IS v1; nothing older ever shipped)
+cookie    b64(blake2s(view_name + ":" + schema_version, digest_size=4))[:6]
+handler   b64(blake2s(handler_id + ":" + handler_version, digest_size=2))[:2]
+fragment  this component's slice of the view's ANCHOR (below); frag_len frames
+          it so the args section is findable; empty for all-Prop views
+sig+args  2-char signature fingerprint + length-prefixed wire args, exactly
+          when the handler has wire parameters (§6.3/§6.4)
+
+anchor    InMessage: [tag:1][total:2][schema-fp:3][seq:3][msgpack durable fields],
+          chunked across the interactive leaves in tree order; reassembled
+          from interaction.message.components on every click
+          InStore:   [tag:1][96-bit key], replicated whole into every component
 ```
 
-Four properties that matter:
+**Every character risa writes is printable ASCII** (`risa/internal/wire.py`): base85
+for packed bytes, a 92-symbol digit alphabet for lengths, indices and counters,
+neither containing `"` or `\`, both stable under every normalisation form.
+
+The limit is **100 Unicode code points** (§3), so this is a spend, not a necessity:
+latin-1 packing would buy 25% more and a CJK digit alphabet over twice as much. It
+is spent for three reasons — `custom_id`s must stay readable in logs, tracebacks and
+Discord's own error bodies; one character stays one byte in the request body, so a
+forty-component message does not balloon under JSON escaping; and the read-back path
+risa depends on most (`interaction.message.components`) has not been measured, while
+ASCII is correct regardless of the answer. A denser encoding stays open as an opt-in:
+an unrecognised anchor tag already fails closed, so one can be added later without
+disturbing live components.
+
+The total length lives inside the message dialect rather than in chunk 0's frame,
+so `carve`/`gather` treat the anchor as opaque and never inspect a tag. Reassembly
+checks contiguity; the declared total is what catches a message whose trailing
+components were removed.
+
+Properties that matter:
 
 - **The cookie hashes the schema version, not just the name.** A state-shape change then
   invalidates old components automatically instead of deserialising garbage into the new
@@ -263,10 +324,13 @@ Four properties that matter:
 - **Components carrying args also carry a signature fingerprint.** Args are positional,
   typeless bytes that only mean something read back through the converter chain that wrote
   them; the fingerprint is what notices when that chain changed in place (§6.4).
-- **There is no mode byte.** An earlier draft reserved one to distinguish a store key from
-  inline state, but whether a view is stateful is a static property of the view — derivable
-  from the cookie once it resolves through the registry — so the byte would have been
-  redundant with a lookup that has to happen anyway.
+- **Routing never depends on the fragment.** A click on a *stale* component still routes
+  by its header and reads *current* state from the message or store — which is what keeps
+  in-flight clicks valid across rerenders.
+- **The placement tag is the one mode byte that earned its place** (an earlier draft
+  rejected one as redundant with the registry): it is what makes a Message↔Store placement
+  switch fail closed with a precise diagnosis instead of misparsing a value as a key, and
+  what a future lazy migration keys on.
 
 ### 6.2 Decode must fail soft **[decided]**
 
@@ -367,11 +431,117 @@ leaves room to add it later).
 
 ---
 
-## 7. State and the Store
+## 7. State: placements, fields, and the Store
 
-### 7.1 Protocol **[decided]**
+### 7.1 Placement is per view: `state=InMessage() | InStore(...)` **[decided]**
 
-Get this right first — it is the hardest thing to change later.
+```python
+@risa.register(name="poll", version=1)                       # == state=risa.InMessage()
+class Poll(risa.View): ...
+
+@risa.register(name="todo", version=1, state=risa.InStore(store="redis", ttl=30 * 86400))
+class TodoList(risa.View): ...
+
+client = risa.client_from_app(bot, stores={"redis": MyRedisStore(...)})
+```
+
+Placement is configuration, not taxonomy — one `View` base, one handler semantics, one
+`render()`/`rerender()` contract under both. The policy objects carry exactly their own
+knobs: `ttl` (required) exists only on `InStore`, so invalid combinations are
+unrepresentable rather than validated. Store *instances* are wired once, by name, on the
+client; a view naming an unconfigured store fails at `add_view()` — a boot error, never a
+dead click. `InStore` on the default `MemoryStore` warns loudly at startup: it silently
+forfeits the restart promise, and under multi-process REST it is *worse* than `InMessage`.
+
+The decision rule the docs lead with: **bounded and world-readable → default; unbounded,
+expirable, or multi-process REST → `InStore`.** (Rails' cookie-store-vs-Redis-sessions is
+the same dichotomy with two decades of hindsight; their default is the payload-resident
+one too.)
+
+A 1-char **placement tag** heads every anchor blob. Switching a live view's placement
+without a version bump therefore fails closed to `on_outdated` with a precise log instead
+of misparsing a value as a key — and the tag is what a future opt-in `InStore(adopt=True)`
+lazy migration would key on (§15 roadmap).
+
+### 7.2 Fields are durable by default; `Prop[T]` marks the fresh ones **[decided]**
+
+```python
+@risa.register(name="board", version=1)
+class Leaderboard(risa.View):
+    guild_id: int                                             # durable (~9 chars)
+    page: int = 0                                             # durable — survives restarts
+    rows: risa.Prop[list[Row]] = msgspec.field(default_factory=list[Row])   # fresh, free
+
+    async def load(self, db: Database = linkd.INJECTED) -> None:
+        """Awaited before every render — initial send and every dispatch."""
+        self.rows = await db.top(self.guild_id, page=self.page)
+```
+
+- Plain annotated fields are the durable state — today's mental model, unchanged, and the
+  zero-annotation poll stays restart-safe (the founding promise as the default).
+- `Prop[T]` (`type Prop[T] = Annotated[T, marker]`; detection is an identity check on the
+  alias, which survives `from __future__ import annotations` — verified empirically) marks
+  a per-dispatch field: never serialized, zero wire cost, must have a default, rebuilt
+  fresh on every dispatch and refilled in `load()` — the one blessed, DI-injected refetch
+  point, run after rehydration and before the handler.
+- The polarity is chosen for failure loudness: a forgotten `Prop` marker overflows the
+  wire budget *at render, naming the field, suggesting the fix*; the inverse polarity
+  would silently reset state on every click — the founding promise breaking quietly.
+- A view with zero durable fields is the degenerate case, not a mode: the old
+  `persist=False` flag is subsumed and deleted. Placement is moot for such views.
+- Registration errors: a `Prop` marker in a non-top-level position (`Prop[int] | None`) is
+  an import-time error with the fix shown (`Prop[int | None]`); the missing-default error
+  names *both* remedies so it stops teaching people to create silently-resetting fields.
+- Internally one `StateSchema` per view owns the partition and every view↔bytes
+  conversion as *total functions* — empty partition ⇒ empty blob ⇒ zero-width wire
+  segment ⇒ never dirty — so build/dispatch/context never branch on a mode.
+
+### 7.3 The concurrency contract **[decided — revised after the lock/modal investigation]**
+
+**The locking law: a state lock is acquired, used, and released within work whose duration
+risa controls — never across human think-time.** Everything else follows from it.
+
+The model is a hybrid (Kleppmann's fencing stance): **CAS is the correctness mechanism;
+the lock is a throughput optimization.**
+
+- Within a process, a per-key lock (message id for `InMessage`, store key for `InStore`)
+  serializes handlers on the same view — atomic check-then-act, the advertised win over
+  miru/lightbulb, preserved on every gateway bot by shard-stickiness.
+- Across processes, `put_if_version` settles the race. A lost CAS is **converged, never
+  raised and never retried**: the loser suppresses nothing it already sent, re-renders the
+  winning state so the message ends true, answers its interaction, and logs — a handler
+  that already responded must not double-send, and a user must never see a hanging click.
+- `InMessage` cross-process (multi-process REST only) is last-write-wins, stated plainly.
+  The version cache + seq counter are load-bearing within a process, advisory beyond it.
+
+The contract sentence the docs print: *"Each click runs your handler as a transaction on
+the latest committed state of its view — simultaneous clicks on the same view queue within
+a process and resolve first-write-wins across processes — and a modal ends the transaction
+before the form opens, so nothing is ever locked while a user is typing."*
+
+Per-handler isolation declarations (`isolation=risa.Serialized()` for distributed
+serialization via a store lease; `risa.Concurrent()` to skip the queue for hot read-only
+handlers) are designed but deferred post-1.0 (§15).
+
+### 7.4 Write cadence **[decided — revised]**
+
+- **Every `rerender()` is a full commit.** `InMessage`: the message edit *is* the write.
+  `InStore`: CAS-write then edit, both under the lock — the message must never show state
+  the store has not accepted; a crash between leaves the store authoritative and the
+  visuals self-heal on the next click. Each commit advances the dirty baseline, so a
+  second rerender in the same handler compares against what the first one committed.
+- **Dirty is computed, never declared**: re-encode the durable fields, byte-compare. No
+  `state_dirty` flag exists.
+- **A handler that mutates durable state and never rerenders still commits** at dispatch
+  end (`InStore`: the CAS; `InMessage`: an automatic, visually-identical components edit).
+  Mutating state and silently losing it is not an outcome this library ships.
+- Clean dispatches on `InStore` `touch()` the key — sliding TTL, so a view in use never
+  expires and an abandoned one eventually does.
+- `ctx.edit(layout)` must re-embed the current anchor into the ad-hoc tree, or raise
+  (`InMessage` + a component-poor layout cannot carry the blob) *before* touching the
+  message — an edit must never destroy the only copy of state.
+
+### 7.5 The Store protocol **[decided — hardened]**
 
 ```python
 class Store(Protocol):
@@ -382,131 +552,46 @@ class Store(Protocol):
                              expected: int, ttl: float | None) -> bool: ...
     async def delete(self, key: str) -> None: ...
     async def touch(self, key: str, *, ttl: float) -> None: ...
-    def lock(self, key: str) -> AsyncContextManager[None]: ...
+    def lock(self, key: str, *, timeout: float = 10.0) -> AsyncContextManager[None]: ...
 ```
 
-Deliberately **not** in there:
+Changes from the original protocol, all verdicts of the lock investigation:
 
-- No combined `get_and_lock` — keep them separate so a dumb KV backend can supply a no-op
-  lock and still work single-process.
-- No typed state. The store moves `bytes`; serialisation is a separate concern, otherwise
-  every backend has to know about the codec.
-- `touch` separate from `get`, so sliding-TTL is a client-level policy rather than baked into
-  each backend.
+- **`lock()` gains an acquisition timeout**, raising `LockTimeoutError`. Lease duration,
+  renewal, and max-hold are *backend configuration* (constructor knobs), not protocol
+  parameters — a user's store stays implementable as a thin wrapper. A leasing backend may
+  lose exclusivity under a stalled holder, which is why the lock is never the correctness
+  story: every commit goes through `put_if_version`.
+- **`StoreUnavailableError`** joins the contract: an outage must not masquerade as expiry
+  in `on_state_missing`. Lost-race and entry-expired need opposite dispositions and must
+  be distinguishable at the `put_if_version` boundary.
+- Store entries carry the envelope `{v, n, f, d}` — schema version, view name, durable-
+  field fingerprint, data — so rename/remove/retype without a version bump fails closed
+  identically on both placements, entries survive store migrations, and the future
+  `@risa.migration` hook has something dated to decode. Keys are namespaced
+  `risa:<fmt>:<token>`.
+- `MemoryStore` (OrderedDict + LRU + per-key asyncio locks) stays the zero-config default;
+  `RedisStore` plus a `risa.state.testing.verify_store` conformance kit are 1.0 roadmap —
+  the protocol is sharp to implement (leases, atomic put+ttl, CAS races), and handing it
+  to users without a test harness would be negligent.
 
-Include `get_versioned` / `put_if_version` from the **first** commit even if unused at first.
-Adding CAS later means changing every backend.
+### 7.6 Anchors, keys, and schema evolution **[decided]**
 
-### 7.2 Backends
-
-- **`MemoryStore`** — the default. `OrderedDict` + LRU cap, `asyncio.Lock` per key. Zero
-  infra; equivalent to miru's behaviour. **Only safe single-process** (§10).
-- **`RedisStore`** — `[redis]` extra. Notes in §10.
-
-### 7.3 Concurrency: lock, and also version **[decided]**
-
-The failure nobody else handles. Two users click a poll at once:
-
-```
-A: load {yes: 5}
-B: load {yes: 5}
-A: save {yes: 6}
-B: save {yes: 6}      ← A's vote is gone
-```
-
-Policy: **pessimistic lock for liveness, version check for correctness.**
-
-```python
-async with store.lock(key):
-    raw, version = await store.get_versioned(key)
-    view = serde.loads(raw, meta=meta)
-    await handler(view, ctx, *args)
-    encoded = serde.dumps(view, meta=meta)
-    if encoded == raw:
-        await store.touch(key, ttl=ttl)      # unchanged: refresh expiry, skip the write
-    elif not await store.put_if_version(key, encoded, expected=version, ttl=ttl):
-        raise StateConflictError(key)
-```
-
-The lock makes conflicts rare; the version check makes the rare case loud instead of a silent
-lost update. **Do not retry on conflict** — a retried handler that already sent a followup
-would double-send.
-
-**Whether state changed is computed, not declared. [decided]** Dispatch re-encodes the view
-after the handler and compares bytes with what it loaded: identical means no write (just a
-``touch`` to refresh a sliding TTL), different means the CAS write. There is no
-``ctx.state_dirty`` flag — an API that cannot be forgotten or wrong, because it does not
-exist. Corollary: ``rerender()`` renders and edits but never writes; **dispatch owns the
-single write-back**, at handler end, so a click costs at most one store write.
-
-A per-handler ``lock=False`` opt-out for read-only callbacks remains possible later, but
-skip-if-unchanged removes most of its motivation; deferred until someone measures a need.
-
-### 7.4 Key allocation **[decided]**
-
-```python
-key = base64.urlsafe_b64encode(os.urandom(12)).decode().rstrip("=")   # 16 chars
-```
-
-Allocated at build time, **reused across re-renders** (update in place). That gives a genuinely
-nice property inline-mode cannot have: *custom_ids are stable across re-renders*, so a
-user's in-flight click is never invalidated by a concurrent edit.
-
-A failed send leaks one store entry. TTL cleans it up; do not build two-phase commit for this.
-
-### 7.5 Schema evolution **[decided]**
-
-- Store a **dict**, not a pickle — pickle couples the store to import paths and is a
-  deserialisation hazard.
-- Records carry their own version: `{"v": 1, "n": "poll", "d": {...}}`.
-- Additive changes are free (new field with a default).
-- Breaking changes bump `version`, which changes the cookie, so old components route to
-  nothing and hit `on_outdated`. That is *correct* — fail closed.
-- Offer a migration hook so "restart doesn't break components" survives schema changes:
-
-```python
-@risa.register(name="poll", version=2)
-class Poll(risa.View):
-    @risa.migration(from_version=1)
-    @staticmethod
-    def _from_v1(old: dict) -> dict: ...
-```
-
-This requires registering the view under both cookies, with the old one routing through the
-migration.
-
-### 7.6 Props-only views: `persist=False` **[decided]**
-
-Not every view has state of its own. A leaderboard rendered from the bot's database is a
-pure function of that database plus which button was clicked; storing a snapshot in the
-risa store duplicates data whose source of truth is elsewhere. Registering with
-``persist=False`` turns the store off for one view:
-
-```python
-@risa.register(name="leaderboard", version=1, persist=False)
-class Leaderboard(risa.View):
-    ranks: list[Rank] = msgspec.field(default_factory=list)   # props, not state
-```
-
-- Fields become render inputs -- *props* -- supplied by whoever constructs the view.
-  ``build()`` renders from them and writes nothing; components carry no state key, so the
-  whole payload budget belongs to args.
-- Dispatch constructs the view empty, so **every field must have a default** (checked at
-  registration) and **handlers must treat fields as garbage-in**: refill anything render
-  needs -- from the database, from wire args -- before redrawing.
-- ``ttl=`` is rejected beside ``persist=False``; there is nothing it could apply to. A
-  silently ignored knob would be worse than a loud one.
-- No lock, no CAS, no ``on_state_missing`` -- there is no state to contend over or lose.
-  Concurrent clicks both refetch and both edit; last write wins, which is correct for a
-  display of external data. Clicks that mutate *domain* data write to the caller's own
-  database inside the handler, whose transactionality is the concurrency story.
-- Flipping ``persist`` on a live view changes what the payload means, so it is a
-  view-version bump like any other shape change.
-
-A view with no fields at all is implicitly persist-less, exactly as before; the flag
-extends that mode to views that need render inputs. Choose by where the data lives: a
-message that is a pure function of external data plus args wants ``persist=False``; data
-that lives nowhere else (poll votes, wizard progress) wants the store.
+- `InStore` keys: 96 random bits, minted at build, **replicated into every component**
+  (not chunked — every custom_id stays self-sufficient, and stored views do not need the
+  capacity). Custom_ids are therefore *stable across rerenders* — an in-flight click is
+  never invalidated. A failed send leaks one entry; TTL reaps it; no two-phase commit.
+- `InMessage` blobs: `[tag][schema-fp:2][seq:3][msgpack positional array of durable
+  fields]`, chunked across the interactive leaves. No `{v,n}` envelope — the cookie
+  already pins name and schema version, and every char is capacity.
+- Evolution policy, both placements: **appending a defaulted durable field is free**
+  (prefix fingerprints); remove/reorder/retype/rename fails closed to `on_outdated`.
+  Bumping the view `version` changes the cookie and retires old components wholesale, as
+  before. `on_state_missing` exists only for `InStore` (expiry/eviction/flush are store
+  phenomena; message-resident state cannot go missing — the one torn-message case routes
+  to `on_outdated`).
+- Durable state is **world-readable and client-forgeable** — never secrets, never the sole
+  basis of an authorization decision. Documented at the point of use, not in an appendix.
 
 ---
 
@@ -552,7 +637,8 @@ await ctx.defer(thinking=False, ephemeral=False)
 **Each surface mirrors the thing that defines the message it touches.** Followups are
 ordinary Discord messages risa does not own, so ``respond()`` mirrors hikari. The origin
 message is defined by ``render()``, so ``edit()`` takes exactly a ``ui.Layout`` — built
-against the same view and state key, so components in an ad-hoc tree still route. Offering
+against the same view and anchor (re-embedding the current state, or raising if the tree
+cannot carry it, per §7.4), so components in an ad-hoc tree still route. Offering
 hikari's kwargs on the origin would be a trap: a V2 message cannot carry ``content`` or
 ``embeds``, so the familiar-looking parameters could only ever raise.
 
@@ -595,24 +681,63 @@ your text in a `ui.TextDisplay`") rather than letting Discord 400.
 
 ---
 
-## 9. Modals
+## 9. Modals **[decided: callback-only for 1.0]**
 
-Modal `custom_id` carries the same `(cookie, handler, key)` triple, so **modals survive
-restarts too** — which none of the three existing libraries manage.
+A modal is a schema class; opening one is `ctx.prompt`; the submission is an **ordinary
+fresh dispatch** — its own lock, load, commit — so modals survive restarts and load
+balancers by construction, which none of the three existing libraries manage.
 
 ```python
-async def edit_subject(self, ctx: risa.Context) -> None:
-    await ctx.prompt(SubjectModal, on_submit=self.subject_set)
+@risa.modal(title="Rename option")
+class RenameModal(risa.Modal):
+    name: typing.Annotated[str, risa.TextInput(max_length=50)]
+    reason: typing.Annotated[str | None, risa.TextInput(paragraph=True)] = None
 
-async def subject_set(self, ctx: risa.Context, values: SubjectModal) -> None:
-    self.subject = values.subject
+
+@risa.handler(defer=risa.AutoDefer.OFF)
+async def edit_option(self, ctx: risa.ComponentContext, option_id: int) -> None:
+    await ctx.prompt(
+        RenameModal(name=self.options[option_id]),   # prefill = constructor
+        self.renamed,                                 # submit handler
+        carry=(option_id,),                           # typed, wire-encoded flow data
+    )
+
+@risa.handler
+async def renamed(self, ctx: risa.ModalContext, values: RenameModal, option_id: int) -> None:
+    self.options[option_id] = values.name
     await ctx.rerender()
 ```
 
-**[open]** lightbulb's `result = await modal.attach(client, cid)` — returning a typed value
-from an await — is the nicest modal ergonomic in any of these libraries, but it is an
-in-memory await and dies on restart. Either support both (documenting the await form as
-non-durable) or commit to the callback form.
+- Fields are `Annotated[..., risa.TextInput(...)]` — typed values, optionality from the
+  annotation (`str | None` → optional input, empty arrives as `None`), labels defaulting
+  from field names. Same pattern language as `Prop`.
+- Modals are not registered and have no cookie of their own: identity rides the submit
+  handler's token; the modal class resolves from the handler's signature at registration.
+  The modal's field schema folds into that handler's fingerprint, so schema drift against
+  an open form fails closed like any signature drift.
+- **`carry=`** wire-encodes flow data into the modal's `custom_id` (the same trade
+  `bind()` made): what would have been a stale closure becomes an explicit, typed,
+  restart-surviving parameter.
+- **A version token rides the modal's `custom_id`** (Fowler's optimistic offline lock):
+  the submission compares it against current state; a mismatch skips the handler and
+  routes to an overridable `on_prompt_conflict` (default: re-render the truth, ephemeral
+  "this changed while your form was open").
+
+**The inline await form (`prompt_wait`) was investigated and rejected for stateful views**
+(§15 roadmap keeps a constrained future variant). Three findings closed it: Discord
+forbids a modal in response to a MODAL_SUBMIT, so a frame gets at most one wait and the
+multi-step wizard — the flagship reason to want it — cannot exist on the platform in any
+design; the rendezvous is process-local, so it cannot work on multi-process REST, the one
+deployment where its lock hazard mattered; and every resume mechanism (refresh-in-place,
+rebind) converts idiomatic captures into silent wrong-row writes. Wizards are chains of
+`prompt` callbacks with `carry=`/durable state threading the steps — which is the only
+shape Discord permits anyway.
+
+Check-then-act across a form (claim-then-confirm) is **not atomic in any design** — the
+gap is human think-time, which the locking law forbids holding anything across. 1.0
+teaches the honest pattern (re-check in the submit handler; the version token catches the
+rest); the structural fix, `ctx.reserve(name, ttl=)` — an expiring, atomically-acquired
+flow hold outside the blob — is designed and deferred (§15).
 
 ---
 
@@ -622,22 +747,18 @@ Gateway delivery: `shard_id = (guild_id >> 22) % shard_count`; **DMs always go t
 
 So for a gateway bot, all clicks on a given message land on the same process — concurrency on
 one view is intra-process. REST bots are the opposite: two clicks can hit two instances.
+This is the fact both placements' guarantees stand on; the docs present it as one 2×2:
 
-| Deployment | State visible where needed | Concurrent clicks |
+| | Gateway (sticky shards) | Multi-process REST |
 |---|---|---|
-| 1 process, N shards | yes | same process |
-| N processes, shard subsets | only if sender owns that shard | same process |
-| RESTBot behind a LB | **no** | **different processes** |
+| `InMessage` | fully correct (in-process lock + version cache); state travels with the message, so cross-shard sends, DMs, resharding and rolling deploys are all non-events | last-write-wins, documented |
+| `InStore` + distributed store | fully correct | fully correct (lock + CAS) |
+| `InStore` + `MemoryStore` | works single-process only; **loud startup warning** | broken (N−1)/N of the time — worse than `InMessage`; warned loudly |
 
-### `MemoryStore` breaks in four specific ways **[decided: warn loudly]**
-
-1. **Cross-shard sends** — a cron job or dashboard in process A sends into a guild owned by
-   process B. The click arrives at B, which has no key. This is the common one.
-2. **DMs** — any process can DM; the interaction returns on shard 0.
-3. **Resharding** — the guild→shard mapping changes wholesale.
-4. **Rolling deploys** — half the state dies, which is worse to debug than all of it.
-
-Emit a startup warning on `shard_count > 1` or `RESTBotAware`.
+The old "`MemoryStore` breaks in four specific ways" analysis (cross-shard sends, DMs,
+resharding, rolling deploys) now applies *only* to `InStore`+`MemoryStore` — message
+residency dissolved all four for the default placement, which is precisely why it is the
+default.
 
 ### Redis notes **[decided]**
 
@@ -651,13 +772,13 @@ Emit a startup warning on `shard_count > 1` or `RESTBotAware`.
 - **Lock is unsafe under failover.** Accepted; the version check (§7.3) is the backstop.
 - **Namespace with the application ID** — `risa:{app_id}:`.
 
-### Lock tiering **[open]**
+### Lock tiering **[resolved by §7.3]**
 
-Since gateway bots have the sticky-shard property, the distributed lock can be skipped:
-`lock_mode="auto"` → local `asyncio.Lock` for `GatewayBotAware`, distributed for
-`RESTBotAware`. Correct by default for both, saves two RTTs against a 3s budget. Keep the
-version check on in all modes — it is what catches you when the "local" assumption is wrong
-(e.g. a web dashboard mutating the same views).
+The old open question ("skip the distributed lock on gateway bots?") dissolved into the
+hybrid contract: the in-process lock is always taken (free, unleakable), the CAS is always
+the cross-process arbiter, and a *distributed* lock is never on the default path at all —
+it returns only with the deferred `isolation=risa.Serialized()` declaration for handlers
+whose side effects must never run twice.
 
 ---
 
@@ -704,27 +825,27 @@ The thing to keep working toward. If a change makes this worse, it is the wrong 
 
 ```python
 import hikari
+import msgspec
 import risa
 from risa import ui
 
 bot = hikari.GatewayBot("...")
-client = risa.Client(bot)                       # MemoryStore by default
-# client = risa.Client(bot, store=risa.RedisStore(redis))   # durable, multi-process
+client = risa.client_from_app(bot)              # zero infra needed for InMessage views
+# client = risa.client_from_app(bot, stores={"redis": MyRedisStore(...)})  # for InStore
 
 
-@risa.register(name="poll", version=1)
+@risa.register(name="poll", version=1)          # state=risa.InMessage() — the default
 class Poll(risa.View):
     question: str
-    votes: dict[str, int] = field(default_factory=dict)
+    votes: dict[str, int] = msgspec.field(default_factory=dict)
 
     def render(self) -> ui.Layout:
-        total = sum(self.votes.values())
         return ui.Container(
             ui.TextDisplay(f"## {self.question}"),
             ui.Separator(),
             *[
                 ui.Section(
-                    ui.TextDisplay(f"**{name}** — {count} ({self._pct(count, total)})"),
+                    ui.TextDisplay(f"**{name}** — {count}"),
                     accessory=ui.Button(self.vote.bind(name), label="Vote"),
                 )
                 for name, count in self.votes.items()
@@ -733,24 +854,23 @@ class Poll(risa.View):
             ui.Row(ui.Button(self.close, label="Close", style=hikari.ButtonStyle.SECONDARY)),
         )
 
-    async def vote(self, ctx: risa.Context, option: str) -> None:
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext, option: str) -> None:
         self.votes[option] += 1
-        await ctx.rerender()
+        await ctx.rerender()                    # the message edit IS the state write
 
-    async def close(self, ctx: risa.Context) -> None:
-        await ctx.respond("Poll closed.", edit=True, components=None)
-
-    @classmethod
-    async def on_state_missing(cls, ctx: risa.Context) -> None:
-        await ctx.respond("This poll has expired.", ephemeral=True)
+    @risa.handler
+    async def close(self, ctx: risa.ComponentContext) -> None:
+        await ctx.edit(ui.TextDisplay(f"## {self.question}\n*Poll closed.*"))
 
 
-rendered = await client.build(Poll(question="Ship it?", votes={"yes": 0, "no": 0}))
-await channel.send(**rendered)
+await channel.send(components=await client.build(Poll(question="Ship it?")))
 ```
 
-Everything durable, no timeout bookkeeping, no manual custom_id management, and the same code
-works on a RESTBot.
+Everything durable with zero infrastructure, no timeout bookkeeping, no manual custom_id
+management, and the same code works on a RESTBot. An `InStore` view differs by exactly one
+line of registration; a leaderboard differs by `Prop` markers and a `load()` hook — the
+handlers, render, and responses are identical in all three.
 
 ---
 
@@ -763,14 +883,19 @@ new types ad hoc:
 |---|---|
 | tree breaks an invariant risa owns | `LayoutError` (path-qualified) |
 | encoded custom_id > 100 chars | `CustomIdOverflowError` |
+| durable state exceeds the tree's chunk capacity | `StateOverflowError` (at build/rerender; per-field size breakdown, suggests `Prop`/`InStore`) |
 | stored state predates a schema bump | `SchemaMismatchError` |
-| store key gone (expired/evicted) | `StateNotFoundError` |
-| CAS lost | `StateConflictError` |
-| lock not acquired in time | `LockTimeoutError` |
+| store entry gone (expired/evicted) | `StateNotFoundError` → routed to `on_state_missing` |
+| store unreachable (never conflated with "gone") | `StoreUnavailableError` |
+| CAS lost | converged in dispatch (§7.3) — never raised to the user |
+| lock not acquired within `timeout` | `LockTimeoutError` |
 | wire args predate a signature edit | `SignatureMismatchError` (caught in dispatch: logged, routed to `on_outdated`) |
+| anchor's placement tag ≠ registered placement | routed to `on_outdated`, precise ERROR log |
 | handler signature unusable for wire args | `HandlerSignatureError` (at import) |
+| view declaration contradicts itself (marker misuse, missing defaults, unknown store name) | `ViewDeclarationError` (at import / `add_view`) |
 | `bind()` args don't fit the wire parameters | `ArgBindError` (at render) |
 | defer/modal after a response already went out | `AlreadyRespondedError` |
+| modal submitted against changed state | routed to `on_prompt_conflict` — never raised |
 
 **[decided]** There is no `NoResponseIssuedError`. Under the event/204 pattern (§11) a
 handler that never responds has no caller to throw to — the REST listener logs at ERROR and
@@ -783,32 +908,41 @@ answers 204, and Discord shows the user the timeout it would have shown anyway.
 Ordered by cost of changing later.
 
 1. **One view per message, or composable sub-views?** Sub-views suit V2 nesting
-   (`ui.Container(*ProfileCard(user).render())`) but multiply the state-key story. Punt, but
+   (`ui.Container(*ProfileCard(user).render())`) but multiply the anchor story. Punt, but
    do not design them out.
-2. **Default TTL, sliding vs absolute.** Sliding (touch on access) means an active message
-   never expires, which is what users expect. 7 days is a reasonable floor.
-3. **Does `on_state_missing` disable the components in place?** Polite, but costs an extra
+2. **Does `on_state_missing` disable the components in place?** Polite, but costs an extra
    edit.
-4. **Is `render()` allowed to be async?** Tempting (fetch data to display), disastrous for the
-   same reason async converters are — I/O inside the response window on every re-render.
-   Leaning **no**; fetch in the handler.
+3. **Is `render()` allowed to be async?** Tempting (fetch data to display), but `load()`
+   (§7.2) now covers the legitimate need without I/O inside every redraw. Leaning **no**.
 
 ### Settled since
 
+- **State placement is per view: `state=risa.InMessage()` (default) `| risa.InStore(store=,
+  ttl=)`** — flare's model scaled by V2 as the zero-infra default, miru's ergonomics made
+  durable behind a pluggable store. See §2.3/§7.1.
+- **Fields are durable by default; `risa.Prop[T]` marks per-dispatch props, refilled in
+  `load()`.** Polarity chosen for failure loudness. The old `persist=False` flag and
+  `register(ttl=)` are subsumed and deleted. See §7.2. *(`load()` accepted tentatively —
+  revisit its final shape before 1.0.)*
+- **The locking law and the hybrid concurrency contract** — locks never span human
+  think-time; CAS is correctness, the lock is throughput; CAS losses converge, never
+  raise. See §7.3.
+- **Every `rerender()` is a full commit; mutate-without-rerender auto-commits; dirty is
+  computed.** See §7.4.
+- **Modals are callback-only for 1.0** (`ctx.prompt` + `carry=` + version token +
+  `on_prompt_conflict`); `prompt_wait` rejected for stateful views after investigation
+  (Discord forbids modal-after-modal; the rendezvous is process-local). See §9.
+- **No codec version ceremony pre-release**: the chunked wire format simply *is* v1.
 - **Handler identity is `(handler_id, version)`; arg-carrying components carry a signature
   fingerprint.** See §6.4 for the full scheme, the retirement modes and the rejected
   alternatives.
 - **Wire args are the contiguous prefix of converter-typed parameters after `ctx`;
   everything after belongs to DI.** See §6.3.
-- **`persist=False` on `@risa.register` declares a props-only view.** Fields become render
-  inputs, nothing is stored, dispatch constructs the view from its defaults. See §7.6.
 - **The Context surface is `respond` / `rerender` / `edit(layout)` / `defer`,** each
   mirroring the thing that defines the message it touches; `respond` returns a `Response`
   handle. See §8.2.
 - **Auto-defer is a watchdog with its timer at decode,** configured by `risa.AutoDefer`
   per view and per handler. See §8.1.
-- **Write-back is computed, not declared:** re-encode and compare, skip the write (and
-  `touch` the TTL) when unchanged; `rerender()` never writes. See §7.3.
 - **Both transports respond through the same REST calls** (the event/204 pattern); the
   builder-future approach was considered and rejected. See §11.
 - **`msgspec.Struct` for view state.** `View` subclasses `msgspec.Struct`, so a view's
@@ -823,22 +957,43 @@ Ordered by cost of changing later.
 
 ---
 
-## 15. Build order
+## 15. Build order and roadmap
 
-Each step should land green and be independently testable.
+### The state pivot (current work)
 
-1. **`_codec.py`** — encode/decode, arg converters, overflow, fail-soft on foreign ids.
-   No dependencies on anything else; exhaustively testable in isolation. **Start here.**
-2. **`state/store.py`** — protocol + `MemoryStore` + lock + CAS. Also pure, also easily
-   tested.
-3. **`ui/nodes.py` + `build.py`** — tree, flatten to hikari
-   builders. Test by asserting on emitted payloads; no network needed.
-4. **`view.py`** — `@risa.register`, handler registry, `bind()`.
-5. **`client.py` + `context.py`** — dispatch, auto-defer, gateway transport. First point
-   requiring a live bot to exercise properly.
-6. **`modal.py`**
-7. **RESTBot transport**
-8. **`state/redis.py`**
-9. **`ui` with-block sugar**
+Each step should land green:
 
-Steps 1–3 are the bulk of the library's value and need no Discord connection at all.
+1. **Codec** — chunk framing (`idx`/`frag_len`, carve/gather with gap detection), the two
+   anchor dialects, the placement tag, Prop-aware positional state encoding. Still v1.
+2. **`StateSchema` + `Prop` + `load()`** — field partition, registration validations,
+   `register(state=)`, `StateOverflowError` ergonomics.
+3. **Backends and sessions** — `MessageSession` (per-message lock, seq + version cache),
+   `StoredSession` (lease-capable `lock(timeout=)`, CAS-then-edit commits, converge-on-
+   conflict, `on_state_missing`), Store protocol hardening (`StoreUnavailableError`,
+   `{v,n,f,d}` envelope, key namespace, `InStore`+`MemoryStore` warning).
+4. **Build + dispatch + context rewire** — two-phase build, message-component reader, one
+   session-driven dispatch path, commit-per-rerender, the fatal fixes from the invariants
+   audit (CAS loss answers the interaction; `edit(layout)` re-embeds or raises; watchdog
+   vs conditionally-modal handlers), deletion of the store-era dispatch and `persist=`.
+5. **`modal.py`** — §9 as decided.
+
+### 1.0 roadmap, after the pivot
+
+- **`RedisStore`** (`[redis]` extra) + **`risa.state.testing.verify_store`** conformance
+  kit — the protocol is sharp to implement; shipping it without a harness is negligent.
+- Docs: the placement 2×2 (§10), the capacity/introspection story, the world-readable
+  warning, a first stateful tutorial example whose state *grows*.
+
+### Deferred, deliberately (revisit post-1.0 — the maintainer wants these re-discussed)
+
+- **`prompt_wait`** — only ever for all-Prop views, where its semantics are vacuous;
+  registration-enforced.
+- **`ctx.reserve(name, ttl=)` / `ctx.release(name)`** — expiring flow holds; the
+  structural fix for claim-then-confirm.
+- **`isolation=risa.Serialized() | risa.Concurrent()`** per handler.
+- **`InStore(adopt=True)`** — lazy Message→Store placement migration keyed on the tag.
+- **`@risa.migration`** — schema migration hooks riding the store envelope + cookie
+  aliasing.
+- **`load()` final shape** — accepted tentatively; re-examine ergonomics (failure routing,
+  per-handler opt-out) before 1.0.
+- Sub-views (§14.1); `with`-block syntax stays rejected (§5.3).
