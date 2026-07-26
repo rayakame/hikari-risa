@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import itertools
 import typing
 import unittest.mock
 
@@ -31,9 +32,17 @@ import risa
 from risa import context as context_
 from risa.internal import anchor as anchor_
 from risa.internal import codec as codec_
+from risa.internal import constants as constants_
+from risa.internal import registry as registry_
+from risa.state import store as store_
 
 if typing.TYPE_CHECKING:
+    import collections.abc
     import contextlib
+
+# Distinct per interaction, so that the per-message locks and version cache a
+# message-resident view keeps never bleed from one test into the next.
+_MESSAGE_IDS = itertools.count(1)
 
 
 class Write(msgspec.Struct, frozen=True):
@@ -86,8 +95,13 @@ class RecordingStore(risa.Store):
         await self._inner.touch(key, ttl=ttl)
 
     @typing.override
-    def lock(self, key: str) -> contextlib.AbstractAsyncContextManager[None]:
-        return self._inner.lock(key)
+    def lock(
+        self,
+        key: str,
+        *,
+        timeout: float = store_.DEFAULT_LOCK_TIMEOUT,
+    ) -> contextlib.AbstractAsyncContextManager[None]:
+        return self._inner.lock(key, timeout=timeout)
 
 
 class StubClient(risa.Client):
@@ -108,14 +122,51 @@ class StubClient(risa.Client):
         return ctx
 
 
-def interaction(custom_id: str) -> hikari.ComponentInteraction:
-    """Build a mock component interaction whose response methods can be asserted on."""
+def interaction(
+    custom_id: str,
+    *,
+    components: collections.abc.Sequence[str | hikari.PartialComponent] = (),
+    message_id: int | None = None,
+) -> hikari.ComponentInteraction:
+    """Build a mock component interaction whose response methods can be asserted on.
+
+    ``components`` is what the interaction's message carries -- ``custom_id``\\ s
+    for the flat case, or built components for a nested one -- which is where a
+    message-resident view reads its state back from. ``message_id`` pins the
+    message, for a test that puts two renders on one.
+    """
     mock = unittest.mock.Mock(spec=hikari.ComponentInteraction)
     mock.custom_id = custom_id
     mock.id = 1
     mock.message = unittest.mock.Mock(spec=hikari.Message)
+    mock.message.id = next(_MESSAGE_IDS) if message_id is None else message_id
+    mock.message.components = [
+        component(rendered) if isinstance(rendered, str) else rendered for rendered in components
+    ]
     mock.execute.return_value = unittest.mock.Mock(spec=hikari.Message)
     return typing.cast("hikari.ComponentInteraction", mock)
+
+
+def component(custom_id: str) -> hikari.PartialComponent:
+    """Return a component of a delivered message, carrying ``custom_id``."""
+    mock = unittest.mock.Mock(spec=hikari.ButtonComponent)
+    mock.custom_id = custom_id
+    return typing.cast("hikari.PartialComponent", mock)
+
+
+async def clicked(client: risa.Client, view: risa.View, *, on: int = 0) -> hikari.ComponentInteraction:
+    """Render a view and return a click on one of the components it rendered.
+
+    The whole message goes along, exactly as Discord delivers it, so a view that
+    carries its state in its own components can read it back.
+    """
+    rendered = await all_custom_ids(client, view)
+    return interaction(rendered[on], components=rendered)
+
+
+def meta_of(cls: type[risa.View]) -> registry_.ViewMeta:
+    """Return the metadata ``@risa.register`` stamped onto a view class."""
+    return typing.cast("registry_.ViewMeta", getattr(cls, constants_.VIEW_META))
 
 
 def mock_of(method: object) -> unittest.mock.AsyncMock:
@@ -163,6 +214,21 @@ async def all_custom_ids(client: risa.Client, view: risa.View) -> list[str]:
         payload, _ = builder.build()
         found.extend(find_custom_ids(payload))
     return found
+
+
+def answered_with(inter: hikari.ComponentInteraction) -> list[str]:
+    """Return the ``custom_id``\\ s of the components an interaction was answered with."""
+    for method in (inter.create_initial_response, inter.edit_initial_response, inter.message.edit):
+        call = mock_of(method).await_args
+        if call is not None and "components" in call.kwargs:
+            return builder_custom_ids(list(call.kwargs["components"]))
+    return []
+
+
+def next_click(inter: hikari.ComponentInteraction, *, on: int = 0) -> hikari.ComponentInteraction:
+    """Return a click on the message as the previous answer left it."""
+    rendered = answered_with(inter)
+    return interaction(rendered[on], components=rendered)
 
 
 async def first_custom_id(client: risa.Client, view: risa.View) -> str:

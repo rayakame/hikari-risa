@@ -85,7 +85,7 @@ class Picker(risa.View):
 
 @pytest.fixture
 def client() -> StubClient:
-    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), store=RecordingStore())
+    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), stores={"default": RecordingStore()})
     built.add_view(Picker)
     return built
 

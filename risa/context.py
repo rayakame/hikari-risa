@@ -49,8 +49,8 @@ import hikari
 
 from risa import errors
 from risa import view as view_
-from risa.internal import anchor as anchor_
 from risa.internal import constants
+from risa.state import backend as backend_
 from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
@@ -104,12 +104,12 @@ class DispatchState:
 
     __slots__ = (
         "acknowledged",
-        "autodefer_options",
         "autodefer_task",
+        "converged",
         "initial",
         "lock",
         "meta",
-        "state_key",
+        "session",
         "view",
     )
 
@@ -118,10 +118,10 @@ class DispatchState:
         self.initial = _InitialResponse.NONE
         self.acknowledged = asyncio.Event()
         self.autodefer_task: asyncio.Task[None] | None = None
-        self.autodefer_options: tuple[bool, bool] | None = None
         self.meta: registry.ViewMeta | None = None
-        self.state_key: str | None = None
+        self.session: backend_.StateSession | None = None
         self.view: view_.View | None = None
+        self.converged = False
 
     def transition(self, initial: _InitialResponse) -> None:
         """Record the issued initial response and open the acknowledgement gate."""
@@ -510,12 +510,13 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
 
         The headline ergonomic: mutate ``self`` in a handler, call this, done.
         Literally :meth:`edit` of what ``render()`` returns right now, so the
-        message always shows the state -- and because the state key is reused,
-        the redrawn components keep the same ``custom_id``, and a click already
-        in flight is never invalidated.
+        message always shows the state.
 
-        Does not write state to the store; dispatch persists the view once,
-        after the handler returns.
+        Every re-render is a full commit. Where the state lives in a store, it
+        is written before the edit goes out, so the message can never show
+        something the store has not accepted; where it rides the message, the
+        edit *is* the write. Either way the state and what is on screen agree
+        the moment this returns, and a second call commits again from there.
 
         Raises
         ------
@@ -537,11 +538,17 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
 
             await ctx.edit(ui.TextDisplay("Poll closed."))
 
-        The tree is built against the same view and state key, so any
+        The tree is built against the same view and the same state, so any
         interactive components in it still route -- but the message no longer
         matches ``render(state)``, and the next ``rerender`` will overwrite it.
         Prefer trees without interactive components here; anything longer-lived
         belongs in state.
+
+        A tree that renders nothing interactive is the terminal case and is
+        allowed to drop the state: with no component left to click, nothing
+        could ever read it back. A tree that *is* interactive but has no room
+        for the state raises before anything is sent, rather than leaving live
+        components pointing at state they can no longer reach.
 
         Always lands on the component's message, whatever was responded
         before: as the initial response when nothing was, through the deferred
@@ -560,15 +567,42 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
             metadata to build against.
         LayoutError
             If a component routes to a handler the view does not have.
+        StateOverflowError
+            If the tree renders interactive components but cannot carry the
+            view's state.
         CustomIdOverflowError
             If an encoded ``custom_id`` would exceed Discord's length limit.
         """
-        if self._state.meta is None:
+        meta = self._state.meta
+        if meta is None:
             msg = "edit() needs the view metadata risa attaches during dispatch; this context has none"
             raise RuntimeError(msg)
-        anchor = anchor_.StoreAnchor(key=self._state.state_key).encode() if self._state.state_key else ""
-        builders = build_.build(layout, meta=self._state.meta, anchor=anchor)
 
+        session, view = self._state.session, self._state.view
+        if session is None or view is None:
+            await self._show(build_.build(layout, meta=meta))
+            return
+
+        try:
+            anchor = await session.stage(view)
+        except errors.StateConflictError:
+            if self._state.converged:
+                _LOGGER.exception(
+                    "interaction %s: view %r moved again while converging, so the message was left"
+                    " showing what it had. Something is writing this view far faster than it is read.",
+                    self._interaction.id,
+                    meta.name,
+                )
+                return
+            self._state.converged = True
+            await _converge(self, self._state)
+            return
+
+        await self._show(build_.build(layout, meta=meta, anchor=anchor))
+        await session.published(view)
+
+    async def _show(self, builders: collections.abc.Sequence[hikari.api.ComponentBuilder]) -> None:
+        """Put built components on the component's own message, however it is reachable."""
         async with self._state.lock:
             if self._state.initial is _InitialResponse.NONE:
                 self._state.cancel_autodefer()
@@ -622,27 +656,104 @@ async def _issue_deferral(interaction: InteractionT, state: DispatchState, *, th
     state.transition(_InitialResponse.THINKING_DEFERRED if thinking else _InitialResponse.UPDATE_DEFERRED)
 
 
-async def _autodefer_now(interaction: InteractionT, state: DispatchState) -> None:
+async def _defer_unless_answered(
+    interaction: InteractionT,
+    state: DispatchState,
+    *,
+    thinking: bool,
+    ephemeral: bool,
+) -> None:
     """Defer immediately unless a response won the race first.
 
-    A failed deferral is logged rather than raised: the watchdog runs in its
-    own task, and leaving the gate unopened lets a later response call still
-    try to answer the interaction.
+    A failed deferral is logged rather than raised: this runs beside the
+    handler rather than inside it, and leaving the gate unopened lets a later
+    response call still try to answer the interaction.
     """
     async with state.lock:
-        if state.initial is not _InitialResponse.NONE or state.autodefer_options is None:
+        if state.initial is not _InitialResponse.NONE:
             return
-        thinking, ephemeral = state.autodefer_options
         try:
             await _issue_deferral(interaction, state, thinking=thinking, ephemeral=ephemeral)
         except hikari.HikariError:
-            _LOGGER.exception("auto-defer failed for interaction %s", interaction.id)
+            _LOGGER.exception("could not acknowledge interaction %s", interaction.id)
 
 
-async def _run_autodefer(interaction: InteractionT, state: DispatchState) -> None:
+async def _run_autodefer(
+    interaction: InteractionT,
+    state: DispatchState,
+    *,
+    thinking: bool,
+    ephemeral: bool,
+) -> None:
     """Wait out the watchdog's grace period, then defer if nothing beat it."""
     await asyncio.sleep(constants.AUTODEFER_DELAY)
-    await _autodefer_now(interaction, state)
+    await _defer_unless_answered(interaction, state, thinking=thinking, ephemeral=ephemeral)
+
+
+async def _converge(ctx: ComponentContext, state: DispatchState) -> None:
+    """Redraw a message whose view was replaced while its handler was running.
+
+    What a lost optimistic-concurrency check means, rather than what it looks
+    like: the handler read state that somebody else has since replaced, so
+    everything it computed from that read is void. It is not an error the user
+    should see -- the click was reasonable and has usually been answered
+    already -- so nothing is retried and nothing is raised. The winning state
+    is moved onto the instance the handler was holding, which both leaves the
+    message showing something true and stops the discarded values from being
+    committed by anything later in the dispatch.
+    """
+    session, view, meta = state.session, state.view, state.meta
+    if session is None or view is None or meta is None:
+        return
+
+    outcome = await session.restore()
+    if isinstance(outcome, backend_.Restored):
+        _LOGGER.warning(
+            "interaction %s: view %r was changed by another dispatch while this handler ran, so what"
+            " it computed was dropped; the message is being redrawn from the state that won.",
+            ctx.interaction.id,
+            meta.name,
+        )
+        meta.schema.adopt(view, outcome.view)
+        await view_.refill(view)
+        await ctx.edit(view.render())
+        return
+
+    _LOGGER.warning(
+        "interaction %s: view %r was replaced while this handler ran by something that cannot be"
+        " read back, so what it computed was dropped and there is nothing to redraw from.",
+        ctx.interaction.id,
+        meta.name,
+    )
+    state.session = None
+    state.view = None
+    await answer_unreadable(ctx, meta, outcome)
+
+
+async def answer_unreadable(
+    ctx: ComponentContext,
+    meta: registry.ViewMeta,
+    outcome: backend_.Unreadably,
+) -> None:
+    """Route a state read that came back with nothing to the hook that answers it.
+
+    Internal dispatch plumbing shared by the client and the response surface;
+    not public API. One place decides which hook each outcome belongs to, so a
+    new outcome cannot be handled in one caller and forgotten in the other.
+
+    Parameters
+    ----------
+    ctx
+        The interaction being answered.
+    meta
+        The view the interaction resolved to.
+    outcome
+        Why the state could not be read.
+    """
+    if outcome is backend_.Unreadably.MISSING:
+        await meta.cls.on_state_missing(ctx)
+    else:
+        await meta.cls.on_outdated(ctx)
 
 
 def prepare_dispatch(
@@ -650,12 +761,14 @@ def prepare_dispatch(
     interaction: InteractionT,
     *,
     meta: registry.ViewMeta,
-    state_key: str | None,
     autodefer: view_.AutoDefer,
 ) -> None:
-    """Wire a dispatch state to its view and start the auto-defer watchdog.
+    """Claim an interaction for a view and start the auto-defer watchdog.
 
     Internal dispatch plumbing shared by the transports; not public API.
+    Recording the view here is also what marks the interaction as risa's, which
+    is what keeps an id another library wrote from being acknowledged at the
+    end of a dispatch that only glanced at it.
 
     Parameters
     ----------
@@ -665,27 +778,26 @@ def prepare_dispatch(
         The interaction being answered.
     meta
         The view the interaction resolved to.
-    state_key
-        The state key from the ``custom_id``, or ``None`` for a view that
-        stores nothing.
     autodefer
         What the watchdog should send, or :attr:`~risa.view.AutoDefer.OFF` to
         run none.
     """
     state.meta = meta
-    state.state_key = state_key
     if autodefer is view_.AutoDefer.OFF:
         return
     thinking = autodefer is not view_.AutoDefer.UPDATE
     ephemeral = autodefer is view_.AutoDefer.THINKING_EPHEMERAL
-    state.autodefer_options = (thinking, ephemeral)
-    state.autodefer_task = asyncio.create_task(_run_autodefer(interaction, state))
+    state.autodefer_task = asyncio.create_task(
+        _run_autodefer(interaction, state, thinking=thinking, ephemeral=ephemeral),
+    )
 
 
-def supply_view(state: DispatchState, view: view_.View) -> None:
-    """Give a dispatch state the rebuilt view instance ``rerender`` needs.
+def supply_view(state: DispatchState, view: view_.View, session: backend_.StateSession) -> None:
+    """Give a dispatch state the rebuilt view and the session holding its state.
 
-    Internal dispatch plumbing; not public API.
+    Internal dispatch plumbing; not public API. Both together or neither: a
+    session with no view behind it would let the response surface try to commit
+    state that was never read.
 
     Parameters
     ----------
@@ -693,18 +805,59 @@ def supply_view(state: DispatchState, view: view_.View) -> None:
         The dispatch state behind the context being dispatched.
     view
         The view instance the handler will run on.
+    session
+        The open session the view was restored from.
     """
     state.view = view
+    state.session = session
+
+
+async def settle_state(ctx: ComponentContext, state: DispatchState) -> None:
+    """Commit whatever the handler left behind, and redraw if that is the only way.
+
+    Internal dispatch plumbing; not public API. A handler that changed durable
+    state and never re-rendered still meant the change: where the state lives
+    in a store it is written here, and where it rides the message the only way
+    to write it is to redraw, so risa redraws.
+
+    Parameters
+    ----------
+    ctx
+        The interaction being answered.
+    state
+        The dispatch state behind it.
+    """
+    session, view = state.session, state.view
+    if session is None or view is None:
+        return
+
+    try:
+        owed = await session.settle(view)
+    except errors.StateConflictError:
+        state.converged = True
+        await _converge(ctx, state)
+        return
+
+    if owed:
+        await ctx.rerender()
 
 
 async def conclude_dispatch(state: DispatchState, interaction: InteractionT, *, failed: bool) -> None:
     """Settle the watchdog and open the acknowledgement gate.
 
     Internal dispatch plumbing; not public API. After a clean dispatch that
-    never responded, the deferred ack is issued immediately -- silent, and
-    exactly what a handler that only did background work wants. After a failed
-    one the watchdog is cancelled instead, so the failure stays visible rather
-    than being acked into silence.
+    never responded, the silent ack is issued immediately -- exactly what a
+    handler that only did background work wants, and what keeps a handler that
+    turned down the watchdog from leaving the click looking failed. After a
+    failed dispatch the watchdog is cancelled instead, so the failure stays
+    visible rather than being acked into silence.
+
+    The ack is always the silent one, whatever the watchdog was configured to
+    send: a spinner is a promise of something to come, and there is nothing
+    coming from a dispatch that has already ended. The watchdog is stood down
+    under the lock it holds across its own REST call, as every other stand-down
+    site does, so a deferral already in flight finishes and is recorded rather
+    than being aborted half-issued and then sent a second time here.
 
     Parameters
     ----------
@@ -716,9 +869,11 @@ async def conclude_dispatch(state: DispatchState, interaction: InteractionT, *, 
         Whether dispatch is ending on an exception.
     """
     task = state.autodefer_task
-    state.autodefer_task = None
     if task is not None:
-        task.cancel()
-        if not failed:
-            await _autodefer_now(interaction, state)
+        async with state.lock:
+            state.cancel_autodefer()
+        await asyncio.gather(task, return_exceptions=True)
+
+    if not failed and state.meta is not None:
+        await _defer_unless_answered(interaction, state, thinking=False, ephemeral=False)
     state.acknowledged.set()

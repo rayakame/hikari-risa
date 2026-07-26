@@ -501,9 +501,8 @@ class View(msgspec.Struct):
         worth telling apart.
 
         Overriding this is how a view says what it wants said. The default only
-        logs: under the default auto-defer the click is silently acknowledged
-        and nothing visible happens, and with :attr:`AutoDefer.OFF` Discord
-        shows an error once the response window closes.
+        logs, and the click is silently acknowledged, so nothing visible
+        happens.
 
         Parameters
         ----------
@@ -527,8 +526,8 @@ class View(msgspec.Struct):
 
         Overriding it also acknowledges that components are retired on
         purpose, which is what downgrades the client's token-miss log from a
-        warning to debug. The default only logs: under the default auto-defer
-        the click is silently acknowledged and nothing visible happens.
+        warning to debug. The default only logs, and the click is silently
+        acknowledged, so nothing visible happens.
 
         Parameters
         ----------
@@ -541,6 +540,28 @@ class View(msgspec.Struct):
             cls.__name__,
             ctx.interaction.id,
         )
+
+
+async def refill(view: View) -> None:
+    """Let a view fill in whatever risa does not persist for it.
+
+    Awaited before every render -- on the send that creates a message, on every
+    dispatch that redraws it, and again if a lost race means the message has to
+    be redrawn from somebody else's state. A view that does not override the
+    hook pays nothing.
+
+    Internal dispatch plumbing shared by the client and the response surface;
+    not public API. The caller is responsible for having opened the dependency
+    injection containers the hook resolves its parameters against.
+
+    Parameters
+    ----------
+    view
+        The view about to be rendered.
+    """
+    if type(view).load is View.load:
+        return
+    await view.load()
 
 
 @typing.overload

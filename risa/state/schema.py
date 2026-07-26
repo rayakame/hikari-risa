@@ -279,10 +279,11 @@ class StateSchema:
         The view's durable fields, in declaration order.
     """
 
-    __slots__ = ("_encoder", "_fields", "_fingerprint", "_prefixes")
+    __slots__ = ("_encoder", "_fields", "_fingerprint", "_names", "_prefixes")
 
     def __init__(self, fields: collections.abc.Sequence[DurableField]) -> None:
         self._fields = tuple(fields)
+        self._names = tuple(field.name for field in self._fields)
         self._encoder = msgspec.msgpack.Encoder()
         self._prefixes = {
             _fingerprint(self._fields[:size]): _Prefix(
@@ -349,9 +350,54 @@ class StateSchema:
         return self._fields
 
     @property
+    def names(self) -> tuple[str, ...]:
+        """The durable fields' names, in declaration order."""
+        return self._names
+
+    @property
     def durable(self) -> bool:
         """Whether this view has any state to persist at all."""
         return bool(self._fields)
+
+    def accepts(self, fingerprint: str) -> bool:
+        """Whether state written under ``fingerprint`` still fits this view.
+
+        True for the view's current shape and for every earlier one it grew
+        from by appending defaulted fields, which is the one evolution risa
+        promises is free. Anything else -- a field removed, renamed, retyped or
+        reordered -- is a shape this view no longer has.
+
+        Parameters
+        ----------
+        fingerprint
+            The fingerprint the state arrived with.
+
+        Returns
+        -------
+        bool
+            Whether the state can be read into this view.
+        """
+        prefix = self._prefixes.get(fingerprint)
+        return prefix is not None and prefix.tail_is_defaulted
+
+    def adopt(self, view: msgspec.Struct, source: msgspec.Struct) -> None:
+        """Overwrite one view's durable fields with another's, in place.
+
+        Used when a handler loses the race to commit: rather than discarding
+        its view for the winner's, the winning state is moved onto the instance
+        the handler already holds, so nothing downstream is left pointing at
+        state that was thrown away. Props are untouched -- they were refilled
+        for this dispatch and belong to it.
+
+        Parameters
+        ----------
+        view
+            The view to overwrite.
+        source
+            The view to take durable values from.
+        """
+        for field in self._fields:
+            setattr(view, field.name, getattr(source, field.name))
 
     def values(self, view: msgspec.Struct) -> list[object]:
         """Read the current value of every durable field off a view.

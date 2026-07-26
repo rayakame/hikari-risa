@@ -96,9 +96,18 @@ risa/
   errors.py         RisaError-rooted hierarchy
   view.py           View base, @register and @handler
   internal/         not public API; modules here carry no leading underscore
+    wire.py         the printable alphabet every id is written in
     codec.py        custom_id encode/decode, cookie and handler tokens
+    anchor.py       the two anchor dialects, and distributing one over components
+    reader.py       reading risa's own components back off a delivered message
     constants.py    Discord limits and the attribute names risa stamps
     registry.py     ViewMeta and the cookie -> view registries
+  state/            where a view'"'"'s durable state lives, one module per placement
+    store.py        Store protocol and MemoryStore
+    placement.py    InMessage / InStore
+    schema.py       durable fields, packing, prefix fingerprints
+    backend.py      the StateBackend / StateSession abstractions
+    message.py      state carried by the message; stored.py, stateless.py the others
   py.typed
 tests/
 noxfile.py          reformat / format-check / ruff / pyright / pytest / audit
@@ -119,16 +128,16 @@ including `on_state_missing` and `on_outdated`, and the Context response surface
 `respond`/`rerender`/`edit(layout)`/`defer` with the auto-defer watchdog (`risa.AutoDefer`)
 and the event/204 REST transport.
 
-**The codebase is mid-pivot to the dual-placement state architecture** decided in DESIGN.md
-(§2.3, §7); DESIGN.md is the authority on the target and §15 holds the build order. Landed
-so far: the chunked `custom_id` wire format with both anchor dialects
-(`internal/wire.py`, `internal/anchor.py`), `StateSchema` with prefix fingerprints
-(`state/schema.py`), the `risa.Prop[T]` marker with its declaration rules, per-view
-placement via `@risa.register(state=risa.InMessage() | risa.InStore(...))`, and the
-`load()` refill hook. Still to come: the message/store backends and their sessions, the
-two-phase build and the dispatch rewire onto them (dispatch is still store-only, bridged
-through a store anchor), the locking law and commit-per-rerender cadence, modals
-(callback-only, §9), `RedisStore`, and state migrations.
+**The dual-placement state architecture** decided in DESIGN.md (§2.3, §7) is now built;
+DESIGN.md remains the authority on the target and §15 holds the build order. Landed: the
+chunked `custom_id` wire format with both anchor dialects (`internal/wire.py`,
+`internal/anchor.py`), `StateSchema` with prefix fingerprints (`state/schema.py`), the
+`risa.Prop[T]` marker, per-view placement via
+`@risa.register(state=risa.InMessage() | risa.InStore(...))`, the `load()` refill hook, the
+three state backends and their sessions (`state/{backend,message,stored,stateless}.py`),
+the two-phase build, and one session-driven dispatch path with commit-per-rerender and
+CAS-loss convergence. Still to come: modals (callback-only, §9), `RedisStore` and its
+conformance kit, state migrations, and the deferred items in §15.
 
 Treat the rest as intent, not as an implemented contract.
 

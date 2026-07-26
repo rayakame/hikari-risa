@@ -104,6 +104,17 @@ class Off(risa.View):
         type(self).finished += 1
 
 
+@risa.register(name="ctx-lingering", version=1)
+class Lingering(risa.View):
+    @typing.override
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.wait, label="w"))
+
+    @risa.handler
+    async def wait(self, _: risa.ComponentContext) -> None:
+        await asyncio.sleep(0.1)
+
+
 @risa.register(name="ctx-boom", version=1)
 class Boom(risa.View):
     @typing.override
@@ -138,11 +149,12 @@ def store() -> RecordingStore:
 
 @pytest.fixture
 def client(store: RecordingStore) -> StubClient:
-    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), store=store)
+    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), stores={"default": store})
     built.add_view(Counter)
     built.add_view(Slow)
     built.add_view(Quiet)
     built.add_view(Off)
+    built.add_view(Lingering)
     built.add_view(Boom)
     built.add_view(Hooked)
     return built
@@ -392,12 +404,36 @@ async def test_a_clean_finish_without_response_is_acked_immediately(client: Stub
     )
 
 
-async def test_autodefer_off_leaves_the_interaction_unanswered(client: StubClient) -> None:
+async def test_autodefer_off_is_still_answered_when_the_handler_says_nothing(client: StubClient) -> None:
+    # OFF turns off the watchdog, not the promise that a click gets answered.
+    # A handler that opens a modal on one branch and not on the other would
+    # otherwise leave every click on the quiet branch looking failed.
     custom_id = await first_custom_id(client, Off())
     inter = interaction(custom_id)
     await client.dispatch(inter)
 
-    mock_of(inter.create_initial_response).assert_not_awaited()
+    mock_of(inter.create_initial_response).assert_awaited_once_with(
+        hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
+        flags=hikari.UNDEFINED,
+    )
+
+
+async def test_a_deferral_already_in_flight_is_not_sent_a_second_time(
+    client: StubClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The watchdog holds the response lock across its own REST call; standing it
+    # down without that lock would abort it unrecorded and then defer again.
+    monkeypatch.setattr("risa.internal.constants.AUTODEFER_DELAY", 0.05)
+    inter = interaction(await first_custom_id(client, Lingering()))
+
+    async def slowly(*_: object, **__: object) -> None:
+        await asyncio.sleep(0.15)
+
+    mock_of(inter.create_initial_response).side_effect = slowly
+    await client.dispatch(inter)
+
+    assert mock_of(inter.create_initial_response).await_count == 1
 
 
 async def test_a_crashing_handler_is_not_acked_into_silence(client: StubClient) -> None:
@@ -447,7 +483,7 @@ class StubRestClient(risa.RestEnabledClient):
 
 @pytest.fixture
 def rest_client(store: RecordingStore) -> StubRestClient:
-    built = StubRestClient(typing.cast("hikari.impl.RESTBot", RestApp()), store=store)
+    built = StubRestClient(typing.cast("hikari.impl.RESTBot", RestApp()), stores={"default": store})
     built.add_view(Counter)
     built.add_view(Off)
     return built

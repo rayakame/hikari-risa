@@ -39,10 +39,20 @@ import weakref
 
 import msgspec
 
+from risa import errors
+
 if typing.TYPE_CHECKING:
     import contextlib
+    import types
 
-__all__ = ("MemoryStore", "Store")
+__all__ = ("DEFAULT_LOCK_TIMEOUT", "MemoryStore", "Store")
+
+DEFAULT_LOCK_TIMEOUT: typing.Final[float] = 10.0
+"""Seconds :meth:`Store.lock` waits for a contended key before giving up.
+
+Named rather than repeated, so that an implementation written against the
+protocol cannot ship a quietly different contract from the one documented here.
+"""
 
 
 @typing.runtime_checkable
@@ -150,17 +160,36 @@ class Store(typing.Protocol):
         """
         ...
 
-    def lock(self, key: str) -> contextlib.AbstractAsyncContextManager[None]:
+    def lock(self, key: str, *, timeout: float = DEFAULT_LOCK_TIMEOUT) -> contextlib.AbstractAsyncContextManager[None]:
         """Hold ``key`` for the duration of a read, change and write.
 
         Two people pressing the same button at once otherwise both read the same
         state and both write their own version of it, and one of the two changes
         is lost. Held around the whole sequence, not just the write.
 
+        The contract an implementation has to meet:
+
+        * Entering waits at most ``timeout`` seconds, then raises
+          :class:`~risa.errors.LockTimeoutError`. Waiting forever would let one
+          wedged dispatch silently freeze every later click on the same view.
+        * A backend shared between processes must bound how long a *crashed*
+          holder can keep the key -- a lease. An in-process backend is exempt,
+          since a holder dying means the process died and the lock with it.
+        * How long that lease runs, and how it is renewed while the holder is
+          alive, is the backend's own configuration rather than a parameter
+          here, so that a store can be implemented by wrapping whatever lock
+          its client library already offers.
+        * Exclusivity may be lost if a lease expires under a stalled holder.
+          That is why the lock is never the correctness story: every write goes
+          through :meth:`put_if_version`, which is what actually refuses a
+          write computed from state somebody else has replaced.
+
         Parameters
         ----------
         key
             The key to hold.
+        timeout
+            Seconds to wait for the key before giving up.
 
         Returns
         -------
@@ -176,6 +205,40 @@ class _Entry(msgspec.Struct):
     value: bytes
     version: int
     expires_at: float | None
+
+
+class _Held:
+    """Waits a bounded time for a lock, then holds it."""
+
+    __slots__ = ("_key", "_lock", "_timeout")
+
+    def __init__(self, key: str, lock: asyncio.Lock, timeout: float) -> None:
+        self._key = key
+        self._lock = lock
+        self._timeout = timeout
+
+    async def __aenter__(self) -> None:
+        """Take the lock, or give up.
+
+        Raises
+        ------
+        LockTimeoutError
+            If the lock is still held when the timeout expires.
+        """
+        try:
+            async with asyncio.timeout(self._timeout):
+                await self._lock.acquire()
+        except TimeoutError as exc:
+            raise errors.LockTimeoutError(self._key, self._timeout) from exc
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None:
+        """Release the lock."""
+        self._lock.release()
 
 
 class MemoryStore(Store):
@@ -307,13 +370,18 @@ class MemoryStore(Store):
             entry.expires_at = self._deadline(ttl)
 
     @typing.override
-    def lock(self, key: str) -> contextlib.AbstractAsyncContextManager[None]:
+    def lock(self, key: str, *, timeout: float = DEFAULT_LOCK_TIMEOUT) -> contextlib.AbstractAsyncContextManager[None]:
         """Hold ``key`` for the duration of a read, change and write.
+
+        No lease: a holder here dies only when the process does, and the lock
+        table dies with it.
 
         Parameters
         ----------
         key
             The key to hold.
+        timeout
+            Seconds to wait for the key before giving up.
 
         Returns
         -------
@@ -324,7 +392,7 @@ class MemoryStore(Store):
         if lock is None:
             lock = asyncio.Lock()
             self._locks[key] = lock
-        return lock
+        return _Held(key, lock, timeout)
 
     def _live_entry(self, key: str) -> _Entry | None:
         entry = self._entries.get(key)

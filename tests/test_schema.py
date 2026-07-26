@@ -29,22 +29,16 @@ import pytest
 
 import risa
 from risa import ui
-from risa.internal import constants
-from risa.internal import registry
 from risa.state import schema
 from tests.helpers import RecordingStore
 from tests.helpers import StubClient
-from tests.helpers import first_custom_id
-from tests.helpers import interaction
+from tests.helpers import clicked
+from tests.helpers import meta_of
 
 
 class Row(msgspec.Struct):
     name: str
     score: int
-
-
-def meta_of(cls: type[risa.View]) -> registry.ViewMeta:
-    return typing.cast("registry.ViewMeta", getattr(cls, constants.VIEW_META))
 
 
 # --- partitioning fields ---
@@ -297,7 +291,7 @@ def database() -> Database:
 
 @pytest.fixture
 def client(database: Database) -> StubClient:
-    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), store=RecordingStore())
+    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), stores={"default": RecordingStore()})
     built.add_view(Board)
     built.add_view(NoHook)
     built.di.registry_for(risa.Contexts.DEFAULT).register_value(Database, database)
@@ -313,9 +307,9 @@ async def test_load_fills_props_before_the_initial_render(client: StubClient, da
 
 
 async def test_load_fills_props_before_every_dispatch(client: StubClient, database: Database) -> None:
-    custom_id = await first_custom_id(client, Board(page=2))
+    inter = await clicked(client, Board(page=2))
     Board.seen.clear()
-    await client.dispatch(interaction(custom_id))
+    await client.dispatch(inter)
 
     # The handler saw refilled rows, not the empty default it was rebuilt with.
     assert Board.seen == [[20, 21, 22]]
@@ -331,5 +325,4 @@ async def test_load_is_resolved_against_the_clients_dependencies(client: StubCli
 
 
 async def test_a_view_without_the_hook_pays_nothing(client: StubClient) -> None:
-    custom_id = await first_custom_id(client, NoHook())
-    await client.dispatch(interaction(custom_id))
+    await client.dispatch(await clicked(client, NoHook()))

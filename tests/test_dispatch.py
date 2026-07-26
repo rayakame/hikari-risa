@@ -170,7 +170,7 @@ def store() -> RecordingStore:
 
 @pytest.fixture
 def client(store: RecordingStore) -> StubClient:
-    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), store=store)
+    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), stores={"default": store})
     built.add_view(Poll)
     built.add_view(Ping)
     built.add_view(Chooser)
@@ -191,11 +191,11 @@ def test_a_view_without_fields_is_stateless() -> None:
     assert meta.stateless is True
 
 
-async def test_building_a_stateful_view_writes_its_state(client: StubClient) -> None:
+async def test_building_a_stateful_view_writes_its_state(client: StubClient, store: RecordingStore) -> None:
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
     decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
-    assert await client.store.get(state_key_of(decoded)) is not None
+    assert await store.get(state_key_of(decoded)) is not None
 
 
 async def test_a_stateful_component_carries_a_state_key(client: StubClient) -> None:
@@ -228,14 +228,14 @@ async def test_a_failed_build_leaves_nothing_in_the_store(client: StubClient, st
     assert store.writes == []
 
 
-async def test_state_survives_a_click_and_is_written_back(client: StubClient) -> None:
+async def test_state_survives_a_click_and_is_written_back(client: StubClient, store: RecordingStore) -> None:
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
     decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
 
     for expected in (1, 2, 3):
         await client.dispatch(interaction(custom_id))
-        raw = await client.store.get(state_key_of(decoded))
+        raw = await store.get(state_key_of(decoded))
         assert raw is not None
         assert f'"votes":{expected}' in raw.decode()
 
@@ -252,26 +252,34 @@ async def test_a_stateless_view_dispatches_without_touching_the_store(
     assert store.writes == []
 
 
-async def test_a_click_on_evicted_state_reaches_on_state_missing(client: StubClient) -> None:
+async def test_a_click_on_evicted_state_reaches_on_state_missing(client: StubClient, store: RecordingStore) -> None:
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
     decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
-    await client.store.delete(state_key_of(decoded))
+    await store.delete(state_key_of(decoded))
 
     before = Poll.missing_seen
     await client.dispatch(interaction(custom_id))
     assert Poll.missing_seen == before + 1
 
 
-async def test_undecodable_state_reaches_on_state_missing(client: StubClient) -> None:
+async def test_a_record_that_no_longer_fits_is_outdated_rather_than_missing(
+    client: StubClient,
+    store: RecordingStore,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A shape that changed is not an expiry, and telling the user their poll
+    # is gone when the developer edited a field would be a lie.
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
     decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
-    await client.store.put(state_key_of(decoded), b'{"v":1,"n":"test-poll","d":{"question":42}}')
+    await store.put(state_key_of(decoded), b'{"v":1,"n":"test-poll","d":{"question":42}}')
 
     before = Poll.missing_seen
     await client.dispatch(interaction(custom_id))
-    assert Poll.missing_seen == before + 1
+
+    assert Poll.missing_seen == before
+    assert "no longer fits" in caplog.text
 
 
 async def test_a_custom_id_from_another_library_is_ignored(client: StubClient, store: RecordingStore) -> None:
@@ -305,7 +313,7 @@ async def test_a_view_ttl_reaches_every_write_it_causes() -> None:
     assert meta.ttl == pytest.approx(60.0)
 
     store = RecordingStore()
-    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), store=store)
+    built = StubClient(unittest.mock.Mock(spec=hikari.api.RESTClient), stores={"default": store})
     built.add_view(Ephemeral)
     custom_id = await first_custom_id(built, Ephemeral(question="?"))
     await built.dispatch(interaction(custom_id))
@@ -326,7 +334,10 @@ async def test_a_view_without_a_ttl_stores_state_that_does_not_expire(
     assert [write.ttl for write in store.writes] == [None, None]
 
 
-async def test_bound_args_reach_a_stateful_handler_beside_its_state(client: StubClient) -> None:
+async def test_bound_args_reach_a_stateful_handler_beside_its_state(
+    client: StubClient,
+    store: RecordingStore,
+) -> None:
     ids = await all_custom_ids(client, Chooser())
     assert len(ids) == 2
 
@@ -335,7 +346,7 @@ async def test_bound_args_reach_a_stateful_handler_beside_its_state(client: Stub
 
     decoded = codec.CustomID.parse(ids[0])
     assert decoded is not None
-    raw = await client.store.get(state_key_of(decoded))
+    raw = await store.get(state_key_of(decoded))
     assert raw is not None
     assert '"picked":["a","bb"]' in raw.decode()
 

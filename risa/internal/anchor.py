@@ -40,8 +40,9 @@ What this module offers:
   damaged.
 * :func:`split_across` and :func:`replicate` are the two ways to distribute an
   anchor over a message's components -- cut into pieces, or handed to each
-  whole. :func:`join_fragments` reads back either, since a replicated anchor is
-  just fragments that all agree.
+  whole -- and :func:`distribute` picks between them by dialect.
+  :func:`join_fragments` reads back either, since a replicated anchor is just
+  fragments that all agree.
 * :func:`make_state_key` mints the key the store dialect names a record by.
 
 Splitting and rejoining treat the anchor as opaque: everything a reader needs
@@ -71,6 +72,7 @@ __all__ = (
     "Anchor",
     "MessageAnchor",
     "StoreAnchor",
+    "distribute",
     "join_fragments",
     "make_state_key",
     "parse",
@@ -296,6 +298,58 @@ def replicate(anchor: str, count: int) -> list[str]:
         The same anchor, ``count`` times.
     """
     return [anchor] * count
+
+
+def distribute(anchor: str, capacities: collections.abc.Sequence[int]) -> list[tuple[int, str]] | None:
+    """Hand an anchor to the components that will carry it, by its dialect.
+
+    The one place the two distribution strategies are chosen between, so that a
+    caller never has to know which dialect it is holding: a store key is small
+    and goes to every component whole, while message-resident state is cut up.
+    What comes back is what each component writes into its ``custom_id``.
+
+    Components the anchor does not reach all share one index rather than
+    counting on past it. Repeating an index is safe because
+    :func:`join_fragments` accepts fragments that agree, and it keeps the
+    indices a wide tree needs down to the few the anchor actually occupies.
+
+    A tree with nothing interactive in it carries no anchor and is not an
+    overflow: nothing rendered can be clicked, so no anchor could ever be read
+    back and none is being lost. A store key is not measured against the
+    capacities either -- a component whose bound arguments crowd out something
+    that small has an oversized id, which the codec reports against Discord's
+    limit far more usefully than a capacity error could.
+
+    Parameters
+    ----------
+    anchor
+        The anchor to hand out, or ``""`` for a view with no durable state.
+    capacities
+        How many characters each component has spare, in render order.
+
+    Returns
+    -------
+    list[tuple[int, str]] | None
+        The ``(index, fragment)`` each component carries, or ``None`` if the
+        state does not fit the tree that was rendered.
+    """
+    if not capacities:
+        return []
+
+    if not anchor:
+        return [(0, "")] * len(capacities)
+
+    if anchor.startswith(STORE_TAG):
+        return [(0, whole) for whole in replicate(anchor, len(capacities))]
+
+    fragments = split_across(anchor, capacities)
+    if fragments is None:
+        return None
+
+    carried = len(fragments)
+    while carried and not fragments[carried - 1]:
+        carried -= 1
+    return [*enumerate(fragments[:carried]), *[(carried, "")] * (len(fragments) - carried)]
 
 
 def join_fragments(fragments: collections.abc.Iterable[tuple[int, str]]) -> str | None:

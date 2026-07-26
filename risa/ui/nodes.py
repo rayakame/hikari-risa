@@ -50,6 +50,7 @@ __all__ = (
     "Container",
     "ContainerChild",
     "File",
+    "Interactive",
     "Layout",
     "LinkButton",
     "MediaGallery",
@@ -110,6 +111,24 @@ class Component(abc.ABC):
         """
 
 
+class Interactive(Component):
+    """A component whose clicks route back to a handler.
+
+    What separates the leaves that carry routing information from the ones that
+    are only there to be looked at, and therefore the set of components a view's
+    state can be written into: a ``custom_id`` exists only on these, and the
+    spare characters of those ids are the whole of what
+    :class:`~risa.state.placement.InMessage` has to work with.
+    """
+
+    __slots__ = ()
+
+    @property
+    @abc.abstractmethod
+    def bound(self) -> view_.BoundHandler:
+        """The handler identity this component routes to, args included."""
+
+
 class TextDisplay(Component):
     """Markdown shown in the message body.
 
@@ -139,7 +158,7 @@ class TextDisplay(Component):
         return self._content
 
 
-class Button(Component):
+class Button(Interactive):
     """A button that routes back to a handler when pressed.
 
     Parameters
@@ -191,6 +210,7 @@ class Button(Component):
         return hikari.ComponentType.BUTTON
 
     @property
+    @typing.override
     def bound(self) -> view_.BoundHandler:
         """The handler identity presses route to, args included."""
         return self._bound
@@ -368,7 +388,7 @@ class SelectOption:
         return self._default
 
 
-class _Select(Component):
+class _Select(Interactive):
     """What every select menu shares: a handler and the selection bounds.
 
     What was selected is not carried in the ``custom_id`` -- Discord sends it
@@ -394,6 +414,7 @@ class _Select(Component):
         self._disabled = disabled
 
     @property
+    @typing.override
     def bound(self) -> view_.BoundHandler:
         """The handler identity selections route to, args included."""
         return self._bound

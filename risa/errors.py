@@ -47,6 +47,7 @@ __all__ = (
     "StateError",
     "StateNotFoundError",
     "StateOverflowError",
+    "StoreUnavailableError",
     "ViewDeclarationError",
 )
 
@@ -186,11 +187,12 @@ class AlreadyRespondedError(RisaError):
 class ViewDeclarationError(RisaError):
     """Raised when a view's registration options contradict its shape.
 
-    Currently that means ``persist=False`` combined with something that only
-    makes sense for stored state: a ``ttl``, or a field without a default when
-    dispatch has to rebuild the view from defaults alone. Raised while the view
-    is being declared, so the contradiction surfaces at import rather than at
-    build or click time.
+    A prop without a default, a ``risa.Prop`` marker buried where it would be
+    ignored, a frozen view, a view with nothing durable asking for a store, a
+    hook that could never fire where the view's state lives, or a store named
+    that the client was never given. Raised while the view is being declared,
+    so the contradiction surfaces at import rather than at build or click
+    time.
 
     Attributes
     ----------
@@ -446,6 +448,34 @@ class StateConflictError(StateError):
     def __init__(self, key: str) -> None:
         self.key = key
         super().__init__(f"state for key {key!r} was modified concurrently; the write was rejected")
+
+
+class StoreUnavailableError(StateError):
+    """Raised when a store cannot be reached at all.
+
+    Deliberately distinct from :class:`StateNotFoundError`, which means the
+    record is genuinely gone. An outage is not an expiry, and a view told to
+    say "this has expired" would be lying about a store that is merely down --
+    so dispatch keeps the two apart and never routes an outage to
+    ``on_state_missing``.
+
+    Implementations should raise this rather than letting a backend-specific
+    connection error escape, so that a view's behaviour does not depend on
+    which store it was given.
+
+    Attributes
+    ----------
+    key
+        The key that could not be reached, when the failure concerned one.
+    reason
+        What the store reported.
+    """
+
+    def __init__(self, reason: str, key: str | None = None) -> None:
+        self.key = key
+        self.reason = reason
+        where = f" while reading key {key!r}" if key is not None else ""
+        super().__init__(f"the store could not be reached{where}: {reason}")
 
 
 class LockTimeoutError(StateError):

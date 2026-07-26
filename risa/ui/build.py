@@ -32,11 +32,13 @@ matches nothing.
 
 from __future__ import annotations
 
+import logging
 import typing
 
 import hikari
 
 from risa import errors
+from risa.internal import anchor as anchor_
 from risa.internal import codec
 from risa.ui import nodes
 
@@ -50,6 +52,8 @@ if typing.TYPE_CHECKING:
 
 __all__ = ("build",)
 
+_LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.ui.build")
+
 
 def build(
     layout: nodes.Layout,
@@ -59,6 +63,12 @@ def build(
 ) -> collections.abc.Sequence[hikari.api.ComponentBuilder]:
     """Turn a rendered tree into the builders a message is sent with.
 
+    Two passes, because how much of the anchor each component carries depends on
+    what the whole tree turned out to be. The first measures every interactive
+    leaf -- what a component has spare is Discord's limit minus its own bound
+    arguments -- and the second writes the ids, each with the slice of the
+    anchor its leaf was allotted.
+
     Parameters
     ----------
     layout
@@ -67,8 +77,8 @@ def build(
         The view the tree belongs to, whose cookie and handlers every id is
         encoded against.
     anchor
-        The view's state anchor, carried by every id so that a click can find
-        the state again. Empty for a view that holds no durable state.
+        The view's state anchor, carried by the ids so that a click can find the
+        state again. Empty for a view that holds no durable state.
 
     Returns
     -------
@@ -79,22 +89,107 @@ def build(
     ------
     LayoutError
         If a component routes to a handler the view does not have.
+    StateOverflowError
+        If the tree renders interactive components but not enough of them to
+        carry the view's state.
     CustomIdOverflowError
         If an encoded ``custom_id`` would exceed Discord's length limit.
     """
     roots = [layout] if isinstance(layout, nodes.Component) else list(layout)
-    builder = _Builder(meta, anchor)
-    return [builder.top_level(root, f"{type(root).__name__}[{index}]") for index, root in enumerate(roots)]
+    capacities = [_capacity(leaf) for leaf in _leaves(roots)]
+
+    if capacities and not anchor and not meta.stateless:
+        _LOGGER.warning(
+            "view %r rendered interactive components with no state behind them, so clicking one can"
+            " only reach on_outdated again. Answer with a tree that has nothing to click.",
+            meta.name,
+        )
+
+    placed = anchor_.distribute(anchor, capacities)
+    if placed is None:
+        raise errors.StateOverflowError(meta.name, len(anchor), sum(capacities))
+
+    builder = _Builder(meta, placed)
+    built = [builder.top_level(root, f"{type(root).__name__}[{index}]") for index, root in enumerate(roots)]
+    builder.check_exhausted()
+    return built
+
+
+def _capacity(leaf: nodes.Interactive) -> int:
+    """Return how many anchor characters one component has room for.
+
+    Returns
+    -------
+    int
+        The spare characters, which is nothing at all for a component whose own
+        bound arguments already fill the id.
+    """
+    return max(0, codec.MAX_FRAGMENT_LENGTH - len(leaf.bound.payload))
+
+
+def _leaves(roots: collections.abc.Iterable[nodes.Component]) -> collections.abc.Iterator[nodes.Interactive]:
+    """Walk a tree for the components that route, in the order it renders them.
+
+    Deliberately the same order the build pass visits them in, since the two
+    walks are matched by position: children before an accessory, and children in
+    the order they were given.
+
+    Yields
+    ------
+    nodes.Interactive
+        Every component that carries a ``custom_id``.
+    """
+    for node in roots:
+        if isinstance(node, nodes.Interactive):
+            yield node
+        elif isinstance(node, nodes.Container | nodes.Row):
+            yield from _leaves(node.children)
+        elif isinstance(node, nodes.Section):
+            yield from _leaves((*node.children, node.accessory))
 
 
 class _Builder:
     """Carries what every node needs while the tree is walked."""
 
-    __slots__ = ("_anchor", "_meta")
+    __slots__ = ("_meta", "_placed", "_taken")
 
-    def __init__(self, meta: registry.ViewMeta, anchor: str) -> None:
+    def __init__(self, meta: registry.ViewMeta, placed: collections.abc.Sequence[tuple[int, str]]) -> None:
         self._meta = meta
-        self._anchor = anchor
+        self._placed = placed
+        self._taken = 0
+
+    def check_exhausted(self) -> None:
+        """Confirm every measured component was given its slice of the anchor.
+
+        Raises
+        ------
+        RuntimeError
+            If the two walks disagreed about which components are interactive,
+            which would silently leave part of the state unwritten.
+        """
+        if self._taken != len(self._placed):
+            msg = f"measured {len(self._placed)} interactive components but wrote {self._taken}"
+            raise RuntimeError(msg)
+
+    def fragment(self) -> tuple[int, str]:
+        """Take the next component's slice of the anchor.
+
+        Returns
+        -------
+        tuple[int, str]
+            The fragment index and the fragment itself.
+
+        Raises
+        ------
+        RuntimeError
+            If more components ask for a slice than were measured.
+        """
+        if self._taken >= len(self._placed):
+            msg = f"more than the {len(self._placed)} measured interactive components asked for state"
+            raise RuntimeError(msg)
+        taken = self._placed[self._taken]
+        self._taken += 1
+        return taken
 
     def top_level(self, node: nodes.TopLevelComponent, path: str) -> hikari.api.ComponentBuilder:
         if isinstance(node, nodes.Container):
@@ -215,10 +310,12 @@ class _Builder:
             reason = f"handler {bound.handler_id!r} (version {bound.version}) is not on view {self._meta.name!r}"
             raise errors.LayoutError(path, reason)
 
+        index, fragment = self.fragment()
         return codec.CustomID(
             raw_cookie=self._meta.cookie,
             handler=bound.token,
-            fragment=self._anchor,
+            fragment_index=index,
+            fragment=fragment,
             args=bound.payload,
         ).encode(view_name=self._meta.name)
 

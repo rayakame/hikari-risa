@@ -31,8 +31,14 @@ new shape, and bumping the view's version both changes its cookie, so components
 rendered by the old shape stop resolving, and marks the stored record so that it
 is refused here rather than being poured into a shape it no longer fits.
 
+Only the durable fields are written. A field marked ``risa.Prop`` is refilled
+per dispatch, so persisting it would store something the next dispatch throws
+away -- and would grow a store record with data whose real home is elsewhere.
+
 JSON rather than a packed binary format, so that whatever is in the store can be
-read by a person looking at it.
+read by a person looking at it. A message has no room for that luxury and packs
+its state positionally instead; a store has all the room it needs, and being
+able to read a record while debugging is worth more than the bytes.
 """
 
 from __future__ import annotations
@@ -60,12 +66,19 @@ class _Record(msgspec.Struct):
     n
         Name of the view that wrote it, recorded so that a store can be read and
         understood on its own.
+    f
+        Fingerprint of the durable fields the state was written under, so that
+        a field renamed or retyped without a version bump fails closed here
+        exactly as it would on a message.
     d
-        The view's own fields, left encoded until the version has been checked.
+        The view's durable fields, left encoded until the envelope has been
+        checked. Props are absent: they are refilled per dispatch, so writing
+        them would persist something the next dispatch is going to discard.
     """
 
     v: int
     n: str
+    f: str
     d: msgspec.Raw
 
 
@@ -88,7 +101,10 @@ def dumps(view: View, *, meta: registry.ViewMeta) -> bytes:
     bytes
         The encoded record.
     """
-    return _ENCODER.encode(_Record(v=meta.version, n=meta.name, d=msgspec.Raw(_ENCODER.encode(view))))
+    durable = dict(zip(meta.schema.names, meta.schema.values(view), strict=True))
+    return _ENCODER.encode(
+        _Record(v=meta.version, n=meta.name, f=meta.schema.fingerprint, d=msgspec.Raw(_ENCODER.encode(durable))),
+    )
 
 
 def loads(raw: bytes, *, meta: registry.ViewMeta) -> View:
@@ -121,6 +137,10 @@ def loads(raw: bytes, *, meta: registry.ViewMeta) -> View:
 
     if record.v != meta.version:
         raise errors.SchemaMismatchError(meta.name, record.v, meta.version)
+
+    if not meta.schema.accepts(record.f):
+        reason = "the durable fields were renamed, removed or retyped without bumping the schema version"
+        raise errors.StateDecodeError(meta.name, reason)
 
     try:
         return msgspec.json.decode(record.d, type=meta.cls)

@@ -153,11 +153,11 @@ wait (§7.3, §9).
 risa/
   __init__.py       public re-exports                          [exists]
   _about.py         metadata                                   [exists]
-  client.py         Client ABC, transports, dispatch           [exists; rewiring in pivot]
-  context.py        Context, responses, auto-defer             [exists; rewiring in pivot]
+  client.py         Client ABC, transports, dispatch           [done]
+  context.py        Context, responses, auto-defer             [done]
   di.py             Contexts, INJECTED re-export               [exists]
   errors.py         exception hierarchy                        [exists]
-  view.py           View base, @register(state=), @handler, Prop, load()
+  view.py           View base, @register(state=), @handler, Prop, load()   [done]
   modal.py          Modal base, @modal, TextInput, prompt machinery   [pivot step 5]
   internal/
     wire.py         the printable alphabet every id is written in
@@ -165,17 +165,19 @@ risa/
     anchor.py       anchor dialects, splitting and rejoining across components
     constants.py    Discord limits, stamped attribute names    [exists]
     registry.py     ViewMeta, cookie -> view registries        [exists]
-    reader.py       message-component walk for chunk reassembly [pivot]
+    reader.py       message-component walk for chunk reassembly [done]
   ui/
     nodes.py        full V2 node set                           [done]
-    build.py        two-phase flatten + emit                   [exists; two-phase in pivot]
+    build.py        two-phase flatten + emit                   [done]
   state/
-    store.py        Store protocol, MemoryStore                [exists; hardening in pivot]
+    store.py        Store protocol, MemoryStore                [done]
     schema.py       StateSchema: durable fields, packing, prefix fingerprints
-    backend.py      StateBackend/StateSession protocols        [pivot]
-    message.py      MessageSession + version cache             [pivot]
-    stored.py       StoredSession                              [pivot]
-    serde.py        store-entry envelope {v,n,f,d}             [exists; fingerprint in pivot]
+    placement.py    InMessage / InStore policy objects         [done]
+    backend.py      StateBackend/StateSession protocols        [done]
+    message.py      MessageSession + version cache             [done]
+    stored.py       StoredSession                              [done]
+    stateless.py    the degenerate placement: nothing to keep  [done]
+    serde.py        store-entry envelope {v,n,f,d}             [done]
     redis.py        RedisStore                                 [extra: redis; roadmap]
     testing.py      verify_store conformance kit               [roadmap]
 ```
@@ -511,6 +513,12 @@ the lock is a throughput optimization.**
   raised and never retried**: the loser suppresses nothing it already sent, re-renders the
   winning state so the message ends true, answers its interaction, and logs — a handler
   that already responded must not double-send, and a user must never see a hanging click.
+  Convergence works by *adopting* the winner's durable fields onto the instance the handler
+  is holding, rather than rendering a second one: the view then re-encodes to exactly what
+  was read, so nothing later in the dispatch can commit the discarded values on top of the
+  winner. When there is nothing to converge onto — the record vanished, or what replaced it
+  cannot be read — the transaction ends and `on_state_missing`/`on_outdated` answer instead,
+  with the session detached so the hook cannot commit against a dead baseline.
 - `InMessage` cross-process (multi-process REST only) is last-write-wins, stated plainly.
   The version cache + seq counter are load-bearing within a process, advisory beyond it.
 
@@ -539,7 +547,11 @@ handlers) are designed but deferred post-1.0 (§15).
   expires and an abandoned one eventually does.
 - `ctx.edit(layout)` must re-embed the current anchor into the ad-hoc tree, or raise
   (`InMessage` + a component-poor layout cannot carry the blob) *before* touching the
-  message — an edit must never destroy the only copy of state.
+  message — an edit must never destroy the only copy of state. **A tree with no interactive
+  components at all is the exception, not the failure**: nothing on it can be clicked, so no
+  reachable copy of the state is being destroyed. That is what makes the blessed terminal
+  screen (`await ctx.edit(ui.TextDisplay("Poll closed."))`) work identically under both
+  placements; the overflow is reserved for a tree that still routes but cannot carry.
 
 ### 7.5 The Store protocol **[decided — hardened]**
 
@@ -620,7 +632,14 @@ not. The handler never knows it was slow.
 - End-of-dispatch behaviour differs by outcome: a handler that **finishes cleanly without
   responding** gets the deferred ack issued immediately (silent, no user-visible error); a
   handler that **raises** gets the watchdog cancelled, so the failure stays visible instead
-  of being acked into silence.
+  of being acked into silence. That ack is **always the silent one**, whatever the watchdog
+  was configured to send — a spinner promises something still to come, and nothing is coming
+  from a dispatch that has ended — and it is issued only for an interaction risa actually
+  adopted, so a `custom_id` another library wrote is still never answered. It fires even
+  under `AutoDefer.OFF`, which turns off the *watchdog*, not the promise that a click gets
+  answered: that is what a conditionally-modal handler needs on the branch that opens none.
+  The watchdog is stood down under the response lock it holds across its own REST call, so a
+  deferral already in flight is recorded rather than aborted half-issued and then re-sent.
 
 ### 8.2 Context surface **[decided]**
 
@@ -961,20 +980,24 @@ Ordered by cost of changing later.
 
 ### The state pivot (current work)
 
-Each step should land green:
+Each step should land green. **1-4 have landed;** 5 is next.
 
-1. **Codec** — chunk framing (`idx`/`frag_len`, carve/gather with gap detection), the two
+1. **Codec** *(landed)* — chunk framing (`idx`/`frag_len`, carve/gather with gap detection), the two
    anchor dialects, the placement tag, Prop-aware positional state encoding. Still v1.
-2. **`StateSchema` + `Prop` + `load()`** — field partition, registration validations,
+2. **`StateSchema` + `Prop` + `load()`** *(landed)* — field partition, registration validations,
    `register(state=)`, `StateOverflowError` ergonomics.
-3. **Backends and sessions** — `MessageSession` (per-message lock, seq + version cache),
+3. **Backends and sessions** *(landed)* — `MessageSession` (per-message lock, seq + version cache),
    `StoredSession` (lease-capable `lock(timeout=)`, CAS-then-edit commits, converge-on-
    conflict, `on_state_missing`), Store protocol hardening (`StoreUnavailableError`,
    `{v,n,f,d}` envelope, key namespace, `InStore`+`MemoryStore` warning).
-4. **Build + dispatch + context rewire** — two-phase build, message-component reader, one
-   session-driven dispatch path, commit-per-rerender, the fatal fixes from the invariants
-   audit (CAS loss answers the interaction; `edit(layout)` re-embeds or raises; watchdog
-   vs conditionally-modal handlers), deletion of the store-era dispatch and `persist=`.
+4. **Build + dispatch + context rewire** *(landed)* — two-phase build, message-component
+   reader, one session-driven dispatch path, commit-per-rerender, the fatal fixes from the
+   invariants audit (CAS loss answers the interaction; `edit(layout)` re-embeds or raises;
+   watchdog vs conditionally-modal handlers), deletion of the store-era dispatch. Also
+   landed here: a third `StatelessBackend` so nothing above branches on whether a view has
+   state; named stores on the client (`stores={...}`) validated at `add_view`; and
+   `anchor.distribute`, which parks the components an anchor does not reach on one shared
+   index rather than counting past it.
 5. **`modal.py`** — §9 as decided.
 
 ### 1.0 roadmap, after the pivot

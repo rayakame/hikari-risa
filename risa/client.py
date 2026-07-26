@@ -24,6 +24,7 @@ from __future__ import annotations
 import abc
 import asyncio
 import logging
+import types
 import typing
 
 import hikari
@@ -33,12 +34,15 @@ from risa import context
 from risa import di as di_
 from risa import errors
 from risa import view
-from risa.internal import anchor as anchor_
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
-from risa.state import serde
+from risa.state import backend as backend_
+from risa.state import message as message_
+from risa.state import placement as placement_
+from risa.state import stateless as stateless_
 from risa.state import store as store_
+from risa.state import stored as stored_
 from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
@@ -97,10 +101,12 @@ class Client(abc.ABC):
     ----------
     rest
         The REST client interactions are answered through.
-    store
-        Where view state is kept between interactions. Defaults to a
+    stores
+        The stores views may name in ``state=risa.InStore(store=...)``, by that
+        name. Defaults to a single ``"default"``
         :class:`~risa.state.store.MemoryStore`, which is enough for a bot running
-        as a single process and enough for nothing else.
+        as a single process and enough for nothing else. Views that keep their
+        state in their message -- the default placement -- use none of this.
     use_global
         When ``True``, views registered process-wide by ``@risa.register`` are
         routed in addition to those added to this client. When ``False`` (the
@@ -113,21 +119,37 @@ class Client(abc.ABC):
         ``False`` when sharing a manager whose owner has registered them already.
     """
 
-    __slots__ = ("_di", "_registry", "_store", "_use_global")
+    __slots__ = (
+        "_di",
+        "_improvised_store",
+        "_message",
+        "_registry",
+        "_stateless",
+        "_stored",
+        "_stores",
+        "_use_global",
+    )
 
     def __init__(
         self,
         rest: hikari.api.RESTClient,
         *,
-        store: store_.Store | None = None,
+        stores: collections.abc.Mapping[str, store_.Store] | None = None,
         use_global: bool = False,
         di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
     ) -> None:
         self._di = di if di is not None else linkd.DependencyInjectionManager()
         self._registry = registry.Registry()
-        self._store = store if store is not None else store_.MemoryStore()
         self._use_global = use_global
+
+        self._improvised_store = stores is None
+        self._stores: dict[str, store_.Store] = (
+            dict(stores) if stores is not None else {placement_.DEFAULT_STORE: store_.MemoryStore()}
+        )
+        self._stateless = stateless_.StatelessBackend()
+        self._message = message_.MessageBackend()
+        self._stored = stored_.StoredBackend(self._stores)
 
         if register_app_dependencies:
             self._register_dependency(hikari.api.RESTClient, rest)
@@ -143,9 +165,9 @@ class Client(abc.ABC):
         return self._di
 
     @property
-    def store(self) -> store_.Store:
-        """Where this client keeps view state between interactions."""
-        return self._store
+    def stores(self) -> collections.abc.Mapping[str, store_.Store]:
+        """The stores this client's views may name, by name."""
+        return types.MappingProxyType(self._stores)
 
     def _register_dependency[T](self, dependency_type: type[T], value: T) -> None:
         """Register a dependency against the default scope.
@@ -204,12 +226,54 @@ class Client(abc.ABC):
         NotAViewError
             If the class subclasses :class:`~risa.view.View` but was never
             decorated with ``@risa.register``.
+        ViewDeclarationError
+            If the view keeps its state in a store this client was not given.
+            Deliberately raised here rather than when somebody clicks: a
+            misconfigured store is a startup mistake, and a dead button is a
+            terrible way to be told about one.
         """
         view_meta = getattr(cls, constants.VIEW_META, None)
         if not isinstance(view_meta, registry.ViewMeta):
             raise errors.NotAViewError(cls.__name__)
+
+        self._check_stores(view_meta)
+        placement = view_meta.placement
+        if self._improvised_store and isinstance(placement, placement_.InStore):
+            _LOGGER.warning(
+                "view %r keeps its state in a store, but this client was not given one, so it is using"
+                " an in-memory store that empties on restart. That forfeits the very thing a store is"
+                " for; pass stores={...} to the client, or place the state with state=risa.InMessage().",
+                view_meta.name,
+            )
+
         self._registry.register(view_meta)
         return cls
+
+    def _check_stores(self, meta: registry.ViewMeta) -> None:
+        """Confirm this client has the store a view's placement names.
+
+        Raises
+        ------
+        ViewDeclarationError
+            If the view names a store this client was never given.
+        """
+        if isinstance(meta.placement, placement_.InStore):
+            self._stored.store_for(meta)
+
+    def _backend_for(self, meta: registry.ViewMeta) -> backend_.StateBackend:
+        """Return the backend that answers for where a view keeps its state.
+
+        Returns
+        -------
+        backend_.StateBackend
+            The backend for this view's placement, or the one that keeps
+            nothing when the view has no durable state to place.
+        """
+        if meta.stateless:
+            return self._stateless
+        if isinstance(meta.placement, placement_.InStore):
+            return self._stored
+        return self._message
 
     async def build(self, view_: view.View) -> collections.abc.Sequence[hikari.api.ComponentBuilder]:
         """Render a view into the builders a message is sent with.
@@ -219,14 +283,12 @@ class Client(abc.ABC):
 
             await channel.send(components=await client.build(Poll(question="Ship it?")))
 
-        A view holding state has it written to the store here, under a fresh
-        random key that every component it renders carries. That write is what
-        makes this a coroutine: it is also the point at which the view stops
-        being a local object and becomes something any process sharing the store
-        can rebuild.
-
-        The state is written only once the tree has built, so a view that cannot
-        be rendered leaves nothing behind.
+        Where the view's state ends up is its registered placement's business,
+        and this asks that placement for the anchor its components should carry:
+        the state itself for a view that rides its own message, a freshly minted
+        key for one that lives in a store. Anything that has to be written is
+        written *after* the tree builds, so a view that cannot be rendered
+        leaves nothing behind.
 
         Parameters
         ----------
@@ -242,8 +304,12 @@ class Client(abc.ABC):
         ------
         NotAViewError
             If the view's class was never decorated with ``@risa.register``.
+        ViewDeclarationError
+            If the view keeps its state in a store this client was not given.
         LayoutError
             If a component routes to a handler the view does not have.
+        StateOverflowError
+            If the view's state does not fit the components it renders.
         CustomIdOverflowError
             If an encoded ``custom_id`` would exceed Discord's length limit.
         """
@@ -257,38 +323,16 @@ class Client(abc.ABC):
                 " ignored when clicked. Pass it to add_view, or build the client with use_global=True.",
                 meta.name,
             )
+        self._check_stores(meta)
 
         async with self._di.enter_context(di_.Contexts.DEFAULT):
-            await self._load(view_)
+            await view.refill(view_)
 
-        if meta.stateless:
-            return build_.build(view_.render(), meta=meta)
-
-        state_key = anchor_.make_state_key()
-        builders = build_.build(view_.render(), meta=meta, anchor=anchor_.StoreAnchor(key=state_key).encode())
-        await self._store.put(state_key, serde.dumps(view_, meta=meta), ttl=meta.ttl)
+        backend = self._backend_for(meta)
+        anchor = backend.first_anchor(meta=meta, view=view_)
+        builders = build_.build(view_.render(), meta=meta, anchor=anchor)
+        await backend.commit_first(meta=meta, view=view_, anchor=anchor)
         return builders
-
-    @staticmethod
-    async def _load(view_: view.View) -> None:
-        """Let a view fill in whatever risa does not persist for it.
-
-        Awaited before every render, on the send that creates a message and on
-        every dispatch that redraws it, so that a view's props hold the same
-        kind of thing in both. A view that does not override the hook pays
-        nothing.
-
-        The caller is responsible for having opened the dependency injection
-        containers the hook resolves its parameters against.
-
-        Parameters
-        ----------
-        view_
-            The view about to be rendered.
-        """
-        if type(view_).load is view.View.load:
-            return
-        await view_.load()
 
     def _resolve(self, cookie: str) -> registry.ViewMeta | None:
         meta = self._registry.get(cookie)
@@ -339,22 +383,8 @@ class Client(abc.ABC):
             return
 
         record = meta.handlers.get(custom_id.handler)
-        args_payload = custom_id.args
-        parsed = anchor_.parse(custom_id.fragment)
-        if custom_id.fragment and not isinstance(parsed, anchor_.StoreAnchor):
-            _LOGGER.error(
-                "interaction %s: view %r expects its state in a store, but the component carries a"
-                " different kind of anchor. Its placement changed without a version bump; routing to"
-                " on_outdated.",
-                interaction.id,
-                meta.name,
-            )
-            await meta.cls.on_outdated(ctx)
-            return
-        state_key = parsed.key if isinstance(parsed, anchor_.StoreAnchor) else ""
-
         autodefer = meta.defer if record is None or record.defer is None else record.defer
-        context.prepare_dispatch(state, interaction, meta=meta, state_key=state_key or None, autodefer=autodefer)
+        context.prepare_dispatch(state, interaction, meta=meta, autodefer=autodefer)
 
         async with (
             self._di.enter_context(di_.Contexts.DEFAULT),
@@ -376,7 +406,7 @@ class Client(abc.ABC):
 
             try:
                 args = record.signature.decode(
-                    args_payload,
+                    custom_id.args,
                     view_name=meta.name,
                     handler_id=record.handler_id,
                     version=record.version,
@@ -390,109 +420,57 @@ class Client(abc.ABC):
                 await meta.cls.on_outdated(ctx)
                 return
 
-            if meta.stateless:
-                instance = meta.cls()
-                context.supply_view(state, instance)
-                await self._load(instance)
-                await record.callback(instance, ctx, *args)
-            else:
-                await self._dispatch_stateful(meta, record.callback, ctx, state, state_key, args)
+            await self._dispatch(meta=meta, record=record, ctx=ctx, state=state, component=custom_id, args=args)
 
-    async def _dispatch_stateful(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+    async def _dispatch(  # ruff:ignore[too-many-arguments]
         self,
+        *,
         meta: registry.ViewMeta,
-        callback: registry.Handler,
+        record: registry.HandlerRecord,
         ctx: context.ComponentContext,
         state: context.DispatchState,
-        state_key: str,
+        component: codec.CustomID,
         args: tuple[object, ...],
     ) -> None:
-        """Rebuild a view from the store, run a handler on it, and write it back.
+        """Rebuild the view this component belongs to, run its handler, and commit.
 
-        Whether the handler changed anything is computed, not declared: the
-        view is re-encoded afterwards and compared with the loaded bytes. An
-        unchanged view skips the write -- a sliding TTL is refreshed with a
-        ``touch`` instead -- so a read-only handler costs no store write.
+        One shape for every placement. The session opened here is the only thing
+        that knows where the state actually is; everything around it -- reading,
+        running, committing, and answering when there is nothing to read -- is
+        written once and means the same under all of them.
 
-        The lock is held across the whole sequence rather than around the write
-        alone, because two people pressing the same button otherwise read the
-        same state and each write their own successor to it, losing one of the
-        two changes. It costs a slow handler the ability to run concurrently
-        with another click on the same view, which is the point.
-
-        The version check is not made redundant by that lock. A lock held in this
-        process means nothing to another one, so for any store shared between
-        processes the check is what actually rejects a write computed from state
-        somebody else has since replaced.
+        The lock the session takes -- whose reach is
+        :meth:`~risa.state.store.Store.lock`'s to explain -- is taken only once
+        dispatch knows it has a handler to run: a component that outlived its
+        handler never touches state, and so must not make anybody wait for it.
 
         Parameters
         ----------
         meta
             The view the interaction resolved to.
-        callback
-            The handler to run, taking the rebuilt view and ``ctx``.
+        record
+            The handler to run.
         ctx
             The interaction being answered.
-        state_key
-            Key the view's state should be under, taken from the ``custom_id``.
+        state
+            The dispatch state behind ``ctx``.
+        component
+            The clicked component, decoded.
         args
-            The component's decoded wire arguments, passed to the handler after
-            ``ctx``.
-
-        Raises
-        ------
-        StateConflictError
-            If the state was replaced while the handler ran. Not retried: the
-            handler has already had its chance to respond, and running it twice
-            would answer the interaction twice.
+            The component's decoded wire arguments, passed after ``ctx``.
         """
-        if not state_key:
-            _LOGGER.warning(
-                "ignoring interaction %s: view %r holds state, but the component carries no key for it."
-                " The component was rendered before the view declared any fields.",
-                ctx.interaction.id,
-                meta.name,
-            )
-            await meta.cls.on_state_missing(ctx)
-            return
-
-        async with self._store.lock(state_key):
-            versioned = await self._store.get_versioned(state_key)
-            if versioned is None:
-                await meta.cls.on_state_missing(ctx)
+        session = self._backend_for(meta).session(meta=meta, component=component, interaction=ctx.interaction)
+        async with session:
+            outcome = await session.restore()
+            if not isinstance(outcome, backend_.Restored):
+                await context.answer_unreadable(ctx, meta, outcome)
                 return
 
-            raw, version = versioned
-            try:
-                view_ = serde.loads(raw, meta=meta)
-            except errors.SerializationError:
-                _LOGGER.exception(
-                    "could not rebuild view %r from the state under key %r. Its fields were changed"
-                    " without bumping the schema version on @risa.register.",
-                    meta.name,
-                    state_key,
-                )
-                await meta.cls.on_state_missing(ctx)
-                return
-
-            context.supply_view(state, view_)
-            await self._load(view_)
-            await callback(view_, ctx, *args)
-
-            encoded = serde.dumps(view_, meta=meta)
-            if encoded == raw:
-                if meta.ttl is not None:
-                    await self._store.touch(state_key, ttl=meta.ttl)
-                return
-
-            written = await self._store.put_if_version(
-                state_key,
-                encoded,
-                expected=version,
-                ttl=meta.ttl,
-            )
-            if not written:
-                raise errors.StateConflictError(state_key)
+            instance = outcome.view
+            context.supply_view(state, instance, session)
+            await view.refill(instance)
+            await record.callback(instance, ctx, *args)
+            await context.settle_state(ctx, state)
 
 
 class GatewayEnabledClient(Client):
@@ -507,14 +485,14 @@ class GatewayEnabledClient(Client):
         self,
         app: GatewayClientAppT,
         *,
-        store: store_.Store | None = None,
+        stores: collections.abc.Mapping[str, store_.Store] | None = None,
         use_global: bool = False,
         di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
     ) -> None:
         super().__init__(
             app.rest,
-            store=store,
+            stores=stores,
             use_global=use_global,
             di=di,
             register_app_dependencies=register_app_dependencies,
@@ -552,14 +530,14 @@ class RestEnabledClient(Client):
         self,
         app: RestClientAppT,
         *,
-        store: store_.Store | None = None,
+        stores: collections.abc.Mapping[str, store_.Store] | None = None,
         use_global: bool = False,
         di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
     ) -> None:
         super().__init__(
             app.rest,
-            store=store,
+            stores=stores,
             use_global=use_global,
             di=di,
             register_app_dependencies=register_app_dependencies,
@@ -623,7 +601,7 @@ class RestEnabledClient(Client):
 def client_from_app(
     app: GatewayClientAppT,
     *,
-    store: store_.Store | None = ...,
+    stores: collections.abc.Mapping[str, store_.Store] | None = ...,
     use_global: bool = ...,
     di: linkd.DependencyInjectionManager | None = ...,
 ) -> GatewayEnabledClient: ...
@@ -633,7 +611,7 @@ def client_from_app(
 def client_from_app(
     app: RestClientAppT,
     *,
-    store: store_.Store | None = ...,
+    stores: collections.abc.Mapping[str, store_.Store] | None = ...,
     use_global: bool = ...,
     di: linkd.DependencyInjectionManager | None = ...,
 ) -> RestEnabledClient: ...
@@ -642,7 +620,7 @@ def client_from_app(
 def client_from_app(
     app: GatewayClientAppT | RestClientAppT,
     *,
-    store: store_.Store | None = None,
+    stores: collections.abc.Mapping[str, store_.Store] | None = None,
     use_global: bool = False,
     di: linkd.DependencyInjectionManager | None = None,
 ) -> Client:
@@ -652,8 +630,9 @@ def client_from_app(
     ----------
     app
         The bot to attach to.
-    store
-        Where view state is kept between interactions. Defaults to a
+    stores
+        The stores views may name in ``state=risa.InStore(store=...)``, by that
+        name. Defaults to a single ``"default"``
         :class:`~risa.state.store.MemoryStore`, which is enough for a bot running
         as a single process and enough for nothing else.
     use_global
@@ -670,14 +649,14 @@ def client_from_app(
         otherwise a :class:`RestEnabledClient`.
     """
     if isinstance(app, GatewayClientAppT):
-        return GatewayEnabledClient(app, store=store, use_global=use_global, di=di)
-    return RestEnabledClient(app, store=store, use_global=use_global, di=di)
+        return GatewayEnabledClient(app, stores=stores, use_global=use_global, di=di)
+    return RestEnabledClient(app, stores=stores, use_global=use_global, di=di)
 
 
 def client_from_lightbulb(
     lightbulb_client: LightbulbClient,
     *,
-    store: store_.Store | None = None,
+    stores: collections.abc.Mapping[str, store_.Store] | None = None,
     use_global: bool = False,
 ) -> Client:
     """Build a client that shares a lightbulb client's bot and dependencies.
@@ -691,8 +670,9 @@ def client_from_lightbulb(
     ----------
     lightbulb_client
         The lightbulb client to share with.
-    store
-        Where view state is kept between interactions. Defaults to a
+    stores
+        The stores views may name in ``state=risa.InStore(store=...)``, by that
+        name. Defaults to a single ``"default"``
         :class:`~risa.state.store.MemoryStore`, which is enough for a bot running
         as a single process and enough for nothing else.
     use_global
@@ -715,7 +695,7 @@ def client_from_lightbulb(
     if isinstance(app, GatewayClientAppT):
         return GatewayEnabledClient(
             app,
-            store=store,
+            stores=stores,
             use_global=use_global,
             di=lightbulb_client.di,
             register_app_dependencies=False,
@@ -723,7 +703,7 @@ def client_from_lightbulb(
     if isinstance(app, RestClientAppT):
         return RestEnabledClient(
             app,
-            store=store,
+            stores=stores,
             use_global=use_global,
             di=lightbulb_client.di,
             register_app_dependencies=False,
