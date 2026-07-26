@@ -45,13 +45,51 @@ import typing
 
 import msgspec
 
+from risa import errors
 from risa.internal import anchor
 from risa.internal import wire
 
 if typing.TYPE_CHECKING:
     import collections.abc
 
-__all__ = ("DurableField", "StateSchema", "structural_type_id")
+__all__ = ("DurableField", "Prop", "StateSchema", "structural_type_id")
+
+
+class _PropMarker:
+    """What :data:`Prop` tags an annotation with. Never instantiated."""
+
+    __slots__ = ()
+
+
+type Prop[T] = typing.Annotated[T, _PropMarker]
+"""Marks a view field as a per-dispatch *prop* rather than durable state.
+
+A view's fields are durable by default: risa persists them, and they come back
+on the next click. A field marked ``Prop`` is the opposite -- it is never
+written anywhere, costs nothing against the message's capacity, and arrives at
+every dispatch holding its default. Whatever ``render`` needs from it, the view
+refills in :meth:`~risa.View.load`::
+
+    @risa.register(name="board", version=1)
+    class Leaderboard(risa.View):
+        guild_id: int                       # durable, rides the message
+        page: int = 0                       # durable, survives restarts
+        rows: risa.Prop[list[Row]] = []      # fresh every dispatch
+
+        async def load(self, db: Database = linkd.INJECTED) -> None:
+            self.rows = await db.top(self.guild_id, page=self.page)
+
+Use it for anything whose real home is elsewhere -- rows from a database, a
+computed summary, anything large. The litmus test is that **if a handler
+assigns to a field and expects the value to still be there next click, it
+cannot be a Prop**: the assignment is simply discarded.
+
+Every prop needs a default, since dispatch builds the view from those defaults
+before ``load`` runs. The marker must also sit at the top of the annotation:
+``Prop[int | None]`` is a prop holding an optional int, while
+``Prop[int] | None`` is rejected when the view is registered, because a marker
+buried inside a union would otherwise be silently ignored.
+"""
 
 type _PrefixDecoder = msgspec.msgpack.Decoder[tuple[object, ...]]
 """Decoder for one prefix of a view's durable fields, as a positional array."""
@@ -191,6 +229,45 @@ def _decoder(fields: collections.abc.Sequence[DurableField]) -> _PrefixDecoder:
     return msgspec.msgpack.Decoder(tuple.__class_getitem__(tuple(field.annotation for field in fields)))
 
 
+def _is_prop(annotation: object) -> bool:
+    """Whether an annotation is marked as a per-dispatch prop.
+
+    Identity against the alias rather than a look at ``__metadata__``: a PEP
+    695 alias does not surface its metadata through the usual inspection path,
+    so a reader that went looking for the marker there would silently find
+    nothing and treat every prop as durable.
+
+    Returns
+    -------
+    bool
+        Whether the marker is at the top of this annotation.
+    """
+    return getattr(annotation, "__origin__", None) is Prop
+
+
+def _hides_a_prop(annotation: object) -> bool:
+    """Whether a marker is buried somewhere it will not be honoured.
+
+    Returns
+    -------
+    bool
+        Whether any part of the annotation below the top level is a prop.
+    """
+    return any(_is_prop(arg) or _hides_a_prop(arg) for arg in typing.get_args(annotation))
+
+
+def _unwrap(annotation: object) -> object:
+    """Return what a prop annotation wraps, or the annotation itself.
+
+    Returns
+    -------
+    object
+        The type the field actually holds.
+    """
+    args = typing.get_args(annotation)
+    return args[0] if _is_prop(annotation) and args else annotation
+
+
 class StateSchema:
     """A view's durable fields, and every earlier shape they have had.
 
@@ -216,10 +293,80 @@ class StateSchema:
         }
         self._fingerprint = _fingerprint(self._fields)
 
+    @classmethod
+    def of(cls, view_cls: type[msgspec.Struct], *, view_name: str) -> StateSchema:
+        """Partition a view's fields into durable state and per-dispatch props.
+
+        Every rule a view's field list has to obey is checked here, at import
+        time, so a declaration mistake is a traceback on startup rather than a
+        click that misbehaves later.
+
+        Parameters
+        ----------
+        view_cls
+            The view class to inspect.
+        view_name
+            The view's registered name, for errors.
+
+        Returns
+        -------
+        StateSchema
+            The schema of whatever fields remain durable.
+
+        Raises
+        ------
+        ViewDeclarationError
+            If a prop has no default, or a prop marker is buried where it
+            would be ignored.
+        """
+        durable: list[DurableField] = []
+        for field in msgspec.structs.fields(view_cls):
+            if _hides_a_prop(field.type):
+                reason = (
+                    f"field {field.name!r} hides a risa.Prop marker inside its annotation, where it"
+                    f" would be ignored; write risa.Prop[...] around the whole annotation instead"
+                )
+                raise errors.ViewDeclarationError(view_name, reason)
+
+            if _is_prop(field.type):
+                if field.required:
+                    reason = (
+                        f"prop {field.name!r} has no default; dispatch builds the view from its"
+                        f" defaults before load() runs, so every prop needs one"
+                    )
+                    raise errors.ViewDeclarationError(view_name, reason)
+                continue
+
+            durable.append(
+                DurableField(name=field.name, annotation=_unwrap(field.type), has_default=not field.required),
+            )
+
+        return cls(durable)
+
     @property
     def fields(self) -> tuple[DurableField, ...]:
         """The durable fields, in declaration order."""
         return self._fields
+
+    @property
+    def durable(self) -> bool:
+        """Whether this view has any state to persist at all."""
+        return bool(self._fields)
+
+    def values(self, view: msgspec.Struct) -> list[object]:
+        """Read the current value of every durable field off a view.
+
+        Parameters
+        ----------
+        view
+            The view to read.
+
+        Returns
+        -------
+        list[object]
+            One value per durable field, in declaration order.
+        """
+        return [getattr(view, field.name) for field in self._fields]
 
     @property
     def fingerprint(self) -> str:

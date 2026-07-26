@@ -38,7 +38,7 @@ from tests.helpers import interaction
 from tests.helpers import mock_of
 
 
-@risa.register(name="ctx-counter", version=1)
+@risa.register(name="ctx-counter", version=1, state=risa.InStore(ttl=None))
 class Counter(risa.View):
     count: int = 0
 

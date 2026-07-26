@@ -34,9 +34,11 @@ import typing
 import msgspec
 
 from risa import errors as errors_
+from risa.state import placement as placement_
 
 if typing.TYPE_CHECKING:
     from risa.internal import codec
+    from risa.state import schema as schema_
     from risa.view import AutoDefer
     from risa.view import View
 
@@ -94,10 +96,11 @@ class ViewMeta(msgspec.Struct, frozen=True):
         The encoded cookie the view routes under, derived from name and version.
     handlers
         The view's handler records, keyed by their encoded handler token.
-    stateless
-        Whether nothing is persisted for this view -- because it declares no
-        fields, or because it was registered with ``persist=False``. Computed
-        once at registration rather than per build.
+    schema
+        The view's durable fields and the shapes they have had, or an empty
+        schema when every field is a prop.
+    placement
+        Where this view's durable state lives.
     handles_outdated
         Whether the view overrides ``on_outdated``. An override acknowledges
         that components are retired deliberately, which is what downgrades the
@@ -115,10 +118,20 @@ class ViewMeta(msgspec.Struct, frozen=True):
     version: int
     cookie: str
     handlers: dict[str, HandlerRecord]
-    stateless: bool
+    schema: schema_.StateSchema
+    placement: placement_.StatePlacement
     handles_outdated: bool
     defer: AutoDefer
-    ttl: float | None = None
+
+    @property
+    def stateless(self) -> bool:
+        """Whether nothing is persisted for this view."""
+        return not self.schema.durable
+
+    @property
+    def ttl(self) -> float | None:
+        """How long a stored entry survives, for a view that uses a store."""
+        return self.placement.ttl if isinstance(self.placement, placement_.InStore) else None
 
 
 class Registry:

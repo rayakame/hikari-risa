@@ -21,4 +21,6 @@
 
 from __future__ import annotations
 
+from risa.state.placement import *
+from risa.state.schema import *
 from risa.state.store import *

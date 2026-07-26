@@ -43,6 +43,8 @@ from risa import errors
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
+from risa.state import placement as placement_
+from risa.state import schema as schema_
 
 if typing.TYPE_CHECKING:
     from risa import context
@@ -453,9 +455,41 @@ class View(msgspec.Struct):
             The tree to render, as one top-level component or several.
         """
 
+    async def load(self) -> None:
+        """Fill in whatever ``render`` needs that risa does not persist.
+
+        Awaited before every render -- the initial build and every dispatch --
+        after the durable fields have been restored and before the handler
+        runs. Fields marked :data:`~risa.Prop` arrive holding their defaults,
+        so this is where they are filled::
+
+            @risa.register(name="board", version=1)
+            class Leaderboard(risa.View):
+                guild_id: int
+                page: int = 0
+                rows: risa.Prop[list[Row]] = []
+
+                async def load(self, db: Database = linkd.INJECTED) -> None:
+                    self.rows = await db.top(self.guild_id, page=self.page)
+
+        Overriding it is optional, and a view whose fields are all durable
+        never needs to. Parameters other than ``self`` are resolved by
+        dependency injection, so a database handle is asked for rather than
+        smuggled through the view's own state.
+
+        It runs inside the window Discord allows for a response, so it should
+        do the one fetch it needs and no more; the auto-defer watchdog covers
+        it if it is slow.
+        """
+
     @classmethod
     async def on_state_missing(cls, ctx: context.ComponentContext) -> None:
         """Answer a click on a component whose state is no longer stored.
+
+        Reachable only for a view whose state lives in a store, since state
+        carried by the message itself cannot go missing while the message
+        exists. Overriding it on a message-resident view is refused at
+        registration rather than left to never fire.
 
         A class method rather than an instance one, because the reason it is
         called is precisely that there was nothing to rebuild an instance from.
@@ -587,12 +621,44 @@ def handler[V: View, **P](
     return decorate
 
 
+def _check_placement(
+    cls: type[View],
+    *,
+    name: str,
+    state: placement_.StatePlacement,
+    schema: schema_.StateSchema,
+) -> None:
+    """Reject a placement the view's own shape contradicts.
+
+    Raises
+    ------
+    ViewDeclarationError
+        If the view has nothing to place, or overrides a hook that cannot fire
+        where its state lives.
+    """
+    handles_missing = next(klass for klass in cls.__mro__ if "on_state_missing" in vars(klass)) is not View
+
+    if isinstance(state, placement_.InStore) and not schema.durable:
+        reason = (
+            "state=risa.InStore(...) was given, but every field is a risa.Prop, so there is nothing"
+            " to store; drop the argument, or drop the marker from the fields that should persist"
+        )
+        raise errors.ViewDeclarationError(name, reason)
+
+    if not isinstance(state, placement_.InStore) and handles_missing:
+        reason = (
+            "on_state_missing is overridden, but this view keeps its state in the message, where it"
+            " cannot go missing; the hook would never fire. Use on_outdated, or place the state with"
+            " state=risa.InStore(...)"
+        )
+        raise errors.ViewDeclarationError(name, reason)
+
+
 def register[T: View](
     *,
     name: str,
     version: int = 1,
-    ttl: float | None = None,
-    persist: bool = True,
+    state: placement_.StatePlacement = placement_.DEFAULT_PLACEMENT,
     defer: AutoDefer = AutoDefer.UPDATE,
 ) -> collections.abc.Callable[[type[T]], type[T]]:
     """Declare a view and make its components routable.
@@ -617,10 +683,11 @@ def register[T: View](
     by an older schema stop resolving instead of being decoded into a shape they
     no longer match.
 
-    A view that declares no fields holds no state. Nothing is written to the
-    store for one, and its components carry no key, which leaves the whole
-    payload free for arguments. ``persist=False`` extends that mode to views
-    *with* fields, turning them into render-only props.
+    A view's annotated fields are its durable state by default. Fields marked
+    :data:`~risa.Prop` are the exception: they are never persisted, and are
+    refilled per dispatch by :meth:`View.load`. A view whose fields are all
+    props therefore persists nothing at all, and where its state would have
+    lived stops mattering.
 
     Registration is unconditional and process-wide. A
     :class:`~risa.client.Client` only consults that registry when it is created
@@ -633,22 +700,11 @@ def register[T: View](
         Durable identity for the view. Must be unique per schema version.
     version
         Schema version of the view's state. Defaults to ``1``.
-    ttl
-        Seconds this view's state survives without being interacted with. The
-        clock is reset on every interaction, so a view in use never expires and
-        one that was abandoned eventually does. Defaults to ``None``, which
-        keeps state until it is deleted or evicted -- a component that stops
-        working after an interval nobody chose is worse than a store that grows
-        somewhere its size can be seen.
-    persist
-        Whether the view's fields are persisted state. ``True`` (the default)
-        writes them to the store on every build so an interaction can rebuild
-        the view. ``False`` declares a *props-only* view: fields are render
-        inputs supplied by whoever constructs it, nothing is ever stored, and
-        dispatch rebuilds the view from its defaults -- so every field must
-        have one, and a handler must refill whatever its redraw renders from.
-        For views that are a pure function of external data plus wire args,
-        such as a leaderboard rendered from the bot's own database.
+    state
+        Where the view's durable state lives: :class:`~risa.InMessage` (the
+        default) carries it in the message's own components, while
+        :class:`~risa.InStore` keeps it in a store the client was given and
+        carries only a key. Nothing else about the view changes with it.
     defer
         What the auto-defer watchdog sends for this view's handlers when one
         outruns Discord's response deadline. Defaults to the silent
@@ -672,21 +728,22 @@ def register[T: View](
         If a handler's signature cannot be used for wire arguments. Raised when
         the returned decorator is applied.
     ViewDeclarationError
-        If ``persist=False`` is combined with a ``ttl`` or with a field that
-        has no default. Raised when the returned decorator is applied.
+        If the view's fields cannot be partitioned -- a prop without a default,
+        or a marker buried in an annotation -- or if the class or its hooks
+        contradict where its state is placed. Raised when the returned
+        decorator is applied.
     """
 
     def decorate(cls: type[T]) -> type[T]:
-        fields = msgspec.structs.fields(cls)
-        if not persist:
-            if ttl is not None:
-                reason = "persist=False stores nothing, so ttl has nothing to apply to"
-                raise errors.ViewDeclarationError(name, reason)
-            required = [field.name for field in fields if field.required]
-            if required:
-                names = ", ".join(repr(field_name) for field_name in required)
-                reason = f"persist=False rebuilds the view from defaults on dispatch, but {names} have none"
-                raise errors.ViewDeclarationError(name, reason)
+        if cls.__struct_config__.frozen:
+            reason = "a view is mutated by its handlers, so it cannot be frozen"
+            raise errors.ViewDeclarationError(name, reason)
+
+        schema = schema_.StateSchema.of(cls, view_name=name)
+        _check_placement(cls, name=name, state=state, schema=schema)
+
+        if cls.load is not View.load:
+            cls.load = linkd.inject(cls.load)
 
         handlers: dict[str, registry.HandlerRecord] = {}
 
@@ -719,10 +776,10 @@ def register[T: View](
             version=version,
             cookie=codec.make_cookie(name, version),
             handlers=handlers,
-            stateless=not persist or not fields,
+            schema=schema,
+            placement=state,
             handles_outdated=outdated_definer is not View,
             defer=defer,
-            ttl=ttl,
         )
         setattr(cls, constants.VIEW_META, meta)
         registry.global_registry().register(meta)

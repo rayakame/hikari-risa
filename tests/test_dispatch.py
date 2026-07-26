@@ -41,7 +41,7 @@ from tests.helpers import interaction
 from tests.helpers import state_key_of
 
 
-@risa.register(name="test-poll", version=1)
+@risa.register(name="test-poll", version=1, state=risa.InStore(ttl=None))
 class Poll(risa.View):
     question: str
     votes: int = 0
@@ -77,7 +77,7 @@ class Ping(risa.View):
         type(self).pressed += 1
 
 
-@risa.register(name="test-chooser", version=1)
+@risa.register(name="test-chooser", version=1, state=risa.InStore(ttl=None))
 class Chooser(risa.View):
     picked: list[str] = msgspec.field(default_factory=list[str])
 
@@ -126,9 +126,9 @@ class Versioned(risa.View):
         type(self).calls.append("v2")
 
 
-@risa.register(name="test-board", version=1, persist=False)
+@risa.register(name="test-board", version=1)
 class Board(risa.View):
-    rows: list[int] = msgspec.field(default_factory=list[int])
+    rows: risa.Prop[list[int]] = msgspec.field(default_factory=list[int])
     seen: typing.ClassVar[list[tuple[int, list[int]]]] = []
 
     @typing.override
@@ -212,7 +212,7 @@ async def test_a_stateless_component_carries_no_state_key(client: StubClient) ->
 
 
 async def test_a_failed_build_leaves_nothing_in_the_store(client: StubClient, store: RecordingStore) -> None:
-    @risa.register(name="test-stray", version=1)
+    @risa.register(name="test-stray", version=1, state=risa.InStore(ttl=None))
     class Stray(risa.View):
         question: str
 
@@ -290,7 +290,7 @@ async def test_an_unregistered_cookie_is_ignored(client: StubClient, store: Reco
 
 
 async def test_a_view_ttl_reaches_every_write_it_causes() -> None:
-    @risa.register(name="test-ttl", version=1, ttl=60.0)
+    @risa.register(name="test-ttl", version=1, state=risa.InStore(ttl=60.0))
     class Ephemeral(risa.View):
         question: str
 
@@ -455,26 +455,28 @@ async def test_a_props_only_view_dispatches_from_defaults(client: StubClient, st
     assert store.writes == []
 
 
-def test_persist_false_requires_a_default_on_every_field() -> None:
+def test_a_prop_without_a_default_is_refused() -> None:
     class Bare(risa.View):
-        rows: list[int]
+        rows: risa.Prop[list[int]]
 
         @typing.override
         def render(self) -> ui.Layout:
             return ui.Row()
 
-    with pytest.raises(risa.ViewDeclarationError):
-        risa.register(name="test-board-bad", version=1, persist=False)(Bare)
+    with pytest.raises(risa.ViewDeclarationError, match="no default"):
+        risa.register(name="test-board-bad", version=1)(Bare)
 
 
-def test_persist_false_rejects_a_ttl() -> None:
-    class Timed(risa.View):
+def test_a_view_with_nothing_to_store_may_not_ask_for_a_store() -> None:
+    class AllProps(risa.View):
+        rows: risa.Prop[list[int]] = msgspec.field(default_factory=list[int])
+
         @typing.override
         def render(self) -> ui.Layout:
             return ui.Row()
 
-    with pytest.raises(risa.ViewDeclarationError):
-        risa.register(name="test-board-ttl", version=1, ttl=60.0, persist=False)(Timed)
+    with pytest.raises(risa.ViewDeclarationError, match="nothing"):
+        risa.register(name="test-board-store", version=1, state=risa.InStore(ttl=60.0))(AllProps)
 
 
 def test_two_handlers_sharing_id_and_version_collide() -> None:

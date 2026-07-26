@@ -120,14 +120,15 @@ including `on_state_missing` and `on_outdated`, and the Context response surface
 and the event/204 REST transport.
 
 **The codebase is mid-pivot to the dual-placement state architecture** decided in DESIGN.md
-(§2.3, §7): the store-only model on disk is being replaced by per-view placement
-(`state=risa.InMessage()` default — state chunked into the message's own custom_ids — or
-`risa.InStore(store=, ttl=)` behind the pluggable `Store`), per-field `risa.Prop[T]` props
-with a `load()` refill hook (subsuming `persist=False`, which will be deleted), the locking
-law (locks never span human think-time; CAS is correctness, locks are throughput), and
-commit-per-rerender write cadence. DESIGN.md is the authority on the target; the pivot's
-build order is DESIGN.md §15. Not yet built: the pivot itself, modals (callback-only, §9),
-`RedisStore`, and state migrations.
+(§2.3, §7); DESIGN.md is the authority on the target and §15 holds the build order. Landed
+so far: the chunked `custom_id` wire format with both anchor dialects
+(`internal/wire.py`, `internal/anchor.py`), `StateSchema` with prefix fingerprints
+(`state/schema.py`), the `risa.Prop[T]` marker with its declaration rules, per-view
+placement via `@risa.register(state=risa.InMessage() | risa.InStore(...))`, and the
+`load()` refill hook. Still to come: the message/store backends and their sessions, the
+two-phase build and the dispatch rewire onto them (dispatch is still store-only, bridged
+through a store anchor), the locking law and commit-per-rerender cadence, modals
+(callback-only, §9), `RedisStore`, and state migrations.
 
 Treat the rest as intent, not as an implemented contract.
 

@@ -258,6 +258,9 @@ class Client(abc.ABC):
                 meta.name,
             )
 
+        async with self._di.enter_context(di_.Contexts.DEFAULT):
+            await self._load(view_)
+
         if meta.stateless:
             return build_.build(view_.render(), meta=meta)
 
@@ -265,6 +268,27 @@ class Client(abc.ABC):
         builders = build_.build(view_.render(), meta=meta, anchor=anchor_.StoreAnchor(key=state_key).encode())
         await self._store.put(state_key, serde.dumps(view_, meta=meta), ttl=meta.ttl)
         return builders
+
+    @staticmethod
+    async def _load(view_: view.View) -> None:
+        """Let a view fill in whatever risa does not persist for it.
+
+        Awaited before every render, on the send that creates a message and on
+        every dispatch that redraws it, so that a view's props hold the same
+        kind of thing in both. A view that does not override the hook pays
+        nothing.
+
+        The caller is responsible for having opened the dependency injection
+        containers the hook resolves its parameters against.
+
+        Parameters
+        ----------
+        view_
+            The view about to be rendered.
+        """
+        if type(view_).load is view.View.load:
+            return
+        await view_.load()
 
     def _resolve(self, cookie: str) -> registry.ViewMeta | None:
         meta = self._registry.get(cookie)
@@ -369,6 +393,7 @@ class Client(abc.ABC):
             if meta.stateless:
                 instance = meta.cls()
                 context.supply_view(state, instance)
+                await self._load(instance)
                 await record.callback(instance, ctx, *args)
             else:
                 await self._dispatch_stateful(meta, record.callback, ctx, state, state_key, args)
@@ -451,6 +476,7 @@ class Client(abc.ABC):
                 return
 
             context.supply_view(state, view_)
+            await self._load(view_)
             await callback(view_, ctx, *args)
 
             encoded = serde.dumps(view_, meta=meta)
