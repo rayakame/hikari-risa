@@ -113,13 +113,21 @@ modules do not take a leading underscore.
 
 Built so far: the `custom_id` codec with arg converters and the signature fingerprint, the
 view registry, `@register` and versioned `@handler` with `bind()`, dependency injection, the
-state store (`MemoryStore`, per-key locks, CAS), the node layer for
-Container/Section/Row/TextDisplay/Button, full stateful dispatch including
-`on_state_missing` and `on_outdated`, props-only views via `persist=False`, and the Context
-response surface: `respond`/`rerender`/`edit(layout)`/`defer` with the auto-defer watchdog
-(`risa.AutoDefer`), skip-write-if-unchanged persistence, and the event/204 REST transport. The node layer is complete: all five
-selects, link/premium buttons, separators, media galleries, files and thumbnails. Not yet
-built: modals, `RedisStore`, and state migrations.
+state store (`MemoryStore`, per-key locks, CAS), the complete node layer (all five selects,
+link/premium buttons, separators, media galleries, files, thumbnails), full stateful dispatch
+including `on_state_missing` and `on_outdated`, and the Context response surface:
+`respond`/`rerender`/`edit(layout)`/`defer` with the auto-defer watchdog (`risa.AutoDefer`)
+and the event/204 REST transport.
+
+**The codebase is mid-pivot to the dual-placement state architecture** decided in DESIGN.md
+(§2.3, §7): the store-only model on disk is being replaced by per-view placement
+(`state=risa.InMessage()` default — state chunked into the message's own custom_ids — or
+`risa.InStore(store=, ttl=)` behind the pluggable `Store`), per-field `risa.Prop[T]` props
+with a `load()` refill hook (subsuming `persist=False`, which will be deleted), the locking
+law (locks never span human think-time; CAS is correctness, locks are throughput), and
+commit-per-rerender write cadence. DESIGN.md is the authority on the target; the pivot's
+build order is DESIGN.md §15. Not yet built: the pivot itself, modals (callback-only, §9),
+`RedisStore`, and state migrations.
 
 Treat the rest as intent, not as an implemented contract.
 
@@ -131,20 +139,22 @@ Treat the rest as intent, not as an implemented contract.
   accessory button, and modal text inputs are interactive. The tree is flattened to a sparse
   set of interactive leaves at build time and routed against a flat dict. Tree depth costs
   nothing at runtime.
-- **State lives in a pluggable store, keyed by a random token in the `custom_id`.** Random
-  keys (not message IDs or anything shard-derived) are what make resharding a non-event.
-  `MemoryStore` is the zero-infra default and is only safe single-process; a shared store such
-  as Redis is required for multi-process shards or a REST bot behind a load balancer. A view
-  registered with `persist=False` opts out of the store entirely: its fields become
-  render-only props and dispatch rebuilds it from defaults (DESIGN.md §7.6).
-- **`custom_id` wire format:** `[ver:1][cookie:6][handler:2][payload]` within Discord's
-  100-character limit, where the payload is `state key ‖ fingerprint ‖ args`. The cookie
-  hashes the view name *and* its schema version, and the handler token hashes the handler id
-  *and* its version, so schema and signature changes alike fail closed rather than
-  deserialising into the wrong shape; the 2-char fingerprint catches a signature edited
-  without a version bump (DESIGN.md §6.4). Unrecognised `custom_id`s must be ignored silently
-  so risa can coexist with other handlers; a recognised one that resolves to nothing is
-  logged, since that means a genuine routing failure.
+- **State placement is per view** (DESIGN.md §7.1): `InMessage` (default) serializes the
+  durable fields into the spare custom_id characters of the rendered components and reads
+  them back from `interaction.message` — zero infrastructure, restart-proof, capacity-
+  bounded; `InStore` keeps one record in a pluggable, developer-chosen `Store` behind a
+  replicated random key — unbounded, expirable (`ttl` required), multi-process-correct with
+  a distributed store. Fields are durable by default; `risa.Prop[T]` marks per-dispatch
+  props refilled in `load()`. Handler code is identical under both placements.
+- **`custom_id` wire format** (DESIGN.md §6.1): `[ver:1][cookie:6][handler:2][idx:1]`
+  `[frag_len:1][fragment][fingerprint ‖ args]` within Discord's 100-character limit; the
+  fragment is the component's slice of the state anchor (inline blob or store key, led by a
+  1-char placement tag). The cookie hashes the view name *and* its schema version, the
+  handler token hashes the handler id *and* its version, and the 2-char fingerprint catches
+  a signature edited without a version bump — schema, signature, and placement changes all
+  fail closed (§6.4, §7.1). Unrecognised `custom_id`s must be ignored silently so risa can
+  coexist with other handlers; a recognised one that resolves to nothing is logged, since
+  that means a genuine routing failure.
 - **Dependency injection is linkd**, so a manager can be shared with lightbulb. Handlers are
   dispatched inside `Contexts.DEFAULT` nested with `Contexts.COMPONENT`; `ctx` is passed
   positionally rather than injected, so handlers keep working when DI is disabled.
