@@ -82,7 +82,13 @@ first time rather than discovering it from lint output.
 risa/
   __init__.py    star re-exports of the public API
   _about.py      package metadata (__version__, __author__, ...)
+  client.py      Client ABC, the two transports, and the factories
+  di.py          Contexts (DEFAULT/COMPONENT/MODAL), INJECTED re-export
   errors.py      RisaError-rooted exception hierarchy
+  view.py        View base and @register
+  internal/      not public API; modules here carry no leading underscore
+    constants.py names and limits several modules have to agree on
+    registry.py  ViewMeta and the key -> view registries
   py.typed
 tests/
 noxfile.py       reformat / ruff / pyright / pytest sessions

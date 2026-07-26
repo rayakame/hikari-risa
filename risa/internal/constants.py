@@ -17,17 +17,17 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""A component handler for hikari with first-class Components V2 support."""
+"""Names and limits shared across the library.
+
+One home for the values several modules have to agree on, so that they are read
+from here rather than repeated as literals that can drift apart.
+"""
 
 from __future__ import annotations
 
-from risa._about import __author__
-from risa._about import __copyright__
-from risa._about import __discord_invite__
-from risa._about import __license__
-from risa._about import __url__
-from risa._about import __version__
-from risa.client import *
-from risa.di import *
-from risa.errors import *
-from risa.view import *
+import typing
+
+__all__ = ("VIEW_META",)
+
+VIEW_META: typing.Final[str] = "__risa_view_meta__"
+"""Attribute ``@risa.register`` stamps onto a view class to hold its metadata."""

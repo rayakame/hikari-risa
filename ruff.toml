@@ -10,6 +10,12 @@ line-ending = "lf"
 [lint]
 preview = true
 select = ["ALL"]
+ignore = [
+    # Only permits documenting exceptions raised by an explicit `raise` in the
+    # same function, which forbids documenting ones a caller will genuinely see
+    # propagated from a callee or from a returned decorator.
+    "DOC502", # raised exception is not explicitly raised
+]
 
 [lint.per-file-ignores]
 "noxfile.py" = [

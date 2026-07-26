@@ -27,14 +27,17 @@ from __future__ import annotations
 
 __all__ = (
     "CustomIdOverflowError",
+    "DuplicateViewError",
     "LayoutError",
     "LockTimeoutError",
+    "NotAViewError",
     "RisaError",
     "SchemaMismatchError",
     "SerializationError",
     "StateConflictError",
     "StateError",
     "StateNotFoundError",
+    "ViewDeclarationError",
 )
 
 # The Discord-imposed hard limit on the length of a component's ``custom_id``.
@@ -43,6 +46,68 @@ MAX_CUSTOM_ID_LENGTH = 100
 
 class RisaError(Exception):
     """Base class every exception raised by risa inherits from."""
+
+
+class ViewDeclarationError(RisaError):
+    """Raised when a view is declared in a way risa cannot honour.
+
+    Raised while the class is being decorated, so a mistake in a declaration is
+    an import-time traceback naming the view rather than a component that
+    quietly never works.
+
+    Attributes
+    ----------
+    view_name
+        Name of the view, or of its class when the name itself is the problem.
+    reason
+        What about the declaration cannot be honoured.
+    """
+
+    def __init__(self, view_name: str, reason: str) -> None:
+        self.view_name = view_name
+        self.reason = reason
+        super().__init__(f"view {view_name!r}: {reason}")
+
+
+class DuplicateViewError(RisaError):
+    """Raised when two different views claim the same routing key.
+
+    A component names the view it belongs to, so two views answering to one
+    name would make that reference ambiguous: whichever registered last would
+    silently answer for both.
+
+    Attributes
+    ----------
+    view_name
+        Name of the view being registered.
+    existing_name
+        Name of the view already registered under that key.
+    key
+        The key both claim.
+    """
+
+    def __init__(self, view_name: str, existing_name: str, key: str) -> None:
+        self.view_name = view_name
+        self.existing_name = existing_name
+        self.key = key
+        super().__init__(f"view {view_name!r} collides with {existing_name!r}: both are registered under {key!r}")
+
+
+class NotAViewError(RisaError):
+    """Raised when a class risa is given was never registered as a view.
+
+    Subclassing :class:`~risa.view.View` is not enough on its own: a view has
+    to be decorated with ``@risa.register`` to have a name to be routed under.
+
+    Attributes
+    ----------
+    type_name
+        Name of the class that was given.
+    """
+
+    def __init__(self, type_name: str) -> None:
+        self.type_name = type_name
+        super().__init__(f"{type_name} is not a registered view; decorate it with @risa.register")
 
 
 class LayoutError(RisaError):

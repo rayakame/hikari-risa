@@ -22,6 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "hikari~=2.5",
+    "linkd~=0.6",
     "msgspec~=0.21",
 ]
 

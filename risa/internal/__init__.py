@@ -17,17 +17,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""A component handler for hikari with first-class Components V2 support."""
+"""Internals. Nothing here is public API, whatever it is named."""
 
 from __future__ import annotations
-
-from risa._about import __author__
-from risa._about import __copyright__
-from risa._about import __discord_invite__
-from risa._about import __license__
-from risa._about import __url__
-from risa._about import __version__
-from risa.client import *
-from risa.di import *
-from risa.errors import *
-from risa.view import *
