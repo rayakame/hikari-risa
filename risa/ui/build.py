@@ -55,7 +55,7 @@ def build(
     layout: nodes.Layout,
     *,
     meta: registry.ViewMeta,
-    state_key: str | None = None,
+    anchor: str = "",
 ) -> collections.abc.Sequence[hikari.api.ComponentBuilder]:
     """Turn a rendered tree into the builders a message is sent with.
 
@@ -66,9 +66,9 @@ def build(
     meta
         The view the tree belongs to, whose cookie and handlers every id is
         encoded against.
-    state_key
-        Key the view's state is stored under, carried by every id so that a
-        click can find it again. Omitted for a view that holds no state.
+    anchor
+        The view's state anchor, carried by every id so that a click can find
+        the state again. Empty for a view that holds no durable state.
 
     Returns
     -------
@@ -83,18 +83,18 @@ def build(
         If an encoded ``custom_id`` would exceed Discord's length limit.
     """
     roots = [layout] if isinstance(layout, nodes.Component) else list(layout)
-    builder = _Builder(meta, state_key)
+    builder = _Builder(meta, anchor)
     return [builder.top_level(root, f"{type(root).__name__}[{index}]") for index, root in enumerate(roots)]
 
 
 class _Builder:
     """Carries what every node needs while the tree is walked."""
 
-    __slots__ = ("_meta", "_state_key")
+    __slots__ = ("_anchor", "_meta")
 
-    def __init__(self, meta: registry.ViewMeta, state_key: str | None) -> None:
+    def __init__(self, meta: registry.ViewMeta, anchor: str) -> None:
         self._meta = meta
-        self._state_key = state_key
+        self._anchor = anchor
 
     def top_level(self, node: nodes.TopLevelComponent, path: str) -> hikari.api.ComponentBuilder:
         if isinstance(node, nodes.Container):
@@ -215,15 +215,12 @@ class _Builder:
             reason = f"handler {bound.handler_id!r} (version {bound.version}) is not on view {self._meta.name!r}"
             raise errors.LayoutError(path, reason)
 
-        return codec.encode_custom_id(
-            codec.CustomID(
-                version=codec.CODEC_VERSION,
-                raw_cookie=self._meta.cookie,
-                handler=bound.token,
-                payload=(self._state_key or "") + bound.payload,
-            ),
-            view_name=self._meta.name,
-        )
+        return codec.CustomID(
+            raw_cookie=self._meta.cookie,
+            handler=bound.token,
+            fragment=self._anchor,
+            args=bound.payload,
+        ).encode(view_name=self._meta.name)
 
 
 def _text_display(node: nodes.TextDisplay) -> hikari.impl.TextDisplayComponentBuilder:

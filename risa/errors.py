@@ -46,6 +46,7 @@ __all__ = (
     "StateDecodeError",
     "StateError",
     "StateNotFoundError",
+    "StateOverflowError",
     "ViewDeclarationError",
 )
 
@@ -321,6 +322,41 @@ class CustomIdOverflowError(RisaError):
         super().__init__(
             f"custom_id for view {view_name!r} is {length} characters, "
             f"which exceeds the Discord limit of {MAX_CUSTOM_ID_LENGTH}",
+        )
+
+
+class StateOverflowError(RisaError):
+    """Raised when a view's state does not fit the components it renders.
+
+    Message-resident state is carried in the spare ``custom_id`` characters of
+    the interactive components the view rendered, so capacity is a property of
+    the tree rather than a fixed number: a render with fewer buttons carries
+    less. Raised at build and at every re-render, before anything is sent, so
+    that an oversized view fails as a Python traceback rather than as a message
+    whose state silently could not be saved.
+
+    The remedies are to mark bulky fields ``risa.Prop`` so they are refilled
+    per dispatch instead of persisted, or to move the view to
+    ``state=risa.InStore(...)`` where size is unbounded.
+
+    Attributes
+    ----------
+    view_name
+        Name of the view whose state could not be carried.
+    required
+        Characters the encoded state needs.
+    capacity
+        Characters the rendered tree has room for.
+    """
+
+    def __init__(self, view_name: str, required: int, capacity: int) -> None:
+        self.view_name = view_name
+        self.required = required
+        self.capacity = capacity
+        super().__init__(
+            f"state for view {view_name!r} needs {required} characters but the rendered components"
+            f" have room for {capacity}; mark bulky fields risa.Prop, or register the view with"
+            f" state=risa.InStore(...)",
         )
 
 

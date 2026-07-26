@@ -20,26 +20,45 @@
 """Encoding and decoding of component ``custom_id`` strings.
 
 A ``custom_id`` is the only routing channel Discord returns on a component
-interaction, so risa packs everything it needs to dispatch into one. The layout
-is a fixed-width header followed by an opaque payload::
+interaction, so risa packs everything it needs to dispatch into one::
 
-    [version:1][cookie:6][handler:2][payload:...]
+    [version:1][cookie:6][handler:2][idx:1][frag_len:1][fragment][fingerprint ‖ args]
 
+The header routes: which codec, which view, which handler. The *fragment* is
+this component's slice of the view's state anchor (:mod:`risa.internal.anchor`),
+framed by its own length so that the arguments after it can be found without
+knowing anything about the view. The arguments are what ``bind()`` baked into
+this particular component.
+
+What this module offers:
+
+* :meth:`CustomID.encode` and :meth:`CustomID.parse` assemble and read that
+  layout. Parsing fails soft, so an id another library wrote reads as ``None``.
+* :func:`make_cookie` and :func:`make_handler_token` derive the identities the
+  header routes on -- which view, which handler -- from names and versions.
+* :class:`HandlerSignature` describes a handler's wire parameters, and its
+  :meth:`~HandlerSignature.encode` and :meth:`~HandlerSignature.decode` carry
+  bound arguments across, refusing any that predate a signature edit.
+* :func:`resolve_converter` decides whether an annotation is a wire argument at
+  all, which is what separates them from parameters left to dependency
+  injection.
+
+Every character written here comes from the printable alphabet in
+:mod:`risa.internal.wire`, so a ``custom_id`` measures the same length however
+Discord counts it.
 """
 
 from __future__ import annotations
 
 import abc
-import base64
 import enum
-import hashlib
-import secrets
 import typing
 
 import msgspec
 
 from risa import errors as errors_
 from risa.internal import constants
+from risa.internal import wire
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -48,20 +67,17 @@ __all__ = (
     "CODEC_VERSION",
     "COOKIE_LENGTH",
     "FINGERPRINT_LENGTH",
+    "FRAGMENT_START",
     "HANDLER_LENGTH",
-    "STATE_KEY_LENGTH",
+    "MAX_FRAGMENT_INDEX",
+    "MAX_FRAGMENT_LENGTH",
     "ArgConverter",
     "ArgSpec",
     "CustomID",
     "HandlerSignature",
-    "decode_args",
-    "decode_custom_id",
-    "encode_args",
-    "encode_custom_id",
     "make_cookie",
     "make_handler_token",
     "make_signature_fingerprint",
-    "make_state_key",
     "resolve_converter",
 )
 
@@ -74,20 +90,39 @@ _VERSION_LENGTH: typing.Final[int] = 1
 COOKIE_LENGTH: typing.Final[int] = 6
 HANDLER_LENGTH: typing.Final[int] = 2
 
-_COOKIE_START: typing.Final[int] = _VERSION_LENGTH
-_HANDLER_START: typing.Final[int] = _COOKIE_START + COOKIE_LENGTH
-_HEADER_LENGTH: typing.Final[int] = _HANDLER_START + HANDLER_LENGTH
+_INDEX_WIDTH: typing.Final[int] = 1
+_FRAG_LEN_WIDTH: typing.Final[int] = 1
 
-_STATE_KEY_BYTES: typing.Final[int] = 12
+# The header, field by field, in order.
+_HEADER_WIDTHS: typing.Final[tuple[int, ...]] = (
+    _VERSION_LENGTH,
+    COOKIE_LENGTH,
+    HANDLER_LENGTH,
+    _INDEX_WIDTH,
+    _FRAG_LEN_WIDTH,
+)
 
-STATE_KEY_LENGTH: typing.Final[int] = 16
-"""Width of a state key, which is what :data:`_STATE_KEY_BYTES` encodes to."""
+FRAGMENT_START: typing.Final[int] = sum(_HEADER_WIDTHS)
+"""Characters every ``custom_id`` spends before its fragment begins."""
+
+_VERSION_CHAR: typing.Final[str] = wire.pack_uint(CODEC_VERSION, _VERSION_LENGTH)
+
+MAX_FRAGMENT_LENGTH: typing.Final[int] = min(
+    wire.largest_value(_FRAG_LEN_WIDTH),
+    constants.MAX_CUSTOM_ID_LENGTH - FRAGMENT_START,
+)
+"""Longest fragment one component can carry, before its arguments are charged."""
+
+MAX_FRAGMENT_INDEX: typing.Final[int] = wire.largest_value(_INDEX_WIDTH)
+"""Highest fragment index the wire distinguishes."""
 
 FINGERPRINT_LENGTH: typing.Final[int] = 2
 """Width of the signature fingerprint carried by components that carry args."""
 
-# The largest arg a one-char length prefix can frame.
-_MAX_FRAME_LENGTH: typing.Final[int] = 255
+_FRAME_LEN_WIDTH: typing.Final[int] = 1
+
+# The largest arg one packed length character can frame.
+_MAX_FRAME_LENGTH: typing.Final[int] = wire.largest_value(_FRAME_LEN_WIDTH)
 
 
 class CustomID(msgspec.Struct, frozen=True):
@@ -95,82 +130,106 @@ class CustomID(msgspec.Struct, frozen=True):
 
     Attributes
     ----------
-    version
-        The codec version the string was encoded with. Populated from the wire
-        by :func:`decode_custom_id`, which rejects any other value.
     raw_cookie
         The encoded view cookie, exactly ``6`` characters. Opaque here: it is
         resolved to a view by the registry layer, not by this codec.
     handler
         The encoded handler token, exactly ``2`` characters.
-    payload
-        Trailing data whose structure depends on the resolved view. Empty when
-        the component carries neither a state key nor arguments.
+    fragment_index
+        Where this component's fragment sits in the view's anchor.
+    fragment
+        This component's slice of the anchor. Empty for a component that
+        carries none of it, which is every component of a view holding no
+        durable state.
+    args
+        The fingerprint and encoded arguments this component was bound with.
+        Empty when its handler takes no wire arguments.
     """
 
-    version: int
     raw_cookie: str
     handler: str
-    payload: str = ""
+    fragment_index: int = 0
+    fragment: str = ""
+    args: str = ""
 
+    def encode(self, *, view_name: str) -> str:
+        """Assemble these parts into the string Discord carries.
 
-def encode_custom_id(custom_id: CustomID, *, view_name: str) -> str:
-    """Assemble a ``CustomID`` into its wire string.
+        Parameters
+        ----------
+        view_name
+            Name of the view the component belongs to. Not written to the
+            wire; used only to build a helpful error if the result overflows.
 
-    Parameters
-    ----------
-    custom_id
-        The parts to encode. Its ``version`` is written verbatim, so callers
-        building a fresh id should set it to :data:`CODEC_VERSION`.
-    view_name
-        Name of the view the component belongs to. Not written to the wire; used
-        only to build a helpful error if the result overflows.
+        Returns
+        -------
+        str
+            The encoded ``custom_id``.
 
-    Returns
-    -------
-    str
-        The encoded ``custom_id``.
+        Raises
+        ------
+        CustomIdOverflowError
+            If the assembled string would exceed Discord's limit, or if the
+            fragment is longer than one component can frame.
+        """
+        if len(self.fragment) > MAX_FRAGMENT_LENGTH or self.fragment_index > MAX_FRAGMENT_INDEX:
+            raise errors_.CustomIdOverflowError(
+                view_name,
+                FRAGMENT_START + len(self.fragment) + len(self.args),
+            )
 
-    Raises
-    ------
-    CustomIdOverflowError
-        If the assembled string would exceed Discord's 100-character limit.
-    """
-    encoded = f"{chr(custom_id.version)}{custom_id.raw_cookie}{custom_id.handler}{custom_id.payload}"
-    if len(encoded) > constants.MAX_CUSTOM_ID_LENGTH:
-        raise errors_.CustomIdOverflowError(view_name, len(encoded))
-    return encoded
+        encoded = (
+            f"{_VERSION_CHAR}"
+            f"{self.raw_cookie}"
+            f"{self.handler}"
+            f"{wire.pack_uint(self.fragment_index, _INDEX_WIDTH)}"
+            f"{wire.pack_uint(len(self.fragment), _FRAG_LEN_WIDTH)}"
+            f"{self.fragment}"
+            f"{self.args}"
+        )
+        if len(encoded) > constants.MAX_CUSTOM_ID_LENGTH:
+            raise errors_.CustomIdOverflowError(view_name, len(encoded))
+        return encoded
 
+    @classmethod
+    def parse(cls, raw: str) -> CustomID | None:
+        """Read a wire ``custom_id`` back into its parts.
 
-def decode_custom_id(custom_id: str) -> CustomID | None:
-    """Parse a wire ``custom_id`` back into its parts.
+        Fails soft: anything risa did not produce -- a string too short to hold
+        the header, one whose version character is unrecognised, or one whose
+        framing does not add up -- reads as ``None`` rather than raising, so
+        risa can share an interaction stream with other component handlers.
 
-    Fails soft: anything risa did not produce -- a string too short to hold the
-    header, or one whose version byte is unrecognised -- decodes to ``None``
-    rather than raising, so risa can share an interaction stream with other
-    component handlers.
+        Parameters
+        ----------
+        raw
+            The raw ``custom_id`` taken from a component interaction.
 
-    Parameters
-    ----------
-    custom_id
-        The raw ``custom_id`` taken from a component interaction.
+        Returns
+        -------
+        CustomID | None
+            The decoded parts, or ``None`` if risa did not write this id.
+        """
+        if len(raw) < FRAGMENT_START or raw[0] != _VERSION_CHAR:
+            return None
 
-    Returns
-    -------
-    CustomID | None
-        The decoded parts, or ``None`` if the string was not produced by this
-        codec version.
-    """
-    if len(custom_id) < _HEADER_LENGTH:
-        return None
-    if ord(custom_id[0]) != CODEC_VERSION:
-        return None
-    return CustomID(
-        version=ord(custom_id[0]),
-        raw_cookie=custom_id[_COOKIE_START:_HANDLER_START],
-        handler=custom_id[_HANDLER_START:_HEADER_LENGTH],
-        payload=custom_id[_HEADER_LENGTH:],
-    )
+        _, cookie, handler, raw_index, raw_length = wire.split_fields(raw, _HEADER_WIDTHS)
+        index = wire.unpack_uint(raw_index)
+        length = wire.unpack_uint(raw_length)
+        if index is None or length is None:
+            return None
+
+        fragment_end = FRAGMENT_START + length
+        if fragment_end > len(raw):
+            return None
+
+        return cls(
+            raw_cookie=cookie,
+            handler=handler,
+            fragment_index=index,
+            fragment=raw[FRAGMENT_START:fragment_end],
+            args=raw[fragment_end:],
+        )
 
 
 def make_cookie(view_name: str, schema_version: int) -> str:
@@ -192,8 +251,7 @@ def make_cookie(view_name: str, schema_version: int) -> str:
     str
         A cookie of :data:`COOKIE_LENGTH` characters.
     """
-    digest = hashlib.blake2s(f"{view_name}:{schema_version}".encode(), digest_size=4).digest()
-    return base64.urlsafe_b64encode(digest).decode().rstrip("=")[:COOKIE_LENGTH]
+    return wire.pack_digest(f"{view_name}:{schema_version}", width=COOKIE_LENGTH)
 
 
 def make_handler_token(handler_id: str, version: int) -> str:
@@ -216,27 +274,7 @@ def make_handler_token(handler_id: str, version: int) -> str:
     str
         A token of :data:`HANDLER_LENGTH` characters.
     """
-    digest = hashlib.blake2s(f"{handler_id}:{version}".encode(), digest_size=2).digest()
-    return base64.urlsafe_b64encode(digest).decode().rstrip("=")[:HANDLER_LENGTH]
-
-
-def make_state_key() -> str:
-    """Mint the key a view's state is filed under.
-
-    Random rather than derived from the message or the shard that sent it, which
-    is what keeps a key meaningful to every process: nothing about it has to be
-    recomputed when shards are added or a message is edited by a different
-    worker than the one that sent it.
-
-    Its width is charged against the ``custom_id`` limit, so the header and the
-    key together leave the remainder of the hundred characters for arguments.
-
-    Returns
-    -------
-    str
-        A key of :data:`STATE_KEY_LENGTH` characters.
-    """
-    return secrets.token_urlsafe(_STATE_KEY_BYTES)
+    return wire.pack_digest(f"{handler_id}:{version}", width=HANDLER_LENGTH)
 
 
 class ArgConverter(abc.ABC):
@@ -300,7 +338,7 @@ class ArgConverter(abc.ABC):
 
 
 class _IntConverter(ArgConverter):
-    """Ints as minimal-width little-endian signed bytes, rendered as latin-1."""
+    """Ints as minimal-width little-endian signed bytes, rendered printable."""
 
     __slots__ = ("_target",)
 
@@ -318,14 +356,15 @@ class _IntConverter(ArgConverter):
             msg = f"expected an int, got {type(value).__name__}"
             raise TypeError(msg)
         data = value.to_bytes((value.bit_length() + 8) // 8, "little", signed=True)
-        return data.decode("latin-1")
+        return wire.pack_bytes(data)
 
     @typing.override
     def decode(self, raw: str) -> object:
-        if not raw:
-            msg = "an int frame cannot be empty"
+        data = wire.unpack_bytes(raw)
+        if not data:
+            msg = f"not an int frame: {raw!r}"
             raise ValueError(msg)
-        return self._target(int.from_bytes(raw.encode("latin-1"), "little", signed=True))
+        return self._target(int.from_bytes(data, "little", signed=True))
 
 
 class _StrConverter(ArgConverter):
@@ -346,11 +385,19 @@ class _StrConverter(ArgConverter):
         if not isinstance(value, str):
             msg = f"expected a str, got {type(value).__name__}"
             raise TypeError(msg)
-        return value
+        return wire.pack_bytes(value.encode())
 
     @typing.override
     def decode(self, raw: str) -> object:
-        return self._target(raw)
+        data = wire.unpack_bytes(raw)
+        if data is None:
+            msg = f"not a str frame: {raw!r}"
+            raise ValueError(msg)
+        try:
+            return self._target(data.decode())
+        except UnicodeDecodeError as exc:
+            msg = f"not a str frame: {raw!r}"
+            raise ValueError(msg) from exc
 
 
 class _BoolConverter(ArgConverter):
@@ -368,14 +415,14 @@ class _BoolConverter(ArgConverter):
         if not isinstance(value, bool):
             msg = f"expected a bool, got {type(value).__name__}"
             raise TypeError(msg)
-        return "\x01" if value else "\x00"
+        return "1" if value else "0"
 
     @typing.override
     def decode(self, raw: str) -> object:
-        if raw not in {"\x00", "\x01"}:
+        if raw not in {"0", "1"}:
             msg = f"not a bool frame: {raw!r}"
             raise ValueError(msg)
-        return raw == "\x01"
+        return raw == "1"
 
 
 class _EnumConverter(ArgConverter):
@@ -492,6 +539,117 @@ class HandlerSignature(msgspec.Struct, frozen=True):
     args: tuple[ArgSpec, ...]
     fingerprint: str
 
+    def encode(self, values: collections.abc.Sequence[object], *, handler_id: str) -> str:
+        """Encode bound argument values for a component.
+
+        ``values`` may cover only a prefix of the wire parameters; the omitted
+        tail must be defaulted, and dispatch lets the current Python defaults
+        apply. The fingerprint always covers the whole signature, so a partial
+        binding is still checked against it on the way back in.
+
+        Parameters
+        ----------
+        values
+            The bound values, in wire-parameter order.
+        handler_id
+            Id of the handler, for errors.
+
+        Returns
+        -------
+        str
+            The fingerprint followed by one length-prefixed frame per value,
+            or ``""`` for a handler with no wire parameters.
+
+        Raises
+        ------
+        ArgBindError
+            If there are more values than wire parameters, an omitted
+            parameter has no default, or a value cannot be encoded.
+        """
+        if not self.args:
+            if values:
+                reason = f"handler takes no wire arguments, got {len(values)}"
+                raise errors_.ArgBindError(handler_id, reason)
+            return ""
+
+        if len(values) > len(self.args):
+            reason = f"handler takes at most {len(self.args)} wire arguments, got {len(values)}"
+            raise errors_.ArgBindError(handler_id, reason)
+
+        for spec in self.args[len(values) :]:
+            if spec.required:
+                reason = f"missing required wire argument {spec.name!r}"
+                raise errors_.ArgBindError(handler_id, reason)
+
+        frames: list[str] = []
+        for spec, value in zip(self.args, values, strict=False):
+            try:
+                data = spec.converter.encode(value)
+            except TypeError as exc:
+                reason = f"cannot encode {spec.name!r}: {exc}"
+                raise errors_.ArgBindError(handler_id, reason) from exc
+            if len(data) > _MAX_FRAME_LENGTH:
+                reason = (
+                    f"encoded value for {spec.name!r} is {len(data)} characters; the frame limit is {_MAX_FRAME_LENGTH}"
+                )
+                raise errors_.ArgBindError(handler_id, reason)
+            frames.append(wire.pack_uint(len(data), _FRAME_LEN_WIDTH) + data)
+
+        return self.fingerprint + "".join(frames)
+
+    def decode(self, payload: str, *, view_name: str, handler_id: str, version: int) -> tuple[object, ...]:
+        """Decode a component's arguments against this signature.
+
+        The returned tuple holds only the arguments the component actually
+        carried; a defaulted tail the binding omitted is left for Python's own
+        defaults when the handler is called.
+
+        Parameters
+        ----------
+        payload
+            The args portion of the ``custom_id``.
+        view_name
+            Name of the view, for errors.
+        handler_id
+            Id of the handler, for errors.
+        version
+            Version of the handler, for errors.
+
+        Returns
+        -------
+        tuple[object, ...]
+            The decoded arguments, in wire-parameter order.
+
+        Raises
+        ------
+        SignatureMismatchError
+            If the payload does not fit: the handler's signature was edited in
+            place after the component was rendered.
+        """
+        if not self.args:
+            if payload:
+                reason = "the component carries arguments, but the handler declares no wire parameters"
+                raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
+            return ()
+
+        if len(payload) < FINGERPRINT_LENGTH:
+            reason = "the component carries no signature fingerprint, but the handler declares wire parameters"
+            raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
+
+        if payload[:FINGERPRINT_LENGTH] != self.fingerprint:
+            reason = "the fingerprints differ; bump the handler's version instead of editing its signature in place"
+            raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
+
+        frames = _split_frames(payload[FINGERPRINT_LENGTH:])
+        if frames is None:
+            reason = "an argument frame is truncated"
+            raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
+        if len(frames) > len(self.args):
+            reason = f"the component carries more than the {len(self.args)} declared wire arguments"
+            raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
+
+        return _decode_values(frames, self, view_name=view_name, handler_id=handler_id, version=version)
+
 
 def make_signature_fingerprint(type_ids: collections.abc.Iterable[str]) -> str:
     """Hash a converter chain into the fingerprint its components carry.
@@ -506,137 +664,7 @@ def make_signature_fingerprint(type_ids: collections.abc.Iterable[str]) -> str:
     str
         A fingerprint of :data:`FINGERPRINT_LENGTH` characters.
     """
-    digest = hashlib.blake2s(",".join(type_ids).encode(), digest_size=2).digest()
-    return base64.urlsafe_b64encode(digest).decode().rstrip("=")[:FINGERPRINT_LENGTH]
-
-
-def encode_args(
-    values: collections.abc.Sequence[object],
-    signature: HandlerSignature,
-    *,
-    handler_id: str,
-) -> str:
-    """Encode bound argument values into a component's args payload.
-
-    ``values`` may cover only a prefix of the wire parameters; the omitted tail
-    must be defaulted, and dispatch will let the current Python defaults apply.
-    The fingerprint always hashes the whole chain, so a partial binding is
-    still checked against the full signature on decode.
-
-    Parameters
-    ----------
-    values
-        The bound values, in wire-parameter order.
-    signature
-        The handler's wire signature.
-    handler_id
-        Id of the handler, for errors.
-
-    Returns
-    -------
-    str
-        The args payload: the fingerprint followed by one length-prefixed
-        frame per value, or ``""`` for a handler with no wire parameters.
-
-    Raises
-    ------
-    ArgBindError
-        If there are more values than wire parameters, an omitted parameter
-        has no default, or a value cannot be encoded.
-    """
-    if not signature.args:
-        if values:
-            reason = f"handler takes no wire arguments, got {len(values)}"
-            raise errors_.ArgBindError(handler_id, reason)
-        return ""
-
-    if len(values) > len(signature.args):
-        reason = f"handler takes at most {len(signature.args)} wire arguments, got {len(values)}"
-        raise errors_.ArgBindError(handler_id, reason)
-
-    for spec in signature.args[len(values) :]:
-        if spec.required:
-            reason = f"missing required wire argument {spec.name!r}"
-            raise errors_.ArgBindError(handler_id, reason)
-
-    frames: list[str] = []
-    for spec, value in zip(signature.args, values, strict=False):
-        try:
-            data = spec.converter.encode(value)
-        except TypeError as exc:
-            reason = f"cannot encode {spec.name!r}: {exc}"
-            raise errors_.ArgBindError(handler_id, reason) from exc
-        if len(data) > _MAX_FRAME_LENGTH:
-            reason = (
-                f"encoded value for {spec.name!r} is {len(data)} characters; the frame limit is {_MAX_FRAME_LENGTH}"
-            )
-            raise errors_.ArgBindError(handler_id, reason)
-        frames.append(chr(len(data)) + data)
-
-    return signature.fingerprint + "".join(frames)
-
-
-def decode_args(
-    payload: str,
-    signature: HandlerSignature,
-    *,
-    view_name: str,
-    handler_id: str,
-    version: int,
-) -> tuple[object, ...]:
-    """Decode a component's args payload against its handler's signature.
-
-    The returned tuple holds only the arguments the component actually
-    carried; a defaulted tail the binding omitted is left for Python's own
-    defaults when the handler is called.
-
-    Parameters
-    ----------
-    payload
-        The args portion of the ``custom_id`` payload, after any state key.
-    signature
-        The wire signature of the handler the component resolved to.
-    view_name
-        Name of the view, for errors.
-    handler_id
-        Id of the handler, for errors.
-    version
-        Version of the handler, for errors.
-
-    Returns
-    -------
-    tuple[object, ...]
-        The decoded arguments, in wire-parameter order.
-
-    Raises
-    ------
-    SignatureMismatchError
-        If the payload does not fit the signature: the handler's signature was
-        edited in place after the component was rendered.
-    """
-    if not signature.args:
-        if payload:
-            reason = "the component carries arguments, but the handler declares no wire parameters"
-            raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
-        return ()
-
-    if len(payload) < FINGERPRINT_LENGTH:
-        reason = "the component carries no signature fingerprint, but the handler declares wire parameters"
-        raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
-
-    if payload[:FINGERPRINT_LENGTH] != signature.fingerprint:
-        reason = "the fingerprints differ; bump the handler's version instead of editing its signature in place"
-        raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
-
-    frames = _split_frames(payload[FINGERPRINT_LENGTH:])
-    if frames is None:
-        reason = "an argument frame is truncated"
-        raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
-    if len(frames) > len(signature.args):
-        reason = f"the component carries more than the {len(signature.args)} declared wire arguments"
-        raise errors_.SignatureMismatchError(view_name, handler_id, version, reason)
-
-    return _decode_values(frames, signature, view_name=view_name, handler_id=handler_id, version=version)
+    return wire.pack_digest(",".join(type_ids), width=FINGERPRINT_LENGTH)
 
 
 def _split_frames(data: str) -> list[str] | None:
@@ -651,12 +679,15 @@ def _split_frames(data: str) -> list[str] | None:
     frames: list[str] = []
     index = 0
     while index < len(data):
-        length = ord(data[index])
-        frame = data[index + 1 : index + 1 + length]
+        length = wire.unpack_uint(data[index : index + _FRAME_LEN_WIDTH])
+        if length is None:
+            return None
+        start = index + _FRAME_LEN_WIDTH
+        frame = data[start : start + length]
         if len(frame) != length:
             return None
         frames.append(frame)
-        index += 1 + length
+        index = start + length
     return frames
 
 

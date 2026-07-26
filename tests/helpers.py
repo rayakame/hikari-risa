@@ -29,6 +29,8 @@ import msgspec
 
 import risa
 from risa import context as context_
+from risa.internal import anchor as anchor_
+from risa.internal import codec as codec_
 
 if typing.TYPE_CHECKING:
     import contextlib
@@ -119,6 +121,13 @@ def interaction(custom_id: str) -> hikari.ComponentInteraction:
 def mock_of(method: object) -> unittest.mock.AsyncMock:
     """Recover the mock behind a method of a spec'd interaction, for assertions."""
     return typing.cast("unittest.mock.AsyncMock", method)
+
+
+def state_key_of(decoded: codec_.CustomID) -> str:
+    """Return the store key a decoded component's anchor names."""
+    parsed = anchor_.parse(decoded.fragment)
+    assert isinstance(parsed, anchor_.StoreAnchor)
+    return parsed.key
 
 
 def find_custom_ids(node: object) -> list[str]:

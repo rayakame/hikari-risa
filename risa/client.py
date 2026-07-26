@@ -33,6 +33,7 @@ from risa import context
 from risa import di as di_
 from risa import errors
 from risa import view
+from risa.internal import anchor as anchor_
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
@@ -260,8 +261,8 @@ class Client(abc.ABC):
         if meta.stateless:
             return build_.build(view_.render(), meta=meta)
 
-        state_key = codec.make_state_key()
-        builders = build_.build(view_.render(), meta=meta, state_key=state_key)
+        state_key = anchor_.make_state_key()
+        builders = build_.build(view_.render(), meta=meta, anchor=anchor_.StoreAnchor(key=state_key).encode())
         await self._store.put(state_key, serde.dumps(view_, meta=meta), ttl=meta.ttl)
         return builders
 
@@ -299,7 +300,7 @@ class Client(abc.ABC):
         ctx: context.ComponentContext,
         state: context.DispatchState,
     ) -> None:
-        custom_id = codec.decode_custom_id(interaction.custom_id)
+        custom_id = codec.CustomID.parse(interaction.custom_id)
         if custom_id is None:
             return
 
@@ -314,11 +315,19 @@ class Client(abc.ABC):
             return
 
         record = meta.handlers.get(custom_id.handler)
-        if meta.stateless:
-            state_key, args_payload = "", custom_id.payload
-        else:
-            state_key = custom_id.payload[: codec.STATE_KEY_LENGTH]
-            args_payload = custom_id.payload[codec.STATE_KEY_LENGTH :]
+        args_payload = custom_id.args
+        parsed = anchor_.parse(custom_id.fragment)
+        if custom_id.fragment and not isinstance(parsed, anchor_.StoreAnchor):
+            _LOGGER.error(
+                "interaction %s: view %r expects its state in a store, but the component carries a"
+                " different kind of anchor. Its placement changed without a version bump; routing to"
+                " on_outdated.",
+                interaction.id,
+                meta.name,
+            )
+            await meta.cls.on_outdated(ctx)
+            return
+        state_key = parsed.key if isinstance(parsed, anchor_.StoreAnchor) else ""
 
         autodefer = meta.defer if record is None or record.defer is None else record.defer
         context.prepare_dispatch(state, interaction, meta=meta, state_key=state_key or None, autodefer=autodefer)
@@ -342,9 +351,8 @@ class Client(abc.ABC):
                 return
 
             try:
-                args = codec.decode_args(
+                args = record.signature.decode(
                     args_payload,
-                    record.signature,
                     view_name=meta.name,
                     handler_id=record.handler_id,
                     version=record.version,

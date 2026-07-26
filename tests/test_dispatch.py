@@ -28,14 +28,17 @@ import pytest
 
 import risa
 from risa import ui
+from risa.internal import anchor
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
+from risa.internal import wire
 from tests.helpers import RecordingStore
 from tests.helpers import StubClient
 from tests.helpers import all_custom_ids
 from tests.helpers import first_custom_id
 from tests.helpers import interaction
+from tests.helpers import state_key_of
 
 
 @risa.register(name="test-poll", version=1)
@@ -190,22 +193,22 @@ def test_a_view_without_fields_is_stateless() -> None:
 
 async def test_building_a_stateful_view_writes_its_state(client: StubClient) -> None:
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
-    decoded = codec.decode_custom_id(custom_id)
+    decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
-    assert await client.store.get(decoded.payload) is not None
+    assert await client.store.get(state_key_of(decoded)) is not None
 
 
 async def test_a_stateful_component_carries_a_state_key(client: StubClient) -> None:
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
-    decoded = codec.decode_custom_id(custom_id)
+    decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
-    assert len(decoded.payload) == codec.STATE_KEY_LENGTH
+    assert len(state_key_of(decoded)) == anchor.STATE_KEY_LENGTH
 
 
 async def test_a_stateless_component_carries_no_state_key(client: StubClient) -> None:
-    decoded = codec.decode_custom_id(await first_custom_id(client, Ping()))
+    decoded = codec.CustomID.parse(await first_custom_id(client, Ping()))
     assert decoded is not None
-    assert not decoded.payload
+    assert not decoded.fragment
 
 
 async def test_a_failed_build_leaves_nothing_in_the_store(client: StubClient, store: RecordingStore) -> None:
@@ -227,12 +230,12 @@ async def test_a_failed_build_leaves_nothing_in_the_store(client: StubClient, st
 
 async def test_state_survives_a_click_and_is_written_back(client: StubClient) -> None:
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
-    decoded = codec.decode_custom_id(custom_id)
+    decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
 
     for expected in (1, 2, 3):
         await client.dispatch(interaction(custom_id))
-        raw = await client.store.get(decoded.payload)
+        raw = await client.store.get(state_key_of(decoded))
         assert raw is not None
         assert f'"votes":{expected}' in raw.decode()
 
@@ -251,9 +254,9 @@ async def test_a_stateless_view_dispatches_without_touching_the_store(
 
 async def test_a_click_on_evicted_state_reaches_on_state_missing(client: StubClient) -> None:
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
-    decoded = codec.decode_custom_id(custom_id)
+    decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
-    await client.store.delete(decoded.payload)
+    await client.store.delete(state_key_of(decoded))
 
     before = Poll.missing_seen
     await client.dispatch(interaction(custom_id))
@@ -262,9 +265,9 @@ async def test_a_click_on_evicted_state_reaches_on_state_missing(client: StubCli
 
 async def test_undecodable_state_reaches_on_state_missing(client: StubClient) -> None:
     custom_id = await first_custom_id(client, Poll(question="Ship it?"))
-    decoded = codec.decode_custom_id(custom_id)
+    decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
-    await client.store.put(decoded.payload, b'{"v":1,"n":"test-poll","d":{"question":42}}')
+    await client.store.put(state_key_of(decoded), b'{"v":1,"n":"test-poll","d":{"question":42}}')
 
     before = Poll.missing_seen
     await client.dispatch(interaction(custom_id))
@@ -277,15 +280,11 @@ async def test_a_custom_id_from_another_library_is_ignored(client: StubClient, s
 
 
 async def test_an_unregistered_cookie_is_ignored(client: StubClient, store: RecordingStore) -> None:
-    unknown = codec.encode_custom_id(
-        codec.CustomID(
-            version=codec.CODEC_VERSION,
-            raw_cookie=codec.make_cookie("nobody", 1),
-            handler=codec.make_handler_token("vote", 1),
-            payload=codec.make_state_key(),
-        ),
-        view_name="nobody",
-    )
+    unknown = codec.CustomID(
+        raw_cookie=codec.make_cookie("nobody", 1),
+        handler=codec.make_handler_token("vote", 1),
+        fragment=anchor.StoreAnchor(key=anchor.make_state_key()).encode(),
+    ).encode(view_name="nobody")
     await client.dispatch(interaction(unknown))
     assert store.writes == []
 
@@ -334,9 +333,9 @@ async def test_bound_args_reach_a_stateful_handler_beside_its_state(client: Stub
     await client.dispatch(interaction(ids[0]))
     await client.dispatch(interaction(ids[1]))
 
-    decoded = codec.decode_custom_id(ids[0])
+    decoded = codec.CustomID.parse(ids[0])
     assert decoded is not None
-    raw = await client.store.get(decoded.payload[: codec.STATE_KEY_LENGTH])
+    raw = await client.store.get(state_key_of(decoded))
     assert raw is not None
     assert '"picked":["a","bb"]' in raw.decode()
 
@@ -350,14 +349,10 @@ async def test_bound_args_reach_a_stateless_handler(client: StubClient) -> None:
 
 async def test_handler_versions_coexist_and_route_to_their_own_code(client: StubClient) -> None:
     current = await first_custom_id(client, Versioned())
-    old = codec.encode_custom_id(
-        codec.CustomID(
-            version=codec.CODEC_VERSION,
-            raw_cookie=codec.make_cookie("test-versioned", 1),
-            handler=codec.make_handler_token("act", 1),
-        ),
-        view_name="test-versioned",
-    )
+    old = codec.CustomID(
+        raw_cookie=codec.make_cookie("test-versioned", 1),
+        handler=codec.make_handler_token("act", 1),
+    ).encode(view_name="test-versioned")
 
     Versioned.calls.clear()
     await client.dispatch(interaction(current))
@@ -366,14 +361,10 @@ async def test_handler_versions_coexist_and_route_to_their_own_code(client: Stub
 
 
 async def test_a_discarded_handler_routes_to_on_outdated(client: StubClient) -> None:
-    gone = codec.encode_custom_id(
-        codec.CustomID(
-            version=codec.CODEC_VERSION,
-            raw_cookie=codec.make_cookie("test-outdated", 1),
-            handler=codec.make_handler_token("gone", 1),
-        ),
-        view_name="test-outdated",
-    )
+    gone = codec.CustomID(
+        raw_cookie=codec.make_cookie("test-outdated", 1),
+        handler=codec.make_handler_token("gone", 1),
+    ).encode(view_name="test-outdated")
 
     before = Outdated.outdated_seen
     await client.dispatch(interaction(gone))
@@ -381,15 +372,11 @@ async def test_a_discarded_handler_routes_to_on_outdated(client: StubClient) -> 
 
 
 async def test_an_in_place_signature_change_routes_to_on_outdated(client: StubClient) -> None:
-    changed = codec.encode_custom_id(
-        codec.CustomID(
-            version=codec.CODEC_VERSION,
-            raw_cookie=codec.make_cookie("test-outdated", 1),
-            handler=codec.make_handler_token("argful", 1),
-            payload=codec.make_signature_fingerprint(["s"]) + chr(1) + "a",
-        ),
-        view_name="test-outdated",
-    )
+    changed = codec.CustomID(
+        raw_cookie=codec.make_cookie("test-outdated", 1),
+        handler=codec.make_handler_token("argful", 1),
+        args=codec.make_signature_fingerprint(["s"]) + wire.pack_uint(1, 1) + "a",
+    ).encode(view_name="test-outdated")
 
     before = Outdated.outdated_seen
     await client.dispatch(interaction(changed))
@@ -397,14 +384,10 @@ async def test_an_in_place_signature_change_routes_to_on_outdated(client: StubCl
 
 
 async def test_a_component_missing_its_args_routes_to_on_outdated(client: StubClient) -> None:
-    argless = codec.encode_custom_id(
-        codec.CustomID(
-            version=codec.CODEC_VERSION,
-            raw_cookie=codec.make_cookie("test-outdated", 1),
-            handler=codec.make_handler_token("argful", 1),
-        ),
-        view_name="test-outdated",
-    )
+    argless = codec.CustomID(
+        raw_cookie=codec.make_cookie("test-outdated", 1),
+        handler=codec.make_handler_token("argful", 1),
+    ).encode(view_name="test-outdated")
 
     before = Outdated.outdated_seen
     await client.dispatch(interaction(argless))
@@ -454,10 +437,11 @@ async def test_building_a_props_only_view_writes_nothing(client: StubClient, sto
     custom_id = await first_custom_id(client, Board(rows=[5, 6]))
     assert store.writes == []
 
-    decoded = codec.decode_custom_id(custom_id)
+    decoded = codec.CustomID.parse(custom_id)
     assert decoded is not None
-    # No state key: the payload is the fingerprint plus one small int frame.
-    assert len(decoded.payload) == codec.FINGERPRINT_LENGTH + 2
+    # No anchor at all; the args are the fingerprint plus one small int frame.
+    assert not decoded.fragment
+    assert len(decoded.args) == codec.FINGERPRINT_LENGTH + 1 + 2
 
 
 async def test_a_props_only_view_dispatches_from_defaults(client: StubClient, store: RecordingStore) -> None:
@@ -520,3 +504,18 @@ def test_a_wire_parameter_after_an_injected_one_is_rejected() -> None:
 
     with pytest.raises(risa.HandlerSignatureError):
         risa.register(name="test-bad-sig", version=1)(BadSig)
+
+
+async def test_a_component_whose_placement_changed_reaches_on_outdated(client: StubClient) -> None:
+    # An anchor carrying state inline, arriving at a view whose state lives in
+    # a store: the placement tag is what tells these apart, and the mismatch
+    # must fail closed rather than be read as a key.
+    mismatched = codec.CustomID(
+        raw_cookie=codec.make_cookie("test-outdated", 1),
+        handler=codec.make_handler_token("current", 1),
+        fragment=anchor.MessageAnchor(fingerprint="abc", seq=1, state="state").encode(),
+    ).encode(view_name="test-outdated")
+
+    before = Outdated.outdated_seen
+    await client.dispatch(interaction(mismatched))
+    assert Outdated.outdated_seen == before + 1

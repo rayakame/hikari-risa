@@ -49,6 +49,7 @@ import hikari
 
 from risa import errors
 from risa import view as view_
+from risa.internal import anchor as anchor_
 from risa.internal import constants
 from risa.ui import build as build_
 
@@ -565,7 +566,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         if self._state.meta is None:
             msg = "edit() needs the view metadata risa attaches during dispatch; this context has none"
             raise RuntimeError(msg)
-        builders = build_.build(layout, meta=self._state.meta, state_key=self._state.state_key)
+        anchor = anchor_.StoreAnchor(key=self._state.state_key).encode() if self._state.state_key else ""
+        builders = build_.build(layout, meta=self._state.meta, anchor=anchor)
 
         async with self._state.lock:
             if self._state.initial is _InitialResponse.NONE:

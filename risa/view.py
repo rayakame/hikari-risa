@@ -238,7 +238,7 @@ class BoundHandlerMethod[**P]:
                     reason = f"cannot bind {name!r} without also binding the wire parameters before it"
                 raise errors.ArgBindError(self._handler_id, reason)
 
-        payload = codec.encode_args(values, signature, handler_id=self._handler_id)
+        payload = signature.encode(values, handler_id=self._handler_id)
         return BoundHandler(
             handler_id=self._handler_id,
             version=self._version,

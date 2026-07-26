@@ -26,6 +26,7 @@ import pytest
 
 import risa
 from risa.internal import codec
+from risa.internal import wire
 
 
 class Fruit(enum.IntEnum):
@@ -50,8 +51,8 @@ def signature(*specs: codec.ArgSpec) -> codec.HandlerSignature:
 
 
 def roundtrip(sig: codec.HandlerSignature, *values: object) -> tuple[object, ...]:
-    payload = codec.encode_args(values, sig, handler_id="h")
-    return codec.decode_args(payload, sig, view_name="v", handler_id="h", version=1)
+    payload = sig.encode(values, handler_id="h")
+    return sig.decode(payload, view_name="v", handler_id="h", version=1)
 
 
 @pytest.mark.parametrize("value", [0, 1, -1, 127, 128, 255, -256, 2**62, -(2**62), 1234567890123456789])
@@ -66,12 +67,13 @@ def test_snowflake_roundtrip_reconstructs_the_annotation_type() -> None:
 
 
 def test_a_snowflake_encodes_far_below_its_decimal_width() -> None:
-    payload = codec.encode_args([2**63 - 1], signature(spec("id", int)), handler_id="h")
-    # Fingerprint, length prefix, and eight value characters -- not nineteen digits.
-    assert len(payload) == codec.FINGERPRINT_LENGTH + 1 + 8
+    payload = signature(spec("id", int)).encode([2**63 - 1], handler_id="h")
+    # Fingerprint, length prefix, and eight bytes rendered printable -- still
+    # well under the nineteen characters the decimal digits would cost.
+    assert len(payload) == codec.FINGERPRINT_LENGTH + 1 + 10
 
 
-@pytest.mark.parametrize("value", ["", "a", "héllo wörld", "x" * 80])
+@pytest.mark.parametrize("value", ["", "a", "héllo wörld", "x" * 40])
 def test_str_roundtrip(value: str) -> None:
     assert roundtrip(signature(spec("s", str)), value) == (value,)
 
@@ -99,9 +101,9 @@ def test_multiple_args_roundtrip_in_order() -> None:
 
 def test_a_stale_enum_value_fails_to_decode() -> None:
     sig = signature(spec("f", Fruit))
-    payload = sig.fingerprint + chr(1) + "\x63"  # 99 is no Fruit.
+    payload = sig.fingerprint + wire.pack_uint(2, 1) + wire.pack_bytes(b"\x63")  # 99 is no Fruit.
     with pytest.raises(risa.SignatureMismatchError):
-        codec.decode_args(payload, sig, view_name="v", handler_id="h", version=1)
+        sig.decode(payload, view_name="v", handler_id="h", version=1)
 
 
 def test_int_and_snowflake_share_a_type_id() -> None:
@@ -135,63 +137,77 @@ def test_a_defaulted_tail_may_be_omitted() -> None:
 def test_omitting_a_required_arg_fails_at_encode() -> None:
     sig = signature(spec("name", str), spec("count", int))
     with pytest.raises(risa.ArgBindError):
-        codec.encode_args(["abc"], sig, handler_id="h")
+        sig.encode(["abc"], handler_id="h")
 
 
 def test_encoding_more_values_than_parameters_fails() -> None:
     sig = signature(spec("name", str))
     with pytest.raises(risa.ArgBindError):
-        codec.encode_args(["abc", "extra"], sig, handler_id="h")
+        sig.encode(["abc", "extra"], handler_id="h")
 
 
 def test_encoding_a_wrongly_typed_value_fails() -> None:
     sig = signature(spec("count", int))
     with pytest.raises(risa.ArgBindError):
-        codec.encode_args(["not an int"], sig, handler_id="h")
+        sig.encode(["not an int"], handler_id="h")
 
 
 def test_a_handler_without_wire_parameters_carries_no_payload() -> None:
     sig = signature()
-    assert not codec.encode_args([], sig, handler_id="h")
-    assert codec.decode_args("", sig, view_name="v", handler_id="h", version=1) == ()
+    assert not sig.encode([], handler_id="h")
+    assert sig.decode("", view_name="v", handler_id="h", version=1) == ()
 
 
 def test_a_payload_on_an_argless_handler_is_a_mismatch() -> None:
     with pytest.raises(risa.SignatureMismatchError):
-        codec.decode_args("xx", signature(), view_name="v", handler_id="h", version=1)
+        signature().decode("xx", view_name="v", handler_id="h", version=1)
 
 
 def test_an_empty_payload_on_an_argful_handler_is_a_mismatch() -> None:
     sig = signature(spec("count", int, required=False))
     with pytest.raises(risa.SignatureMismatchError):
-        codec.decode_args("", sig, view_name="v", handler_id="h", version=1)
+        sig.decode("", view_name="v", handler_id="h", version=1)
 
 
 def test_a_changed_signature_is_caught_by_the_fingerprint() -> None:
     old = signature(spec("role_id", int))
     new = signature(spec("role_name", str))
-    payload = codec.encode_args([123], old, handler_id="h")
+    payload = old.encode([123], handler_id="h")
     with pytest.raises(risa.SignatureMismatchError):
-        codec.decode_args(payload, new, view_name="v", handler_id="h", version=1)
+        new.decode(payload, view_name="v", handler_id="h", version=1)
 
 
 def test_a_truncated_frame_is_a_mismatch() -> None:
     sig = signature(spec("name", str))
-    payload = sig.fingerprint + chr(5) + "ab"
+    payload = sig.fingerprint + wire.pack_uint(5, 1) + "ab"
     with pytest.raises(risa.SignatureMismatchError):
-        codec.decode_args(payload, sig, view_name="v", handler_id="h", version=1)
+        sig.decode(payload, view_name="v", handler_id="h", version=1)
 
 
 def test_more_frames_than_parameters_is_a_mismatch() -> None:
     sig = signature(spec("name", str))
-    payload = sig.fingerprint + chr(1) + "a" + chr(1) + "b"
+    payload = sig.fingerprint + wire.pack_uint(1, 1) + "a" + wire.pack_uint(1, 1) + "b"
     with pytest.raises(risa.SignatureMismatchError):
-        codec.decode_args(payload, sig, view_name="v", handler_id="h", version=1)
+        sig.decode(payload, view_name="v", handler_id="h", version=1)
 
 
 def test_an_omitted_required_arg_on_the_wire_is_a_mismatch() -> None:
     lenient = signature(spec("name", str), spec("count", int, required=False))
     strict = signature(spec("name", str), spec("count", int))
-    payload = codec.encode_args(["abc"], lenient, handler_id="h")
+    payload = lenient.encode(["abc"], handler_id="h")
     with pytest.raises(risa.SignatureMismatchError):
-        codec.decode_args(payload, strict, view_name="v", handler_id="h", version=1)
+        strict.decode(payload, view_name="v", handler_id="h", version=1)
+
+
+def test_a_frame_length_that_is_not_a_packed_digit_is_a_mismatch() -> None:
+    sig = signature(spec("name", str))
+    with pytest.raises(risa.SignatureMismatchError):
+        sig.decode(sig.fingerprint + '"' + "ab", view_name="v", handler_id="h", version=1)
+
+
+def test_every_encoded_character_is_printable_ascii() -> None:
+    sig = signature(spec("name", str), spec("count", int), spec("loud", bool))
+    payload = sig.encode(["héllo", -(2**40), True], handler_id="h")
+    assert payload.isascii()
+    assert all(char.isprintable() for char in payload)
+    assert len(payload.encode()) == len(payload)

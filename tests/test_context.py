@@ -306,17 +306,13 @@ async def test_edit_shows_a_terminal_screen(client: StubClient) -> None:
     # The rendered tree only carries the bump button; craft the finish
     # handler's id by hand, reusing the state key bump's id carries.
     bump_id = await first_custom_id(client, Counter())
-    decoded = codec.decode_custom_id(bump_id)
+    decoded = codec.CustomID.parse(bump_id)
     assert decoded is not None
-    finish_id = codec.encode_custom_id(
-        codec.CustomID(
-            version=codec.CODEC_VERSION,
-            raw_cookie=decoded.raw_cookie,
-            handler=codec.make_handler_token("finish", 1),
-            payload=decoded.payload,
-        ),
-        view_name="ctx-counter",
-    )
+    finish_id = codec.CustomID(
+        raw_cookie=decoded.raw_cookie,
+        handler=codec.make_handler_token("finish", 1),
+        fragment=decoded.fragment,
+    ).encode(view_name="ctx-counter")
 
     inter = interaction(finish_id)
     await client.dispatch(inter)
@@ -414,14 +410,10 @@ async def test_a_crashing_handler_is_not_acked_into_silence(client: StubClient) 
 
 
 async def test_hooks_can_edit_the_origin_message(client: StubClient) -> None:
-    outdated = codec.encode_custom_id(
-        codec.CustomID(
-            version=codec.CODEC_VERSION,
-            raw_cookie=codec.make_cookie("ctx-hooked", 1),
-            handler=codec.make_handler_token("gone", 1),
-        ),
-        view_name="ctx-hooked",
-    )
+    outdated = codec.CustomID(
+        raw_cookie=codec.make_cookie("ctx-hooked", 1),
+        handler=codec.make_handler_token("gone", 1),
+    ).encode(view_name="ctx-hooked")
     inter = interaction(outdated)
     await client.dispatch(inter)
 
