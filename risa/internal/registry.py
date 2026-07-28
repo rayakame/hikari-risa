@@ -29,6 +29,7 @@ two clients in one process from answering for each other's views.
 
 from __future__ import annotations
 
+import logging
 import typing
 
 import msgspec
@@ -39,6 +40,8 @@ if typing.TYPE_CHECKING:
     from risa.view import View
 
 __all__ = ("Registry", "ViewMeta", "global_registry")
+
+_LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.internal.registry")
 
 
 class ViewMeta(msgspec.Struct, frozen=True):
@@ -104,6 +107,7 @@ class Registry:
         existing = self._views.get(meta.key)
         if existing is not None and existing.cls is not meta.cls:
             raise errors.DuplicateViewError(meta.name, existing.name, meta.key)
+        _LOGGER.debug("registering view %s", meta.name)
         self._views[meta.key] = meta
 
     def get(self, key: str) -> ViewMeta | None:

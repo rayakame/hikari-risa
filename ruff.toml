@@ -31,6 +31,9 @@ ignore = [
     "S101",    # use of assert
     "PLR2004", # magic value comparison
 ]
+"testbot/**" = [
+    "ALL"
+]
 
 [lint.isort]
 required-imports = ["from __future__ import annotations"]

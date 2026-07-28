@@ -174,6 +174,7 @@ class Client(abc.ABC):
         meta = getattr(cls, constants.VIEW_META, None)
         if not isinstance(meta, registry.ViewMeta):
             raise errors.NotAViewError(cls.__name__)
+        _LOGGER.info("registering view %s to client", meta.name)
         self._registry.register(meta)
         return cls
 

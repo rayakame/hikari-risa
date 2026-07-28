@@ -134,6 +134,15 @@ wheels = [
 ]
 
 [[package]]
+name = "async-timeout"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/ae/136395dfbfe00dfc94da3f3e136d0b13f394cba8f4841120e34226265780/async_timeout-5.0.1.tar.gz", hash = "sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3", size = 9274, upload-time = "2024-11-06T16:41:39.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/ba/e2081de779ca30d473f21f5b30e0e737c438205440784c7dfc81efc2b029/async_timeout-5.0.1-py3-none-any.whl", hash = "sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c", size = 6233, upload-time = "2024-11-06T16:41:37.9Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "25.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -161,6 +170,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0a/bf/cb30a51af3aa8ce63735f77e23dcd4fc0720fe0339bcb04f77345659c277/colorlog-6.11.0.tar.gz", hash = "sha256:9d90fb53fa906c8970c18fbe46506bae1fb5f86b513b8f867db37e4ace9be7ae", size = 17734, upload-time = "2026-07-17T12:16:46.59Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/a1/6b71004ab0fea510230be9ce05a4059029ac847c009fcc80b1b73d6fa5ab/colorlog-6.11.0-py3-none-any.whl", hash = "sha256:f1e27d75aa2cb138f3f640c0e305b65b680ccbef6ecc034eba7e03494ffcd2a1", size = 12016, upload-time = "2026-07-17T12:16:45.3Z" },
+]
+
+[[package]]
+name = "confspec"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/a6/1dca5942ebee52bf5c9bb787bf5e578058bdd214561d423b71e9b8634f3f/confspec-0.1.0.tar.gz", hash = "sha256:e4a014170e33b3f9655dc559497672fbff93d7da7354ffed01d2827fe7cb4ac4", size = 63936, upload-time = "2026-07-13T09:26:21.457Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/45/7a/78d8612ca315c47b4cdd702cf50fd84aa1f22c492eec4fde74c9b41ff4b1/confspec-0.1.0-py3-none-any.whl", hash = "sha256:57d7ce15d424708962fb7bf0077c162fbdb209468fb2620ecf69d22989c6bd75", size = 18768, upload-time = "2026-07-13T09:26:20.002Z" },
 ]
 
 [[package]]
@@ -298,6 +316,22 @@ wheels = [
 ]
 
 [[package]]
+name = "hikari-lightbulb"
+version = "3.2.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "async-timeout" },
+    { name = "confspec" },
+    { name = "hikari" },
+    { name = "linkd" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e1/4e/ced3811e36d0ca925d5870fa8cc9b1e1ffc84f5ad26e966f0e2ffa1341f7/hikari_lightbulb-3.2.5.tar.gz", hash = "sha256:a94549b97afb987fb11644e3ae034838346950766647b516f0a23371efb769ec", size = 252611, upload-time = "2026-07-04T16:42:17.288Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/73/86bc37e530c1c4217102dc6961871e8bed6eb619aafbc46c6ae62372b884/hikari_lightbulb-3.2.5-py3-none-any.whl", hash = "sha256:64800877f2058465bb78e748b9746c904639a76a70379db08f3597676c5574b8", size = 104599, upload-time = "2026-07-04T16:42:16.023Z" },
+]
+
+[[package]]
 name = "hikari-risa"
 version = "0.0.1"
 source = { editable = "." }
@@ -313,6 +347,9 @@ redis = [
 ]
 
 [package.dev-dependencies]
+bot = [
+    { name = "hikari-lightbulb" },
+]
 nox = [
     { name = "nox", extra = ["uv"] },
 ]
@@ -337,6 +374,7 @@ requires-dist = [
 provides-extras = ["redis"]
 
 [package.metadata.requires-dev]
+bot = [{ name = "hikari-lightbulb", specifier = "==3.2.5" }]
 nox = [{ name = "nox", extras = ["uv"], specifier = "==2026.7.11" }]
 pyright = [{ name = "pyright", specifier = "==1.1.411" }]
 pytest = [
