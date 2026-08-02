@@ -17,12 +17,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""Names and limits shared across the library.
-
-One home for the values several modules have to agree on, so that they are read
-from here rather than repeated as literals that can drift apart.
-"""
-
 from __future__ import annotations
 
 import typing
@@ -30,4 +24,3 @@ import typing
 __all__ = ("VIEW_META",)
 
 VIEW_META: typing.Final[str] = "__risa_view_meta__"
-"""Attribute ``@risa.register`` stamps onto a view class to hold its metadata."""

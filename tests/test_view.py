@@ -35,7 +35,6 @@ class Poll(risa.View):
 
 
 def meta_of(cls: type[risa.View]) -> registry.ViewMeta:
-    """Return the metadata ``@risa.register`` stamped onto a view class."""
     return typing.cast("registry.ViewMeta", getattr(cls, constants.VIEW_META))
 
 
@@ -96,7 +95,6 @@ def test_two_views_cannot_answer_to_one_name() -> None:
 
 
 def test_registering_the_same_view_twice_is_not_a_collision() -> None:
-    # A module imported twice, which is nobody's mistake.
     meta = meta_of(Poll)
     registry.global_registry().register(meta)
     assert registry.global_registry().get(meta.key) is meta

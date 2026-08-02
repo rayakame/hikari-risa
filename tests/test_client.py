@@ -32,31 +32,24 @@ from risa.internal import registry
 
 
 class GatewayApp:
-    """The two attributes of a gateway application the client construction needs."""
-
     def __init__(self) -> None:
         self.rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
         self.event_manager = unittest.mock.Mock(spec=hikari.api.EventManager)
 
 
 class RestApp:
-    """The two attributes of a REST application the client construction needs."""
-
     def __init__(self) -> None:
         self.rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
         self.interaction_server = unittest.mock.Mock(spec=hikari.api.InteractionServer)
 
 
 class LightbulbStub:
-    """A stand-in for the parts of a lightbulb client risa borrows."""
-
     def __init__(self, app: object) -> None:
         self.app = app
         self.di = linkd.DependencyInjectionManager()
 
 
-class Database:
-    """Something a callback might ask to have injected."""
+class Database: ...
 
 
 @risa.register(name="client-panel")
@@ -70,17 +63,14 @@ class Elsewhere(risa.View):
 
 
 def gateway_app() -> risa.GatewayClientAppT:
-    """Return a stand-in for a bot that receives interactions as events."""
     return typing.cast("risa.GatewayClientAppT", GatewayApp())
 
 
 def rest_app() -> risa.RestClientAppT:
-    """Return a stand-in for a bot that receives interactions on a server."""
     return typing.cast("risa.RestClientAppT", RestApp())
 
 
 def routes(built: risa.Client, cls: type[risa.View]) -> bool:
-    """Whether a client would answer a click on one of this view's components."""
     meta = getattr(cls, constants.VIEW_META)
     assert isinstance(meta, registry.ViewMeta)
     return built._resolve(meta.key) is not None  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
@@ -89,9 +79,6 @@ def routes(built: risa.Client, cls: type[risa.View]) -> bool:
 @pytest.fixture
 def client() -> risa.GatewayEnabledClient:
     return risa.client_from_app(gateway_app())
-
-
-# --- picking a transport ---
 
 
 def test_an_application_with_an_event_manager_gets_the_gateway_client() -> None:
@@ -123,9 +110,6 @@ def test_the_client_keeps_the_application_it_was_built_from() -> None:
     assert risa.client_from_app(app).app is app
 
 
-# --- dependency injection ---
-
-
 async def test_the_bots_own_types_are_injectable() -> None:
     app = gateway_app()
     built = risa.client_from_app(app)
@@ -145,7 +129,6 @@ async def test_a_dependency_registered_on_the_client_reaches_a_callback(
     def ask(db: Database = risa.INJECTED) -> Database:
         return db
 
-    # linkd hands back an awaitable whether or not the callback itself is one.
     async with client.di.enter_context(risa.Contexts.DEFAULT):
         assert await ask() is database
 
@@ -153,8 +136,6 @@ async def test_a_dependency_registered_on_the_client_reaches_a_callback(
 async def test_the_component_scope_sees_what_the_default_one_holds(
     client: risa.GatewayEnabledClient,
 ) -> None:
-    # Nesting is what makes a long-lived dependency visible from the scope
-    # opened for a single click.
     database = Database()
     client.di.registry_for(risa.Contexts.DEFAULT).register_value(Database, database)
 
@@ -173,7 +154,6 @@ def test_a_lightbulb_client_shares_its_dependency_manager() -> None:
 
 
 async def test_a_shared_manager_is_not_registered_against_twice() -> None:
-    # lightbulb has already put the bot's own types in there.
     lightbulb = LightbulbStub(GatewayApp())
     built = risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb))
 
@@ -185,9 +165,6 @@ async def test_a_shared_manager_is_not_registered_against_twice() -> None:
 def test_a_lightbulb_client_on_neither_transport_is_refused() -> None:
     with pytest.raises(TypeError, match="neither"):
         risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", LightbulbStub(object())))
-
-
-# --- which views a client answers for ---
 
 
 def test_a_view_added_to_a_client_is_routed(client: risa.GatewayEnabledClient) -> None:

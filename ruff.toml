@@ -11,23 +11,22 @@ line-ending = "lf"
 preview = true
 select = ["ALL"]
 ignore = [
-    # Only permits documenting exceptions raised by an explicit `raise` in the
-    # same function, which forbids documenting ones a caller will genuinely see
-    # propagated from a callee or from a returned decorator.
-    "DOC502", # raised exception is not explicitly raised
+    # Comment and docstring rules are disabled while the library is being
+    # (re)written; comments and docs are a dedicated pass at the end.
+    "CPY", # copyright header
+    "D",   # pydocstyle
+    "DOC", # pydoclint
+    "ERA", # commented-out code
+    "FIX", # fixme comments
+    "TD",  # todo comments
 ]
 
 [lint.per-file-ignores]
-"noxfile.py" = [
-    "D", "DOC" # docstrings
-]
 "**/__init__.py" = [
     "F401", # imported but unused
     "F403", # unable to detect undefined names
 ]
 "tests/**" = [
-    "D",       # docstrings
-    "DOC",     # docstrings
     "S101",    # use of assert
     "PLR2004", # magic value comparison
 ]
