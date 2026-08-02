@@ -27,11 +27,17 @@ from risa import errors
 from risa.internal import constants
 from risa.internal import registry
 
+if typing.TYPE_CHECKING:
+    from risa import ui
+
 __all__ = ("View", "register")
 
 
 class View(msgspec.Struct):
     __risa_view_meta__: typing.ClassVar[registry.ViewMeta]
+
+    def render(self) -> ui.Layout:
+        raise NotImplementedError
 
 
 def register[T: View](*, name: str, version: int = 1) -> typing.Callable[[type[T]], type[T]]:

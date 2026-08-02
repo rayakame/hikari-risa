@@ -31,9 +31,12 @@ from risa import errors
 from risa import view as view_
 from risa.internal import constants
 from risa.internal import registry
+from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
     import collections.abc
+
+    from hikari.api import special_endpoints
 
 __all__ = (
     "Client",
@@ -91,6 +94,9 @@ class Client(abc.ABC):
     @property
     def di(self) -> linkd.DependencyInjectionManager:
         return self._di
+
+    async def build(self, view: view_.View) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:  # ruff:ignore[no-self-use]
+        return build_(view.render())
 
     def add_view[T: view_.View](self, cls: type[T]) -> type[T]:
         meta = getattr(cls, constants.VIEW_META, None)

@@ -27,6 +27,7 @@ import linkd
 import pytest
 
 import risa
+from risa import ui
 from risa.internal import constants
 from risa.internal import registry
 
@@ -60,6 +61,14 @@ class Panel(risa.View):
 @risa.register(name="client-elsewhere")
 class Elsewhere(risa.View):
     pass
+
+
+@risa.register(name="client-static")
+class Static(risa.View):
+    message: str
+
+    def render(self) -> ui.Layout:
+        return ui.Container(ui.TextDisplay(self.message))
 
 
 def gateway_app() -> risa.GatewayClientAppT:
@@ -192,3 +201,12 @@ def test_a_client_does_not_answer_for_views_it_was_never_given(client: risa.Gate
 def test_use_global_answers_for_everything_registered_in_the_process() -> None:
     built = risa.client_from_app(gateway_app(), use_global=True)
     assert routes(built, Elsewhere)
+
+
+async def test_build_emits_what_the_view_renders(client: risa.GatewayEnabledClient) -> None:
+    built = await client.build(Static(message="hello"))
+
+    assert len(built) == 1
+    payload, _attachments = built[0].build()
+    assert payload["type"] == hikari.ComponentType.CONTAINER
+    assert payload["components"][0]["content"] == "hello"
