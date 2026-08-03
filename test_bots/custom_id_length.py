@@ -36,8 +36,8 @@ import hikari
 # Konfiguration
 # --------------------------------------------------------------------------
 
-TOKEN = "TOKEN_REDACTED"
-CHANNEL_ID = 1266869428490993765
+TOKEN = os.environ["DISCORD_TOKEN"]
+CHANNEL_ID = int(os.environ.get("TEST_CHANNEL_ID", "1266869428490993765"))
 
 SEARCH_HI = 220          # obere Suchgrenze fuer die Binaersuche
 REQUEST_DELAY = 0.35     # zusaetzliche Pause; hikari macht Ratelimits selbst
