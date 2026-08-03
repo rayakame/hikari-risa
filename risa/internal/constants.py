@@ -21,6 +21,10 @@ from __future__ import annotations
 
 import typing
 
-__all__ = ("VIEW_META",)
+__all__ = (
+    "MAX_CUSTOM_ID_LENGTH",
+    "VIEW_META",
+)
 
+MAX_CUSTOM_ID_LENGTH: typing.Final[int] = 100
 VIEW_META: typing.Final[str] = "__risa_view_meta__"

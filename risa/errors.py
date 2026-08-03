@@ -19,6 +19,8 @@
 # SOFTWARE.
 from __future__ import annotations
 
+from risa.internal import constants
+
 __all__ = (
     "CustomIdOverflowError",
     "DuplicateViewError",
@@ -33,8 +35,6 @@ __all__ = (
     "StateNotFoundError",
     "ViewDeclarationError",
 )
-
-MAX_CUSTOM_ID_LENGTH = 100
 
 
 class RisaError(Exception): ...
@@ -74,7 +74,7 @@ class CustomIdOverflowError(RisaError):
         self.length = length
         super().__init__(
             f"custom_id for view {view_name!r} is {length} characters, "
-            f"which exceeds the Discord limit of {MAX_CUSTOM_ID_LENGTH}",
+            f"which exceeds the Discord limit of {constants.MAX_CUSTOM_ID_LENGTH}",
         )
 
 
