@@ -29,6 +29,7 @@ import linkd
 from risa import di as di_
 from risa import errors
 from risa import view as view_
+from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
 from risa.ui import build as build_
@@ -123,14 +124,27 @@ class Client(abc.ABC):
             meta = registry.global_registry().get(key)
         return meta
 
-    async def _process_interaction(  # ruff:ignore[no-self-use]
+    async def _process_interaction(
         self,
         interaction: hikari.ComponentInteraction,
     ) -> None:
+        custom_id = codec.parse_custom_id(interaction.custom_id)
+        if custom_id is None:
+            return
+
+        meta = self._resolve(custom_id.cookie)
+        if meta is None:
+            _LOGGER.debug(
+                "interaction %s carries a risa custom_id with cookie %r, but this client has no view for it",
+                interaction.id,
+                custom_id.cookie,
+            )
+            return
         _LOGGER.debug(
-            "interaction %s carried custom_id %r, which this client cannot route yet",
+            "interaction %s routes to view %s (version %d); handler dispatch is not built yet",
             interaction.id,
-            interaction.custom_id,
+            meta.name,
+            meta.version,
         )
 
 

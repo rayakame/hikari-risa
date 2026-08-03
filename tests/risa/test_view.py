@@ -24,6 +24,7 @@ import typing
 import pytest
 
 import risa
+from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
 
@@ -56,14 +57,18 @@ def test_registering_files_the_view_process_wide() -> None:
     assert registry.global_registry().get(meta_of(Poll).key) is meta_of(Poll)
 
 
+def test_a_registered_view_is_keyed_by_its_cookie() -> None:
+    assert meta_of(Poll).key == codec.make_cookie("view-poll", 1)
+
+
 def test_a_version_is_part_of_what_a_view_is_looked_up_under() -> None:
     class Second(risa.View):
         pass
 
     risa.register(name="view-versioned", version=2)(Second)
 
-    assert meta_of(Second).key != "view-versioned:1"
-    assert registry.global_registry().get("view-versioned:1") is None
+    assert meta_of(Second).key == codec.make_cookie("view-versioned", 2)
+    assert registry.global_registry().get(codec.make_cookie("view-versioned", 1)) is None
 
 
 def test_a_view_needs_a_name() -> None:

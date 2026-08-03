@@ -25,6 +25,7 @@ import typing
 import msgspec
 
 from risa import errors
+from risa.internal import codec
 
 if typing.TYPE_CHECKING:
     from risa.view import View
@@ -41,7 +42,7 @@ class ViewMeta(msgspec.Struct, frozen=True):
 
     @property
     def key(self) -> str:
-        return f"{self.name}:{self.version}"
+        return codec.make_cookie(self.name, self.version)
 
 
 class Registry:

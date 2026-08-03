@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import logging
 import typing
 import unittest.mock
 
@@ -28,6 +29,7 @@ import pytest
 
 import risa
 from risa import ui
+from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
 
@@ -201,6 +203,57 @@ def test_a_client_does_not_answer_for_views_it_was_never_given(client: risa.Gate
 def test_use_global_answers_for_everything_registered_in_the_process() -> None:
     built = risa.client_from_app(gateway_app(), use_global=True)
     assert routes(built, Elsewhere)
+
+
+def interaction_with(custom_id: str) -> unittest.mock.Mock:
+    interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
+    interaction.custom_id = custom_id
+    return interaction
+
+
+def encoded_id_for(cls: type[risa.View]) -> str:
+    meta = getattr(cls, constants.VIEW_META)
+    assert isinstance(meta, registry.ViewMeta)
+    return codec.CustomID(cookie=meta.key, handler="ab", fragment_index=0, fragment="", tail="").encode()
+
+
+async def test_a_foreign_custom_id_is_ignored_silently(
+    client: risa.GatewayEnabledClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    interaction = interaction_with("miru:settings:3")
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert not caplog.records
+    interaction.create_initial_response.assert_not_called()
+
+
+async def test_a_risa_id_nobody_answers_for_is_logged(
+    client: risa.GatewayEnabledClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    interaction = interaction_with(encoded_id_for(Elsewhere))
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "no view" in caplog.text
+    interaction.create_initial_response.assert_not_called()
+
+
+async def test_a_registered_views_component_is_recognised(
+    client: risa.GatewayEnabledClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client.add_view(Panel)
+    interaction = interaction_with(encoded_id_for(Panel))
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "client-panel" in caplog.text
 
 
 async def test_build_emits_what_the_view_renders(client: risa.GatewayEnabledClient) -> None:
