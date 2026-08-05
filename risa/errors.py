@@ -23,6 +23,7 @@ from risa.internal import constants
 
 __all__ = (
     "CustomIdOverflowError",
+    "DuplicateHandlerError",
     "DuplicateViewError",
     "LayoutError",
     "LockTimeoutError",
@@ -53,6 +54,29 @@ class DuplicateViewError(RisaError):
         self.existing_name = existing_name
         self.key = key
         super().__init__(f"view {view_name!r} collides with {existing_name!r}: both are registered under {key!r}")
+
+
+class DuplicateHandlerError(RisaError):
+    def __init__(
+        self,
+        view_name: str,
+        token: str,
+        *,
+        first_id: str,
+        first_version: int,
+        second_id: str,
+        second_version: int,
+    ) -> None:
+        self.view_name = view_name
+        self.token = token
+        self.first_id = first_id
+        self.first_version = first_version
+        self.second_id = second_id
+        self.second_version = second_version
+        super().__init__(
+            f"view {view_name!r}: handlers {first_id!r} (version {first_version}) and "
+            f"{second_id!r} (version {second_version}) both route under token {token!r}",
+        )
 
 
 class NotAViewError(RisaError):

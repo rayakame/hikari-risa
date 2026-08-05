@@ -28,17 +28,26 @@ from risa import errors
 from risa.internal import codec
 
 if typing.TYPE_CHECKING:
+    import collections.abc
+
     from risa.view import View
 
-__all__ = ("Registry", "ViewMeta", "global_registry")
+__all__ = ("HandlerRecord", "Registry", "ViewMeta", "global_registry")
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.internal.registry")
+
+
+class HandlerRecord(msgspec.Struct, frozen=True):
+    callback: collections.abc.Callable[..., collections.abc.Awaitable[None]]
+    handler_id: str
+    version: int
 
 
 class ViewMeta(msgspec.Struct, frozen=True):
     cls: type[View]
     name: str
     version: int
+    handlers: collections.abc.Mapping[str, HandlerRecord] = msgspec.field(default_factory=dict[str, HandlerRecord])
 
     @property
     def key(self) -> str:

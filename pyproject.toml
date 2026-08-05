@@ -21,7 +21,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "hikari~=2.5",
+    "hikari",
     "linkd~=0.6",
     "msgspec~=0.21",
 ]

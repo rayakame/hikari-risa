@@ -189,5 +189,5 @@ Treat the rest as intent, not as an implemented contract.
   the whole message body, not just its components.
 - `ComponentBuilder.build()` returns a `(payload, attachments)` **tuple**, unlike
   `SelectOptionBuilder.build()` which returns a bare mapping.
-- ruff warns that `COM812` conflicts with the formatter. It arrives via `select = ["ALL"]` and
-  is currently tolerated.
+- `COM812` (which `select = ["ALL"]` would pull in) is in the `ignore` list: it conflicts with
+  the formatter, which owns trailing commas.

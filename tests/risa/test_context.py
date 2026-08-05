@@ -19,14 +19,35 @@
 # SOFTWARE.
 from __future__ import annotations
 
-from risa._about import __author__
-from risa._about import __copyright__
-from risa._about import __discord_invite__
-from risa._about import __license__
-from risa._about import __url__
-from risa._about import __version__
-from risa.client import *
-from risa.context import *
-from risa.di import *
-from risa.errors import *
-from risa.view import *
+import unittest.mock
+
+import hikari
+import pytest
+
+import risa
+
+
+def component_interaction() -> hikari.ComponentInteraction:
+    return unittest.mock.Mock(spec=hikari.ComponentInteraction)
+
+
+def test_the_context_exposes_the_interaction_it_was_built_from() -> None:
+    interaction = component_interaction()
+
+    ctx = risa.ComponentContext(interaction)
+
+    assert ctx.interaction is interaction
+
+
+def test_the_interaction_is_read_only() -> None:
+    ctx = risa.ComponentContext(component_interaction())
+
+    with pytest.raises(AttributeError):
+        ctx.interaction = component_interaction()  # type: ignore[reportAttributeAccessIssue]
+
+
+def test_the_context_holds_no_attributes_beyond_its_slots() -> None:
+    ctx = risa.ComponentContext(component_interaction())
+
+    with pytest.raises(AttributeError):
+        ctx.message = None  # type: ignore[reportAttributeAccessIssue]

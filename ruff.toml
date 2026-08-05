@@ -19,6 +19,8 @@ ignore = [
     "ERA", # commented-out code
     "FIX", # fixme comments
     "TD",  # todo comments
+
+    "COM812", # missing trailing comma; conflicts with the formatter, which owns trailing commas
 ]
 
 [lint.per-file-ignores]
@@ -33,6 +35,10 @@ ignore = [
 "testbot/**" = [
     "ALL"
 ]
+
+[lint.pylint]
+max-args = 8
+max-positional-args = 5
 
 [lint.isort]
 required-imports = ["from __future__ import annotations"]

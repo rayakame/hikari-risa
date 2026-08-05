@@ -19,14 +19,20 @@
 # SOFTWARE.
 from __future__ import annotations
 
-from risa._about import __author__
-from risa._about import __copyright__
-from risa._about import __discord_invite__
-from risa._about import __license__
-from risa._about import __url__
-from risa._about import __version__
-from risa.client import *
-from risa.context import *
-from risa.di import *
-from risa.errors import *
-from risa.view import *
+import typing
+
+if typing.TYPE_CHECKING:
+    import hikari
+
+__all__ = ("ComponentContext",)
+
+
+class ComponentContext:
+    __slots__ = ("_interaction",)
+
+    def __init__(self, interaction: hikari.ComponentInteraction) -> None:
+        self._interaction = interaction
+
+    @property
+    def interaction(self) -> hikari.ComponentInteraction:
+        return self._interaction

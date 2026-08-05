@@ -39,7 +39,7 @@ def reformat(session: nox.Session) -> None:
     sync(session, groups=["ruff"], self=True)
 
     session.run("ruff", "format", *PYTHON_PATHS, *session.posargs)
-    session.run("ruff", "check", *PYTHON_PATHS, "--select", "I", "--fix", *session.posargs)
+    session.run("ruff", "check", *PYTHON_PATHS, "--select", "I,RUF022,RUF023", "--fix", *session.posargs)
 
 
 @nox.session(name="format-check", reuse_venv=True)
@@ -48,7 +48,7 @@ def format_check(session: nox.Session) -> None:
     sync(session, groups=["ruff"], self=True)
 
     session.run("ruff", "format", "--check", *PYTHON_PATHS, *session.posargs)
-    session.run("ruff", "check", *PYTHON_PATHS, "--select", "I", *session.posargs)
+    session.run("ruff", "check", *PYTHON_PATHS, "--select", "I,RUF022,RUF023", *session.posargs)
 
 
 @nox.session(reuse_venv=True)
