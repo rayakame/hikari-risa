@@ -27,6 +27,7 @@ __all__ = (
     "DuplicateViewError",
     "LayoutError",
     "LockTimeoutError",
+    "NotAHandlerError",
     "NotAViewError",
     "RisaError",
     "SchemaMismatchError",
@@ -76,6 +77,15 @@ class DuplicateHandlerError(RisaError):
         super().__init__(
             f"view {view_name!r}: handlers {first_id!r} (version {first_version}) and "
             f"{second_id!r} (version {second_version}) both route under token {token!r}",
+        )
+
+
+class NotAHandlerError(RisaError):
+    def __init__(self, type_name: str) -> None:
+        self.type_name = type_name
+        super().__init__(
+            f"{type_name} has no handler identity to route under; pass a handler method"
+            f" accessed on the view instance, or the result of its bind()",
         )
 
 

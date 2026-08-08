@@ -97,7 +97,10 @@ class Client(abc.ABC):
         return self._di
 
     async def build(self, view: view_.View) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:  # ruff:ignore[no-self-use]
-        return build_(view.render())
+        meta = getattr(type(view), constants.VIEW_META, None)
+        if not isinstance(meta, registry.ViewMeta):
+            raise errors.NotAViewError(type(view).__name__)
+        return build_(view.render(), meta)
 
     def add_view[T: view_.View](self, cls: type[T]) -> type[T]:
         meta = getattr(cls, constants.VIEW_META, None)

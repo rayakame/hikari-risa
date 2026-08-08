@@ -4,7 +4,20 @@ import typing
 
 import hikari
 
+import risa
 from risa import ui
+from risa.internal import registry
+
+
+class Canvas(risa.View):
+    pass
+
+
+_META = registry.ViewMeta(cls=Canvas, name="test-nodes", version=1)
+
+
+def build(layout: ui.Layout) -> typing.Sequence[hikari.api.ComponentBuilder]:
+    return ui.build(layout, _META)
 
 
 def payload_of(builder: hikari.api.ComponentBuilder) -> typing.Mapping[str, typing.Any]:
@@ -13,15 +26,15 @@ def payload_of(builder: hikari.api.ComponentBuilder) -> typing.Mapping[str, typi
 
 
 def test_a_single_node_layout_builds_like_a_sequence_of_one() -> None:
-    single = ui.build(ui.TextDisplay("hi"))
-    listed = ui.build([ui.TextDisplay("hi")])
+    single = build(ui.TextDisplay("hi"))
+    listed = build([ui.TextDisplay("hi")])
 
     assert len(single) == len(listed) == 1
     assert payload_of(single[0]) == payload_of(listed[0])
 
 
 def test_a_text_display_carries_its_content() -> None:
-    (built,) = ui.build(ui.TextDisplay("## hello"))
+    (built,) = build(ui.TextDisplay("## hello"))
     payload = payload_of(built)
 
     assert payload["type"] == hikari.ComponentType.TEXT_DISPLAY
@@ -29,7 +42,7 @@ def test_a_text_display_carries_its_content() -> None:
 
 
 def test_separator_defaults() -> None:
-    (built,) = ui.build(ui.Separator())
+    (built,) = build(ui.Separator())
     payload = payload_of(built)
 
     assert payload["type"] == hikari.ComponentType.SEPARATOR
@@ -38,7 +51,7 @@ def test_separator_defaults() -> None:
 
 
 def test_a_container_nests_its_children_in_order() -> None:
-    (built,) = ui.build(
+    (built,) = build(
         ui.Container(
             ui.TextDisplay("title"),
             ui.Separator(divider=False, spacing=hikari.SpacingType.LARGE),
@@ -59,7 +72,7 @@ def test_a_container_nests_its_children_in_order() -> None:
 
 
 def test_a_link_button_never_carries_a_custom_id() -> None:
-    (built,) = ui.build(ui.Row(ui.LinkButton("https://example.invalid", label="open")))
+    (built,) = build(ui.Row(ui.LinkButton("https://example.invalid", label="open")))
     (button,) = payload_of(built)["components"]
 
     assert button["style"] == hikari.ButtonStyle.LINK
@@ -68,7 +81,7 @@ def test_a_link_button_never_carries_a_custom_id() -> None:
 
 
 def test_a_premium_button_carries_its_sku() -> None:
-    (built,) = ui.build(ui.Row(ui.PremiumButton(hikari.Snowflake(123))))
+    (built,) = build(ui.Row(ui.PremiumButton(hikari.Snowflake(123))))
     (button,) = payload_of(built)["components"]
 
     assert button["style"] == hikari.ButtonStyle.PREMIUM
@@ -77,7 +90,7 @@ def test_a_premium_button_carries_its_sku() -> None:
 
 
 def test_a_section_builds_text_displays_and_its_accessory() -> None:
-    (built,) = ui.build(
+    (built,) = build(
         ui.Section(
             ui.TextDisplay("left"),
             accessory=ui.Thumbnail("https://example.invalid/img.png", description="alt"),
@@ -92,7 +105,7 @@ def test_a_section_builds_text_displays_and_its_accessory() -> None:
 
 
 def test_a_button_is_a_valid_section_accessory() -> None:
-    (built,) = ui.build(
+    (built,) = build(
         ui.Section(
             ui.TextDisplay("left"),
             accessory=ui.LinkButton("https://example.invalid"),
@@ -104,7 +117,7 @@ def test_a_button_is_a_valid_section_accessory() -> None:
 
 
 def test_a_media_gallery_builds_every_item() -> None:
-    (built,) = ui.build(
+    (built,) = build(
         ui.MediaGallery(
             ui.MediaGalleryItem("https://example.invalid/a.png"),
             ui.MediaGalleryItem("https://example.invalid/b.png", spoiler=True),
@@ -118,7 +131,7 @@ def test_a_media_gallery_builds_every_item() -> None:
 
 
 def test_discords_numeric_limits_are_not_policed() -> None:
-    built = ui.build(
+    built = build(
         [
             ui.Row(*[ui.LinkButton(f"https://example.invalid/{n}") for n in range(9)]),
             *[ui.TextDisplay(str(n)) for n in range(50)],
@@ -130,7 +143,7 @@ def test_discords_numeric_limits_are_not_policed() -> None:
 
 
 def test_absent_optionals_are_omitted_from_the_payload() -> None:
-    (built,) = ui.build(ui.Container(ui.TextDisplay("x")))
+    (built,) = build(ui.Container(ui.TextDisplay("x")))
     payload = payload_of(built)
 
     assert "accent_color" not in payload

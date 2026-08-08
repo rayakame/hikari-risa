@@ -15,7 +15,10 @@ if typing.TYPE_CHECKING:
     from hikari import snowflakes
     from hikari.api import special_endpoints
 
+    from risa.internal import registry
+
 __all__ = (
+    "BuildContext",
     "Component",
     "Container",
     "ContainerChild",
@@ -42,11 +45,32 @@ def _or_undefined[T](value: T | None) -> T | hikari.UndefinedType:
     return hikari.UNDEFINED if value is None else value
 
 
+class BuildContext:
+    __slots__ = ("_index", "cookie", "tokens")
+
+    cookie: str
+    tokens: collections.abc.Set[str]
+
+    def __init__(self, cookie: str, tokens: collections.abc.Set[str]) -> None:
+        self.cookie = cookie
+        self.tokens = tokens
+        self._index = 0
+
+    def next_index(self) -> int:
+        index = self._index
+        self._index += 1
+        return index
+
+
 class Component(abc.ABC):
     __slots__ = ()
 
     @abc.abstractmethod
-    def build(self) -> special_endpoints.ComponentBuilder: ...
+    def build(self, ctx: BuildContext, path: str, /) -> special_endpoints.ComponentBuilder: ...
+
+    @property
+    def name(self) -> str:
+        return type(self).__name__
 
 
 class Interactive(Component):
@@ -64,7 +88,7 @@ class TextDisplay(Component):
         return self._content
 
     @typing.override
-    def build(self) -> special_endpoints.TextDisplayComponentBuilder:
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.TextDisplayComponentBuilder:
         return impl.TextDisplayComponentBuilder(content=self._content)
 
 
@@ -89,7 +113,7 @@ class Separator(Component):
         return self._spacing
 
     @typing.override
-    def build(self) -> special_endpoints.SeparatorComponentBuilder:
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.SeparatorComponentBuilder:
         return impl.SeparatorComponentBuilder(divider=self._divider, spacing=self._spacing)
 
 
@@ -126,7 +150,7 @@ class LinkButton(Component):
         return self._disabled
 
     @typing.override
-    def build(self) -> special_endpoints.LinkButtonBuilder:
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.LinkButtonBuilder:
         return impl.LinkButtonBuilder(
             url=self._url,
             label=_or_undefined(self._label),
@@ -151,7 +175,7 @@ class PremiumButton(Component):
         return self._disabled
 
     @typing.override
-    def build(self) -> special_endpoints.PremiumButtonBuilder:
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.PremiumButtonBuilder:
         return impl.PremiumButtonBuilder(sku_id=int(self._sku_id), is_disabled=self._disabled)
 
 
@@ -182,7 +206,7 @@ class Thumbnail(Component):
         return self._spoiler
 
     @typing.override
-    def build(self) -> special_endpoints.ThumbnailComponentBuilder:
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.ThumbnailComponentBuilder:
         return impl.ThumbnailComponentBuilder(
             media=self._media,
             description=_or_undefined(self._description),
@@ -235,7 +259,7 @@ class MediaGallery(Component):
         return self._items
 
     @typing.override
-    def build(self) -> special_endpoints.MediaGalleryComponentBuilder:
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.MediaGalleryComponentBuilder:
         return impl.MediaGalleryComponentBuilder(items=[item.build() for item in self._items])
 
 
@@ -255,7 +279,7 @@ class File(Component):
         return self._spoiler
 
     @typing.override
-    def build(self) -> special_endpoints.FileComponentBuilder:
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.FileComponentBuilder:
         return impl.FileComponentBuilder(file=self._file, spoiler=self._spoiler)
 
 
@@ -270,9 +294,10 @@ class Row(Component):
         return self._components
 
     @typing.override
-    def build(self) -> special_endpoints.MessageActionRowBuilder:
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.MessageActionRowBuilder:
         children: list[special_endpoints.MessageActionRowBuilderComponentsT] = [
-            child.build() for child in self._components
+            child.build(ctx, f"{path} > {child.name}[{index}]")
+            for index, child in enumerate(self._components)
         ]
         return impl.MessageActionRowBuilder(components=children)
 
@@ -293,9 +318,15 @@ class Section(Component):
         return self._accessory
 
     @typing.override
-    def build(self) -> special_endpoints.SectionComponentBuilder:
-        children: list[special_endpoints.SectionBuilderComponentsT] = [text.build() for text in self._text_displays]
-        return impl.SectionComponentBuilder(components=children, accessory=self._accessory.build())
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.SectionComponentBuilder:
+        children: list[special_endpoints.SectionBuilderComponentsT] = [
+            text.build(ctx, f"{path} > {text.name}[{index}]")
+            for index, text in enumerate(self._text_displays)
+        ]
+        return impl.SectionComponentBuilder(
+            components=children,
+            accessory=self._accessory.build(ctx, f"{path} > accessory"),
+        )
 
 
 class Container(Component):
@@ -324,8 +355,10 @@ class Container(Component):
         return self._spoiler
 
     @typing.override
-    def build(self) -> special_endpoints.ContainerComponentBuilder:
-        children: list[special_endpoints.ContainerBuilderComponentsT] = [child.build() for child in self._children]
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.ContainerComponentBuilder:
+        children: list[special_endpoints.ContainerBuilderComponentsT] = [
+            child.build(ctx, f"{path} > {child.name}[{index}]") for index, child in enumerate(self._children)
+        ]
         return impl.ContainerComponentBuilder(
             components=children,
             accent_color=hikari.UNDEFINED if self._accent_color is None else hikari.Color.of(self._accent_color),
@@ -340,7 +373,8 @@ type TopLevelComponent = Container | ContainerChild
 type Layout = TopLevelComponent | collections.abc.Sequence[TopLevelComponent]
 
 
-def build(layout: Layout) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
+def build(layout: Layout, meta: registry.ViewMeta) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
+    ctx = BuildContext(cookie=meta.key, tokens=meta.handlers.keys())
     if isinstance(layout, Component):
-        return [layout.build()]
-    return [node.build() for node in layout]
+        layout = (layout,)
+    return [node.build(ctx, f"{node.name}[{i}]") for i, node in enumerate(layout)]
