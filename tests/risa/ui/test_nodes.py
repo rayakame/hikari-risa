@@ -3,9 +3,12 @@ from __future__ import annotations
 import typing
 
 import hikari
+import pytest
 
 import risa
 from risa import ui
+from risa.internal import codec
+from risa.internal import constants
 from risa.internal import registry
 
 
@@ -13,7 +16,30 @@ class Canvas(risa.View):
     pass
 
 
+@risa.register(name="test-nodes-panel")
+class Panel(risa.View):
+    @risa.handler
+    async def press(self, _ctx: risa.ComponentContext) -> None:
+        pass
+
+
+class Elsewhere(risa.View):
+    @risa.handler
+    async def other(self, _ctx: risa.ComponentContext) -> None:
+        pass
+
+
 _META = registry.ViewMeta(cls=Canvas, name="test-nodes", version=1)
+
+
+def meta_of(cls: type[risa.View]) -> registry.ViewMeta:
+    return typing.cast("registry.ViewMeta", getattr(cls, constants.VIEW_META))
+
+
+def parsed(raw: str) -> codec.CustomID:
+    custom_id = codec.parse_custom_id(raw)
+    assert custom_id is not None
+    return custom_id
 
 
 def build(layout: ui.Layout) -> typing.Sequence[hikari.api.ComponentBuilder]:
@@ -147,3 +173,61 @@ def test_absent_optionals_are_omitted_from_the_payload() -> None:
     payload = payload_of(built)
 
     assert "accent_color" not in payload
+
+
+def test_a_button_routes_through_a_risa_custom_id() -> None:
+    (built,) = ui.build(ui.Row(ui.Button(Panel().press, label="go")), meta_of(Panel))
+    (button,) = payload_of(built)["components"]
+
+    custom_id = parsed(button["custom_id"])
+    assert custom_id.cookie == meta_of(Panel).key
+    assert custom_id.handler == Panel.press.token
+    assert custom_id.fragment_index == 0
+    assert not custom_id.fragment
+    assert not custom_id.tail
+
+
+def test_a_bare_handler_and_its_bind_build_identically() -> None:
+    (bare,) = ui.build(ui.Row(ui.Button(Panel().press, label="go")), meta_of(Panel))
+    (bound,) = ui.build(ui.Row(ui.Button(Panel().press.bind(), label="go")), meta_of(Panel))
+
+    assert payload_of(bare) == payload_of(bound)
+
+
+def test_fragment_indices_follow_tree_order() -> None:
+    built = ui.build(
+        [
+            ui.Row(ui.Button(Panel().press), ui.Button(Panel().press)),
+            ui.Section(ui.TextDisplay("x"), accessory=ui.Button(Panel().press)),
+        ],
+        meta_of(Panel),
+    )
+
+    first, second = payload_of(built[0])["components"]
+    accessory = payload_of(built[1])["accessory"]
+    indices = [parsed(component["custom_id"]).fragment_index for component in (first, second, accessory)]
+    assert indices == [0, 1, 2]
+
+
+def test_a_foreign_handler_is_rejected_with_its_path() -> None:
+    layout = ui.Container(ui.Row(ui.LinkButton("https://example.invalid"), ui.Button(Elsewhere().other)))
+
+    with pytest.raises(risa.LayoutError) as exc_info:
+        ui.build(layout, meta_of(Panel))
+
+    assert exc_info.value.path == "Container[0] > Row[0] > Button[1]"
+    assert "other" in exc_info.value.reason
+
+
+def test_an_oversized_payload_overflows_the_custom_id() -> None:
+    oversized = risa.BoundHandler(handler_id="press", version=1, token=Panel.press.token, payload="x" * 90)
+
+    with pytest.raises(risa.CustomIdOverflowError):
+        ui.build(ui.Row(ui.Button(oversized)), meta_of(Panel))
+
+
+def test_something_that_is_not_a_handler_is_rejected() -> None:
+    with pytest.raises(risa.NotAHandlerError) as exc_info:
+        ui.Button("close")  # type: ignore[reportArgumentType]
+
+    assert exc_info.value.type_name == "str"

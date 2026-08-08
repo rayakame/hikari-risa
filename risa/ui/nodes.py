@@ -6,6 +6,10 @@ import typing
 import hikari
 from hikari import impl
 
+from risa import errors
+from risa import view as view_
+from risa.internal import codec
+
 if typing.TYPE_CHECKING:
     import collections.abc
 
@@ -19,6 +23,7 @@ if typing.TYPE_CHECKING:
 
 __all__ = (
     "BuildContext",
+    "Button",
     "Component",
     "Container",
     "ContainerChild",
@@ -75,6 +80,10 @@ class Component(abc.ABC):
 
 class Interactive(Component):
     __slots__ = ()
+
+    @property
+    @abc.abstractmethod
+    def bound(self) -> view_.BoundHandler: ...
 
 
 class TextDisplay(Component):
@@ -296,8 +305,7 @@ class Row(Component):
     @typing.override
     def build(self, ctx: BuildContext, path: str) -> special_endpoints.MessageActionRowBuilder:
         children: list[special_endpoints.MessageActionRowBuilderComponentsT] = [
-            child.build(ctx, f"{path} > {child.name}[{index}]")
-            for index, child in enumerate(self._components)
+            child.build(ctx, f"{path} > {child.name}[{index}]") for index, child in enumerate(self._components)
         ]
         return impl.MessageActionRowBuilder(components=children)
 
@@ -320,8 +328,7 @@ class Section(Component):
     @typing.override
     def build(self, ctx: BuildContext, path: str) -> special_endpoints.SectionComponentBuilder:
         children: list[special_endpoints.SectionBuilderComponentsT] = [
-            text.build(ctx, f"{path} > {text.name}[{index}]")
-            for index, text in enumerate(self._text_displays)
+            text.build(ctx, f"{path} > {text.name}[{index}]") for index, text in enumerate(self._text_displays)
         ]
         return impl.SectionComponentBuilder(
             components=children,
@@ -366,8 +373,73 @@ class Container(Component):
         )
 
 
-type RowChild = LinkButton | PremiumButton
-type SectionAccessory = LinkButton | PremiumButton | Thumbnail
+class Button(Interactive):
+    __slots__ = ("_bound", "_disabled", "_emoji", "_label", "_style")
+
+    def __init__(
+        self,
+        handler: view_.ZeroArgHandler | view_.BoundHandler,
+        *,
+        label: str | None = None,
+        emoji: snowflakes.Snowflakeish | emojis.Emoji | str | None = None,
+        style: hikari.ButtonStyle = hikari.ButtonStyle.PRIMARY,
+        disabled: bool = False,
+    ) -> None:
+        if isinstance(handler, view_.BoundHandler):
+            self._bound = handler
+        elif isinstance(handler, view_.ZeroArgHandler):  # type: ignore[reportUnnecessaryIsInstance]
+            self._bound = handler.bind()
+        else:
+            raise errors.NotAHandlerError(type(handler).__name__)
+        self._label = label
+        self._emoji = emoji
+        self._style = style
+        self._disabled = disabled
+
+    @property
+    @typing.override
+    def bound(self) -> view_.BoundHandler:
+        return self._bound
+
+    @property
+    def label(self) -> str | None:
+        return self._label
+
+    @property
+    def emoji(self) -> snowflakes.Snowflakeish | emojis.Emoji | str | None:
+        return self._emoji
+
+    @property
+    def style(self) -> hikari.ButtonStyle:
+        return self._style
+
+    @property
+    def disabled(self) -> bool:
+        return self._disabled
+
+    @typing.override
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.InteractiveButtonBuilder:
+        if self._bound.token not in ctx.tokens:
+            reason = f"handler {self._bound.handler_id!r} (version {self._bound.version}) is not on this view"
+            raise errors.LayoutError(path, reason)
+        custom_id = codec.CustomID(
+            cookie=ctx.cookie,
+            handler=self._bound.token,
+            fragment_index=ctx.next_index(),
+            fragment="",
+            tail=self._bound.payload,
+        ).encode()
+        return impl.InteractiveButtonBuilder(
+            style=self._style,
+            custom_id=custom_id,
+            label=_or_undefined(self._label),
+            emoji=_or_undefined(self._emoji),
+            is_disabled=self._disabled,
+        )
+
+
+type RowChild = Button | LinkButton | PremiumButton
+type SectionAccessory = Button | LinkButton | PremiumButton | Thumbnail
 type ContainerChild = File | MediaGallery | Row | Section | Separator | TextDisplay
 type TopLevelComponent = Container | ContainerChild
 type Layout = TopLevelComponent | collections.abc.Sequence[TopLevelComponent]
