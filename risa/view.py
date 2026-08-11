@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import enum
 import functools
 import inspect
 import typing
@@ -37,6 +38,7 @@ if typing.TYPE_CHECKING:
     from risa import ui
 
 __all__ = (
+    "AutoDefer",
     "BoundHandler",
     "BoundHandlerMethod",
     "HandlerFunction",
@@ -51,6 +53,13 @@ type HandlerFunction[V: View, **P] = collections.abc.Callable[
     typing.Concatenate[V, context.ComponentContext, P],
     collections.abc.Awaitable[None],
 ]
+
+
+class AutoDefer(enum.StrEnum):
+    OFF = enum.auto()
+    UPDATE = enum.auto()
+    THINKING = enum.auto()
+    THINKING_EPHEMERAL = enum.auto()
 
 
 class BoundHandler(msgspec.Struct, frozen=True):
@@ -89,7 +98,7 @@ class ZeroArgHandler(typing.Protocol):
 
 
 class HandlerMethod:
-    __slots__ = ("_func", "_handler_id", "_token", "_version")
+    __slots__ = ("_defer", "_func", "_handler_id", "_token", "_version")
 
     def __init__(
         self,
@@ -97,11 +106,13 @@ class HandlerMethod:
         *,
         handler_id: str,
         version: int,
+        defer: AutoDefer | None = None,
     ) -> None:
         self._func = func
         self._handler_id = handler_id
         self._version = version
         self._token = codec.make_handler_token(handler_id, version)
+        self._defer = defer
 
     @property
     def func(self) -> collections.abc.Callable[..., collections.abc.Awaitable[None]]:
@@ -118,6 +129,10 @@ class HandlerMethod:
     @property
     def token(self) -> str:
         return self._token
+
+    @property
+    def defer(self) -> AutoDefer | None:
+        return self._defer
 
     @typing.overload
     def __get__(self, instance: None, owner: type[View]) -> HandlerMethod: ...
@@ -145,7 +160,12 @@ def handler[V: View, **P](func: HandlerFunction[V, P], /) -> HandlerMethod: ...
 
 
 @typing.overload
-def handler(*, handler_id: str | None = ..., version: int = ...) -> _HandlerDecorator: ...
+def handler(
+    *,
+    handler_id: str | None = ...,
+    version: int = ...,
+    defer: AutoDefer | None = ...,
+) -> _HandlerDecorator: ...
 
 
 def handler(
@@ -154,9 +174,15 @@ def handler(
     *,
     handler_id: str | None = None,
     version: int = 1,
+    defer: AutoDefer | None = None,
 ) -> HandlerMethod | _HandlerDecorator:
     def decorate(f: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> HandlerMethod:
-        return HandlerMethod(f, handler_id=handler_id if handler_id is not None else f.__name__, version=version)
+        return HandlerMethod(
+            f,
+            handler_id=handler_id if handler_id is not None else f.__name__,
+            version=version,
+            defer=defer,
+        )
 
     return decorate(func) if func is not None else decorate
 
@@ -168,7 +194,9 @@ class View(msgspec.Struct):
         raise NotImplementedError
 
 
-def register[T: View](*, name: str, version: int = 1) -> typing.Callable[[type[T]], type[T]]:
+def register[T: View](
+    *, name: str, version: int = 1, defer: AutoDefer | None = None
+) -> typing.Callable[[type[T]], type[T]]:
     def decorate(cls: type[T]) -> type[T]:
         if not name.strip():
             reason = "a view needs a name to be routable, and it must not be blank"
@@ -178,7 +206,10 @@ def register[T: View](*, name: str, version: int = 1) -> typing.Callable[[type[T
             raise errors.ViewDeclarationError(name, reason)
 
         handlers: dict[str, registry.HandlerRecord] = {}
-        for _, method in inspect.getmembers(cls, lambda m: isinstance(m, HandlerMethod)):
+        for _, member in inspect.getmembers(cls):
+            if not isinstance(member, HandlerMethod):
+                continue
+            method = member
             if (existing := handlers.get(method.token)) is not None:
                 raise errors.DuplicateHandlerError(
                     name,
@@ -188,10 +219,9 @@ def register[T: View](*, name: str, version: int = 1) -> typing.Callable[[type[T
                     second_id=method.handler_id,
                     second_version=method.version,
                 )
+            resolved_defer = method.defer if method.defer is not None else defer
             handlers[method.token] = registry.HandlerRecord(
-                callback=method.func,
-                handler_id=method.handler_id,
-                version=method.version,
+                callback=method.func, handler_id=method.handler_id, version=method.version, defer=resolved_defer
             )
 
         meta = registry.ViewMeta(cls=cls, name=name, version=version, handlers=handlers)

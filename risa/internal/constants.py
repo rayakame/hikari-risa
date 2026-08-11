@@ -28,3 +28,4 @@ __all__ = (
 
 MAX_CUSTOM_ID_LENGTH: typing.Final[int] = 100
 VIEW_META: typing.Final[str] = "__risa_view_meta__"
+AUTO_DEFER_DELAY: typing.Final[float] = 2.0

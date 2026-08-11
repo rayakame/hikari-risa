@@ -126,6 +126,10 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
         self._state = state if state is not None else DispatchState()
 
     @property
+    def responded(self) -> bool:
+        return self._state.response is not _InitialResponse.NONE
+
+    @property
     def interaction(self) -> T:
         return self._interaction
 
@@ -158,6 +162,18 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
             if self._state.response is not _InitialResponse.NONE:
                 attempted = "defer"
                 raise errors.AlreadyRespondedError(attempted, self._state.response.name)
+            await self._interaction.create_initial_response(
+                hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+                if thinking
+                else hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
+                flags=hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED,
+            )
+            self._record_initial(_InitialResponse.DEFERRED_THINKING if thinking else _InitialResponse.DEFERRED_UPDATE)
+
+    async def acknowledge(self, *, thinking: bool = False, ephemeral: bool = False) -> None:
+        async with self._state.lock:
+            if self._state.response is not _InitialResponse.NONE:
+                return
             await self._interaction.create_initial_response(
                 hikari.ResponseType.DEFERRED_MESSAGE_CREATE
                 if thinking

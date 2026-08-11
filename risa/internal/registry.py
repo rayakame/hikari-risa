@@ -30,6 +30,7 @@ from risa.internal import codec
 if typing.TYPE_CHECKING:
     import collections.abc
 
+    from risa.view import AutoDefer
     from risa.view import View
 
 __all__ = ("HandlerRecord", "Registry", "ViewMeta", "global_registry")
@@ -41,6 +42,7 @@ class HandlerRecord(msgspec.Struct, frozen=True):
     callback: collections.abc.Callable[..., collections.abc.Awaitable[None]]
     handler_id: str
     version: int
+    defer: AutoDefer | None
 
 
 class ViewMeta(msgspec.Struct, frozen=True):

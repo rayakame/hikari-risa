@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import dotenv
@@ -48,12 +49,20 @@ class Demo(risa.View):
   def render(self) -> ui.Layout:
       return ui.Container(
           ui.TextDisplay("## risa"),
-          ui.Row(ui.Button(self.ping, label="Ping")),
+          ui.Row(
+              ui.Button(self.ping, label="Ping"),
+              ui.Button(self.slow, label="Slow (4s)", style=hikari.ButtonStyle.SECONDARY),
+          ),
       )
 
   @risa.handler
   async def ping(self, ctx: risa.ComponentContext) -> None:
       await ctx.respond("pong", ephemeral=True)
+
+  @risa.handler
+  async def slow(self, ctx: risa.ComponentContext) -> None:
+      await asyncio.sleep(4)
+      await ctx.respond("that took a while - the watchdog answered for me", ephemeral=True)
 
 
 risa_client.add_view(Demo)

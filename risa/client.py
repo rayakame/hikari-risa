@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import abc
+import asyncio
 import logging
 import typing
 
@@ -72,7 +73,7 @@ class LightbulbClient(typing.Protocol):
 
 
 class Client(abc.ABC):
-    __slots__ = ("_di", "_registry", "_use_global")
+    __slots__ = ("_auto_defer", "_auto_defer_delay", "_di", "_registry", "_use_global")
 
     def __init__(
         self,
@@ -81,10 +82,14 @@ class Client(abc.ABC):
         use_global: bool = False,
         di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
+        auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
+        auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
     ) -> None:
         self._di = di if di is not None else linkd.DependencyInjectionManager()
         self._registry = registry.Registry()
         self._use_global = use_global
+        self._auto_defer = auto_defer
+        self._auto_defer_delay = auto_defer_delay
 
         if register_app_dependencies:
             self._register_dependency(hikari.api.RESTClient, rest)
@@ -156,11 +161,19 @@ class Client(abc.ABC):
             )
             return
 
+        resolved_defer = handler.defer
+        if resolved_defer is None:
+            resolved_defer = self._auto_defer
         view = meta.cls()
-        ctx = context.ComponentContext(interaction)
+        state = context.DispatchState()
+        ctx = context.ComponentContext(interaction, state)
+        watchdog: asyncio.Task[None] | None = None
+        if resolved_defer is not view_.AutoDefer.OFF:
+            watchdog = asyncio.create_task(self._auto_defer_task(ctx, resolved_defer))
         try:
             await handler.callback(view, ctx)
         except Exception:
+            await self._stop_auto_defer_task(watchdog, state)
             _LOGGER.exception(
                 "handler %r (version %d) of view %s raised while answering interaction %s",
                 handler.handler_id,
@@ -168,6 +181,32 @@ class Client(abc.ABC):
                 meta.name,
                 interaction.id,
             )
+        else:
+            await self._stop_auto_defer_task(watchdog, state)
+            await ctx.acknowledge()
+
+    async def _auto_defer_task(self, ctx: context.ComponentContext, defer: view_.AutoDefer) -> None:
+        await asyncio.sleep(self._auto_defer_delay)
+        match defer:
+            case view_.AutoDefer.UPDATE:
+                await ctx.acknowledge()
+            case view_.AutoDefer.THINKING:
+                await ctx.acknowledge(thinking=True)
+            case view_.AutoDefer.THINKING_EPHEMERAL:
+                await ctx.acknowledge(thinking=True, ephemeral=True)
+            case view_.AutoDefer.OFF:
+                return
+
+    @staticmethod
+    async def _stop_auto_defer_task(task: asyncio.Task[None] | None, state: context.DispatchState) -> None:
+        if task is None:
+            return
+        async with state.lock:
+            task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            return
 
 
 class GatewayEnabledClient(Client):
@@ -180,12 +219,16 @@ class GatewayEnabledClient(Client):
         use_global: bool = False,
         di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
+        auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
+        auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
     ) -> None:
         super().__init__(
             app.rest,
             use_global=use_global,
             di=di,
             register_app_dependencies=register_app_dependencies,
+            auto_defer=auto_defer,
+            auto_defer_delay=auto_defer_delay,
         )
         self._app = app
 
@@ -215,12 +258,16 @@ class RestEnabledClient(Client):
         use_global: bool = False,
         di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
+        auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
+        auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
     ) -> None:
         super().__init__(
             app.rest,
             use_global=use_global,
             di=di,
             register_app_dependencies=register_app_dependencies,
+            auto_defer=auto_defer,
+            auto_defer_delay=auto_defer_delay,
         )
         self._app = app
 
@@ -250,6 +297,8 @@ def client_from_app(
     *,
     use_global: bool = ...,
     di: linkd.DependencyInjectionManager | None = ...,
+    auto_defer: view_.AutoDefer = ...,
+    auto_defer_delay: float = ...,
 ) -> GatewayEnabledClient: ...
 
 
@@ -259,6 +308,8 @@ def client_from_app(
     *,
     use_global: bool = ...,
     di: linkd.DependencyInjectionManager | None = ...,
+    auto_defer: view_.AutoDefer = ...,
+    auto_defer_delay: float = ...,
 ) -> RestEnabledClient: ...
 
 
@@ -267,16 +318,24 @@ def client_from_app(
     *,
     use_global: bool = False,
     di: linkd.DependencyInjectionManager | None = None,
+    auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
+    auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
 ) -> Client:
     if isinstance(app, GatewayClientAppT):
-        return GatewayEnabledClient(app, use_global=use_global, di=di)
-    return RestEnabledClient(app, use_global=use_global, di=di)
+        return GatewayEnabledClient(
+            app, use_global=use_global, di=di, auto_defer=auto_defer, auto_defer_delay=auto_defer_delay
+        )
+    return RestEnabledClient(
+        app, use_global=use_global, di=di, auto_defer=auto_defer, auto_defer_delay=auto_defer_delay
+    )
 
 
 def client_from_lightbulb(
     lightbulb_client: LightbulbClient,
     *,
     use_global: bool = False,
+    auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
+    auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
 ) -> Client:
     app = lightbulb_client.app
     if isinstance(app, GatewayClientAppT):
@@ -285,6 +344,8 @@ def client_from_lightbulb(
             use_global=use_global,
             di=lightbulb_client.di,
             register_app_dependencies=False,
+            auto_defer=auto_defer,
+            auto_defer_delay=auto_defer_delay,
         )
     if isinstance(app, RestClientAppT):
         return RestEnabledClient(
@@ -292,6 +353,8 @@ def client_from_lightbulb(
             use_global=use_global,
             di=lightbulb_client.di,
             register_app_dependencies=False,
+            auto_defer=auto_defer,
+            auto_defer_delay=auto_defer_delay,
         )
 
     msg = "the lightbulb client's app has neither an event manager nor an interaction server"

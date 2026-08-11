@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import asyncio
 import logging
 import typing
 import unittest.mock
@@ -259,6 +260,64 @@ async def test_a_registered_views_component_is_recognised(
 CALLS: list[tuple[risa.View, risa.ComponentContext]] = []
 
 
+class _ReleaseGate:
+    def __init__(self) -> None:
+        self.event = asyncio.Event()
+
+
+RELEASE = _ReleaseGate()
+
+
+@risa.register(name="client-sluggish")
+class Sluggish(risa.View):
+    @risa.handler
+    async def update(self, ctx: risa.ComponentContext) -> None:
+        CALLS.append((self, ctx))
+        await RELEASE.event.wait()
+
+    @risa.handler(defer=risa.AutoDefer.THINKING)
+    async def thinking(self, ctx: risa.ComponentContext) -> None:
+        CALLS.append((self, ctx))
+        await RELEASE.event.wait()
+
+    @risa.handler(defer=risa.AutoDefer.THINKING_EPHEMERAL)
+    async def whisper(self, ctx: risa.ComponentContext) -> None:
+        CALLS.append((self, ctx))
+        await RELEASE.event.wait()
+
+    @risa.handler(defer=risa.AutoDefer.OFF)
+    async def alone(self, ctx: risa.ComponentContext) -> None:
+        CALLS.append((self, ctx))
+        await RELEASE.event.wait()
+
+    @risa.handler
+    async def quick(self, ctx: risa.ComponentContext) -> None:
+        CALLS.append((self, ctx))
+        await ctx.respond("hi")
+
+
+@risa.register(name="client-spinner", defer=risa.AutoDefer.THINKING)
+class Spinner(risa.View):
+    @risa.handler
+    async def wait(self, ctx: risa.ComponentContext) -> None:
+        CALLS.append((self, ctx))
+        await RELEASE.event.wait()
+
+
+def deferring_client(cls: type[risa.View]) -> risa.GatewayEnabledClient:
+    built = risa.client_from_app(gateway_app(), auto_defer_delay=0.0)
+    built.add_view(cls)
+    return built
+
+
+async def until_acknowledged(interaction: unittest.mock.Mock) -> None:
+    for _ in range(50):
+        if interaction.create_initial_response.await_count:
+            return
+        await asyncio.sleep(0)
+    pytest.fail("the watchdog never acknowledged the interaction")
+
+
 @risa.register(name="client-clicker")
 class Clicker(risa.View):
     @risa.handler
@@ -325,6 +384,118 @@ async def test_a_raising_handler_is_contained_and_logged(
 
     assert "boom" in caplog.text
     assert "RuntimeError" in caplog.text
+
+
+async def dispatch_slowly(built: risa.Client, interaction: unittest.mock.Mock) -> None:
+    RELEASE.event = asyncio.Event()
+    task = asyncio.create_task(built._process_interaction(interaction))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    try:
+        await until_acknowledged(interaction)
+    finally:
+        RELEASE.event.set()
+        await task
+
+
+async def test_the_watchdog_acks_a_slow_handler_with_the_silent_update() -> None:
+    built = deferring_client(Sluggish)
+    interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.update.token))
+
+    await dispatch_slowly(built, interaction)
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+    interaction.create_initial_response.assert_awaited_once()
+
+
+async def test_a_thinking_handler_gets_the_spinner() -> None:
+    built = deferring_client(Sluggish)
+    interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.thinking.token))
+
+    await dispatch_slowly(built, interaction)
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+    assert call.kwargs["flags"] is hikari.UNDEFINED
+
+
+async def test_an_ephemeral_thinking_handler_whispers() -> None:
+    built = deferring_client(Sluggish)
+    interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.whisper.token))
+
+    await dispatch_slowly(built, interaction)
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+    assert call.kwargs["flags"] is hikari.MessageFlag.EPHEMERAL
+
+
+async def test_a_view_level_defer_applies_to_its_handlers() -> None:
+    built = deferring_client(Spinner)
+    interaction = interaction_with(encoded_id_for(Spinner, handler=Spinner.wait.token))
+
+    await dispatch_slowly(built, interaction)
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+
+
+async def test_off_disables_the_watchdog_but_not_the_answer() -> None:
+    built = deferring_client(Sluggish)
+    interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.alone.token))
+
+    RELEASE.event = asyncio.Event()
+    task = asyncio.create_task(built._process_interaction(interaction))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    try:
+        for _ in range(50):
+            await asyncio.sleep(0)
+        interaction.create_initial_response.assert_not_called()
+    finally:
+        RELEASE.event.set()
+        await task
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+
+
+async def test_a_handler_that_responds_is_never_second_guessed() -> None:
+    built = deferring_client(Sluggish)
+    interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.quick.token))
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    for _ in range(50):
+        await asyncio.sleep(0)
+
+    interaction.create_initial_response.assert_awaited_once()
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.MESSAGE_CREATE
+
+
+async def test_a_clean_finish_without_a_response_is_still_answered() -> None:
+    built = deferring_client(Clicker)
+    interaction = interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token))
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+
+
+async def test_a_raising_handler_is_never_acknowledged() -> None:
+    built = deferring_client(Faulty)
+    interaction = interaction_with(encoded_id_for(Faulty, handler=Faulty.boom.token))
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    for _ in range(50):
+        await asyncio.sleep(0)
+
+    interaction.create_initial_response.assert_not_called()
 
 
 async def test_build_emits_what_the_view_renders(client: risa.GatewayEnabledClient) -> None:
