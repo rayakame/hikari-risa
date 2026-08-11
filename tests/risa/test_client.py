@@ -211,10 +211,10 @@ def interaction_with(custom_id: str) -> unittest.mock.Mock:
     return interaction
 
 
-def encoded_id_for(cls: type[risa.View]) -> str:
+def encoded_id_for(cls: type[risa.View], handler: str = "ab") -> str:
     meta = getattr(cls, constants.VIEW_META)
     assert isinstance(meta, registry.ViewMeta)
-    return codec.CustomID(cookie=meta.key, handler="ab", fragment_index=0, fragment="", tail="").encode()
+    return codec.CustomID(cookie=meta.key, handler=handler, fragment_index=0, fragment="", tail="").encode()
 
 
 async def test_a_foreign_custom_id_is_ignored_silently(
@@ -254,6 +254,77 @@ async def test_a_registered_views_component_is_recognised(
         await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "client-panel" in caplog.text
+
+
+CALLS: list[tuple[risa.View, risa.ComponentContext]] = []
+
+
+@risa.register(name="client-clicker")
+class Clicker(risa.View):
+    @risa.handler
+    async def press(self, ctx: risa.ComponentContext) -> None:
+        CALLS.append((self, ctx))
+
+
+@risa.register(name="client-faulty")
+class Faulty(risa.View):
+    @risa.handler
+    async def boom(self, _ctx: risa.ComponentContext) -> None:
+        msg = f"boom from {type(self).__name__}"
+        raise RuntimeError(msg)
+
+
+async def test_a_click_runs_the_handler(client: risa.GatewayEnabledClient) -> None:
+    client.add_view(Clicker)
+    CALLS.clear()
+    interaction = interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token))
+
+    await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    ((view, ctx),) = CALLS
+    assert isinstance(view, Clicker)
+    assert ctx.interaction is interaction
+
+
+async def test_each_click_dispatches_against_a_fresh_view(client: risa.GatewayEnabledClient) -> None:
+    client.add_view(Clicker)
+    CALLS.clear()
+    interaction = interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token))
+
+    await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    (first, _), (second, _) = CALLS
+    assert first is not second
+
+
+async def test_a_component_whose_handler_was_retired_warns(
+    client: risa.GatewayEnabledClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client.add_view(Clicker)
+    CALLS.clear()
+    interaction = interaction_with(encoded_id_for(Clicker))
+
+    with caplog.at_level(logging.WARNING, logger="risa.client"):
+        await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "version bump" in caplog.text
+    assert not CALLS
+
+
+async def test_a_raising_handler_is_contained_and_logged(
+    client: risa.GatewayEnabledClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client.add_view(Faulty)
+    interaction = interaction_with(encoded_id_for(Faulty, handler=Faulty.boom.token))
+
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "boom" in caplog.text
+    assert "RuntimeError" in caplog.text
 
 
 async def test_build_emits_what_the_view_renders(client: risa.GatewayEnabledClient) -> None:

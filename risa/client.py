@@ -26,6 +26,7 @@ import typing
 import hikari
 import linkd
 
+from risa import context
 from risa import di as di_
 from risa import errors
 from risa import view as view_
@@ -143,12 +144,30 @@ class Client(abc.ABC):
                 custom_id.cookie,
             )
             return
-        _LOGGER.debug(
-            "interaction %s routes to view %s (version %d); handler dispatch is not built yet",
-            interaction.id,
-            meta.name,
-            meta.version,
-        )
+        handler = meta.handlers.get(custom_id.handler)
+        if handler is None:
+            _LOGGER.warning(
+                "interaction %s routes to view %s (version %d), but no handler answers to token %r."
+                " A live component may predate a version bump that retired its handler.",
+                interaction.id,
+                meta.name,
+                meta.version,
+                custom_id.handler,
+            )
+            return
+
+        view = meta.cls()
+        ctx = context.ComponentContext(interaction)
+        try:
+            await handler.callback(view, ctx)
+        except Exception:
+            _LOGGER.exception(
+                "handler %r (version %d) of view %s raised while answering interaction %s",
+                handler.handler_id,
+                handler.version,
+                meta.name,
+                interaction.id,
+            )
 
 
 class GatewayEnabledClient(Client):
