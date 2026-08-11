@@ -26,9 +26,9 @@ import os
 import dotenv
 import hikari
 import lightbulb
-import msgspec
 
 import risa
+from risa import ui
 
 dotenv.load_dotenv()
 
@@ -43,21 +43,20 @@ logging.getLogger("risa").setLevel(logging.DEBUG)
 bot.subscribe(hikari.StartingEvent, lightbulb_client.start)
 
 
-@risa_client.add_view
-@risa.register(name="counter", version=1)
-class Counter(risa.View):
-    """Bounded state, the case ``InMessage`` placement is the default for."""
+@risa.register(name="demo", version=1)
+class Demo(risa.View):
+  def render(self) -> ui.Layout:
+      return ui.Container(
+          ui.TextDisplay("## risa"),
+          ui.Row(ui.Button(self.ping, label="Ping")),
+      )
 
-    label: str
-    count: int = 0
+  @risa.handler
+  async def ping(self, ctx: risa.ComponentContext) -> None:
+      await ctx.respond("pong", ephemeral=True)
 
-@risa_client.add_view
-@risa.register(name="poll", version=1)
-class Poll(risa.View):
-    """State that grows with use, which is why placement is a per-view choice."""
 
-    question: str
-    votes: dict[str, int] = msgspec.field(default_factory=dict[str, int])
+risa_client.add_view(Demo)
 
 
 @lightbulb_client.register()
@@ -66,8 +65,8 @@ class Test(lightbulb.SlashCommand, name="test", description="Post the components
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        """Answer with the tree ``Counter.render()`` will eventually produce."""
-        await ctx.respond(content="test")
+        """Answer with the message ``Demo.render()`` produces."""
+        await ctx.respond(components=await risa_client.build(Demo()))
 
 
 if __name__ == "__main__":

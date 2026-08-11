@@ -22,6 +22,7 @@ from __future__ import annotations
 from risa.internal import constants
 
 __all__ = (
+    "AlreadyRespondedError",
     "CustomIdOverflowError",
     "DuplicateHandlerError",
     "DuplicateViewError",
@@ -77,6 +78,15 @@ class DuplicateHandlerError(RisaError):
         super().__init__(
             f"view {view_name!r}: handlers {first_id!r} (version {first_version}) and "
             f"{second_id!r} (version {second_version}) both route under token {token!r}",
+        )
+
+
+class AlreadyRespondedError(RisaError):
+    def __init__(self, attempted: str, already_sent: str) -> None:
+        self.attempted = attempted
+        self.already_sent = already_sent
+        super().__init__(
+            f"cannot {attempted}: this interaction already received its initial response ({already_sent})",
         )
 
 

@@ -19,20 +19,216 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import asyncio
+import enum
 import typing
 
+import hikari
+import msgspec
+
+from risa import errors
+
 if typing.TYPE_CHECKING:
-    import hikari
+    import collections.abc
 
-__all__ = ("ComponentContext",)
+__all__ = (
+    "ComponentContext",
+    "Context",
+    "DispatchState",
+    "Response",
+)
 
 
-class ComponentContext:
-    __slots__ = ("_interaction",)
+class _InitialResponse(enum.StrEnum):
+    NONE = enum.auto()
+    DEFERRED_UPDATE = enum.auto()
+    DEFERRED_THINKING = enum.auto()
+    MESSAGE_CREATE = enum.auto()
 
-    def __init__(self, interaction: hikari.ComponentInteraction) -> None:
+
+class DispatchState(msgspec.Struct):
+    lock: asyncio.Lock = msgspec.field(default_factory=asyncio.Lock)
+    acknowledged: asyncio.Event = msgspec.field(default_factory=asyncio.Event)
+    response: _InitialResponse = msgspec.field(default=_InitialResponse.NONE)
+
+
+class Response:
+    __slots__ = ("_interaction", "_message")
+
+    def __init__(
+        self,
+        interaction: hikari.ComponentInteraction | hikari.ModalInteraction,
+        message: hikari.Message | None,
+    ) -> None:
         self._interaction = interaction
+        self._message = message
+
+    async def fetch(self) -> hikari.Message:
+        if self._message is not None:
+            return await self._interaction.fetch_message(self._message.id)
+        return await self._interaction.fetch_initial_response()
+
+    async def delete(self) -> None:
+        if self._message is not None:
+            await self._interaction.delete_message(self._message.id)
+        else:
+            await self._interaction.delete_initial_response()
+
+    async def edit(  # ruff:ignore[too-many-arguments]
+        self,
+        content: hikari.UndefinedNoneOr[str] = hikari.UNDEFINED,
+        *,
+        attachment: hikari.UndefinedNoneOr[hikari.Resourceish | hikari.Attachment] = hikari.UNDEFINED,
+        attachments: hikari.UndefinedNoneOr[
+            collections.abc.Sequence[hikari.Resourceish | hikari.Attachment]
+        ] = hikari.UNDEFINED,
+        component: hikari.UndefinedNoneOr[hikari.api.ComponentBuilder] = hikari.UNDEFINED,
+        components: hikari.UndefinedNoneOr[collections.abc.Sequence[hikari.api.ComponentBuilder]] = hikari.UNDEFINED,
+        embed: hikari.UndefinedNoneOr[hikari.Embed] = hikari.UNDEFINED,
+        embeds: hikari.UndefinedNoneOr[collections.abc.Sequence[hikari.Embed]] = hikari.UNDEFINED,
+        mentions_everyone: hikari.UndefinedOr[bool] = hikari.UNDEFINED,
+        user_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialUser] | bool] = hikari.UNDEFINED,
+        role_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialRole] | bool] = hikari.UNDEFINED,
+    ) -> hikari.Message:
+        if self._message is not None:
+            return await self._interaction.edit_message(
+                self._message.id,
+                content,
+                attachment=attachment,
+                attachments=attachments,
+                component=component,
+                components=components,
+                embed=embed,
+                embeds=embeds,
+                mentions_everyone=mentions_everyone,
+                user_mentions=user_mentions,
+                role_mentions=role_mentions,
+            )
+        return await self._interaction.edit_initial_response(
+            content,
+            attachment=attachment,
+            attachments=attachments,
+            component=component,
+            components=components,
+            embed=embed,
+            embeds=embeds,
+            mentions_everyone=mentions_everyone,
+            user_mentions=user_mentions,
+            role_mentions=role_mentions,
+        )
+
+
+class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
+    __slots__ = ("_interaction", "_state")
+
+    def __init__(self, interaction: T, state: DispatchState | None = None) -> None:
+        self._interaction = interaction
+        self._state = state if state is not None else DispatchState()
 
     @property
-    def interaction(self) -> hikari.ComponentInteraction:
+    def interaction(self) -> T:
         return self._interaction
+
+    @property
+    def custom_id(self) -> str:
+        return self._interaction.custom_id
+
+    @property
+    def user(self) -> hikari.User:
+        return self._interaction.user
+
+    @property
+    def member(self) -> hikari.InteractionMember | None:
+        return self._interaction.member
+
+    @property
+    def channel_id(self) -> hikari.Snowflake:
+        return self._interaction.channel_id
+
+    @property
+    def guild_id(self) -> hikari.Snowflake | None:
+        return self._interaction.guild_id
+
+    @property
+    def message(self) -> hikari.Message | None:
+        return self._interaction.message
+
+    async def defer(self, *, thinking: bool = False, ephemeral: bool = False) -> None:
+        async with self._state.lock:
+            if self._state.response is not _InitialResponse.NONE:
+                attempted = "defer"
+                raise errors.AlreadyRespondedError(attempted, self._state.response.name)
+            await self._interaction.create_initial_response(
+                hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+                if thinking
+                else hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
+                flags=hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED,
+            )
+            self._record_initial(_InitialResponse.DEFERRED_THINKING if thinking else _InitialResponse.DEFERRED_UPDATE)
+
+    async def respond(  # ruff:ignore[too-many-arguments]
+        self,
+        content: hikari.UndefinedOr[str] = hikari.UNDEFINED,
+        *,
+        ephemeral: bool = False,
+        tts: hikari.UndefinedOr[bool] = hikari.UNDEFINED,
+        attachment: hikari.UndefinedOr[hikari.Resourceish] = hikari.UNDEFINED,
+        attachments: hikari.UndefinedOr[collections.abc.Sequence[hikari.Resourceish]] = hikari.UNDEFINED,
+        component: hikari.UndefinedOr[hikari.api.ComponentBuilder] = hikari.UNDEFINED,
+        components: hikari.UndefinedOr[collections.abc.Sequence[hikari.api.ComponentBuilder]] = hikari.UNDEFINED,
+        embed: hikari.UndefinedOr[hikari.Embed] = hikari.UNDEFINED,
+        embeds: hikari.UndefinedOr[collections.abc.Sequence[hikari.Embed]] = hikari.UNDEFINED,
+        mentions_everyone: hikari.UndefinedOr[bool] = hikari.UNDEFINED,
+        user_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialUser] | bool] = hikari.UNDEFINED,
+        role_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialRole] | bool] = hikari.UNDEFINED,
+    ) -> Response:
+        flags = hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED
+
+        async with self._state.lock:
+            if self._state.response is _InitialResponse.NONE:
+                await self._interaction.create_initial_response(
+                    hikari.ResponseType.MESSAGE_CREATE,
+                    content,
+                    flags=flags,
+                    tts=tts,
+                    attachment=attachment,
+                    attachments=attachments,
+                    component=component,
+                    components=components,
+                    embed=embed,
+                    embeds=embeds,
+                    mentions_everyone=mentions_everyone,
+                    user_mentions=user_mentions,
+                    role_mentions=role_mentions,
+                )
+                self._record_initial(_InitialResponse.MESSAGE_CREATE)
+                return Response(self._interaction, None)
+
+            message = await self._interaction.execute(
+                content,
+                flags=flags,
+                tts=tts,
+                attachment=attachment,
+                attachments=attachments,
+                component=component,
+                components=components,
+                embed=embed,
+                embeds=embeds,
+                mentions_everyone=mentions_everyone,
+                user_mentions=user_mentions,
+                role_mentions=role_mentions,
+            )
+            return Response(self._interaction, message)
+
+    def _record_initial(self, response: _InitialResponse) -> None:
+        self._state.response = response
+        self._state.acknowledged.set()
+
+
+class ComponentContext(Context[hikari.ComponentInteraction]):
+    __slots__ = ()
+
+    @property
+    @typing.override
+    def message(self) -> hikari.Message:
+        return self._interaction.message
