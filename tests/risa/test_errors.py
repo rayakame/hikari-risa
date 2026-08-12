@@ -30,6 +30,7 @@ import risa
         risa.CustomIdOverflowError,
         risa.LayoutError,
         risa.LockTimeoutError,
+        risa.NotAHandlerError,
         risa.SchemaMismatchError,
         risa.SerializationError,
         risa.StateConflictError,
@@ -55,6 +56,14 @@ def test_custom_id_overflow_reports_the_offending_length() -> None:
     assert error.view_name == "poll"
     assert error.length == 137
     assert "137" in str(error)
+
+
+def test_not_a_handler_names_the_offending_type() -> None:
+    error = risa.NotAHandlerError("str")
+
+    assert error.type_name == "str"
+    assert "str" in str(error)
+    assert "bind()" in str(error)
 
 
 def test_schema_mismatch_reports_both_versions() -> None:

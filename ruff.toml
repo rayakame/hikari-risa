@@ -10,21 +10,35 @@ line-ending = "lf"
 [lint]
 preview = true
 select = ["ALL"]
+ignore = [
+    # Comment and docstring rules are disabled while the library is being
+    # (re)written; comments and docs are a dedicated pass at the end.
+    "CPY", # copyright header
+    "D",   # pydocstyle
+    "DOC", # pydoclint
+    "ERA", # commented-out code
+    "FIX", # fixme comments
+    "TD",  # todo comments
+
+    "COM812", # missing trailing comma; conflicts with the formatter, which owns trailing commas
+]
 
 [lint.per-file-ignores]
-"noxfile.py" = [
-    "D", "DOC" # docstrings
-]
 "**/__init__.py" = [
     "F401", # imported but unused
     "F403", # unable to detect undefined names
 ]
 "tests/**" = [
-    "D",       # docstrings
-    "DOC",     # docstrings
     "S101",    # use of assert
     "PLR2004", # magic value comparison
 ]
+"testbot/**" = [
+    "ALL"
+]
+
+[lint.pylint]
+max-args = 8
+max-positional-args = 5
 
 [lint.isort]
 required-imports = ["from __future__ import annotations"]

@@ -18,12 +18,3 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 from __future__ import annotations
-
-import typing
-
-__author__: typing.Final[str] = "Rayakame"
-__copyright__: typing.Final[str] = "2025, Rayakame"
-__discord_invite__: typing.Final[str] = "https://discord.gg/Jx4cNGG"
-__url__: typing.Final[str] = "https://github.com/rayakame/hikari-risa"
-__version__: typing.Final[str] = "0.0.1"
-__license__: typing.Final[str] = "MIT"

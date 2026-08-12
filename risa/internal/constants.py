@@ -21,9 +21,11 @@ from __future__ import annotations
 
 import typing
 
-__author__: typing.Final[str] = "Rayakame"
-__copyright__: typing.Final[str] = "2025, Rayakame"
-__discord_invite__: typing.Final[str] = "https://discord.gg/Jx4cNGG"
-__url__: typing.Final[str] = "https://github.com/rayakame/hikari-risa"
-__version__: typing.Final[str] = "0.0.1"
-__license__: typing.Final[str] = "MIT"
+__all__ = (
+    "MAX_CUSTOM_ID_LENGTH",
+    "VIEW_META",
+)
+
+MAX_CUSTOM_ID_LENGTH: typing.Final[int] = 100
+VIEW_META: typing.Final[str] = "__risa_view_meta__"
+AUTO_DEFER_DELAY: typing.Final[float] = 2.0

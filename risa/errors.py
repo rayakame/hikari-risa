@@ -17,49 +17,95 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""Exceptions raised by risa.
-
-The hierarchy is rooted at `RisaError`, so downstream code can catch everything
-this library raises with a single `except` clause.
-"""
-
 from __future__ import annotations
 
+from risa.internal import constants
+
 __all__ = (
+    "AlreadyRespondedError",
     "CustomIdOverflowError",
+    "DuplicateHandlerError",
+    "DuplicateViewError",
     "LayoutError",
     "LockTimeoutError",
+    "NotAHandlerError",
+    "NotAViewError",
     "RisaError",
     "SchemaMismatchError",
     "SerializationError",
     "StateConflictError",
     "StateError",
     "StateNotFoundError",
+    "ViewDeclarationError",
 )
 
-# The Discord-imposed hard limit on the length of a component's ``custom_id``.
-MAX_CUSTOM_ID_LENGTH = 100
+
+class RisaError(Exception): ...
 
 
-class RisaError(Exception):
-    """Base class every exception raised by risa inherits from."""
+class ViewDeclarationError(RisaError):
+    def __init__(self, view_name: str, reason: str) -> None:
+        self.view_name = view_name
+        self.reason = reason
+        super().__init__(f"view {view_name!r}: {reason}")
+
+
+class DuplicateViewError(RisaError):
+    def __init__(self, view_name: str, existing_name: str, key: str) -> None:
+        self.view_name = view_name
+        self.existing_name = existing_name
+        self.key = key
+        super().__init__(f"view {view_name!r} collides with {existing_name!r}: both are registered under {key!r}")
+
+
+class DuplicateHandlerError(RisaError):
+    def __init__(
+        self,
+        view_name: str,
+        token: str,
+        *,
+        first_id: str,
+        first_version: int,
+        second_id: str,
+        second_version: int,
+    ) -> None:
+        self.view_name = view_name
+        self.token = token
+        self.first_id = first_id
+        self.first_version = first_version
+        self.second_id = second_id
+        self.second_version = second_version
+        super().__init__(
+            f"view {view_name!r}: handlers {first_id!r} (version {first_version}) and "
+            f"{second_id!r} (version {second_version}) both route under token {token!r}",
+        )
+
+
+class AlreadyRespondedError(RisaError):
+    def __init__(self, attempted: str, already_sent: str) -> None:
+        self.attempted = attempted
+        self.already_sent = already_sent
+        super().__init__(
+            f"cannot {attempted}: this interaction already received its initial response ({already_sent})",
+        )
+
+
+class NotAHandlerError(RisaError):
+    def __init__(self, type_name: str) -> None:
+        self.type_name = type_name
+        super().__init__(
+            f"{type_name} has no handler identity to route under; pass a handler method"
+            f" accessed on the view instance, or the result of its bind()",
+        )
+
+
+class NotAViewError(RisaError):
+    def __init__(self, type_name: str) -> None:
+        self.type_name = type_name
+        super().__init__(f"{type_name} is not a registered view; decorate it with @risa.register")
 
 
 class LayoutError(RisaError):
-    """Raised when a component tree violates Discord's nesting rules.
-
-    Raised during the build pass, before anything is sent to Discord, so that an
-    invalid layout surfaces as a Python traceback rather than an opaque HTTP 400.
-
-    Attributes
-    ----------
-    path
-        Human-readable position of the offending node within the tree, for
-        example ``"Container[0] > Section[2]"``.
-    reason
-        Description of the rule that was violated.
-    """
-
     def __init__(self, path: str, reason: str) -> None:
         self.path = path
         self.reason = reason
@@ -67,45 +113,19 @@ class LayoutError(RisaError):
 
 
 class CustomIdOverflowError(RisaError):
-    """Raised when an encoded ``custom_id`` would exceed Discord's length limit.
-
-    Attributes
-    ----------
-    view_name
-        Name of the view whose component could not be encoded.
-    length
-        The length the encoded ``custom_id`` would have had.
-    """
-
     def __init__(self, view_name: str, length: int) -> None:
         self.view_name = view_name
         self.length = length
         super().__init__(
             f"custom_id for view {view_name!r} is {length} characters, "
-            f"which exceeds the Discord limit of {MAX_CUSTOM_ID_LENGTH}",
+            f"which exceeds the Discord limit of {constants.MAX_CUSTOM_ID_LENGTH}",
         )
 
 
-class SerializationError(RisaError):
-    """Base class for failures encoding or decoding persisted state."""
+class SerializationError(RisaError): ...
 
 
 class SchemaMismatchError(SerializationError):
-    """Raised when stored state does not match the current view schema.
-
-    This is the expected outcome when a view's schema version is bumped and an
-    interaction arrives from a component that was rendered by an older version.
-
-    Attributes
-    ----------
-    view_name
-        Name of the view the state belongs to.
-    found_version
-        Schema version recorded on the stored state.
-    expected_version
-        Schema version the currently-registered view declares.
-    """
-
     def __init__(self, view_name: str, found_version: int, expected_version: int) -> None:
         self.view_name = view_name
         self.found_version = found_version
@@ -116,55 +136,22 @@ class SchemaMismatchError(SerializationError):
         )
 
 
-class StateError(RisaError):
-    """Base class for failures reading or writing view state in a store."""
+class StateError(RisaError): ...
 
 
 class StateNotFoundError(StateError):
-    """Raised when a state key is absent from the store.
-
-    Usually means the entry expired, was evicted, or the store was flushed.
-
-    Attributes
-    ----------
-    key
-        The state key that could not be found.
-    """
-
     def __init__(self, key: str) -> None:
         self.key = key
         super().__init__(f"no state found for key {key!r}; it may have expired or been evicted")
 
 
 class StateConflictError(StateError):
-    """Raised when a state write loses an optimistic-concurrency check.
-
-    Indicates that another handler mutated the same view between this handler's
-    read and its write. Retrying is unsafe in general, because the handler may
-    already have sent a response.
-
-    Attributes
-    ----------
-    key
-        The state key that was being written.
-    """
-
     def __init__(self, key: str) -> None:
         self.key = key
         super().__init__(f"state for key {key!r} was modified concurrently; the write was rejected")
 
 
 class LockTimeoutError(StateError):
-    """Raised when a state lock could not be acquired in time.
-
-    Attributes
-    ----------
-    key
-        The state key whose lock was contended.
-    timeout
-        How long, in seconds, acquisition was attempted for.
-    """
-
     def __init__(self, key: str, timeout: float) -> None:
         self.key = key
         self.timeout = timeout
