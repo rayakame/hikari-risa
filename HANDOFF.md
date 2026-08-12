@@ -17,7 +17,10 @@ test cases; its internals are not a blueprint.
 
 ## Setting up on a new machine
 
-1. Fresh clone; `git checkout wire-args` (or branch anew off `main`).
+1. **Fresh clone strongly preferred**; `git checkout wire-args` (or branch anew off
+   `main`). The histories of `main` and `start-implementation` were rewritten on
+   2026-08-13 (attribution scrub) — an older clone must `git fetch origin` and
+   `git reset --hard origin/<branch>` on every branch it touches; never `git pull`.
 2. Recreate `testbot/.env` with `TOKEN=...` — it is gitignored and does not travel.
    The probe scripts under `test_bots/` read `DISCORD_TOKEN` / `TEST_CHANNEL_ID` from
    the environment.
@@ -26,6 +29,10 @@ test cases; its internals are not a blueprint.
 
 ## Working rules for this rewrite
 
+- **The maintainer implements by hand.** Claude explains the next step in depth — one
+  step at a time, what/where/why/DX — then reviews, fixes minor things, and writes
+  tests; it writes feature code only when explicitly asked. Deep-dive one step, stop,
+  wait.
 - **No docstrings, no comments** until a dedicated final pass. The comment lint
   families (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml` for
   exactly this reason; existing MIT headers stay, new files may omit them for now.
