@@ -248,3 +248,11 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
     @typing.override
     def message(self) -> hikari.Message:
         return self._interaction.message
+
+    @property
+    def values(self) -> collections.abc.Sequence[str]:
+        return self._interaction.values
+
+    @property
+    def resolved(self) -> hikari.ResolvedOptionData | None:
+        return self._interaction.resolved

@@ -231,3 +231,104 @@ def test_something_that_is_not_a_handler_is_rejected() -> None:
         ui.Button("close")  # type: ignore[reportArgumentType]
 
     assert exc_info.value.type_name == "str"
+
+
+def test_a_text_select_routes_and_serializes_its_options() -> None:
+    (built,) = ui.build(
+        ui.Row(
+            ui.TextSelect(
+                Panel().press,
+                ui.SelectOption("Red", description="warm"),
+                ui.SelectOption("Blue", "b", default=True),
+                placeholder="pick",
+                max_values=2,
+            ),
+        ),
+        meta_of(Panel),
+    )
+    (select,) = payload_of(built)["components"]
+
+    assert select["type"] == hikari.ComponentType.TEXT_SELECT_MENU
+    custom_id = parsed(select["custom_id"])
+    assert custom_id.cookie == meta_of(Panel).key
+    assert custom_id.handler == Panel.press.token
+    assert select["placeholder"] == "pick"
+    assert select["min_values"] == 1
+    assert select["max_values"] == 2
+
+    first, second = select["options"]
+    assert first["label"] == "Red"
+    assert first["value"] == "Red"
+    assert first["description"] == "warm"
+    assert second["value"] == "b"
+    assert second["default"] is True
+
+
+@pytest.mark.parametrize(
+    ("node_type", "component_type"),
+    [
+        (ui.UserSelect, hikari.ComponentType.USER_SELECT_MENU),
+        (ui.RoleSelect, hikari.ComponentType.ROLE_SELECT_MENU),
+        (ui.MentionableSelect, hikari.ComponentType.MENTIONABLE_SELECT_MENU),
+    ],
+)
+def test_an_entity_select_emits_its_type_and_routes(
+    node_type: type[ui.UserSelect | ui.RoleSelect | ui.MentionableSelect],
+    component_type: hikari.ComponentType,
+) -> None:
+    (built,) = ui.build(ui.Row(node_type(Panel().press, placeholder="who")), meta_of(Panel))
+    (select,) = payload_of(built)["components"]
+
+    assert select["type"] == component_type
+    assert select["placeholder"] == "who"
+    assert parsed(select["custom_id"]).handler == Panel.press.token
+
+
+def test_a_channel_select_defaults_to_no_filter() -> None:
+    (built,) = ui.build(ui.Row(ui.ChannelSelect(Panel().press, disabled=True)), meta_of(Panel))
+    (select,) = payload_of(built)["components"]
+
+    assert select["type"] == hikari.ComponentType.CHANNEL_SELECT_MENU
+    assert select["channel_types"] == []
+    assert select["disabled"] is True
+
+
+def test_a_channel_select_filters_channel_types() -> None:
+    (built,) = ui.build(
+        ui.Row(ui.ChannelSelect(Panel().press, channel_types=[hikari.ChannelType.GUILD_TEXT])),
+        meta_of(Panel),
+    )
+    (select,) = payload_of(built)["components"]
+
+    assert select["channel_types"] == [hikari.ChannelType.GUILD_TEXT]
+
+
+def test_selects_count_in_tree_order_with_buttons() -> None:
+    built = ui.build(
+        [
+            ui.Row(ui.Button(Panel().press), ui.UserSelect(Panel().press)),
+            ui.Row(ui.TextSelect(Panel().press, ui.SelectOption("x"))),
+        ],
+        meta_of(Panel),
+    )
+
+    first, second = payload_of(built[0])["components"]
+    (third,) = payload_of(built[1])["components"]
+    indices = [parsed(component["custom_id"]).fragment_index for component in (first, second, third)]
+    assert indices == [0, 1, 2]
+
+
+def test_a_foreign_handler_on_a_select_is_rejected_with_its_path() -> None:
+    layout = ui.Row(ui.UserSelect(Elsewhere().other))
+
+    with pytest.raises(risa.LayoutError) as exc_info:
+        ui.build(layout, meta_of(Panel))
+
+    assert exc_info.value.path == "Row[0] > UserSelect[0]"
+
+
+def test_a_select_rejects_something_that_is_not_a_handler() -> None:
+    with pytest.raises(risa.NotAHandlerError) as exc_info:
+        ui.UserSelect("nope")  # type: ignore[reportArgumentType]
+
+    assert exc_info.value.type_name == "str"

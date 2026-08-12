@@ -53,16 +53,38 @@ class Demo(risa.View):
               ui.Button(self.ping, label="Ping"),
               ui.Button(self.slow, label="Slow (4s)", style=hikari.ButtonStyle.SECONDARY),
           ),
+          ui.Row(
+              ui.TextSelect(
+                  self.pick,
+                  ui.SelectOption("Red"),
+                  ui.SelectOption("Green"),
+                  ui.SelectOption("Blue"),
+                  placeholder="Pick a color",
+              ),
+          ),
+          ui.Row(ui.UserSelect(self.who, placeholder="Pick a user")),
       )
 
   @risa.handler
   async def ping(self, ctx: risa.ComponentContext) -> None:
       await ctx.respond("pong", ephemeral=True)
 
-  @risa.handler
+  @risa.handler()
   async def slow(self, ctx: risa.ComponentContext) -> None:
-      await asyncio.sleep(4)
+      await asyncio.sleep(20)
       await ctx.respond("that took a while - the watchdog answered for me", ephemeral=True)
+
+  @risa.handler
+  async def pick(self, ctx: risa.ComponentContext) -> None:
+      await ctx.respond(f"you picked {ctx.values[0]}", ephemeral=True)
+
+  @risa.handler
+  async def who(self, ctx: risa.ComponentContext) -> None:
+      resolved = ctx.resolved
+      names = "nobody"
+      if resolved is not None and resolved.users:
+          names = ", ".join(str(user) for user in resolved.users.values())
+      await ctx.respond(f"you picked {names}", ephemeral=True)
 
 
 risa_client.add_view(Demo)

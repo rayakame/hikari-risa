@@ -185,6 +185,21 @@ async def test_a_followup_handle_targets_its_own_message() -> None:
     interaction.fetch_initial_response.assert_not_called()
 
 
+def test_the_context_exposes_select_values() -> None:
+    interaction = component_interaction()
+    interaction.values = ["red", "blue"]
+    ctx = risa.ComponentContext(interaction)
+
+    assert ctx.values == ["red", "blue"]
+
+
+def test_the_context_exposes_resolved_entities() -> None:
+    interaction = component_interaction()
+    ctx = risa.ComponentContext(interaction)
+
+    assert ctx.resolved is interaction.resolved
+
+
 async def test_the_first_response_sets_the_acknowledged_event() -> None:
     state = risa.DispatchState()
     ctx = risa.ComponentContext(component_interaction(), state)

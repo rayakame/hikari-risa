@@ -24,6 +24,7 @@ if typing.TYPE_CHECKING:
 __all__ = (
     "BuildContext",
     "Button",
+    "ChannelSelect",
     "Component",
     "Container",
     "ContainerChild",
@@ -33,21 +34,35 @@ __all__ = (
     "LinkButton",
     "MediaGallery",
     "MediaGalleryItem",
+    "MentionableSelect",
     "PremiumButton",
+    "RoleSelect",
     "Row",
     "RowChild",
     "Section",
     "SectionAccessory",
+    "Select",
+    "SelectOption",
     "Separator",
     "TextDisplay",
+    "TextSelect",
     "Thumbnail",
     "TopLevelComponent",
+    "UserSelect",
     "build",
 )
 
 
 def _or_undefined[T](value: T | None) -> T | hikari.UndefinedType:
     return hikari.UNDEFINED if value is None else value
+
+
+def _resolve_handler(handler: view_.ZeroArgHandler | view_.BoundHandler) -> view_.BoundHandler:
+    if isinstance(handler, view_.BoundHandler):
+        return handler
+    if isinstance(handler, view_.ZeroArgHandler):  # type: ignore[reportUnnecessaryIsInstance]
+        return handler.bind()
+    raise errors.NotAHandlerError(type(handler).__name__)
 
 
 class BuildContext:
@@ -84,6 +99,18 @@ class Interactive(Component):
     @property
     @abc.abstractmethod
     def bound(self) -> view_.BoundHandler: ...
+
+    def _routing_id(self, ctx: BuildContext, path: str) -> str:
+        if self.bound.token not in ctx.tokens:
+            reason = f"handler {self.bound.handler_id!r} (version {self.bound.version}) is not on this view"
+            raise errors.LayoutError(path, reason)
+        return codec.CustomID(
+            cookie=ctx.cookie,
+            handler=self.bound.token,
+            fragment_index=ctx.next_index(),
+            fragment="",
+            tail=self.bound.payload,
+        ).encode()
 
 
 class TextDisplay(Component):
@@ -385,12 +412,7 @@ class Button(Interactive):
         style: hikari.ButtonStyle = hikari.ButtonStyle.PRIMARY,
         disabled: bool = False,
     ) -> None:
-        if isinstance(handler, view_.BoundHandler):
-            self._bound = handler
-        elif isinstance(handler, view_.ZeroArgHandler):  # type: ignore[reportUnnecessaryIsInstance]
-            self._bound = handler.bind()
-        else:
-            raise errors.NotAHandlerError(type(handler).__name__)
+        self._bound = _resolve_handler(handler)
         self._label = label
         self._emoji = emoji
         self._style = style
@@ -419,26 +441,219 @@ class Button(Interactive):
 
     @typing.override
     def build(self, ctx: BuildContext, path: str) -> special_endpoints.InteractiveButtonBuilder:
-        if self._bound.token not in ctx.tokens:
-            reason = f"handler {self._bound.handler_id!r} (version {self._bound.version}) is not on this view"
-            raise errors.LayoutError(path, reason)
-        custom_id = codec.CustomID(
-            cookie=ctx.cookie,
-            handler=self._bound.token,
-            fragment_index=ctx.next_index(),
-            fragment="",
-            tail=self._bound.payload,
-        ).encode()
         return impl.InteractiveButtonBuilder(
             style=self._style,
-            custom_id=custom_id,
+            custom_id=self._routing_id(ctx, path),
             label=_or_undefined(self._label),
             emoji=_or_undefined(self._emoji),
             is_disabled=self._disabled,
         )
 
 
-type RowChild = Button | LinkButton | PremiumButton
+class SelectOption:
+    __slots__ = ("_default", "_description", "_emoji", "_label", "_value")
+
+    def __init__(
+        self,
+        label: str,
+        value: str | None = None,
+        *,
+        description: str | None = None,
+        emoji: snowflakes.Snowflakeish | emojis.Emoji | str | None = None,
+        default: bool = False,
+    ) -> None:
+        self._label = label
+        self._value = value if value is not None else label
+        self._description = description
+        self._emoji = emoji
+        self._default = default
+
+    @property
+    def label(self) -> str:
+        return self._label
+
+    @property
+    def value(self) -> str:
+        return self._value
+
+    @property
+    def description(self) -> str | None:
+        return self._description
+
+    @property
+    def emoji(self) -> snowflakes.Snowflakeish | emojis.Emoji | str | None:
+        return self._emoji
+
+    @property
+    def default(self) -> bool:
+        return self._default
+
+    def build(self) -> special_endpoints.SelectOptionBuilder:
+        return impl.SelectOptionBuilder(
+            label=self._label,
+            value=self._value,
+            description=_or_undefined(self._description),
+            emoji=_or_undefined(self._emoji),
+            is_default=self._default,
+        )
+
+
+class Select(Interactive):
+    __slots__ = ("_bound", "_disabled", "_max_values", "_min_values", "_placeholder")
+
+    def __init__(
+        self,
+        handler: view_.ZeroArgHandler | view_.BoundHandler,
+        *,
+        placeholder: str | None = None,
+        min_values: int = 1,
+        max_values: int = 1,
+        disabled: bool = False,
+    ) -> None:
+        self._bound = _resolve_handler(handler)
+        self._placeholder = placeholder
+        self._min_values = min_values
+        self._max_values = max_values
+        self._disabled = disabled
+
+    @property
+    @typing.override
+    def bound(self) -> view_.BoundHandler:
+        return self._bound
+
+    @property
+    def placeholder(self) -> str | None:
+        return self._placeholder
+
+    @property
+    def min_values(self) -> int:
+        return self._min_values
+
+    @property
+    def max_values(self) -> int:
+        return self._max_values
+
+    @property
+    def disabled(self) -> bool:
+        return self._disabled
+
+
+class TextSelect(Select):
+    __slots__ = ("_options",)
+
+    def __init__(
+        self,
+        handler: view_.ZeroArgHandler | view_.BoundHandler,
+        /,
+        *options: SelectOption,
+        placeholder: str | None = None,
+        min_values: int = 1,
+        max_values: int = 1,
+        disabled: bool = False,
+    ) -> None:
+        super().__init__(
+            handler, placeholder=placeholder, min_values=min_values, max_values=max_values, disabled=disabled
+        )
+        self._options = options
+
+    @property
+    def options(self) -> collections.abc.Sequence[SelectOption]:
+        return self._options
+
+    @typing.override
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.TextSelectMenuBuilder[typing.NoReturn]:
+        return impl.TextSelectMenuBuilder(
+            custom_id=self._routing_id(ctx, path),
+            options=[option.build() for option in self._options],
+            placeholder=_or_undefined(self._placeholder),
+            min_values=self._min_values,
+            max_values=self._max_values,
+            is_disabled=self._disabled,
+        )
+
+
+class UserSelect(Select):
+    __slots__ = ()
+
+    @typing.override
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.SelectMenuBuilder:
+        return impl.SelectMenuBuilder(
+            type=hikari.ComponentType.USER_SELECT_MENU,
+            custom_id=self._routing_id(ctx, path),
+            placeholder=_or_undefined(self._placeholder),
+            min_values=self._min_values,
+            max_values=self._max_values,
+            is_disabled=self._disabled,
+        )
+
+
+class RoleSelect(Select):
+    __slots__ = ()
+
+    @typing.override
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.SelectMenuBuilder:
+        return impl.SelectMenuBuilder(
+            type=hikari.ComponentType.ROLE_SELECT_MENU,
+            custom_id=self._routing_id(ctx, path),
+            placeholder=_or_undefined(self._placeholder),
+            min_values=self._min_values,
+            max_values=self._max_values,
+            is_disabled=self._disabled,
+        )
+
+
+class MentionableSelect(Select):
+    __slots__ = ()
+
+    @typing.override
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.SelectMenuBuilder:
+        return impl.SelectMenuBuilder(
+            type=hikari.ComponentType.MENTIONABLE_SELECT_MENU,
+            custom_id=self._routing_id(ctx, path),
+            placeholder=_or_undefined(self._placeholder),
+            min_values=self._min_values,
+            max_values=self._max_values,
+            is_disabled=self._disabled,
+        )
+
+
+class ChannelSelect(Select):
+    __slots__ = ("_channel_types",)
+
+    def __init__(
+        self,
+        handler: view_.ZeroArgHandler | view_.BoundHandler,
+        *,
+        channel_types: collections.abc.Sequence[hikari.ChannelType] = (),
+        placeholder: str | None = None,
+        min_values: int = 1,
+        max_values: int = 1,
+        disabled: bool = False,
+    ) -> None:
+        super().__init__(
+            handler, placeholder=placeholder, min_values=min_values, max_values=max_values, disabled=disabled
+        )
+        self._channel_types = tuple(channel_types)
+
+    @property
+    def channel_types(self) -> collections.abc.Sequence[hikari.ChannelType]:
+        return self._channel_types
+
+    @typing.override
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.ChannelSelectMenuBuilder:
+        return impl.ChannelSelectMenuBuilder(
+            custom_id=self._routing_id(ctx, path),
+            channel_types=list(self._channel_types),
+            placeholder=_or_undefined(self._placeholder),
+            min_values=self._min_values,
+            max_values=self._max_values,
+            is_disabled=self._disabled,
+        )
+
+
+type RowChild = (
+    Button | ChannelSelect | LinkButton | MentionableSelect | PremiumButton | RoleSelect | TextSelect | UserSelect
+)
 type SectionAccessory = Button | LinkButton | PremiumButton | Thumbnail
 type ContainerChild = File | MediaGallery | Row | Section | Separator | TextDisplay
 type TopLevelComponent = Container | ContainerChild
