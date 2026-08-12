@@ -55,7 +55,7 @@ pyright = [
     {include-group = "bot"},
 ]
 ruff = [
-    "ruff==0.15.22",
+    "ruff==0.16.2",
 ]
 pytest = [
     "pytest==9.1.1",
