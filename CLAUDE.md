@@ -90,26 +90,22 @@ first time rather than discovering it from lint output.
 risa/
   __init__.py       star re-exports of the public API
   _about.py         package metadata (__version__, __author__, ...)
-  client.py         Client ABC + Gateway/Rest implementations, dispatch, factories
-  context.py        Context handed to a handler
+  client.py         Client ABC + Gateway/Rest implementations, dispatch, the watchdog
+  context.py        Context base + ComponentContext, respond/defer, the response gate
   di.py             Contexts (DEFAULT/COMPONENT/MODAL), INJECTED re-export
   errors.py         RisaError-rooted hierarchy
-  view.py           View base, @register and @handler
+  view.py           View base, @register, @handler machinery, AutoDefer
   internal/         not public API; modules here carry no leading underscore
     wire.py         the printable alphabet every id is written in
     codec.py        custom_id encode/decode, cookie and handler tokens
-    anchor.py       the two anchor dialects, and distributing one over components
-    reader.py       reading risa's own components back off a delivered message
     constants.py    Discord limits and the attribute names risa stamps
-    registry.py     ViewMeta and the cookie -> view registries
-  state/            where a view'"'"'s durable state lives, one module per placement
-    store.py        Store protocol and MemoryStore
-    placement.py    InMessage / InStore
-    schema.py       durable fields, packing, prefix fingerprints
-    backend.py      the StateBackend / StateSession abstractions
-    message.py      state carried by the message; stored.py, stateless.py the others
+    registry.py     ViewMeta, HandlerRecord, the cookie -> view registries
+  ui/
+    nodes.py        the V2 node set, BuildContext, and the build pass
   py.typed
-tests/
+tests/              mirrors the package layout
+testbot/            manual test bot against a real Discord app (TOKEN via .env)
+test_bots/          one-off probe scripts against the live API
 noxfile.py          reformat / format-check / ruff / pyright / pytest / audit
 ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
@@ -120,24 +116,21 @@ modules do not take a leading underscore.
 
 ## Design direction
 
-Built so far: the `custom_id` codec with arg converters and the signature fingerprint, the
-view registry, `@register` and versioned `@handler` with `bind()`, dependency injection, the
-state store (`MemoryStore`, per-key locks, CAS), the complete node layer (all five selects,
-link/premium buttons, separators, media galleries, files, thumbnails), full stateful dispatch
-including `on_state_missing` and `on_outdated`, and the Context response surface:
-`respond`/`rerender`/`edit(layout)`/`defer` with the auto-defer watchdog (`risa.AutoDefer`)
-and the event/204 REST transport.
+Built so far (the `foundation` rewrite): the identity half of the `custom_id` codec
+(cookies, handler tokens, the chunk-framed layout with a reserved args tail), the view
+registry, the handler machinery (`@handler` with id/version/defer, the `HandlerMethod`
+descriptor, zero-argument `bind()`), `@register` with the handler census, the complete
+node layer (all inert V2 nodes, `Button`, the five selects behind one `Select` base) with
+the build pass carrying the two risa-owned checks, flat dispatch with the routing-failure
+ladder, and the response surface: `respond`/`defer`/`acknowledge` on a generic `Context`
+base, the `Response` handle, and the auto-defer watchdog (`risa.AutoDefer`, per handler /
+view / client). `HANDOFF.md` tracks the precise state and the next step.
 
-**The dual-placement state architecture** decided in DESIGN.md (§2.3, §7) is now built;
-DESIGN.md remains the authority on the target and §15 holds the build order. Landed: the
-chunked `custom_id` wire format with both anchor dialects (`internal/wire.py`,
-`internal/anchor.py`), `StateSchema` with prefix fingerprints (`state/schema.py`), the
-`risa.Prop[T]` marker, per-view placement via
-`@risa.register(state=risa.InMessage() | risa.InStore(...))`, the `load()` refill hook, the
-three state backends and their sessions (`state/{backend,message,stored,stateless}.py`),
-the two-phase build, and one session-driven dispatch path with commit-per-rerender and
-CAS-loss convergence. Still to come: modals (callback-only, §9), `RedisStore` and its
-conformance kit, state migrations, and the deferred items in §15.
+**The dual-placement state architecture** decided in DESIGN.md (§2.3, §7) is the target,
+not yet the code: nothing under `risa/state/` exists on this rewrite, wire args
+(converters, the signature fingerprint, real `bind(*args)`), `rerender()`/`edit(layout)`,
+the event/204 REST pattern, `on_outdated` and modals are all still to come. DESIGN.md
+remains the authority and §15 holds the build order.
 
 Treat the rest as intent, not as an implemented contract.
 
