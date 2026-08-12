@@ -51,7 +51,7 @@ class Demo(risa.View):
           ui.TextDisplay("## risa"),
           ui.Row(
               ui.Button(self.ping, label="Ping"),
-              ui.Button(self.slow, label="Slow (4s)", style=hikari.ButtonStyle.SECONDARY),
+              ui.Button(self.slow, label="Slow (20s)", style=hikari.ButtonStyle.SECONDARY),
           ),
           ui.Row(
               ui.TextSelect(

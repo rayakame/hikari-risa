@@ -54,7 +54,7 @@ def test_the_context_holds_no_attributes_beyond_its_slots() -> None:
     ctx = risa.ComponentContext(component_interaction())
 
     with pytest.raises(AttributeError):
-        ctx.message = None  # type: ignore[reportAttributeAccessIssue]
+        ctx.extra = None  # type: ignore[reportAttributeAccessIssue]
 
 
 async def test_the_first_respond_becomes_the_initial_response() -> None:

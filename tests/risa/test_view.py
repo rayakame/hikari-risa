@@ -262,6 +262,24 @@ def test_the_same_id_at_different_versions_coexists() -> None:
     assert codec.make_handler_token("act", 2) in handlers
 
 
+def test_two_ids_hashing_to_the_same_token_collide_loudly() -> None:
+    assert codec.make_handler_token("forced-13", 1) == codec.make_handler_token("forced-26", 1)
+
+    class Colliding(risa.View):
+        @risa.handler(handler_id="forced-13")
+        async def first(self, _ctx: risa.ComponentContext) -> None:
+            pass
+
+        @risa.handler(handler_id="forced-26")
+        async def second(self, _ctx: risa.ComponentContext) -> None:
+            pass
+
+    with pytest.raises(risa.DuplicateHandlerError) as exc_info:
+        risa.register(name="view-colliding")(Colliding)
+
+    assert {exc_info.value.first_id, exc_info.value.second_id} == {"forced-13", "forced-26"}
+
+
 def test_declaring_the_same_identity_twice_raises() -> None:
     class Clashing(risa.View):
         @risa.handler(handler_id="act")

@@ -149,35 +149,37 @@ wait (§7.3, §9).
 
 ### Module layout
 
+Status markers describe the `foundation` rewrite; `HANDOFF.md` tracks the precise state.
+
 ```text
 risa/
   __init__.py       public re-exports                          [exists]
   _about.py         metadata                                   [exists]
-  client.py         Client ABC, transports, dispatch           [done]
-  context.py        Context, responses, auto-defer             [done]
+  client.py         Client ABC, transports, dispatch, watchdog [exists]
+  context.py        Context, responses, auto-defer             [exists]
   di.py             Contexts, INJECTED re-export               [exists]
   errors.py         exception hierarchy                        [exists]
-  view.py           View base, @register(state=), @handler, Prop, load()   [done]
+  view.py           View base, @register(state=), @handler, Prop, load()   [exists; state knobs planned]
   modal.py          Modal base, @modal, TextInput, prompt machinery   [pivot step 5]
   internal/
-    wire.py         the printable alphabet every id is written in
-    codec.py        custom_id layout: header, fragment slot, args, fingerprints
-    anchor.py       anchor dialects, splitting and rejoining across components
+    wire.py         the printable alphabet every id is written in      [exists]
+    codec.py        custom_id layout: header, fragment slot, args, fingerprints  [exists; args planned]
+    anchor.py       anchor dialects, splitting and rejoining across components   [planned]
     constants.py    Discord limits, stamped attribute names    [exists]
     registry.py     ViewMeta, cookie -> view registries        [exists]
-    reader.py       message-component walk for chunk reassembly [done]
+    reader.py       message-component walk for chunk reassembly [planned]
   ui/
-    nodes.py        full V2 node set                           [done]
-    build.py        two-phase flatten + emit                   [done]
-  state/
-    store.py        Store protocol, MemoryStore                [done]
+    nodes.py        full V2 node set + the build pass          [exists]
+    build.py        two-phase flatten + emit                   [planned; the build pass lives in nodes.py until then]
+  state/                                                       [planned, all of it]
+    store.py        Store protocol, MemoryStore
     schema.py       StateSchema: durable fields, packing, prefix fingerprints
-    placement.py    InMessage / InStore policy objects         [done]
-    backend.py      StateBackend/StateSession protocols        [done]
-    message.py      MessageSession + version cache             [done]
-    stored.py       StoredSession                              [done]
-    stateless.py    the degenerate placement: nothing to keep  [done]
-    serde.py        store-entry envelope {v,n,f,d}             [done]
+    placement.py    InMessage / InStore policy objects
+    backend.py      StateBackend/StateSession protocols
+    message.py      MessageSession + version cache
+    stored.py       StoredSession
+    stateless.py    the degenerate placement: nothing to keep
+    serde.py        store-entry envelope {v,n,f,d}
     redis.py        RedisStore                                 [extra: redis; roadmap]
     testing.py      verify_store conformance kit               [roadmap]
 ```
@@ -978,23 +980,26 @@ Ordered by cost of changing later.
 
 ## 15. Build order and roadmap
 
-### The state pivot (current work)
+### The state pivot
 
-Each step should land green. **1-4 have landed;** 5 is next.
+Each step should land green. **None of these have landed on the `foundation` rewrite** —
+the pre-pivot work (identity codec, nodes, dispatch, the response surface) is in, and
+`HANDOFF.md` tracks the precise state. The old branch proved steps 1-4 once; they are to
+be rebuilt against this design, not copied.
 
-1. **Codec** *(landed)* — chunk framing (`idx`/`frag_len`, carve/gather with gap detection), the two
+1. **Codec** — chunk framing (`idx`/`frag_len`, carve/gather with gap detection), the two
    anchor dialects, the placement tag, Prop-aware positional state encoding. Still v1.
-2. **`StateSchema` + `Prop` + `load()`** *(landed)* — field partition, registration validations,
+2. **`StateSchema` + `Prop` + `load()`** — field partition, registration validations,
    `register(state=)`, `StateOverflowError` ergonomics.
-3. **Backends and sessions** *(landed)* — `MessageSession` (per-message lock, seq + version cache),
+3. **Backends and sessions** — `MessageSession` (per-message lock, seq + version cache),
    `StoredSession` (lease-capable `lock(timeout=)`, CAS-then-edit commits, converge-on-
    conflict, `on_state_missing`), Store protocol hardening (`StoreUnavailableError`,
    `{v,n,f,d}` envelope, key namespace, `InStore`+`MemoryStore` warning).
-4. **Build + dispatch + context rewire** *(landed)* — two-phase build, message-component
+4. **Build + dispatch + context rewire** — two-phase build, message-component
    reader, one session-driven dispatch path, commit-per-rerender, the fatal fixes from the
    invariants audit (CAS loss answers the interaction; `edit(layout)` re-embeds or raises;
    watchdog vs conditionally-modal handlers), deletion of the store-era dispatch. Also
-   landed here: a third `StatelessBackend` so nothing above branches on whether a view has
+   in this step: a third `StatelessBackend` so nothing above branches on whether a view has
    state; named stores on the client (`stores={...}`) validated at `add_view`; and
    `anchor.distribute`, which parks the components an anchor does not reach on one shared
    index rather than counting past it.
