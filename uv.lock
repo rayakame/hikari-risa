@@ -369,7 +369,7 @@ ruff = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hikari" },
+    { name = "hikari", specifier = "~=2.5" },
     { name = "linkd", specifier = "~=0.6" },
     { name = "msgspec", specifier = "~=0.21" },
     { name = "redis", marker = "extra == 'redis'", specifier = "~=8.0" },

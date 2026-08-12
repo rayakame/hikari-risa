@@ -164,18 +164,18 @@ class Client(abc.ABC):
         resolved_defer = handler.defer
         if resolved_defer is None:
             resolved_defer = self._auto_defer
-        view = meta.cls()
         state = context.DispatchState()
         ctx = context.ComponentContext(interaction, state)
         watchdog: asyncio.Task[None] | None = None
         if resolved_defer is not view_.AutoDefer.OFF:
             watchdog = asyncio.create_task(self._auto_defer_task(ctx, resolved_defer))
         try:
+            view = meta.cls()
             await handler.callback(view, ctx)
         except Exception:
             await self._stop_auto_defer_task(watchdog, state)
             _LOGGER.exception(
-                "handler %r (version %d) of view %s raised while answering interaction %s",
+                "handler %r (version %d) of view %s failed while answering interaction %s",
                 handler.handler_id,
                 handler.version,
                 meta.name,
@@ -183,19 +183,21 @@ class Client(abc.ABC):
             )
         else:
             await self._stop_auto_defer_task(watchdog, state)
-            await ctx.acknowledge()
+            try:
+                await ctx.acknowledge()
+            except Exception:
+                _LOGGER.exception("failed to acknowledge interaction %s after its handler finished", interaction.id)
 
     async def _auto_defer_task(self, ctx: context.ComponentContext, defer: view_.AutoDefer) -> None:
         await asyncio.sleep(self._auto_defer_delay)
-        match defer:
-            case view_.AutoDefer.UPDATE:
-                await ctx.acknowledge()
-            case view_.AutoDefer.THINKING:
-                await ctx.acknowledge(thinking=True)
-            case view_.AutoDefer.THINKING_EPHEMERAL:
-                await ctx.acknowledge(thinking=True, ephemeral=True)
-            case view_.AutoDefer.OFF:
-                return
+        if defer is view_.AutoDefer.OFF:
+            return
+        thinking = defer in {view_.AutoDefer.THINKING, view_.AutoDefer.THINKING_EPHEMERAL}
+        ephemeral = defer is view_.AutoDefer.THINKING_EPHEMERAL
+        try:
+            await ctx.acknowledge(thinking=thinking, ephemeral=ephemeral)
+        except Exception:
+            _LOGGER.exception("auto-defer failed to acknowledge interaction %s", ctx.interaction.id)
 
     @staticmethod
     async def _stop_auto_defer_task(task: asyncio.Task[None] | None, state: context.DispatchState) -> None:
@@ -207,6 +209,8 @@ class Client(abc.ABC):
             await task
         except asyncio.CancelledError:
             return
+        except Exception:
+            _LOGGER.exception("the auto-defer watchdog raised while being stood down")
 
 
 class GatewayEnabledClient(Client):

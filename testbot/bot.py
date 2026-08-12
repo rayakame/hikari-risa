@@ -62,7 +62,7 @@ class Demo(risa.View):
                   placeholder="Pick a color",
               ),
           ),
-          ui.Row(ui.UserSelect(self.who, placeholder="Pick a user")),
+          ui.Row(ui.UserSelect(self.who, placeholder="Pick a user", max_values=10)),
       )
 
   @risa.handler

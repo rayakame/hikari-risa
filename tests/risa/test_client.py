@@ -487,6 +487,50 @@ async def test_a_clean_finish_without_a_response_is_still_answered() -> None:
     assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
 
 
+@risa.register(name="client-needy")
+class Needy(risa.View):
+    thing: str
+
+    @risa.handler
+    async def press(self, ctx: risa.ComponentContext) -> None:
+        CALLS.append((self, ctx))
+
+
+async def test_a_failing_watchdog_ack_is_contained(caplog: pytest.LogCaptureFixture) -> None:
+    built = deferring_client(Sluggish)
+    interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.update.token))
+    interaction.create_initial_response.side_effect = RuntimeError("interaction is gone")
+
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await dispatch_slowly(built, interaction)
+
+    assert "auto-defer failed" in caplog.text
+
+
+async def test_a_failing_final_ack_is_contained(caplog: pytest.LogCaptureFixture) -> None:
+    built = deferring_client(Clicker)
+    interaction = interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token))
+    interaction.create_initial_response.side_effect = RuntimeError("interaction is gone")
+    CALLS.clear()
+
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert len(CALLS) == 1
+    assert "failed to acknowledge" in caplog.text
+
+
+async def test_a_view_that_cannot_be_constructed_is_contained(caplog: pytest.LogCaptureFixture) -> None:
+    built = deferring_client(Needy)
+    interaction = interaction_with(encoded_id_for(Needy, handler=Needy.press.token))
+
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "press" in caplog.text
+    interaction.execute.assert_not_called()
+
+
 async def test_a_raising_handler_is_never_acknowledged() -> None:
     built = deferring_client(Faulty)
     interaction = interaction_with(encoded_id_for(Faulty, handler=Faulty.boom.token))
