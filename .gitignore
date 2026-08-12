@@ -17,3 +17,6 @@ wheels/
 # IDEs
 .idea/
 .vscode/
+
+# Secrets
+.env

@@ -22,6 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "hikari~=2.5",
+    "linkd~=0.6",
     "msgspec~=0.21",
 ]
 
@@ -42,11 +43,16 @@ build-backend = "hatchling.build"
 packages = ["risa"]
 
 [dependency-groups]
+bot = [
+    "hikari-lightbulb==3.2.5",
+    "python-dotenv>=1.2.2",
+]
 nox = [
     "nox[uv]==2026.7.11",
 ]
 pyright = [
     "pyright==1.1.411",
+    {include-group = "bot"},
 ]
 ruff = [
     "ruff==0.15.22",
@@ -57,7 +63,7 @@ pytest = [
 ]
 
 [tool.pyright]
-include = ["risa", "tests"]
+include = ["risa", "tests", "testbot"]
 exclude = [
     "**/__init__.py"
 ]
