@@ -24,6 +24,7 @@ import functools
 import inspect
 import typing
 
+import linkd
 import msgspec
 
 from risa import errors
@@ -44,7 +45,7 @@ __all__ = (
     "HandlerFunction",
     "HandlerMethod",
     "View",
-    "ZeroArgHandler",
+    "bind",
     "handler",
     "register",
 )
@@ -53,6 +54,8 @@ type HandlerFunction[V: View, **P] = collections.abc.Callable[
     typing.Concatenate[V, context.ComponentContext, P],
     collections.abc.Awaitable[None],
 ]
+
+bind: typing.Final = functools.partial
 
 
 class AutoDefer(enum.StrEnum):
@@ -66,11 +69,11 @@ class BoundHandler(msgspec.Struct, frozen=True):
     handler_id: str
     version: int
     token: str
-    payload: str = ""
+    payload: str
 
 
 class BoundHandlerMethod:
-    __slots__ = ("_call", "_handler_id", "_token", "_version")
+    __slots__ = ("_call", "_callback_name", "_handler_id", "_signature", "_token", "_version")
 
     def __init__(
         self,
@@ -79,26 +82,69 @@ class BoundHandlerMethod:
         handler_id: str,
         version: int,
         token: str,
+        signature: codec.HandlerSignature,
+        callback_name: str,
     ) -> None:
         self._call = call
         self._handler_id = handler_id
         self._version = version
         self._token = token
+        self._signature = signature
+        self._callback_name = callback_name
 
     def __call__(self, ctx: context.ComponentContext, /) -> collections.abc.Awaitable[None]:
         return self._call(ctx)
 
-    def bind(self) -> BoundHandler:
-        return BoundHandler(handler_id=self._handler_id, version=self._version, token=self._token)
+    def bind(self, *args: object, **kwargs: object) -> BoundHandler:
+        names = list(self._signature.converters)
+        if len(args) > len(names):
+            raise errors.ArgBindError(
+                self._callback_name,
+                None,
+                f"received {len(args)} wire arguments, but the handler declares {len(names)}",
+            )
+        filled: dict[str, object] = dict(zip(names, args, strict=False))
+        for name, value in kwargs.items():
+            if name not in self._signature.converters:
+                raise errors.ArgBindError(self._callback_name, name, "is not a wire parameter of this handler")
+            if name in filled:
+                raise errors.ArgBindError(self._callback_name, name, "was supplied both positionally and by keyword")
+            filled[name] = value
+
+        k = len(names)
+        for index, name in enumerate(names):
+            if name not in filled:
+                k = index
+                break
+
+        if any(name in filled for name in names[k:]):
+            raise errors.ArgBindError(self._callback_name, names[k], "was not supplied, but a later wire parameter was")
+        if k < self._signature.required:
+            raise errors.ArgBindError(self._callback_name, names[k], "is required but was not supplied")
+
+        parts = self._encode_frames(names[:k], filled)
+        payload = self._signature.fingerprint + codec.pack_frames(parts) if names else ""
+        return BoundHandler(handler_id=self._handler_id, version=self._version, token=self._token, payload=payload)
+
+    def _encode_frames(self, names: collections.abc.Sequence[str], filled: dict[str, object]) -> list[str]:
+        parts: list[str] = []
+        for name in names:
+            try:
+                encoded = self._signature.converters[name].encode(filled[name])
+            except (TypeError, ValueError) as exc:
+                raise errors.ArgBindError(self._callback_name, name, str(exc)) from exc
+            if len(encoded) > codec.MAX_FRAME_LENGTH:
+                reason = (
+                    f"encodes to {len(encoded)} characters, "
+                    f"which exceeds the {codec.MAX_FRAME_LENGTH}-character frame limit"
+                )
+                raise errors.ArgBindError(self._callback_name, name, reason)
+            parts.append(encoded)
+        return parts
 
 
-@typing.runtime_checkable
-class ZeroArgHandler(typing.Protocol):
-    def bind(self) -> BoundHandler: ...
-
-
-class HandlerMethod:
-    __slots__ = ("_defer", "_func", "_handler_id", "_token", "_version")
+class HandlerMethod[V: View, **P]:
+    __slots__ = ("_defer", "_func", "_handler_id", "_signature", "_token", "_version")
 
     def __init__(
         self,
@@ -113,6 +159,13 @@ class HandlerMethod:
         self._version = version
         self._token = codec.make_handler_token(handler_id, version)
         self._defer = defer
+        self._signature: codec.HandlerSignature | None = None
+
+    @property
+    def signature(self) -> codec.HandlerSignature:
+        if self._signature is None:
+            self._signature = codec.resolve_signature(self._func)
+        return self._signature
 
     @property
     def func(self) -> collections.abc.Callable[..., collections.abc.Awaitable[None]]:
@@ -135,28 +188,35 @@ class HandlerMethod:
         return self._defer
 
     @typing.overload
-    def __get__(self, instance: None, owner: type[View]) -> HandlerMethod: ...
+    def __get__(self, instance: None, owner: type[V]) -> HandlerMethod[V, P]: ...
 
     @typing.overload
-    def __get__(self, instance: View, owner: type[View]) -> BoundHandlerMethod: ...
+    def __get__(self, instance: V, owner: type[V]) -> collections.abc.Callable[P, collections.abc.Awaitable[None]]: ...
 
-    def __get__(self, instance: View | None, owner: type[View]) -> HandlerMethod | BoundHandlerMethod:
+    def __get__(
+        self, instance: V | None, owner: type[V]
+    ) -> HandlerMethod[V, P] | collections.abc.Callable[P, collections.abc.Awaitable[None]]:
         if instance is None:
             return self
-        return BoundHandlerMethod(
-            functools.partial(self._func, instance),
-            handler_id=self._handler_id,
-            version=self._version,
-            token=self._token,
+        return typing.cast(
+            "collections.abc.Callable[P, collections.abc.Awaitable[None]]",
+            BoundHandlerMethod(
+                functools.partial(self._func, instance),
+                handler_id=self._handler_id,
+                version=self._version,
+                token=self._token,
+                signature=self.signature,
+                callback_name=self._func.__qualname__,
+            ),
         )
 
 
 class _HandlerDecorator(typing.Protocol):
-    def __call__[V: View, **P](self, func: HandlerFunction[V, P], /) -> HandlerMethod: ...
+    def __call__[V: View, **P](self, func: HandlerFunction[V, P], /) -> HandlerMethod[V, P]: ...
 
 
 @typing.overload
-def handler[V: View, **P](func: HandlerFunction[V, P], /) -> HandlerMethod: ...
+def handler[V: View, **P](func: HandlerFunction[V, P], /) -> HandlerMethod[V, P]: ...
 
 
 @typing.overload
@@ -175,8 +235,8 @@ def handler(
     handler_id: str | None = None,
     version: int = 1,
     defer: AutoDefer | None = None,
-) -> HandlerMethod | _HandlerDecorator:
-    def decorate(f: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> HandlerMethod:
+) -> object:
+    def decorate(f: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> HandlerMethod[View, ...]:
         return HandlerMethod(
             f,
             handler_id=handler_id if handler_id is not None else f.__name__,
@@ -209,19 +269,25 @@ def register[T: View](
         for _, member in inspect.getmembers(cls):
             if not isinstance(member, HandlerMethod):
                 continue
-            method = member
-            if (existing := handlers.get(method.token)) is not None:
+            if (existing := handlers.get(member.token)) is not None:
                 raise errors.DuplicateHandlerError(
                     name,
-                    method.token,
+                    member.token,
                     first_id=existing.handler_id,
                     first_version=existing.version,
-                    second_id=method.handler_id,
-                    second_version=method.version,
+                    second_id=member.handler_id,
+                    second_version=member.version,
                 )
-            resolved_defer = method.defer if method.defer is not None else defer
-            handlers[method.token] = registry.HandlerRecord(
-                callback=method.func, handler_id=method.handler_id, version=method.version, defer=resolved_defer
+            resolved_defer = member.defer if member.defer is not None else defer
+            handlers[member.token] = registry.HandlerRecord(
+                callback=typing.cast(
+                    "collections.abc.Callable[..., collections.abc.Awaitable[None]]",
+                    linkd.inject(member.func),
+                ),
+                handler_id=member.handler_id,
+                version=member.version,
+                defer=resolved_defer,
+                signature=member.signature,
             )
 
         meta = registry.ViewMeta(cls=cls, name=name, version=version, handlers=handlers)

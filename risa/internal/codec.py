@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import abc
+import enum
+import inspect
 import typing
 
+import hikari
+import linkd
 import msgspec
 
 from risa import errors
@@ -11,26 +15,30 @@ from risa.internal import wire
 
 if typing.TYPE_CHECKING:
     import collections.abc
-    import enum
 
 __all__ = (
     "COOKIE_LENGTH",
+    "FINGERPRINT_LENGTH",
     "FRAGMENT_INDEX_WIDTH",
     "FRAGMENT_LEN_WIDTH",
     "HANDLER_LENGTH",
     "HEADER_LENGTH",
     "MAX_FRAGMENT_LENGTH",
+    "MAX_FRAME_LENGTH",
     "VERSION",
     "ArgConverter",
     "BoolConverter",
     "CustomID",
     "EnumConverter",
+    "HandlerSignature",
     "IntConverter",
     "StrConverter",
     "make_cookie",
     "make_handler_token",
     "pack_frames",
     "parse_custom_id",
+    "resolve_converter",
+    "resolve_signature",
     "unpack_frames",
 )
 
@@ -44,6 +52,8 @@ HEADER_LENGTH: typing.Final[int] = (
     len(VERSION) + COOKIE_LENGTH + HANDLER_LENGTH + FRAGMENT_INDEX_WIDTH + FRAGMENT_LEN_WIDTH
 )
 MAX_FRAGMENT_LENGTH: typing.Final[int] = constants.MAX_CUSTOM_ID_LENGTH - HEADER_LENGTH
+MAX_FRAME_LENGTH: typing.Final[int] = wire.ALPHABET_SIZE - 1
+FINGERPRINT_LENGTH: typing.Final[int] = 2
 
 
 def make_cookie(name: str, version: int) -> str:
@@ -109,6 +119,30 @@ def parse_custom_id(raw: str) -> CustomID | None:
         fragment=raw[HEADER_LENGTH : HEADER_LENGTH + fragment_length],
         tail=raw[HEADER_LENGTH + fragment_length :],
     )
+
+
+def _enum_converter(enum_cls: type[enum.Enum]) -> EnumConverter:
+    value_types: set[type[object]] = {type(member.value) for member in enum_cls}
+    if all(t is str for t in value_types) and value_types:
+        return EnumConverter(enum_cls, StrConverter(), "es")
+    if all(t is not bool and issubclass(t, int) for t in value_types) and value_types:
+        return EnumConverter(enum_cls, IntConverter(int), "ei")
+    msg = "enum values must be all int or all str"
+    raise ValueError(msg)
+
+
+def resolve_converter(annotation: object) -> ArgConverter | None:
+    if annotation is bool:
+        return BoolConverter()
+    if annotation is int:
+        return IntConverter(int)
+    if annotation is hikari.Snowflake:
+        return IntConverter(hikari.Snowflake)
+    if annotation is str:
+        return StrConverter()
+    if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
+        return _enum_converter(annotation)
+    return None
 
 
 class ArgConverter(abc.ABC):
@@ -252,3 +286,62 @@ def unpack_frames(raw: str) -> list[str] | None:
         parts.append(raw[start:end])
         position = end
     return parts
+
+
+class HandlerSignature(msgspec.Struct, frozen=True):
+    converters: collections.abc.Mapping[str, ArgConverter]
+    required: int
+    fingerprint: str
+
+
+def _resolve_hints(func: collections.abc.Callable[..., object]) -> dict[str, object]:
+    try:
+        return typing.get_type_hints(func)
+    except NameError as exc:
+        reason = (
+            "is not importable at runtime; annotations on handler parameters must be imported outside TYPE_CHECKING"
+        )
+        raise errors.HandlerSignatureError(func.__qualname__, exc.name or "?", reason) from exc
+
+
+def resolve_signature(func: collections.abc.Callable[..., object]) -> HandlerSignature:
+    hints = _resolve_hints(func)
+    params = list(inspect.signature(func).parameters.values())[2:]
+    converters: dict[str, ArgConverter] = {}
+    required_count = 0
+
+    di_flag = False
+    for param in params:
+        if param.kind in {inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD}:
+            di_flag = True
+            continue
+        if param.kind is inspect.Parameter.KEYWORD_ONLY:
+            di_flag = True
+        if param.name not in hints:
+            di_flag = True
+            continue
+        if param.default is linkd.INJECTED:
+            di_flag = True
+            continue
+        try:
+            converter = resolve_converter(hints[param.name])
+        except ValueError as exc:
+            raise errors.HandlerSignatureError(func.__qualname__, param.name, str(exc)) from exc
+
+        if converter is None:
+            di_flag = True
+            continue
+        if di_flag:
+            raise errors.HandlerSignatureError(
+                func.__qualname__,
+                param.name,
+                "is converter-typed but sits after the wire-argument section; "
+                "move it before the first injected parameter, or wrap it in its own type",
+            )
+
+        if param.default is inspect.Parameter.empty:
+            required_count += 1
+
+        converters[param.name] = converter
+    fingerprint = wire.pack_digest("".join(c.type_id for c in converters.values()), chars=FINGERPRINT_LENGTH)
+    return HandlerSignature(converters=converters, required=required_count, fingerprint=fingerprint)

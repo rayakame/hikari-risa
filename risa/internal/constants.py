@@ -22,6 +22,8 @@ from __future__ import annotations
 import typing
 
 __all__ = (
+    "AUTO_DEFER_DELAY",
+    "INTERACTION_WINDOW",
     "MAX_CUSTOM_ID_LENGTH",
     "VIEW_META",
 )
@@ -29,3 +31,4 @@ __all__ = (
 MAX_CUSTOM_ID_LENGTH: typing.Final[int] = 100
 VIEW_META: typing.Final[str] = "__risa_view_meta__"
 AUTO_DEFER_DELAY: typing.Final[float] = 2.0
+INTERACTION_WINDOW: typing.Final[float] = 3.0

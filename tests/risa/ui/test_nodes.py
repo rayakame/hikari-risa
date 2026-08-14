@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing
+import unittest.mock
 
 import hikari
 import pytest
@@ -29,11 +30,23 @@ class Elsewhere(risa.View):
         pass
 
 
+@risa.register(name="test-nodes-wired")
+class WiredPanel(risa.View):
+    @risa.handler
+    async def vote(self, _ctx: risa.ComponentContext, option: str, count: int = 1) -> None:
+        pass
+
+
 _META = registry.ViewMeta(cls=Canvas, name="test-nodes", version=1)
 
 
 def meta_of(cls: type[risa.View]) -> registry.ViewMeta:
     return typing.cast("registry.ViewMeta", getattr(cls, constants.VIEW_META))
+
+
+def engine(handler: object) -> risa.BoundHandlerMethod:
+    assert isinstance(handler, risa.BoundHandlerMethod)
+    return handler
 
 
 def parsed(raw: str) -> codec.CustomID:
@@ -189,7 +202,7 @@ def test_a_button_routes_through_a_risa_custom_id() -> None:
 
 def test_a_bare_handler_and_its_bind_build_identically() -> None:
     (bare,) = ui.build(ui.Row(ui.Button(Panel().press, label="go")), meta_of(Panel))
-    (bound,) = ui.build(ui.Row(ui.Button(Panel().press.bind(), label="go")), meta_of(Panel))
+    (bound,) = ui.build(ui.Row(ui.Button(engine(Panel().press).bind(), label="go")), meta_of(Panel))
 
     assert payload_of(bare) == payload_of(bound)
 
@@ -231,6 +244,115 @@ def test_something_that_is_not_a_handler_is_rejected() -> None:
         ui.Button("close")  # type: ignore[reportArgumentType]
 
     assert exc_info.value.type_name == "str"
+
+
+def test_a_partial_bakes_its_args_into_the_custom_id_tail() -> None:
+    view = WiredPanel()
+
+    (built,) = ui.build(ui.Row(ui.Button(risa.bind(view.vote, "Red", 5), label="Red")), meta_of(WiredPanel))
+    (button,) = payload_of(built)["components"]
+
+    assert parsed(button["custom_id"]).tail == engine(view.vote).bind("Red", 5).payload
+
+
+def test_nested_partials_flatten_into_one_binding() -> None:
+    view = WiredPanel()
+
+    (curried,) = ui.build(ui.Row(ui.Button(risa.bind(risa.bind(view.vote, "Red"), 5))), meta_of(WiredPanel))
+    (direct,) = ui.build(ui.Row(ui.Button(risa.bind(view.vote, "Red", 5))), meta_of(WiredPanel))
+
+    assert payload_of(curried) == payload_of(direct)
+
+
+def test_a_partial_of_something_else_is_rejected() -> None:
+    with pytest.raises(risa.NotAHandlerError) as exc_info:
+        ui.Button(risa.bind(print))  # type: ignore[reportArgumentType]
+
+    assert exc_info.value.type_name == "builtin_function_or_method"
+
+
+def test_bad_bound_values_fail_at_the_render_site() -> None:
+    with pytest.raises(risa.ArgBindError) as exc_info:
+        ui.Button(risa.bind(WiredPanel().vote, 5))  # type: ignore[reportArgumentType]
+
+    assert exc_info.value.parameter == "option"
+    assert "expected a str" in str(exc_info.value)
+
+
+def test_a_bare_handler_with_required_args_fails_at_render() -> None:
+    with pytest.raises(risa.ArgBindError) as exc_info:
+        ui.Button(WiredPanel().vote)
+
+    assert exc_info.value.parameter == "option"
+    assert "required" in str(exc_info.value)
+
+
+def test_a_legal_frame_can_still_overflow_the_custom_id() -> None:
+    with pytest.raises(risa.CustomIdOverflowError):
+        ui.build(ui.Row(ui.Button(risa.bind(WiredPanel().vote, "x" * 70))), meta_of(WiredPanel))
+
+
+def rendered_text() -> ui.Rendered:
+    return ui.Rendered(build(ui.TextDisplay("hi")))
+
+
+def test_rendered_is_a_mapping_of_send_kwargs() -> None:
+    rendered = rendered_text()
+
+    assert dict(rendered) == {"components": rendered.components}
+    assert list(rendered) == ["components"]
+    assert len(rendered.components) == 1
+
+
+async def test_rendered_spreads_into_a_send_call() -> None:
+    rendered = rendered_text()
+    channel = unittest.mock.Mock(spec=hikari.TextableChannel)
+
+    await channel.send(**rendered)
+
+    channel.send.assert_awaited_once_with(components=rendered.components)
+
+
+async def test_send_to_sends_the_components() -> None:
+    rendered = rendered_text()
+    channel = unittest.mock.Mock(spec=hikari.TextableChannel)
+
+    await rendered.send_to(channel)
+
+    channel.send.assert_awaited_once_with(components=rendered.components)
+
+
+async def test_respond_to_answers_with_the_initial_message_create() -> None:
+    rendered = rendered_text()
+    interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
+
+    await rendered.respond_to(interaction, ephemeral=True)
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.MESSAGE_CREATE
+    assert call.kwargs["components"] == rendered.components
+    assert call.kwargs["flags"] is hikari.MessageFlag.EPHEMERAL
+
+
+async def test_content_alongside_a_rendered_view_is_rejected_with_the_v2_message() -> None:
+    rendered = rendered_text()
+    channel = unittest.mock.Mock(spec=hikari.TextableChannel)
+
+    with pytest.raises(TypeError, match="TextDisplay"):
+        await rendered.send_to(channel, content="hi")  # type: ignore[reportArgumentType]
+
+    channel.send.assert_not_called()
+
+
+async def test_embeds_alongside_a_rendered_view_are_rejected_too() -> None:
+    rendered = rendered_text()
+    interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
+
+    with pytest.raises(TypeError, match="embeds"):
+        await rendered.respond_to(interaction, embeds=[])  # type: ignore[reportArgumentType]
+
+    interaction.create_initial_response.assert_not_called()
 
 
 def test_a_text_select_routes_and_serializes_its_options() -> None:

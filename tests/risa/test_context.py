@@ -25,6 +25,27 @@ import hikari
 import pytest
 
 import risa
+from risa import ui
+from risa.internal import constants
+from risa.internal import registry
+
+
+@risa.register(name="context-anchor")
+class Anchor(risa.View):
+    note: str = "hello"
+
+    def render(self) -> ui.Layout:
+        return ui.TextDisplay(self.note)
+
+
+def component_ctx(
+    interaction: unittest.mock.Mock,
+    state: risa.DispatchState | None = None,
+    view: Anchor | None = None,
+) -> risa.ComponentContext:
+    meta = getattr(Anchor, constants.VIEW_META)
+    assert isinstance(meta, registry.ViewMeta)
+    return risa.ComponentContext(interaction, view=view if view is not None else Anchor(), meta=meta, state=state)
 
 
 def component_interaction() -> unittest.mock.Mock:
@@ -38,20 +59,20 @@ def mock_message(message_id: int) -> unittest.mock.Mock:
 def test_the_context_exposes_the_interaction_it_was_built_from() -> None:
     interaction = component_interaction()
 
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     assert ctx.interaction is interaction
 
 
 def test_the_interaction_is_read_only() -> None:
-    ctx = risa.ComponentContext(component_interaction())
+    ctx = component_ctx(component_interaction())
 
     with pytest.raises(AttributeError):
         ctx.interaction = component_interaction()  # type: ignore[reportAttributeAccessIssue]
 
 
 def test_the_context_holds_no_attributes_beyond_its_slots() -> None:
-    ctx = risa.ComponentContext(component_interaction())
+    ctx = component_ctx(component_interaction())
 
     with pytest.raises(AttributeError):
         ctx.extra = None  # type: ignore[reportAttributeAccessIssue]
@@ -59,7 +80,7 @@ def test_the_context_holds_no_attributes_beyond_its_slots() -> None:
 
 async def test_the_first_respond_becomes_the_initial_response() -> None:
     interaction = component_interaction()
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     await ctx.respond("pong")
 
@@ -73,7 +94,7 @@ async def test_the_first_respond_becomes_the_initial_response() -> None:
 async def test_every_later_respond_is_a_followup() -> None:
     interaction = component_interaction()
     interaction.execute.return_value = mock_message(999)
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     await ctx.respond("one")
     await ctx.respond("two")
@@ -87,7 +108,7 @@ async def test_every_later_respond_is_a_followup() -> None:
 async def test_a_respond_after_a_defer_is_a_followup() -> None:
     interaction = component_interaction()
     interaction.execute.return_value = mock_message(999)
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     await ctx.defer()
     await ctx.respond("late")
@@ -97,7 +118,7 @@ async def test_a_respond_after_a_defer_is_a_followup() -> None:
 
 async def test_an_ephemeral_respond_sets_the_flag() -> None:
     interaction = component_interaction()
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     await ctx.respond("secret", ephemeral=True)
 
@@ -108,7 +129,7 @@ async def test_an_ephemeral_respond_sets_the_flag() -> None:
 
 async def test_defer_defaults_to_the_silent_update_ack() -> None:
     interaction = component_interaction()
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     await ctx.defer()
 
@@ -120,7 +141,7 @@ async def test_defer_defaults_to_the_silent_update_ack() -> None:
 
 async def test_a_thinking_defer_shows_the_spinner() -> None:
     interaction = component_interaction()
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     await ctx.defer(thinking=True, ephemeral=True)
 
@@ -131,7 +152,7 @@ async def test_a_thinking_defer_shows_the_spinner() -> None:
 
 
 async def test_a_second_defer_is_refused() -> None:
-    ctx = risa.ComponentContext(component_interaction())
+    ctx = component_ctx(component_interaction())
     await ctx.defer()
 
     with pytest.raises(risa.AlreadyRespondedError) as exc_info:
@@ -142,7 +163,7 @@ async def test_a_second_defer_is_refused() -> None:
 
 
 async def test_a_defer_after_a_respond_is_refused() -> None:
-    ctx = risa.ComponentContext(component_interaction())
+    ctx = component_ctx(component_interaction())
     await ctx.respond("hi")
 
     with pytest.raises(risa.AlreadyRespondedError) as exc_info:
@@ -153,7 +174,7 @@ async def test_a_defer_after_a_respond_is_refused() -> None:
 
 async def test_the_initial_response_handle_uses_the_initial_endpoints() -> None:
     interaction = component_interaction()
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     response = await ctx.respond("hi")
     await response.fetch()
@@ -169,7 +190,7 @@ async def test_the_initial_response_handle_uses_the_initial_endpoints() -> None:
 async def test_a_followup_handle_targets_its_own_message() -> None:
     interaction = component_interaction()
     interaction.execute.return_value = mock_message(999)
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     await ctx.respond("one")
     followup = await ctx.respond("two")
@@ -188,22 +209,102 @@ async def test_a_followup_handle_targets_its_own_message() -> None:
 def test_the_context_exposes_select_values() -> None:
     interaction = component_interaction()
     interaction.values = ["red", "blue"]
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     assert ctx.values == ["red", "blue"]
 
 
 def test_the_context_exposes_resolved_entities() -> None:
     interaction = component_interaction()
-    ctx = risa.ComponentContext(interaction)
+    ctx = component_ctx(interaction)
 
     assert ctx.resolved is interaction.resolved
 
 
 async def test_the_first_response_sets_the_acknowledged_event() -> None:
     state = risa.DispatchState()
-    ctx = risa.ComponentContext(component_interaction(), state)
+    ctx = component_ctx(component_interaction(), state)
 
     assert not state.acknowledged.is_set()
     await ctx.defer()
     assert state.acknowledged.is_set()
+
+
+async def test_edit_with_nothing_sent_is_the_initial_message_update() -> None:
+    interaction = component_interaction()
+    ctx = component_ctx(interaction)
+
+    await ctx.edit(ui.TextDisplay("changed"))
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    assert call.args[0] is hikari.ResponseType.MESSAGE_UPDATE
+    assert ctx.responded
+
+
+async def test_edit_after_a_silent_defer_edits_the_initial_response() -> None:
+    interaction = component_interaction()
+    ctx = component_ctx(interaction)
+
+    await ctx.defer()
+    await ctx.edit(ui.TextDisplay("changed"))
+
+    interaction.create_initial_response.assert_awaited_once()
+    interaction.edit_initial_response.assert_awaited_once()
+
+
+async def test_a_second_edit_edits_the_initial_response() -> None:
+    interaction = component_interaction()
+    ctx = component_ctx(interaction)
+
+    await ctx.edit(ui.TextDisplay("one"))
+    await ctx.edit(ui.TextDisplay("two"))
+
+    interaction.create_initial_response.assert_awaited_once()
+    interaction.edit_initial_response.assert_awaited_once()
+
+
+async def test_edit_after_a_thinking_defer_edits_the_origin_message() -> None:
+    interaction = component_interaction()
+    interaction.message = mock_message(123)
+    ctx = component_ctx(interaction)
+
+    await ctx.defer(thinking=True)
+    await ctx.edit(ui.TextDisplay("changed"))
+
+    interaction.message.edit.assert_awaited_once()
+    interaction.edit_initial_response.assert_not_called()
+
+
+async def test_edit_after_a_respond_edits_the_origin_message() -> None:
+    interaction = component_interaction()
+    interaction.message = mock_message(123)
+    ctx = component_ctx(interaction)
+
+    await ctx.respond("hi")
+    await ctx.edit(ui.TextDisplay("changed"))
+
+    interaction.message.edit.assert_awaited_once()
+    interaction.edit_initial_response.assert_not_called()
+
+
+async def test_edit_sets_the_acknowledged_event() -> None:
+    state = risa.DispatchState()
+    ctx = component_ctx(component_interaction(), state)
+
+    await ctx.edit(ui.TextDisplay("x"))
+
+    assert state.acknowledged.is_set()
+
+
+async def test_rerender_paints_what_render_returns() -> None:
+    interaction = component_interaction()
+    ctx = component_ctx(interaction, view=Anchor(note="fresh"))
+
+    await ctx.rerender()
+
+    call = interaction.create_initial_response.await_args
+    assert call is not None
+    (sent,) = call.kwargs["components"]
+    payload, _attachments = sent.build()
+    assert payload["content"] == "fresh"

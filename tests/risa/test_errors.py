@@ -27,7 +27,9 @@ import risa
 @pytest.mark.parametrize(
     "exc_type",
     [
+        risa.ArgBindError,
         risa.CustomIdOverflowError,
+        risa.HandlerSignatureError,
         risa.LayoutError,
         risa.LockTimeoutError,
         risa.NotAHandlerError,
@@ -50,6 +52,22 @@ def test_layout_error_exposes_structured_fields() -> None:
     assert str(error) == "Container[0] > Section[2]: expected 1-3 TextDisplay children, got 4"
 
 
+def test_arg_bind_error_names_the_parameter_when_it_has_one() -> None:
+    error = risa.ArgBindError("PollView.vote", "count", "is required but was not supplied")
+
+    assert error.callback_name == "PollView.vote"
+    assert error.parameter == "count"
+    assert error.reason == "is required but was not supplied"
+    assert str(error) == "handler 'PollView.vote': parameter 'count' is required but was not supplied"
+
+
+def test_arg_bind_error_reads_cleanly_without_a_parameter() -> None:
+    error = risa.ArgBindError("PollView.vote", None, "received 4 wire arguments, but the handler declares 2")
+
+    assert error.parameter is None
+    assert str(error) == "handler 'PollView.vote': received 4 wire arguments, but the handler declares 2"
+
+
 def test_custom_id_overflow_reports_the_offending_length() -> None:
     error = risa.CustomIdOverflowError("poll", 137)
 
@@ -63,7 +81,7 @@ def test_not_a_handler_names_the_offending_type() -> None:
 
     assert error.type_name == "str"
     assert "str" in str(error)
-    assert "bind()" in str(error)
+    assert "risa.bind" in str(error)
 
 
 def test_schema_mismatch_reports_both_versions() -> None:

@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import enum
+import typing
 
 import hikari
+import linkd
 import pytest
 
 import risa
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import wire
+
+if typing.TYPE_CHECKING:
+    import collections.abc
+
+    class TypeTimeOnly: ...
 
 
 def custom_id(
@@ -296,3 +303,238 @@ def test_everything_encoded_stays_inside_the_wire_alphabet() -> None:
     )
 
     assert all(char in wire.ALPHABET for char in emitted)
+
+
+class Service: ...
+
+
+class MixedValues(enum.Enum):
+    NUMBER = 1
+    WORD = "word"
+
+
+class TruthyValues(enum.Enum):
+    YES = True
+    NO = False
+
+
+class NoValues(enum.Enum): ...
+
+
+class SnowflakeValues(enum.Enum):
+    ALPHA = hikari.Snowflake(123)
+    BETA = hikari.Snowflake(456)
+
+
+class Handlers:
+    async def zero(self, ctx: object) -> None: ...
+
+    async def scalars(self, ctx: object, count: int, label: str, flag: bool, role: hikari.Snowflake) -> None: ...  # ruff:ignore[boolean-type-hint-positional-argument]
+
+    async def trailing_default(self, ctx: object, role: hikari.Snowflake, add: bool = True) -> None: ...  # ruff:ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument]
+
+    async def enums(self, ctx: object, color: Color, mode: Mode) -> None: ...
+
+    async def di_tail(self, ctx: object, item: int, service: Service) -> None: ...
+
+    async def injected_tail(self, ctx: object, item: int, service: Service = linkd.INJECTED) -> None: ...
+
+    async def union_arg(self, ctx: object, cursor: int | None) -> None: ...
+
+    async def wire_after_di(self, ctx: object, service: Service, count: int) -> None: ...
+
+    async def wire_after_injected(self, ctx: object, item: int = linkd.INJECTED, count: int = 3) -> None: ...
+
+    async def keyword_only_wire(self, ctx: object, *, count: int) -> None: ...
+
+    async def wire_after_var_args(self, ctx: object, *args: object, count: int) -> None: ...
+
+    async def keyword_only_injected(self, ctx: object, *, count: int = linkd.INJECTED) -> None: ...
+
+    async def keyword_only_service(self, ctx: object, *, service: Service) -> None: ...
+
+    async def broken_enum_arg(self, ctx: object, choice: MixedValues) -> None: ...
+
+    async def ghost(self, ctx: object, service: TypeTimeOnly) -> None: ...
+
+
+class FingerprintHandlers:
+    async def named(self, ctx: object, option: str) -> None: ...
+
+    async def renamed(self, ctx: object, choice: str) -> None: ...
+
+    async def int_arg(self, ctx: object, target: int) -> None: ...
+
+    async def snowflake_arg(self, ctx: object, target: hikari.Snowflake) -> None: ...
+
+    async def pair(self, ctx: object, count: int, label: str) -> None: ...
+
+    async def swapped_pair(self, ctx: object, label: str, count: int) -> None: ...
+
+
+def test_each_scalar_annotation_maps_to_its_converter() -> None:
+    assert isinstance(codec.resolve_converter(int), codec.IntConverter)
+    assert isinstance(codec.resolve_converter(bool), codec.BoolConverter)
+    assert isinstance(codec.resolve_converter(str), codec.StrConverter)
+    assert isinstance(codec.resolve_converter(hikari.Snowflake), codec.IntConverter)
+
+
+def test_a_resolved_int_annotation_round_trips_plain_ints() -> None:
+    converter = codec.resolve_converter(int)
+
+    assert converter is not None
+    decoded = converter.decode(converter.encode(42))
+    assert type(decoded) is int
+
+
+def test_a_resolved_snowflake_annotation_produces_snowflakes() -> None:
+    converter = codec.resolve_converter(hikari.Snowflake)
+
+    assert converter is not None
+    decoded = converter.decode(converter.encode(1364800923047857855))
+    assert isinstance(decoded, hikari.Snowflake)
+
+
+def test_enum_annotations_pick_their_inner_kind() -> None:
+    int_valued = codec.resolve_converter(Color)
+    str_valued = codec.resolve_converter(Mode)
+
+    assert int_valued is not None
+    assert int_valued.type_id == "ei"
+    assert str_valued is not None
+    assert str_valued.type_id == "es"
+
+
+def test_a_snowflake_valued_enum_counts_as_int_valued() -> None:
+    converter = codec.resolve_converter(SnowflakeValues)
+
+    assert converter is not None
+    assert converter.type_id == "ei"
+    assert converter.decode(converter.encode(SnowflakeValues.ALPHA)) is SnowflakeValues.ALPHA
+
+
+@pytest.mark.parametrize("annotation", [MixedValues, TruthyValues, NoValues])
+def test_unwirable_enums_are_rejected(annotation: type[enum.Enum]) -> None:
+    with pytest.raises(ValueError, match="all int or all str"):
+        codec.resolve_converter(annotation)
+
+
+@pytest.mark.parametrize("annotation", [int | None, str | None, list[int], Service, None, "int"])
+def test_everything_else_is_not_a_wire_type(annotation: object) -> None:
+    assert codec.resolve_converter(annotation) is None
+
+
+def test_a_ctx_only_handler_has_an_empty_chain() -> None:
+    signature = codec.resolve_signature(Handlers.zero)
+
+    assert not signature.converters
+    assert signature.required == 0
+
+
+def test_the_wire_prefix_resolves_in_declaration_order() -> None:
+    signature = codec.resolve_signature(Handlers.scalars)
+
+    assert list(signature.converters) == ["count", "label", "flag", "role"]
+    assert [converter.type_id for converter in signature.converters.values()] == ["i", "s", "b", "i"]
+    assert signature.required == 4
+
+
+def test_trailing_defaults_are_not_required() -> None:
+    signature = codec.resolve_signature(Handlers.trailing_default)
+
+    assert list(signature.converters) == ["role", "add"]
+    assert [converter.type_id for converter in signature.converters.values()] == ["i", "b"]
+    assert signature.required == 1
+
+
+def test_enum_parameters_join_the_chain() -> None:
+    signature = codec.resolve_signature(Handlers.enums)
+
+    assert [converter.type_id for converter in signature.converters.values()] == ["ei", "es"]
+
+
+@pytest.mark.parametrize("func", [Handlers.di_tail, Handlers.injected_tail])
+def test_a_di_parameter_ends_the_wire_section(func: collections.abc.Callable[..., object]) -> None:
+    signature = codec.resolve_signature(func)
+
+    assert list(signature.converters) == ["item"]
+    assert [converter.type_id for converter in signature.converters.values()] == ["i"]
+    assert signature.required == 1
+
+
+def test_a_union_is_di_not_wire() -> None:
+    signature = codec.resolve_signature(Handlers.union_arg)
+
+    assert not signature.converters
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        Handlers.wire_after_di,
+        Handlers.wire_after_injected,
+        Handlers.keyword_only_wire,
+        Handlers.wire_after_var_args,
+    ],
+)
+def test_a_wire_type_after_the_section_fails_at_resolution(func: collections.abc.Callable[..., object]) -> None:
+    with pytest.raises(risa.HandlerSignatureError) as exc_info:
+        codec.resolve_signature(func)
+
+    assert exc_info.value.parameter == "count"
+
+
+@pytest.mark.parametrize("func", [Handlers.keyword_only_injected, Handlers.keyword_only_service])
+def test_explicit_di_after_the_section_is_allowed(func: collections.abc.Callable[..., object]) -> None:
+    assert not codec.resolve_signature(func).converters
+
+
+def test_a_broken_enum_error_names_the_parameter() -> None:
+    with pytest.raises(risa.HandlerSignatureError) as exc_info:
+        codec.resolve_signature(Handlers.broken_enum_arg)
+
+    assert exc_info.value.parameter == "choice"
+    assert exc_info.value.callback_name == "Handlers.broken_enum_arg"
+
+
+def test_a_type_checking_only_annotation_fails_with_the_import_hint() -> None:
+    with pytest.raises(risa.HandlerSignatureError) as exc_info:
+        codec.resolve_signature(Handlers.ghost)
+
+    assert exc_info.value.parameter == "TypeTimeOnly"
+    assert "TYPE_CHECKING" in str(exc_info.value)
+
+
+def test_the_fingerprint_is_two_wire_characters() -> None:
+    fingerprint = codec.resolve_signature(Handlers.scalars).fingerprint
+
+    assert len(fingerprint) == codec.HANDLER_LENGTH
+    assert all(char in wire.ALPHABET for char in fingerprint)
+
+
+def test_renaming_a_parameter_keeps_the_fingerprint() -> None:
+    named = codec.resolve_signature(FingerprintHandlers.named)
+    renamed = codec.resolve_signature(FingerprintHandlers.renamed)
+
+    assert named.fingerprint == renamed.fingerprint
+
+
+def test_widening_int_to_snowflake_keeps_the_fingerprint() -> None:
+    plain = codec.resolve_signature(FingerprintHandlers.int_arg)
+    snowflake = codec.resolve_signature(FingerprintHandlers.snowflake_arg)
+
+    assert plain.fingerprint == snowflake.fingerprint
+
+
+def test_reordering_parameters_changes_the_fingerprint() -> None:
+    pair = codec.resolve_signature(FingerprintHandlers.pair)
+    swapped = codec.resolve_signature(FingerprintHandlers.swapped_pair)
+
+    assert pair.fingerprint != swapped.fingerprint
+
+
+def test_growing_the_chain_changes_the_fingerprint() -> None:
+    short = codec.resolve_signature(FingerprintHandlers.int_arg)
+    grown = codec.resolve_signature(Handlers.trailing_default)
+
+    assert short.fingerprint != grown.fingerprint

@@ -1,6 +1,6 @@
 # Handoff — continuing the rewrite on `wire-args`
 
-State as of 2026-08-13. `DESIGN.md` is the authority on the target; this file is only
+State as of 2026-08-14. `DESIGN.md` is the authority on the target; this file is only
 "where we are and what to do next". The old near-complete implementation lives on the
 `start-implementation` branch as a DX reference — read it for ideas, error wording and
 test cases; its internals are not a blueprint.
@@ -10,10 +10,13 @@ test cases; its internals are not a blueprint.
 - **`main`** carries the first milestone (PR #13): the complete component interaction
   loop, restart-proof, for zero-argument handlers on stateless views. All work branches
   off `main` and lands back on it as PRs.
-- **`wire-args`** is the current working branch: codec bite 2 (DESIGN §6.3/§6.4).
+- **`wire-args`** is the current working branch and has grown far past its name: codec
+  bite 2 (wire args) is **complete**, and so are DI wiring of dispatch, the event/204
+  REST restructure, `ctx.edit`/`ctx.rerender` (the routing half), and the `Rendered`
+  build surface. Much of this lives uncommitted in the working tree — the maintainer
+  commits by hand; never commit for them.
 - **`foundation` is retired.** PR #13 was squash-merged, so its commits are not
-  ancestors of `main` — never branch from it or PR it again. Its granular history
-  stays readable inside PR #13.
+  ancestors of `main` — never branch from it or PR it again.
 
 ## Setting up on a new machine
 
@@ -34,8 +37,8 @@ test cases; its internals are not a blueprint.
   tests; it writes feature code only when explicitly asked. Deep-dive one step, stop,
   wait.
 - **No docstrings, no comments** until a dedicated final pass. The comment lint
-  families (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml` for
-  exactly this reason; existing MIT headers stay, new files may omit them for now.
+  families (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml`;
+  existing MIT headers stay, new files may omit them for now.
 - **Never `tuple` in annotations.** Public signatures promise
   `collections.abc.Sequence`; storing a tuple internally is fine.
 - Everything runs through uv/nox: `uv run --group nox nox` (all sessions) or
@@ -43,118 +46,123 @@ test cases; its internals are not a blueprint.
   fast loop. pyright strict is the gate.
 - Commits are authored solely by the repository owner. No co-author trailers, no
   generated-with footers. Never commit or push without deciding to.
-- Tests mirror the package: `risa/internal/wire.py` ↔ `tests/risa/internal/test_wire.py`.
-- House laws worth knowing before touching the codec: **packs/encodes raise, unpacks/
-  decodes return `None`** (render-time failures are the developer's bug and deserve a
-  traceback; click-time input is client-forgeable and must fail soft). Errors build
-  their messages in `__init__` and expose structured fields. Loose storage, precise
-  boundary: internals may store `Callable[..., Awaitable[None]]`-grade types as long
-  as the public decorator/`bind()` boundary is precisely typed.
+- Tests mirror the package. Test helpers worth knowing: `engine(handler)` in
+  `test_view.py`/`test_nodes.py` (isinstance-narrows past the typing fiction to reach
+  `BoundHandlerMethod` at runtime), `component_ctx(...)` in `test_context.py` (builds a
+  context with the now-required `view`/`meta`).
+- House laws: **packs/encodes raise, unpacks/decodes return `None`** (render-time
+  failures are the developer's bug; click-time input is client-forgeable and fails
+  soft). Errors build their messages in `__init__` and expose structured fields.
+  Loose storage (`Callable[..., Awaitable[None]]`-grade internals), precise boundary.
+- **Verify third-party behaviour empirically before designing on it.** The partial
+  hijack, linkd's injection rules, pyright's mapping-spread checking and hikari's
+  attachment lifting were all settled by probing installed sources, not memory.
 
-## What is built (on `main`, PR #13)
+## The deliberate typing fictions (do not "fix" these)
 
-The component interaction loop end to end — render → build → send → click → decode →
-route → dispatch → respond — restart-proof, for zero-argument handlers on stateless
-views:
+1. **`risa.bind` IS `functools.partial`**, a bare alias. Wrapping it in a risa function
+   would kill the checker special-casing that statically validates bind sites. See
+   DESIGN §6.3 `[decided — revised after the typing investigation]`.
+2. **`HandlerMethod.__get__` instance access is cast to
+   `Callable[P, Awaitable[None]]`** — a lie over the runtime `BoundHandlerMethod`, and
+   the type pyright's `partial` logic consumes. Handlers are therefore not directly
+   callable in user code; delegation goes through the class-level descriptor's `.func`.
+3. **The census casts `linkd.inject(...)` back to `Callable[..., Awaitable[None]]`** —
+   linkd's `AsyncFnT` overload wants `Coroutine`-returning callables; runtime flattens
+   via `maybe_await`.
+4. **`ui.Rendered` is `Mapping[str, typing.Any]`** — probed: `object` values make
+   `channel.send(**rendered)` a pyright error against every typed kwarg; `Any` is the
+   only spelling under which §8.3's decided spread DX typechecks (miru does the same).
+5. `tests/risa/typing_guard.py` pins the pyright behaviours in both directions:
+   correct binds must stay accepted; wrong ones carry `# type: ignore[...]` lines that
+   fail CI via `reportUnnecessaryTypeIgnoreComment` if pyright stops flagging them.
 
-- `internal/wire.py` — 92-char printable alphabet, `pack_uint`/`unpack_uint`, base85
-  `pack_bytes`/`unpack_bytes`, `pack_digest`.
-- `internal/codec.py` — cookies (6 chars, name+version), handler tokens (2 chars,
-  id+version), the `CustomID` struct (`encode()` is the overflow choke point),
-  fail-soft `parse_custom_id`. Layout `[ver:1][cookie:6][handler:2][idx:1]
-  [frag_len:1][fragment][tail]`.
-- `view.py` — `BoundHandler`, the `HandlerMethod` descriptor (class access → itself,
-  instance access → `BoundHandlerMethod`), zero-arg `bind()`, `ZeroArgHandler`,
-  dual-form `@handler` (id/version/defer), `AutoDefer`, `@register` with the handler
-  census (`token -> HandlerRecord` on `ViewMeta`; duplicate identity and 2-char hash
-  collisions raise `DuplicateHandlerError`).
-- `ui/nodes.py` — all inert V2 nodes, `Button`, the five selects behind one `Select`
-  base, `SelectOption`; `_resolve_handler` normalization; `Interactive._routing_id`
-  carries both risa-owned checks (foreign handler → path-qualified `LayoutError`,
-  overflow via `CustomID.encode`); `BuildContext` threads cookie/tokens/fragment
-  counter; path grammar `Container[0] > Row[2] > Button[1]`.
-- `context.py` — `Context[T]` base (component/modal bound), `ComponentContext`
-  (`message` narrowed, `values`, `resolved`), the response gate (`DispatchState`),
-  `respond()` → `Response` handle, `defer()` (raises `AlreadyRespondedError`),
-  `acknowledge()` (idempotent sibling; watchdog + end-of-dispatch entry point).
-- `client.py` — dispatch with the routing-failure ladder (foreign: silent; unknown
-  cookie: DEBUG; token miss: WARNING, the `on_outdated` placeholder; handler failure:
-  ERROR, contained), `meta.cls()` as the state layer's construction placeholder, the
-  auto-defer watchdog (timer at decode; stood down under the response lock; risa's own
-  ack REST calls are contained too), client-level `auto_defer`/`auto_defer_delay`.
-- `testbot/bot.py` — live demo: ping, slow button (watchdog), text select, user select.
+## What is built
 
-## Current work: codec bite 2 — wire args (DESIGN §6.3, §6.4)
+Everything from PR #13 (nodes, registry, flat dispatch, respond/defer/acknowledge, the
+auto-defer watchdog), plus — all on `wire-args`, all gated by 332 green tests:
 
-Goal: `bind("Red", 5)` bakes per-component args into the custom_id tail; dispatch
-decodes them back and calls the handler with them; a 2-char signature fingerprint
-makes an in-place signature edit fail closed instead of misreading old components.
+- **Codec bite 2, complete (§6.3/§6.4).** Converters (`i`/`s`/`b`/`ei`/`es`;
+  Snowflake shares `"i"`), `resolve_converter` (identity-matched scalars; enums
+  validated, mixed/bool/empty rejected at registration), `resolve_signature` →
+  `HandlerSignature` with `converters: Mapping[name -> converter]` (insertion-ordered;
+  names and chain in one field), `required`, 2-char `fingerprint`
+  (`FINGERPRINT_LENGTH`), lazy resolution forced by the `@register` census,
+  `HandlerSignatureError` (incl. the TYPE_CHECKING-import `NameError` wrap). The
+  runtime bind engine lives on `BoundHandlerMethod.bind(*args, **kwargs)` → payload
+  `fingerprint + frames` (per-frame cap `MAX_FRAME_LENGTH` = 91); `ArgBindError`
+  (render-time, names the parameter). Dispatch decodes via `Client._decode_args` +
+  `_fingerprint_mismatch`: fingerprint drift → ERROR (`SignatureMismatchError`,
+  logged never raised, "bump the handler version"); unreadable frames / bad counts /
+  undecodable values → WARNING, all fail closed. The node layer unwraps
+  `functools.partial` (nested partials flatten) and bare handlers via `_resolve_handler`.
+- **DI wiring.** The census wraps every callback with `linkd.inject` — the record's
+  single `callback` field IS the dispatch-ready callable (raw function when
+  `LINKD_DI_DISABLED=true`). Dispatch opens `Contexts.DEFAULT` nested with
+  `Contexts.COMPONENT`, registers the `ComponentContext` and raw interaction into the
+  component container, and calls `callback(view, ctx, *decoded)` — linkd skips
+  positionally-supplied params, so wire args and DI compose; bare DI params
+  (`db: Database`, no marker) work. The client **registers itself** under `Client`,
+  deliberately outside the `register_app_dependencies` gate (lightbulb never registers
+  risa's client) — handlers in any file can take `client: risa.Client`.
+- **Event/204 (§11).** `_process_interaction(interaction, state=None)` wraps
+  `_dispatch` in `try/finally: state.acknowledged.set()` (every exit acks, incl. all
+  fail-closed returns). The REST listener spawns dispatch as a task, waits on the
+  event with `constants.INTERACTION_WINDOW` (3s), yields the 204, awaits the task;
+  a missed window logs ERROR and **never cancels** the handler. Routing itself lives
+  in `Client._route`.
+- **`ctx.edit(layout)` / `ctx.rerender()` (§8.2/§11, the routing half).**
+  `ComponentContext` requires `view=`/`meta=` (dispatch constructs the view first,
+  with its own containment). `edit` takes exactly a `ui.Layout`, builds outside the
+  gate lock, then the three-row table: nothing sent → initial `MESSAGE_UPDATE`
+  (new `_InitialResponse.MESSAGE_UPDATE`); silent defer or prior edit →
+  `edit_initial_response`; thinking defer or `respond()` → REST edit of
+  `ctx.message`. `rerender() ≡ edit(self._view.render())` — until the state pivot,
+  putting state onto `self` is the handler's job (see the poll testbot).
+- **`Rendered` (§8.3).** `client.build(view)` returns `ui.Rendered`, a one-key
+  `Mapping` (`"components"`) with `.components`, `send_to(channel)`,
+  `respond_to(interaction, ephemeral=)`, and `**forbidden: typing.Never` guards that
+  reject `content=`/`embeds=` statically and with the "put text in a ui.TextDisplay"
+  message at runtime. `ui.build` (the internal pass) still returns the bare builder
+  sequence. Attachments need no extra key: hikari's `_build_message_payload`
+  (`rest.py` ~1500) unpacks every builder's `(payload, attachments)` tuple and mounts
+  the files on the multipart form for all send paths.
+- **Client config.** Shared options live once: `_LightbulbOptions` /
+  `_ClientOptions` TypedDicts + `typing.Unpack` forwarding; defaults exist only in
+  `Client.__init__`. **`auto_defer` defaults to `OFF`** — decided; §8.1 carries the
+  `[decided — revised]` amendment (watchdog is opt-in; when enabled, silent update).
+- **Testbot.** `/test` (zero-arg demo) and `/poll` — per-option `risa.bind(self.vote,
+  index)` buttons, counts parsed from the message text (`read_counts` — a crude
+  stand-in for the InMessage anchor, deliberately), handler mutates `self` and
+  `rerender()`s, plus a bare `fortnite: hikari.GatewayBot` DI param as the live DI
+  check. Votes survive restarts; that live restart test is worth repeating after big
+  changes.
 
-### Sub-step 1 — converters + frames *(landed, 235 tests green)*
+## linkd facts (verified in installed source, v. as of lockfile)
 
-In `internal/codec.py`: `ArgConverter` ABC (`type_id` property; `encode(object) -> str`
-raises; `decode(str) -> object | None`), with `IntConverter(target)` (minimal-width
-little-endian signed bytes via `(bit_length + 8) // 8`, base85-rendered; `target` is
-`int` or `hikari.Snowflake`, so both share type_id `"i"`; rejects `bool` explicitly
-since `isinstance(True, int)`), `StrConverter` (UTF-8 → base85), `BoolConverter`
-(single alphabet char, strict length), `EnumConverter(enum_cls, inner, type_id)`
-(wraps Int/Str converter, type_id `"ei"`/`"es"`; decode validates membership so a
-deleted member fails closed). `pack_frames`/`unpack_frames`: each arg is
-`[len:1 wire char][data]`, ≤91 chars per arg, strict walk, `""` ↔ `[]`. A property
-test pins that everything emitted stays inside `wire.ALPHABET`.
+- A param is injectable iff annotated, POS_OR_KW/KW_ONLY, and its default is absent
+  **or** `INJECTED` — bare DI params need no marker.
+- The generated resolver skips anything supplied positionally (`arglen` check) or by
+  name; non-`INJECTED` defaults are `CANNOT_INJECT`, so omitted trailing wire
+  defaults stay Python defaults.
+- `AutoInjecting` codegens lazily on first call; container comes from the
+  `DI_CONTAINER` contextvar; failures raise `DependencyNotSatisfiableException`
+  (contained by the handler-failure rung).
 
-### Sub-step 2 — `HandlerSignature` *(next)*
+## Next, in order
 
-The annotation→converter bridge, in `internal/codec.py`:
+1. **`on_outdated` (§6.4)** — the classmethod hook replacing the token-miss WARNING
+   (and per the retirement table, answering the fingerprint-mismatch path too);
+   overriding it downgrades the log. The one place fail-closed can still answer the
+   user politely.
+2. **The state pivot** — DESIGN §15 order: `risa/state/`, the InMessage anchor
+   (carve/gather across fragments), `load()`, `Prop[T]`, `InStore`. `rerender()`
+   gains its real meaning (hydrated `self`); the poll's `read_counts` is deleted the
+   same day.
+3. **Modals (§9)**, then the 1.0 roadmap: `RedisStore` + `verify_store`, the docs
+   pass (docstrings, MIT headers for files that lack them, DESIGN §13's error-table
+   additions).
 
-- A resolver mapping one annotation to a converter instance: `int` → `IntConverter(int)`,
-  `hikari.Snowflake` → `IntConverter(hikari.Snowflake)`, `str` → `StrConverter()`,
-  `bool` → `BoolConverter()`, enum subclasses → `EnumConverter` (inner picked by
-  inspecting member value types; mixed-value enums rejected). Anything else — unions
-  (including `X | None`), containers, unknown classes — resolves to "not a wire type",
-  which is not an error by itself: it ends the wire section (DI territory).
-- `HandlerSignature`: the ordered converter chain for the contiguous convertible
-  prefix after `(self, ctx)`, how many are required (no default), and the fingerprint:
-  `wire.pack_digest("".join(type_ids), chars=2)`. A convertible parameter *after* the
-  first non-convertible one (or after a `linkd.INJECTED` default) raises the new
-  `HandlerSignatureError` — otherwise a plain `int` would silently become a DI lookup.
-- Resolution must run **lazily at registration**, via `typing.get_type_hints` on the
-  raw callback — annotations are strings under `from __future__ import annotations`
-  and only resolvable once the defining module is fully imported.
-
-### Then, in order
-
-3. **Thread signatures through registration** — `HandlerMethod` holds a lazy signature;
-   the `@register` census resolves + validates; `HandlerRecord` grows what dispatch
-   needs.
-4. **Real `bind()`** in `view.py` — normalize keywords to positions, contiguous-prefix
-   + trailing-defaults rules, eager encode through the converters (`TypeError`/
-   `ValueError` → `ArgBindError` at the render site), payload = fingerprint + frames.
-   `ParamSpec` typing so `bind` is statically checked; `Button(bare_handler)` on a
-   handler with required wire args now fails at render via the same path.
-5. **Dispatch decode** in `client.py` — split fingerprint from frames, compare against
-   the resolved chain (`SignatureMismatchError`: logged at ERROR, fail closed — the
-   loudest failure in the library, §6.4), decode each frame (`None` → fail closed),
-   call `callback(view, ctx, *decoded)`, current Python defaults fill omitted
-   trailing params.
-6. **Testbot poll** — per-option `bind(name)` vote buttons, votes counted, surviving a
-   restart.
-
-New errors along the way (`errors.py`, house pattern): `HandlerSignatureError`
-(registration), `ArgBindError` (render), `SignatureMismatchError` (dispatch; logged,
-never raised to users). The node layer needs **zero changes** — `BoundHandler.payload`
-already flows into the tail.
-
-## After bite 2, in order
-
-1. **Event/204 REST restructure** (§11) — spawn dispatch as a task, wait on the
-   context's `acknowledged` event (already built and set), yield `None`, await the
-   task; missed-window ERROR logging. Plus the §8.3 rendered surface: `client.build`
-   returning send-kwargs (`send_to`/`respond_to`, reject `content=`), which is also
-   where `File` attachments get handled.
-2. **`on_outdated`** (§6.4) — replace the token-miss WARNING with the real classmethod
-   hook; DI wiring of dispatch (`Contexts.DEFAULT` nested with `Contexts.COMPONENT`).
-3. **The state pivot** — DESIGN §15 order. `rerender()`/`edit(layout)` land here.
-4. **Modals** (§9), then the 1.0 roadmap: `RedisStore` + `verify_store`, docs pass
-   (docstrings, MIT headers for the files that lack them, DESIGN §13's error-table
-   additions such as `NotAHandlerError`).
+Smaller open items, any order: slotscheck adoption (maintainer wants it, deferred —
+dev dep + nox session + config, watch the msgspec-Struct interplay); a `ui.File`
+upload through the testbot to watch a real multipart render.

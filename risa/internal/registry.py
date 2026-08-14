@@ -43,6 +43,7 @@ class HandlerRecord(msgspec.Struct, frozen=True):
     handler_id: str
     version: int
     defer: AutoDefer | None
+    signature: codec.HandlerSignature
 
 
 class ViewMeta(msgspec.Struct, frozen=True):

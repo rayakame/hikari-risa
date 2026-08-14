@@ -27,9 +27,13 @@ import hikari
 import msgspec
 
 from risa import errors
+from risa import ui
 
 if typing.TYPE_CHECKING:
     import collections.abc
+
+    from risa import view as view_
+    from risa.internal import registry
 
 __all__ = (
     "ComponentContext",
@@ -44,6 +48,7 @@ class _InitialResponse(enum.StrEnum):
     DEFERRED_UPDATE = enum.auto()
     DEFERRED_THINKING = enum.auto()
     MESSAGE_CREATE = enum.auto()
+    MESSAGE_UPDATE = enum.auto()
 
 
 class DispatchState(msgspec.Struct):
@@ -242,7 +247,19 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
 
 
 class ComponentContext(Context[hikari.ComponentInteraction]):
-    __slots__ = ()
+    __slots__ = ("_meta", "_view")
+
+    def __init__(
+        self,
+        interaction: hikari.ComponentInteraction,
+        *,
+        view: view_.View,
+        meta: registry.ViewMeta,
+        state: DispatchState | None = None,
+    ) -> None:
+        super().__init__(interaction, state)
+        self._view = view
+        self._meta = meta
 
     @property
     @typing.override
@@ -256,3 +273,20 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
     @property
     def resolved(self) -> hikari.ResolvedOptionData | None:
         return self._interaction.resolved
+
+    async def edit(self, layout: ui.Layout, /) -> None:
+        builders = ui.build(layout, self._meta)
+        async with self._state.lock:
+            if self._state.response is _InitialResponse.NONE:
+                await self._interaction.create_initial_response(
+                    hikari.ResponseType.MESSAGE_UPDATE,
+                    components=builders,
+                )
+                self._record_initial(_InitialResponse.MESSAGE_UPDATE)
+            elif self._state.response in {_InitialResponse.DEFERRED_UPDATE, _InitialResponse.MESSAGE_UPDATE}:
+                await self._interaction.edit_initial_response(components=builders)
+            else:
+                await self.message.edit(components=builders)
+
+    async def rerender(self) -> None:
+        await self.edit(self._view.render())
