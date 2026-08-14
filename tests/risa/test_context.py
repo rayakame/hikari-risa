@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import typing
 import unittest.mock
 
 import hikari
@@ -45,7 +46,17 @@ def component_ctx(
 ) -> risa.ComponentContext:
     meta = getattr(Anchor, constants.VIEW_META)
     assert isinstance(meta, registry.ViewMeta)
-    return risa.ComponentContext(interaction, view=view if view is not None else Anchor(), meta=meta, state=state)
+    return risa.ComponentContext(
+        interaction,
+        rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
+        view=view if view is not None else Anchor(),
+        meta=meta,
+        state=state,
+    )
+
+
+def rest_of(ctx: risa.ComponentContext) -> unittest.mock.Mock:
+    return typing.cast("unittest.mock.Mock", ctx.rest)
 
 
 def component_interaction() -> unittest.mock.Mock:
@@ -84,36 +95,36 @@ async def test_the_first_respond_becomes_the_initial_response() -> None:
 
     await ctx.respond("pong")
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(ctx).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.MESSAGE_CREATE
-    assert call.args[1] == "pong"
-    interaction.execute.assert_not_called()
+    assert call.args[2] is hikari.ResponseType.MESSAGE_CREATE
+    assert call.args[3] == "pong"
+    rest_of(ctx).execute_webhook.assert_not_called()
 
 
 async def test_every_later_respond_is_a_followup() -> None:
     interaction = component_interaction()
-    interaction.execute.return_value = mock_message(999)
     ctx = component_ctx(interaction)
+    rest_of(ctx).execute_webhook.return_value = mock_message(999)
 
     await ctx.respond("one")
     await ctx.respond("two")
 
-    interaction.create_initial_response.assert_awaited_once()
-    call = interaction.execute.await_args
+    rest_of(ctx).create_interaction_response.assert_awaited_once()
+    call = rest_of(ctx).execute_webhook.await_args
     assert call is not None
-    assert call.args[0] == "two"
+    assert call.args[2] == "two"
 
 
 async def test_a_respond_after_a_defer_is_a_followup() -> None:
     interaction = component_interaction()
-    interaction.execute.return_value = mock_message(999)
     ctx = component_ctx(interaction)
+    rest_of(ctx).execute_webhook.return_value = mock_message(999)
 
     await ctx.defer()
     await ctx.respond("late")
 
-    interaction.execute.assert_awaited_once()
+    rest_of(ctx).execute_webhook.assert_awaited_once()
 
 
 async def test_an_ephemeral_respond_sets_the_flag() -> None:
@@ -122,7 +133,7 @@ async def test_an_ephemeral_respond_sets_the_flag() -> None:
 
     await ctx.respond("secret", ephemeral=True)
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(ctx).create_interaction_response.await_args
     assert call is not None
     assert call.kwargs["flags"] is hikari.MessageFlag.EPHEMERAL
 
@@ -133,9 +144,9 @@ async def test_defer_defaults_to_the_silent_update_ack() -> None:
 
     await ctx.defer()
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(ctx).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
     assert call.kwargs["flags"] is hikari.UNDEFINED
 
 
@@ -145,9 +156,9 @@ async def test_a_thinking_defer_shows_the_spinner() -> None:
 
     await ctx.defer(thinking=True, ephemeral=True)
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(ctx).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
     assert call.kwargs["flags"] is hikari.MessageFlag.EPHEMERAL
 
 
@@ -181,16 +192,16 @@ async def test_the_initial_response_handle_uses_the_initial_endpoints() -> None:
     await response.edit("edited")
     await response.delete()
 
-    interaction.fetch_initial_response.assert_awaited_once()
-    interaction.edit_initial_response.assert_awaited_once()
-    interaction.delete_initial_response.assert_awaited_once()
-    interaction.fetch_message.assert_not_called()
+    rest_of(ctx).fetch_interaction_response.assert_awaited_once()
+    rest_of(ctx).edit_interaction_response.assert_awaited_once()
+    rest_of(ctx).delete_interaction_response.assert_awaited_once()
+    rest_of(ctx).fetch_webhook_message.assert_not_called()
 
 
 async def test_a_followup_handle_targets_its_own_message() -> None:
     interaction = component_interaction()
-    interaction.execute.return_value = mock_message(999)
     ctx = component_ctx(interaction)
+    rest_of(ctx).execute_webhook.return_value = mock_message(999)
 
     await ctx.respond("one")
     followup = await ctx.respond("two")
@@ -198,12 +209,16 @@ async def test_a_followup_handle_targets_its_own_message() -> None:
     await followup.edit("edited")
     await followup.delete()
 
-    interaction.fetch_message.assert_awaited_once_with(999)
-    interaction.delete_message.assert_awaited_once_with(999)
-    call = interaction.edit_message.await_args
-    assert call is not None
-    assert call.args[0] == 999
-    interaction.fetch_initial_response.assert_not_called()
+    fetch = rest_of(ctx).fetch_webhook_message.await_args
+    assert fetch is not None
+    assert fetch.args[2] == 999
+    delete = rest_of(ctx).delete_webhook_message.await_args
+    assert delete is not None
+    assert delete.args[2] == 999
+    edit = rest_of(ctx).edit_webhook_message.await_args
+    assert edit is not None
+    assert edit.args[2] == 999
+    rest_of(ctx).fetch_interaction_response.assert_not_called()
 
 
 def test_the_context_exposes_select_values() -> None:
@@ -236,9 +251,9 @@ async def test_edit_with_nothing_sent_is_the_initial_message_update() -> None:
 
     await ctx.edit(ui.TextDisplay("changed"))
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(ctx).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.MESSAGE_UPDATE
+    assert call.args[2] is hikari.ResponseType.MESSAGE_UPDATE
     assert ctx.responded
 
 
@@ -249,8 +264,8 @@ async def test_edit_after_a_silent_defer_edits_the_initial_response() -> None:
     await ctx.defer()
     await ctx.edit(ui.TextDisplay("changed"))
 
-    interaction.create_initial_response.assert_awaited_once()
-    interaction.edit_initial_response.assert_awaited_once()
+    rest_of(ctx).create_interaction_response.assert_awaited_once()
+    rest_of(ctx).edit_interaction_response.assert_awaited_once()
 
 
 async def test_a_second_edit_edits_the_initial_response() -> None:
@@ -260,8 +275,8 @@ async def test_a_second_edit_edits_the_initial_response() -> None:
     await ctx.edit(ui.TextDisplay("one"))
     await ctx.edit(ui.TextDisplay("two"))
 
-    interaction.create_initial_response.assert_awaited_once()
-    interaction.edit_initial_response.assert_awaited_once()
+    rest_of(ctx).create_interaction_response.assert_awaited_once()
+    rest_of(ctx).edit_interaction_response.assert_awaited_once()
 
 
 async def test_edit_after_a_thinking_defer_edits_the_origin_message() -> None:
@@ -272,8 +287,8 @@ async def test_edit_after_a_thinking_defer_edits_the_origin_message() -> None:
     await ctx.defer(thinking=True)
     await ctx.edit(ui.TextDisplay("changed"))
 
-    interaction.message.edit.assert_awaited_once()
-    interaction.edit_initial_response.assert_not_called()
+    rest_of(ctx).edit_message.assert_awaited_once()
+    rest_of(ctx).edit_interaction_response.assert_not_called()
 
 
 async def test_edit_after_a_respond_edits_the_origin_message() -> None:
@@ -284,8 +299,8 @@ async def test_edit_after_a_respond_edits_the_origin_message() -> None:
     await ctx.respond("hi")
     await ctx.edit(ui.TextDisplay("changed"))
 
-    interaction.message.edit.assert_awaited_once()
-    interaction.edit_initial_response.assert_not_called()
+    rest_of(ctx).edit_message.assert_awaited_once()
+    rest_of(ctx).edit_interaction_response.assert_not_called()
 
 
 async def test_edit_sets_the_acknowledged_event() -> None:
@@ -303,7 +318,7 @@ async def test_rerender_paints_what_render_returns() -> None:
 
     await ctx.rerender()
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(ctx).create_interaction_response.await_args
     assert call is not None
     (sent,) = call.kwargs["components"]
     payload, _attachments = sent.build()

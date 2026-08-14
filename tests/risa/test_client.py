@@ -83,6 +83,10 @@ def rest_app() -> risa.RestClientAppT:
     return typing.cast("risa.RestClientAppT", RestApp())
 
 
+def rest_of(built: risa.Client) -> unittest.mock.Mock:
+    return typing.cast("unittest.mock.Mock", built.rest)
+
+
 def routes(built: risa.Client, cls: type[risa.View]) -> bool:
     meta = getattr(cls, constants.VIEW_META)
     assert isinstance(meta, registry.ViewMeta)
@@ -229,7 +233,7 @@ async def test_a_foreign_custom_id_is_ignored_silently(
         await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert not caplog.records
-    interaction.create_initial_response.assert_not_called()
+    rest_of(client).create_interaction_response.assert_not_called()
 
 
 async def test_a_risa_id_nobody_answers_for_is_logged(
@@ -242,7 +246,7 @@ async def test_a_risa_id_nobody_answers_for_is_logged(
         await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "no view" in caplog.text
-    interaction.create_initial_response.assert_not_called()
+    rest_of(client).create_interaction_response.assert_not_called()
 
 
 async def test_a_registered_views_component_is_recognised(
@@ -317,9 +321,9 @@ def rest_deferring_client(cls: type[risa.View]) -> risa.RestEnabledClient:
     return built
 
 
-async def until_acknowledged(interaction: unittest.mock.Mock) -> None:
+async def until_acknowledged(rest: unittest.mock.Mock) -> None:
     for _ in range(50):
-        if interaction.create_initial_response.await_count:
+        if rest.create_interaction_response.await_count:
             return
         await asyncio.sleep(0)
     pytest.fail("the watchdog never acknowledged the interaction")
@@ -397,7 +401,7 @@ async def dispatch_slowly(built: risa.Client, interaction: unittest.mock.Mock) -
     RELEASE.event = asyncio.Event()
     task = asyncio.create_task(built._process_interaction(interaction))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
     try:
-        await until_acknowledged(interaction)
+        await until_acknowledged(rest_of(built))
     finally:
         RELEASE.event.set()
         await task
@@ -409,10 +413,10 @@ async def test_the_watchdog_acks_a_slow_handler_with_the_silent_update() -> None
 
     await dispatch_slowly(built, interaction)
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
-    interaction.create_initial_response.assert_awaited_once()
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+    rest_of(built).create_interaction_response.assert_awaited_once()
 
 
 async def test_a_thinking_handler_gets_the_spinner() -> None:
@@ -421,9 +425,9 @@ async def test_a_thinking_handler_gets_the_spinner() -> None:
 
     await dispatch_slowly(built, interaction)
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
     assert call.kwargs["flags"] is hikari.UNDEFINED
 
 
@@ -433,9 +437,9 @@ async def test_an_ephemeral_thinking_handler_whispers() -> None:
 
     await dispatch_slowly(built, interaction)
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
     assert call.kwargs["flags"] is hikari.MessageFlag.EPHEMERAL
 
 
@@ -445,9 +449,9 @@ async def test_a_view_level_defer_applies_to_its_handlers() -> None:
 
     await dispatch_slowly(built, interaction)
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
 
 
 async def test_off_disables_the_watchdog_but_not_the_answer() -> None:
@@ -459,14 +463,14 @@ async def test_off_disables_the_watchdog_but_not_the_answer() -> None:
     try:
         for _ in range(50):
             await asyncio.sleep(0)
-        interaction.create_initial_response.assert_not_called()
+        rest_of(built).create_interaction_response.assert_not_called()
     finally:
         RELEASE.event.set()
         await task
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
 
 
 async def test_a_handler_that_responds_is_never_second_guessed() -> None:
@@ -477,10 +481,10 @@ async def test_a_handler_that_responds_is_never_second_guessed() -> None:
     for _ in range(50):
         await asyncio.sleep(0)
 
-    interaction.create_initial_response.assert_awaited_once()
-    call = interaction.create_initial_response.await_args
+    rest_of(built).create_interaction_response.assert_awaited_once()
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.MESSAGE_CREATE
+    assert call.args[2] is hikari.ResponseType.MESSAGE_CREATE
 
 
 async def test_a_clean_finish_without_a_response_is_still_answered() -> None:
@@ -489,9 +493,9 @@ async def test_a_clean_finish_without_a_response_is_still_answered() -> None:
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
 
 
 @risa.register(name="client-needy")
@@ -506,7 +510,7 @@ class Needy(risa.View):
 async def test_a_failing_watchdog_ack_is_contained(caplog: pytest.LogCaptureFixture) -> None:
     built = deferring_client(Sluggish)
     interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.update.token))
-    interaction.create_initial_response.side_effect = RuntimeError("interaction is gone")
+    rest_of(built).create_interaction_response.side_effect = RuntimeError("interaction is gone")
 
     with caplog.at_level(logging.ERROR, logger="risa.client"):
         await dispatch_slowly(built, interaction)
@@ -517,7 +521,7 @@ async def test_a_failing_watchdog_ack_is_contained(caplog: pytest.LogCaptureFixt
 async def test_a_failing_final_ack_is_contained(caplog: pytest.LogCaptureFixture) -> None:
     built = deferring_client(Clicker)
     interaction = interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token))
-    interaction.create_initial_response.side_effect = RuntimeError("interaction is gone")
+    rest_of(built).create_interaction_response.side_effect = RuntimeError("interaction is gone")
     CALLS.clear()
 
     with caplog.at_level(logging.ERROR, logger="risa.client"):
@@ -535,7 +539,7 @@ async def test_a_view_that_cannot_be_constructed_is_contained(caplog: pytest.Log
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "press" in caplog.text
-    interaction.execute.assert_not_called()
+    rest_of(built).execute_webhook.assert_not_called()
 
 
 async def test_a_raising_handler_is_never_acknowledged() -> None:
@@ -546,7 +550,7 @@ async def test_a_raising_handler_is_never_acknowledged() -> None:
     for _ in range(50):
         await asyncio.sleep(0)
 
-    interaction.create_initial_response.assert_not_called()
+    rest_of(built).create_interaction_response.assert_not_called()
 
 
 async def test_build_emits_what_the_view_renders(client: risa.GatewayEnabledClient) -> None:
@@ -893,13 +897,13 @@ async def test_a_handler_mutating_self_and_rerendering_paints_the_mutation() -> 
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.MESSAGE_UPDATE
+    assert call.args[2] is hikari.ResponseType.MESSAGE_UPDATE
     (sent,) = call.kwargs["components"]
     payload, _attachments = sent.build()
     assert payload["content"] == "flipped"
-    interaction.create_initial_response.assert_awaited_once()
+    rest_of(built).create_interaction_response.assert_awaited_once()
 
 
 async def test_an_edit_only_handler_answers_the_rest_transport() -> None:
@@ -912,9 +916,9 @@ async def test_an_edit_only_handler_answers_the_rest_transport() -> None:
     with pytest.raises(StopAsyncIteration):
         await anext(listener)
 
-    call = interaction.create_initial_response.await_args
+    call = rest_of(built).create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.MESSAGE_UPDATE
+    assert call.args[2] is hikari.ResponseType.MESSAGE_UPDATE
 
 
 async def test_a_broken_edit_layout_is_contained_as_a_handler_failure(
@@ -928,7 +932,7 @@ async def test_a_broken_edit_layout_is_contained_as_a_handler_failure(
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "failed while answering" in caplog.text
-    interaction.create_initial_response.assert_not_called()
+    rest_of(built).create_interaction_response.assert_not_called()
 
 
 async def test_the_rest_listener_answers_204_while_the_handler_still_runs() -> None:

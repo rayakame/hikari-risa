@@ -82,7 +82,7 @@ class _ClientOptions(_LightbulbOptions, total=False):
 
 
 class Client(abc.ABC):
-    __slots__ = ("_auto_defer", "_auto_defer_delay", "_di", "_registry", "_use_global")
+    __slots__ = ("_auto_defer", "_auto_defer_delay", "_di", "_registry", "_rest", "_use_global")
 
     def __init__(
         self,
@@ -96,6 +96,7 @@ class Client(abc.ABC):
     ) -> None:
         self._di = di if di is not None else linkd.DependencyInjectionManager()
         self._registry = registry.Registry()
+        self._rest = rest
         self._use_global = use_global
         self._auto_defer = auto_defer
         self._auto_defer_delay = auto_defer_delay
@@ -111,6 +112,10 @@ class Client(abc.ABC):
     @property
     def di(self) -> linkd.DependencyInjectionManager:
         return self._di
+
+    @property
+    def rest(self) -> hikari.api.RESTClient:
+        return self._rest
 
     async def build(self, view: view_.View) -> ui.Rendered:  # ruff:ignore[no-self-use]
         meta = getattr(type(view), constants.VIEW_META, None)
@@ -212,7 +217,7 @@ class Client(abc.ABC):
                 interaction.id,
             )
             return
-        ctx = context.ComponentContext(interaction, state=state, view=view, meta=meta)
+        ctx = context.ComponentContext(interaction, rest=self._rest, state=state, view=view, meta=meta)
         watchdog: asyncio.Task[None] | None = None
         if resolved_defer is not view_.AutoDefer.OFF:
             watchdog = asyncio.create_task(self._auto_defer_task(ctx, resolved_defer))

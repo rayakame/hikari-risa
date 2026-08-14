@@ -56,6 +56,7 @@ class SubMachine(Machine):
 def component_context() -> risa.ComponentContext:
     return risa.ComponentContext(
         unittest.mock.Mock(spec=hikari.ComponentInteraction),
+        rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
         view=Machine(),
         meta=meta_of(Machine),
     )

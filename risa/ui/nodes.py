@@ -703,19 +703,27 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
     def __len__(self) -> int:
         return 1
 
-    async def send_to(self, channel: hikari.TextableChannel, **forbidden: typing.Never) -> hikari.Message:
+    async def send_to(
+        self,
+        rest: hikari.api.RESTClient,
+        channel: snowflakes.SnowflakeishOr[hikari.TextableChannel],
+        **forbidden: typing.Never,
+    ) -> hikari.Message:
         _reject_forbidden(forbidden)
-        return await channel.send(components=self._components)
+        return await rest.create_message(channel, components=self._components)
 
     async def respond_to(
         self,
+        rest: hikari.api.RESTClient,
         interaction: hikari.ComponentInteraction | hikari.ModalInteraction | hikari.CommandInteraction,
         *,
         ephemeral: bool = False,
         **forbidden: typing.Never,
     ) -> None:
         _reject_forbidden(forbidden)
-        await interaction.create_initial_response(
+        await rest.create_interaction_response(
+            interaction.id,
+            interaction.token,
             hikari.ResponseType.MESSAGE_CREATE,
             components=self._components,
             flags=hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED,

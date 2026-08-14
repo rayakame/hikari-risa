@@ -57,6 +57,12 @@ test cases; its internals are not a blueprint.
 - **Verify third-party behaviour empirically before designing on it.** The partial
   hijack, linkd's injection rules, pyright's mapping-spread checking and hikari's
   attachment lifting were all settled by probing installed sources, not memory.
+- **Bare REST only.** hikari's model helper methods (`interaction.create_initial_
+  response`, `message.edit`, `channel.send`, ...) and model `.app` properties are
+  slated for removal upstream; risa calls `RESTClient` methods directly everywhere.
+  The client stores and exposes `rest`; contexts require it; `Response` carries it;
+  `Rendered.send_to`/`respond_to` take it as their first argument. Never reintroduce
+  a helper-method call.
 
 ## The deliberate typing fictions (do not "fix" these)
 
@@ -120,8 +126,8 @@ auto-defer watchdog), plus — all on `wire-args`, all gated by 332 green tests:
   `ctx.message`. `rerender() ≡ edit(self._view.render())` — until the state pivot,
   putting state onto `self` is the handler's job (see the poll testbot).
 - **`Rendered` (§8.3).** `client.build(view)` returns `ui.Rendered`, a one-key
-  `Mapping` (`"components"`) with `.components`, `send_to(channel)`,
-  `respond_to(interaction, ephemeral=)`, and `**forbidden: typing.Never` guards that
+  `Mapping` (`"components"`) with `.components`, `send_to(rest, channel)`,
+  `respond_to(rest, interaction, ephemeral=)`, and `**forbidden: typing.Never` guards that
   reject `content=`/`embeds=` statically and with the "put text in a ui.TextDisplay"
   message at runtime. `ui.build` (the internal pass) still returns the bare builder
   sequence. Attachments need no extra key: hikari's `_build_message_payload`

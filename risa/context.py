@@ -58,26 +58,36 @@ class DispatchState(msgspec.Struct):
 
 
 class Response:
-    __slots__ = ("_interaction", "_message")
+    __slots__ = ("_interaction", "_message", "_rest")
 
     def __init__(
         self,
+        rest: hikari.api.RESTClient,
         interaction: hikari.ComponentInteraction | hikari.ModalInteraction,
         message: hikari.Message | None,
     ) -> None:
+        self._rest = rest
         self._interaction = interaction
         self._message = message
 
     async def fetch(self) -> hikari.Message:
         if self._message is not None:
-            return await self._interaction.fetch_message(self._message.id)
-        return await self._interaction.fetch_initial_response()
+            return await self._rest.fetch_webhook_message(
+                self._interaction.application_id,
+                self._interaction.token,
+                self._message.id,
+            )
+        return await self._rest.fetch_interaction_response(self._interaction.application_id, self._interaction.token)
 
     async def delete(self) -> None:
         if self._message is not None:
-            await self._interaction.delete_message(self._message.id)
+            await self._rest.delete_webhook_message(
+                self._interaction.application_id,
+                self._interaction.token,
+                self._message.id,
+            )
         else:
-            await self._interaction.delete_initial_response()
+            await self._rest.delete_interaction_response(self._interaction.application_id, self._interaction.token)
 
     async def edit(  # ruff:ignore[too-many-arguments]
         self,
@@ -96,7 +106,9 @@ class Response:
         role_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialRole] | bool] = hikari.UNDEFINED,
     ) -> hikari.Message:
         if self._message is not None:
-            return await self._interaction.edit_message(
+            return await self._rest.edit_webhook_message(
+                self._interaction.application_id,
+                self._interaction.token,
                 self._message.id,
                 content,
                 attachment=attachment,
@@ -109,7 +121,9 @@ class Response:
                 user_mentions=user_mentions,
                 role_mentions=role_mentions,
             )
-        return await self._interaction.edit_initial_response(
+        return await self._rest.edit_interaction_response(
+            self._interaction.application_id,
+            self._interaction.token,
             content,
             attachment=attachment,
             attachments=attachments,
@@ -124,15 +138,20 @@ class Response:
 
 
 class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
-    __slots__ = ("_interaction", "_state")
+    __slots__ = ("_interaction", "_rest", "_state")
 
-    def __init__(self, interaction: T, state: DispatchState | None = None) -> None:
+    def __init__(self, interaction: T, rest: hikari.api.RESTClient, state: DispatchState | None = None) -> None:
         self._interaction = interaction
+        self._rest = rest
         self._state = state if state is not None else DispatchState()
 
     @property
     def responded(self) -> bool:
         return self._state.response is not _InitialResponse.NONE
+
+    @property
+    def rest(self) -> hikari.api.RESTClient:
+        return self._rest
 
     @property
     def interaction(self) -> T:
@@ -167,7 +186,9 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
             if self._state.response is not _InitialResponse.NONE:
                 attempted = "defer"
                 raise errors.AlreadyRespondedError(attempted, self._state.response.name)
-            await self._interaction.create_initial_response(
+            await self._rest.create_interaction_response(
+                self._interaction.id,
+                self._interaction.token,
                 hikari.ResponseType.DEFERRED_MESSAGE_CREATE
                 if thinking
                 else hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
@@ -179,7 +200,9 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
         async with self._state.lock:
             if self._state.response is not _InitialResponse.NONE:
                 return
-            await self._interaction.create_initial_response(
+            await self._rest.create_interaction_response(
+                self._interaction.id,
+                self._interaction.token,
                 hikari.ResponseType.DEFERRED_MESSAGE_CREATE
                 if thinking
                 else hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
@@ -207,7 +230,9 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
 
         async with self._state.lock:
             if self._state.response is _InitialResponse.NONE:
-                await self._interaction.create_initial_response(
+                await self._rest.create_interaction_response(
+                    self._interaction.id,
+                    self._interaction.token,
                     hikari.ResponseType.MESSAGE_CREATE,
                     content,
                     flags=flags,
@@ -223,9 +248,11 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
                     role_mentions=role_mentions,
                 )
                 self._record_initial(_InitialResponse.MESSAGE_CREATE)
-                return Response(self._interaction, None)
+                return Response(self._rest, self._interaction, None)
 
-            message = await self._interaction.execute(
+            message = await self._rest.execute_webhook(
+                self._interaction.application_id,
+                self._interaction.token,
                 content,
                 flags=flags,
                 tts=tts,
@@ -239,7 +266,7 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
                 user_mentions=user_mentions,
                 role_mentions=role_mentions,
             )
-            return Response(self._interaction, message)
+            return Response(self._rest, self._interaction, message)
 
     def _record_initial(self, response: _InitialResponse) -> None:
         self._state.response = response
@@ -253,11 +280,12 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         self,
         interaction: hikari.ComponentInteraction,
         *,
+        rest: hikari.api.RESTClient,
         view: view_.View,
         meta: registry.ViewMeta,
         state: DispatchState | None = None,
     ) -> None:
-        super().__init__(interaction, state)
+        super().__init__(interaction, rest, state)
         self._view = view
         self._meta = meta
 
@@ -278,15 +306,21 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         builders = ui.build(layout, self._meta)
         async with self._state.lock:
             if self._state.response is _InitialResponse.NONE:
-                await self._interaction.create_initial_response(
+                await self._rest.create_interaction_response(
+                    self._interaction.id,
+                    self._interaction.token,
                     hikari.ResponseType.MESSAGE_UPDATE,
                     components=builders,
                 )
                 self._record_initial(_InitialResponse.MESSAGE_UPDATE)
             elif self._state.response in {_InitialResponse.DEFERRED_UPDATE, _InitialResponse.MESSAGE_UPDATE}:
-                await self._interaction.edit_initial_response(components=builders)
+                await self._rest.edit_interaction_response(
+                    self._interaction.application_id,
+                    self._interaction.token,
+                    components=builders,
+                )
             else:
-                await self.message.edit(components=builders)
+                await self._rest.edit_message(self.message.channel_id, self.message.id, components=builders)
 
     async def rerender(self) -> None:
         await self.edit(self._view.render())

@@ -304,55 +304,57 @@ def test_rendered_is_a_mapping_of_send_kwargs() -> None:
     assert len(rendered.components) == 1
 
 
-async def test_rendered_spreads_into_a_send_call() -> None:
+async def test_rendered_spreads_into_a_rest_send_call() -> None:
     rendered = rendered_text()
-    channel = unittest.mock.Mock(spec=hikari.TextableChannel)
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
 
-    await channel.send(**rendered)
+    await rest.create_message(hikari.Snowflake(123), **rendered)
 
-    channel.send.assert_awaited_once_with(components=rendered.components)
+    rest.create_message.assert_awaited_once_with(hikari.Snowflake(123), components=rendered.components)
 
 
 async def test_send_to_sends_the_components() -> None:
     rendered = rendered_text()
-    channel = unittest.mock.Mock(spec=hikari.TextableChannel)
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
 
-    await rendered.send_to(channel)
+    await rendered.send_to(rest, hikari.Snowflake(123))
 
-    channel.send.assert_awaited_once_with(components=rendered.components)
+    rest.create_message.assert_awaited_once_with(hikari.Snowflake(123), components=rendered.components)
 
 
 async def test_respond_to_answers_with_the_initial_message_create() -> None:
     rendered = rendered_text()
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
     interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
 
-    await rendered.respond_to(interaction, ephemeral=True)
+    await rendered.respond_to(rest, interaction, ephemeral=True)
 
-    call = interaction.create_initial_response.await_args
+    call = rest.create_interaction_response.await_args
     assert call is not None
-    assert call.args[0] is hikari.ResponseType.MESSAGE_CREATE
+    assert call.args[2] is hikari.ResponseType.MESSAGE_CREATE
     assert call.kwargs["components"] == rendered.components
     assert call.kwargs["flags"] is hikari.MessageFlag.EPHEMERAL
 
 
 async def test_content_alongside_a_rendered_view_is_rejected_with_the_v2_message() -> None:
     rendered = rendered_text()
-    channel = unittest.mock.Mock(spec=hikari.TextableChannel)
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
 
     with pytest.raises(TypeError, match="TextDisplay"):
-        await rendered.send_to(channel, content="hi")  # type: ignore[reportArgumentType]
+        await rendered.send_to(rest, hikari.Snowflake(123), content="hi")  # type: ignore[reportArgumentType]
 
-    channel.send.assert_not_called()
+    rest.create_message.assert_not_called()
 
 
 async def test_embeds_alongside_a_rendered_view_are_rejected_too() -> None:
     rendered = rendered_text()
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
     interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
 
     with pytest.raises(TypeError, match="embeds"):
-        await rendered.respond_to(interaction, embeds=[])  # type: ignore[reportArgumentType]
+        await rendered.respond_to(rest, interaction, embeds=[])  # type: ignore[reportArgumentType]
 
-    interaction.create_initial_response.assert_not_called()
+    rest.create_interaction_response.assert_not_called()
 
 
 def test_a_text_select_routes_and_serializes_its_options() -> None:

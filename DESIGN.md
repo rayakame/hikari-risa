@@ -720,16 +720,18 @@ message. risa's ``rerender``/``edit`` always land on the component's message:
 ``ctx.prompt(SomeModal, ...)`` remains the modal chapter's problem; the initial-response
 gate is built to accommodate it.
 
-### 8.3 Rendered is the whole message **[decided]**
+### 8.3 Rendered is the whole message **[decided — as built]**
 
 Because V2 forbids `content`/`embeds`, a view owns the entire message body. Make the build
-result a `Mapping` of send-kwargs (miru's trick):
+result a `Mapping` of send-kwargs (miru's trick). risa speaks bare REST throughout —
+hikari's model helper methods and model `.app` properties are slated for removal, so
+nothing in risa (or its examples) leans on them:
 
 ```python
 rendered = await client.build(view)
-await channel.send(**rendered)
-await rendered.send_to(channel)
-await rendered.respond_to(interaction)
+await client.rest.create_message(channel_id, **rendered)
+await rendered.send_to(client.rest, channel_id)
+await rendered.respond_to(client.rest, interaction)
 ```
 
 Reject `content=` at the API boundary with a real message ("this view uses V2 components; put
@@ -920,7 +922,7 @@ class Poll(risa.View):
         await ctx.edit(ui.TextDisplay(f"## {self.question}\n*Poll closed.*"))
 
 
-await channel.send(components=await client.build(Poll(question="Ship it?")))
+await client.rest.create_message(channel_id, **await client.build(Poll(question="Ship it?")))
 ```
 
 Everything durable with zero infrastructure, no timeout bookkeeping, no manual custom_id
