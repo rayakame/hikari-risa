@@ -261,7 +261,8 @@ async def _stand_down(task: asyncio.Task[None] | None, gate: context.ResponseGat
     try:
         await task
     except asyncio.CancelledError:
-        return
+        if not task.cancelled():
+            raise
     except Exception:
         _LOGGER.exception("the auto-defer watchdog raised while being stood down")
 

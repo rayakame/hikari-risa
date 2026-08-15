@@ -93,9 +93,10 @@ to call it. Pick one of four: fold it into its only consumer; put it immediately
 consumer; join the shared-helper block under the type aliases; or move it to the module that owns
 the concept.
 
-**Order.** A file reads in dependency order and ends with its entry point — nothing appears above
-something it names, except PEP 695 `type` aliases, which are lazily evaluated and therefore free
-to sit at the top. The bands, in order:
+**Order.** A file reads top-down in the bands below, and within a band in dependency order —
+nothing appears above something it names. PEP 695 `type` aliases are exempt: they are lazily
+evaluated, so they sit at the top regardless. Private module functions are the implementation of
+the classes above them, so they follow the class band rather than preceding it.
 
 ```text
 MIT header → from __future__ → imports → __all__ → _LOGGER → Final constants →
@@ -116,7 +117,7 @@ risa/
   client.py         Client ABC + Gateway/Rest implementations, registry, transports
   context.py        Context base + ComponentContext, respond/defer, the response gate
   di.py             Contexts (DEFAULT/COMPONENT/MODAL), INJECTED re-export
-  dispatch.py       Dispatcher: route, decode, run, watchdog (logs as `risa.client`)
+  dispatch.py       Dispatcher: route, decode, run, the watchdog
   errors.py         RisaError-rooted hierarchy
   view.py           View base, @register, @handler machinery, AutoDefer
   internal/         not public API; modules here carry no leading underscore

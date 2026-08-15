@@ -66,3 +66,17 @@ def test_clear_drops_every_view() -> None:
     reg.register(meta)
     reg.clear()
     assert reg.get(meta.cookie) is None
+
+
+def test_an_unregistered_subclass_does_not_inherit_its_parents_meta() -> None:
+    @risa.register(name="registry-parent")
+    class Parent(risa.View):
+        pass
+
+    class Child(Parent):
+        pass
+
+    assert registry.meta_of(Parent) is not None
+    assert registry.meta_of(Child) is None
+    with pytest.raises(risa.NotAViewError):
+        registry.require_meta(Child)

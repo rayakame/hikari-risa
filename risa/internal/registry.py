@@ -51,11 +51,11 @@ _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.internal.registr
 
 type DispatchCallback = collections.abc.Callable[
     typing.Concatenate[View, context.ComponentContext, ...],
-    collections.abc.Coroutine[typing.Any, typing.Any, None],
+    collections.abc.Awaitable[None],
 ]
 type OutdatedCallback = collections.abc.Callable[
     typing.Concatenate[context.ComponentContext, ...],
-    collections.abc.Coroutine[typing.Any, typing.Any, None],
+    collections.abc.Awaitable[None],
 ]
 
 
@@ -115,7 +115,7 @@ def stamp(cls: type[View], meta: ViewMeta) -> None:
 
 
 def meta_of(cls: type[View]) -> ViewMeta | None:
-    meta = getattr(cls, constants.VIEW_META, None)
+    meta = cls.__dict__.get(constants.VIEW_META)
     return meta if isinstance(meta, ViewMeta) else None
 
 
