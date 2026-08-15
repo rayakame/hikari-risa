@@ -198,4 +198,7 @@ Open findings from the 2026-08-14 review (verified, decisions pending):
   conflicts still raise. Also document that `Rendered.respond_to` targets
   *non-dispatched* interactions (commands and the like) — inside a risa handler it
   bypasses the response gate, so `ctx.respond(**rendered)` is the correct spelling
-  there.
+  there. And document that handlers return `None` by contract (statically enforced
+  by `HandlerFunction`): registration resolves all annotations via
+  `typing.get_type_hints`, so an exotic runtime-unimportable *return* annotation
+  fails registration by design rather than being special-cased.

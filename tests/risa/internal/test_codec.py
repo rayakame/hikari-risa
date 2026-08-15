@@ -362,6 +362,8 @@ class Handlers:
 
     async def ghost(self, ctx: object, service: TypeTimeOnly) -> None: ...
 
+    async def noted(self, ctx: object, option: typing.Annotated[str, "display name"]) -> None: ...
+
 
 class FingerprintHandlers:
     async def named(self, ctx: object, option: str) -> None: ...
@@ -500,6 +502,12 @@ def test_a_broken_enum_error_names_the_parameter() -> None:
 
     assert exc_info.value.parameter == "choice"
     assert exc_info.value.callback_name == "Handlers.broken_enum_arg"
+
+
+def test_an_annotated_wire_parameter_resolves_through_its_underlying_type() -> None:
+    signature = codec.resolve_signature(Handlers.noted)
+
+    assert [converter.type_id for converter in signature.converters.values()] == ["s"]
 
 
 def test_a_type_checking_only_annotation_fails_with_the_import_hint() -> None:
