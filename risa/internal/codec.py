@@ -22,6 +22,7 @@ __all__ = (
     "FINGERPRINT_LENGTH",
     "FRAGMENT_INDEX_WIDTH",
     "FRAGMENT_LEN_WIDTH",
+    "FRAME_LEN_WIDTH",
     "HANDLER_LENGTH",
     "HEADER_LENGTH",
     "MAX_FRAGMENT_LENGTH",
@@ -53,7 +54,8 @@ HEADER_LENGTH: typing.Final[int] = (
     len(VERSION) + COOKIE_LENGTH + HANDLER_LENGTH + FRAGMENT_INDEX_WIDTH + FRAGMENT_LEN_WIDTH
 )
 MAX_FRAGMENT_LENGTH: typing.Final[int] = constants.MAX_CUSTOM_ID_LENGTH - HEADER_LENGTH
-MAX_FRAME_LENGTH: typing.Final[int] = wire.ALPHABET_SIZE - 1
+FRAME_LEN_WIDTH: typing.Final[int] = 1
+MAX_FRAME_LENGTH: typing.Final[int] = wire.largest_value(FRAME_LEN_WIDTH)
 FINGERPRINT_LENGTH: typing.Final[int] = 2
 
 
@@ -120,30 +122,6 @@ def parse_custom_id(raw: str) -> CustomID | None:
         fragment=raw[HEADER_LENGTH : HEADER_LENGTH + fragment_length],
         tail=raw[HEADER_LENGTH + fragment_length :],
     )
-
-
-def _enum_converter(enum_cls: type[enum.Enum]) -> EnumConverter:
-    value_types: set[type[object]] = {type(member.value) for member in enum_cls}
-    if all(t is str for t in value_types) and value_types:
-        return EnumConverter(enum_cls, StrConverter(), "es")
-    if all(t is not bool and issubclass(t, int) for t in value_types) and value_types:
-        return EnumConverter(enum_cls, IntConverter(int), "ei")
-    msg = "enum values must be all int or all str"
-    raise ValueError(msg)
-
-
-def resolve_converter(annotation: object) -> ArgConverter | None:
-    if annotation is bool:
-        return BoolConverter()
-    if annotation is int:
-        return IntConverter(int)
-    if annotation is hikari.Snowflake:
-        return IntConverter(hikari.Snowflake)
-    if annotation is str:
-        return StrConverter()
-    if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
-        return _enum_converter(annotation)
-    return None
 
 
 class ArgConverter(abc.ABC):
@@ -271,18 +249,42 @@ class EnumConverter(ArgConverter):
             return None
 
 
+def _enum_converter(enum_cls: type[enum.Enum]) -> EnumConverter:
+    value_types: set[type[object]] = {type(member.value) for member in enum_cls}
+    if all(t is str for t in value_types) and value_types:
+        return EnumConverter(enum_cls, StrConverter(), "es")
+    if all(t is not bool and issubclass(t, int) for t in value_types) and value_types:
+        return EnumConverter(enum_cls, IntConverter(int), "ei")
+    msg = "enum values must be all int or all str"
+    raise ValueError(msg)
+
+
+def resolve_converter(annotation: object) -> ArgConverter | None:
+    if annotation is bool:
+        return BoolConverter()
+    if annotation is int:
+        return IntConverter(int)
+    if annotation is hikari.Snowflake:
+        return IntConverter(hikari.Snowflake)
+    if annotation is str:
+        return StrConverter()
+    if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
+        return _enum_converter(annotation)
+    return None
+
+
 def pack_frames(parts: collections.abc.Sequence[str]) -> str:
-    return "".join(wire.pack_uint(len(part), 1) + part for part in parts)
+    return "".join(wire.pack_uint(len(part), FRAME_LEN_WIDTH) + part for part in parts)
 
 
 def unpack_frames(raw: str) -> list[str] | None:
     parts: list[str] = []
     position = 0
     while position < len(raw):
-        length = wire.unpack_uint(raw[position])
+        length = wire.unpack_uint(raw[position : position + FRAME_LEN_WIDTH])
         if length is None:
             return None
-        start = position + 1
+        start = position + FRAME_LEN_WIDTH
         end = start + length
         if end > len(raw):
             return None

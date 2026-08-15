@@ -54,7 +54,10 @@ test cases; its internals are not a blueprint.
 - House laws: **packs/encodes raise, unpacks/decodes return `None`** (render-time
   failures are the developer's bug; click-time input is client-forgeable and fails
   soft). Errors build their messages in `__init__` and expose structured fields.
-  Loose storage (`Callable[..., Awaitable[None]]`-grade internals), precise boundary.
+  Loose storage, precise boundary — but the boundary now includes the registry: `HandlerRecord.callback`
+  and `ViewMeta.outdated` are typed `DispatchCallback`/`OutdatedCallback` because they are called with
+  two *different* conventions, and an anonymous shared type could not say so. The law still governs
+  `HandlerBinder`/`Binding` internals and `HandlerMethod._func`.
 - **Verify third-party behaviour empirically before designing on it.** The partial
   hijack, linkd's injection rules, pyright's mapping-spread checking, hikari's
   attachment lifting and the thinking-defer followup question were all settled by
@@ -75,7 +78,8 @@ test cases; its internals are not a blueprint.
 
 ## The deliberate typing fictions (do not "fix" these)
 
-1. **`risa.bind` IS `functools.partial`**, a bare alias. Wrapping it in a risa function
+1. **`risa.bind` IS `functools.partial`**, a bare alias, and it now lives with the rest
+   of the mechanism in `risa/binding.py` (`Binding`, `HandlerBinder`, `resolve`, `BindTarget`). Wrapping it in a risa function
    would kill the checker special-casing that statically validates bind sites. See
    DESIGN §6.3 `[decided — revised after the typing investigation]`.
 2. **`HandlerMethod.__get__` instance access is cast to
