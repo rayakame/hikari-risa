@@ -29,6 +29,7 @@ import risa
     [
         risa.ArgBindError,
         risa.CustomIdOverflowError,
+        risa.EphemeralOriginError,
         risa.HandlerSignatureError,
         risa.LayoutError,
         risa.LockTimeoutError,

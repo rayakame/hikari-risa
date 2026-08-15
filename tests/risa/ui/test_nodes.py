@@ -30,6 +30,18 @@ class Elsewhere(risa.View):
         pass
 
 
+@risa.register(name="test-nodes-rival")
+class Rival(risa.View):
+    @risa.handler
+    async def press(self, _ctx: risa.ComponentContext) -> None:
+        pass
+
+
+@risa.register(name="test-nodes-panel-sub")
+class SubPanel(Panel):
+    pass
+
+
 @risa.register(name="test-nodes-wired")
 class WiredPanel(risa.View):
     @risa.handler
@@ -230,6 +242,34 @@ def test_a_foreign_handler_is_rejected_with_its_path() -> None:
 
     assert exc_info.value.path == "Container[0] > Row[0] > Button[1]"
     assert "other" in exc_info.value.reason
+
+
+def test_a_colliding_token_from_another_view_is_still_rejected() -> None:
+    assert Rival.press.token == Panel.press.token
+
+    with pytest.raises(risa.LayoutError) as exc_info:
+        ui.build(ui.Row(ui.Button(Rival().press)), meta_of(Panel))
+
+    assert "belongs to view 'Rival'" in exc_info.value.reason
+
+
+def test_an_inherited_handler_builds_on_the_subclass_view() -> None:
+    (built,) = ui.build(ui.Row(ui.Button(SubPanel().press)), meta_of(SubPanel))
+    (button,) = payload_of(built)["components"]
+
+    custom_id = parsed(button["custom_id"])
+    assert custom_id.cookie == meta_of(SubPanel).key
+    assert custom_id.handler == Panel.press.token
+
+
+def test_a_hand_built_bound_handler_falls_back_to_the_token_check() -> None:
+    unrecognised = "zz"
+    unknown = risa.BoundHandler(handler_id="ghost", version=1, token=unrecognised, payload="")
+
+    with pytest.raises(risa.LayoutError) as exc_info:
+        ui.build(ui.Row(ui.Button(unknown)), meta_of(Panel))
+
+    assert "is not on this view" in exc_info.value.reason
 
 
 def test_an_oversized_payload_overflows_the_custom_id() -> None:

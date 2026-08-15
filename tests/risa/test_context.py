@@ -63,8 +63,8 @@ def component_interaction() -> unittest.mock.Mock:
     return unittest.mock.Mock(spec=hikari.ComponentInteraction)
 
 
-def mock_message(message_id: int) -> unittest.mock.Mock:
-    return unittest.mock.Mock(spec=hikari.Message, id=hikari.Snowflake(message_id))
+def mock_message(message_id: int, flags: hikari.MessageFlag = hikari.MessageFlag.NONE) -> unittest.mock.Mock:
+    return unittest.mock.Mock(spec=hikari.Message, id=hikari.Snowflake(message_id), flags=flags)
 
 
 def test_the_context_exposes_the_interaction_it_was_built_from() -> None:
@@ -310,6 +310,32 @@ async def test_edit_sets_the_acknowledged_event() -> None:
     await ctx.edit(ui.TextDisplay("x"))
 
     assert state.acknowledged.is_set()
+
+
+async def test_editing_an_ephemeral_origin_after_a_respond_is_refused_with_guidance() -> None:
+    interaction = component_interaction()
+    interaction.message = mock_message(123, flags=hikari.MessageFlag.EPHEMERAL)
+    ctx = component_ctx(interaction)
+
+    await ctx.respond("hi")
+    with pytest.raises(risa.EphemeralOriginError) as exc_info:
+        await ctx.edit(ui.TextDisplay("nope"))
+
+    assert exc_info.value.view_name == "context-anchor"
+    assert "silent defer" in str(exc_info.value)
+    rest_of(ctx).edit_message.assert_not_called()
+
+
+async def test_an_ephemeral_origin_is_still_editable_before_anything_is_sent() -> None:
+    interaction = component_interaction()
+    interaction.message = mock_message(123, flags=hikari.MessageFlag.EPHEMERAL)
+    ctx = component_ctx(interaction)
+
+    await ctx.edit(ui.TextDisplay("fine"))
+
+    call = rest_of(ctx).create_interaction_response.await_args
+    assert call is not None
+    assert call.args[2] is hikari.ResponseType.MESSAGE_UPDATE
 
 
 async def test_rerender_paints_what_render_returns() -> None:

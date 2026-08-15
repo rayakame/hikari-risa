@@ -55,6 +55,11 @@ class DispatchState(msgspec.Struct):
     lock: asyncio.Lock = msgspec.field(default_factory=asyncio.Lock)
     acknowledged: asyncio.Event = msgspec.field(default_factory=asyncio.Event)
     response: _InitialResponse = msgspec.field(default=_InitialResponse.NONE)
+    thinking_answered: bool = False
+
+    @property
+    def thinking_unanswered(self) -> bool:
+        return self.response is _InitialResponse.DEFERRED_THINKING and not self.thinking_answered
 
 
 class Response:
@@ -250,6 +255,8 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
                 self._record_initial(_InitialResponse.MESSAGE_CREATE)
                 return Response(self._rest, self._interaction, None)
 
+            if self._state.response is _InitialResponse.DEFERRED_THINKING:
+                self._state.thinking_answered = True
             message = await self._rest.execute_webhook(
                 self._interaction.application_id,
                 self._interaction.token,
@@ -320,6 +327,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
                     components=builders,
                 )
             else:
+                if hikari.MessageFlag.EPHEMERAL in self.message.flags:
+                    raise errors.EphemeralOriginError(self._meta.name)
                 await self._rest.edit_message(self.message.channel_id, self.message.id, components=builders)
 
     async def rerender(self) -> None:

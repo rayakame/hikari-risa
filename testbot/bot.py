@@ -132,7 +132,11 @@ class PollDemo(risa.View):
 
     @risa.handler
     async def vote(self, ctx: risa.ComponentContext, option: int, fortnite: hikari.GatewayBot) -> None:
-        logging.getLogger("testbot").info("vote via %s (latency %.0fms)", type(fortnite).__name__, fortnite.heartbeat_latency * 1000)
+        logging.getLogger("testbot").info(
+            "vote via %s (latency %.0fms)", type(fortnite).__name__, fortnite.heartbeat_latency * 1000
+        )
+        if not 0 <= option < len(POLL_OPTIONS):
+            return
         counts = read_counts(ctx.message)
         counts[option] += 1
         self.counts = counts

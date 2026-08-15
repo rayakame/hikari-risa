@@ -214,6 +214,7 @@ def test_use_global_answers_for_everything_registered_in_the_process() -> None:
 def interaction_with(custom_id: str) -> unittest.mock.Mock:
     interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
     interaction.custom_id = custom_id
+    interaction.message = unittest.mock.Mock(spec=hikari.Message, flags=hikari.MessageFlag.NONE)
     return interaction
 
 
@@ -571,6 +572,14 @@ class Weather(enum.Enum):
     RAIN = 2
 
 
+class Spiky(enum.Enum):
+    ONE = 1
+
+    @classmethod
+    def _missing_(cls, value: object) -> Spiky:
+        raise KeyError(value)
+
+
 @risa.register(name="client-wired")
 class WiredClicker(risa.View):
     @risa.handler
@@ -589,9 +598,13 @@ class WiredClicker(risa.View):
     async def pick(self, _ctx: risa.ComponentContext, weather: Weather) -> None:  # ruff:ignore[no-self-use]
         WIRE_CALLS.append((weather,))
 
+    @risa.handler
+    async def prickly(self, _ctx: risa.ComponentContext, spike: Spiky) -> None:  # ruff:ignore[no-self-use]
+        WIRE_CALLS.append((spike,))
 
-def wire_id(button: ui.Button) -> str:
-    meta = getattr(WiredClicker, constants.VIEW_META)
+
+def custom_id_of(cls: type[risa.View], button: ui.Button) -> str:
+    meta = getattr(cls, constants.VIEW_META)
     assert isinstance(meta, registry.ViewMeta)
     (built,) = ui.build(ui.Row(button), meta)
     payload, _attachments = built.build()
@@ -609,7 +622,7 @@ def wired_client() -> risa.GatewayEnabledClient:
 async def test_bound_wire_args_survive_the_full_dispatch_loop() -> None:
     built = wired_client()
     view = WiredClicker()
-    interaction = interaction_with(wire_id(ui.Button(risa.bind(view.vote, "Red", 5))))
+    interaction = interaction_with(custom_id_of(WiredClicker, ui.Button(risa.bind(view.vote, "Red", 5))))
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
@@ -618,7 +631,7 @@ async def test_bound_wire_args_survive_the_full_dispatch_loop() -> None:
 
 async def test_an_omitted_trailing_default_uses_the_current_python_default() -> None:
     built = wired_client()
-    interaction = interaction_with(wire_id(ui.Button(risa.bind(WiredClicker().vote, "Blue"))))
+    interaction = interaction_with(custom_id_of(WiredClicker, ui.Button(risa.bind(WiredClicker().vote, "Blue"))))
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
@@ -628,7 +641,7 @@ async def test_an_omitted_trailing_default_uses_the_current_python_default() -> 
 async def test_falsy_wire_values_are_not_mistaken_for_decode_failures() -> None:
     built = wired_client()
     interaction = interaction_with(
-        wire_id(ui.Button(risa.bind(WiredClicker().survey, agreed=False, amount=0, label="")))
+        custom_id_of(WiredClicker, ui.Button(risa.bind(WiredClicker().survey, agreed=False, amount=0, label="")))
     )
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
@@ -643,7 +656,7 @@ async def test_falsy_wire_values_are_not_mistaken_for_decode_failures() -> None:
 async def test_a_snowflake_arrives_as_a_snowflake() -> None:
     built = wired_client()
     interaction = interaction_with(
-        wire_id(ui.Button(risa.bind(WiredClicker().aim, hikari.Snowflake(1364800923047857855))))
+        custom_id_of(WiredClicker, ui.Button(risa.bind(WiredClicker().aim, hikari.Snowflake(1364800923047857855))))
     )
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
@@ -655,7 +668,7 @@ async def test_a_snowflake_arrives_as_a_snowflake() -> None:
 
 async def test_an_enum_member_arrives_as_the_member_itself() -> None:
     built = wired_client()
-    interaction = interaction_with(wire_id(ui.Button(risa.bind(WiredClicker().pick, Weather.RAIN))))
+    interaction = interaction_with(custom_id_of(WiredClicker, ui.Button(risa.bind(WiredClicker().pick, Weather.RAIN))))
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
@@ -665,7 +678,7 @@ async def test_an_enum_member_arrives_as_the_member_itself() -> None:
 
 async def test_a_signature_edited_in_place_fails_closed_and_loud(caplog: pytest.LogCaptureFixture) -> None:
     built = wired_client()
-    raw = wire_id(ui.Button(risa.bind(WiredClicker().vote, "Red")))
+    raw = custom_id_of(WiredClicker, ui.Button(risa.bind(WiredClicker().vote, "Red")))
     fingerprint = raw[codec.HEADER_LENGTH : codec.HEADER_LENGTH + codec.FINGERPRINT_LENGTH]
     swap = "!" if fingerprint[0] != "!" else "?"
     forged = raw[: codec.HEADER_LENGTH] + swap + raw[codec.HEADER_LENGTH + 1 :]
@@ -726,21 +739,73 @@ async def test_a_frame_count_outside_the_declared_range_fails_closed(caplog: pyt
     with caplog.at_level(logging.WARNING, logger="risa.client"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    assert "accepts between" in caplog.text
+    assert "accepts at most" in caplog.text
     assert not WIRE_CALLS
 
 
-async def test_too_few_frames_for_the_required_prefix_fails_closed(caplog: pytest.LogCaptureFixture) -> None:
+async def test_a_default_removed_in_place_is_diagnosed_as_the_signature_edit(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     built = wired_client()
     interaction = interaction_with(
         encoded_id_for(WiredClicker, handler=WiredClicker.vote.token, tail=WiredClicker.vote.signature.fingerprint),
     )
 
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "bump the handler version" in caplog.text
+    assert not WIRE_CALLS
+
+
+async def test_a_forged_empty_frame_is_not_a_zero(caplog: pytest.LogCaptureFixture) -> None:
+    built = wired_client()
+    forged = codec.pack_frames([""])
+    interaction = interaction_with(
+        encoded_id_for(
+            WiredClicker, handler=WiredClicker.aim.token, tail=WiredClicker.aim.signature.fingerprint + forged
+        ),
+    )
+
     with caplog.at_level(logging.WARNING, logger="risa.client"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    assert "accepts between" in caplog.text
+    assert "could not be decoded" in caplog.text
     assert not WIRE_CALLS
+
+
+async def test_a_converter_that_raises_is_contained_as_unreadable(caplog: pytest.LogCaptureFixture) -> None:
+    built = wired_client()
+    stale = codec.pack_frames([codec.IntConverter(int).encode(99)])
+    interaction = interaction_with(
+        encoded_id_for(
+            WiredClicker, handler=WiredClicker.prickly.token, tail=WiredClicker.prickly.signature.fingerprint + stale
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "raised" in caplog.text
+    assert not WIRE_CALLS
+
+
+async def test_a_second_client_on_a_shared_manager_warns_and_keeps_the_first(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lightbulb = LightbulbStub(GatewayApp())
+    first = risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb))
+    first.add_view(DiWired)
+    DI_CALLS.clear()
+
+    with caplog.at_level(logging.WARNING, logger="risa.client"):
+        risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb))
+
+    assert "already registered" in caplog.text
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(DiWired().whoami)))
+    await first._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    ((got,),) = DI_CALLS
+    assert got is first
 
 
 async def test_a_deleted_enum_member_fails_closed_naming_the_parameter(caplog: pytest.LogCaptureFixture) -> None:
@@ -787,15 +852,6 @@ class DiWired(risa.View):
         DI_CALLS.append((client,))
 
 
-def di_id(button: ui.Button) -> str:
-    meta = getattr(DiWired, constants.VIEW_META)
-    assert isinstance(meta, registry.ViewMeta)
-    (built,) = ui.build(ui.Row(button), meta)
-    payload, _attachments = built.build()
-    (component,) = payload["components"]
-    return typing.cast("str", component["custom_id"])
-
-
 def di_client(*, register_database: bool = True) -> tuple[risa.GatewayEnabledClient, Database]:
     built = risa.client_from_app(gateway_app())
     built.add_view(DiWired)
@@ -808,7 +864,7 @@ def di_client(*, register_database: bool = True) -> tuple[risa.GatewayEnabledCli
 
 async def test_a_bare_di_parameter_resolves_beside_wire_args() -> None:
     built, database = di_client()
-    interaction = interaction_with(di_id(ui.Button(risa.bind(DiWired().fetch, 3))))
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(risa.bind(DiWired().fetch, 3))))
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
@@ -819,7 +875,7 @@ async def test_a_bare_di_parameter_resolves_beside_wire_args() -> None:
 
 async def test_an_injected_default_resolves_the_same_way() -> None:
     built, database = di_client()
-    interaction = interaction_with(di_id(ui.Button(risa.bind(DiWired().marked, 9))))
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(risa.bind(DiWired().marked, 9))))
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
@@ -830,7 +886,7 @@ async def test_an_injected_default_resolves_the_same_way() -> None:
 
 async def test_an_unsatisfiable_dependency_is_contained(caplog: pytest.LogCaptureFixture) -> None:
     built, _database = di_client(register_database=False)
-    interaction = interaction_with(di_id(ui.Button(risa.bind(DiWired().fetch, 1))))
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(risa.bind(DiWired().fetch, 1))))
 
     with caplog.at_level(logging.ERROR, logger="risa.client"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
@@ -841,7 +897,7 @@ async def test_an_unsatisfiable_dependency_is_contained(caplog: pytest.LogCaptur
 
 async def test_the_client_injects_itself_for_cross_file_handlers() -> None:
     built, _database = di_client()
-    interaction = interaction_with(di_id(ui.Button(DiWired().whoami)))
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(DiWired().whoami)))
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
@@ -854,7 +910,7 @@ async def test_the_client_injects_itself_even_on_a_shared_manager() -> None:
     built = risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb))
     built.add_view(DiWired)
     DI_CALLS.clear()
-    interaction = interaction_with(di_id(ui.Button(DiWired().whoami)))
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(DiWired().whoami)))
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
@@ -864,7 +920,7 @@ async def test_the_client_injects_itself_even_on_a_shared_manager() -> None:
 
 async def test_the_dispatch_container_carries_the_component_context() -> None:
     built, _database = di_client()
-    interaction = interaction_with(di_id(ui.Button(DiWired().probe)))
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(DiWired().probe)))
 
     await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
@@ -888,6 +944,46 @@ class Repaint(risa.View):
     @risa.handler
     async def broken(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
         await ctx.edit(ui.Row(ui.Button(Sluggish().quick)))
+
+
+@risa.register(name="client-thinker")
+class Thinker(risa.View):
+    @typing.override
+    def render(self) -> ui.Layout:
+        return ui.TextDisplay("thoughts")
+
+    @risa.handler(defer=risa.AutoDefer.OFF)
+    async def brooding(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.defer(thinking=True)
+        await ctx.rerender()
+
+    @risa.handler(defer=risa.AutoDefer.OFF)
+    async def decisive(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.defer(thinking=True)
+        await ctx.respond("decided")
+
+
+async def test_a_thinking_defer_left_unanswered_is_logged_loudly(caplog: pytest.LogCaptureFixture) -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Thinker)
+    interaction = interaction_with(encoded_id_for(Thinker, handler=Thinker.brooding.token))
+
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "thinking" in caplog.text
+    assert "AutoDefer.UPDATE" in caplog.text
+
+
+async def test_a_thinking_defer_answered_by_a_respond_is_not_nagged(caplog: pytest.LogCaptureFixture) -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Thinker)
+    interaction = interaction_with(encoded_id_for(Thinker, handler=Thinker.decisive.token))
+
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert not caplog.records
 
 
 async def test_a_handler_mutating_self_and_rerendering_paints_the_mutation() -> None:

@@ -171,7 +171,8 @@ def test_a_pinned_id_keeps_the_token_across_a_rename() -> None:
 
 def test_bind_packages_identity_with_an_empty_payload() -> None:
     bound = engine(Machine().press).bind()
-    assert bound == risa.BoundHandler(handler_id="press", version=1, token=Machine.press.token, payload="")
+    expected = risa.BoundHandler(handler_id="press", version=1, token=Machine.press.token, payload="", owner=Machine)
+    assert bound == expected
     assert not bound.payload
 
 

@@ -27,6 +27,7 @@ __all__ = (
     "CustomIdOverflowError",
     "DuplicateHandlerError",
     "DuplicateViewError",
+    "EphemeralOriginError",
     "HandlerSignatureError",
     "LayoutError",
     "LockTimeoutError",
@@ -84,6 +85,16 @@ class SignatureMismatchError(RisaError):
         )
 
 
+class EphemeralOriginError(RisaError):
+    def __init__(self, view_name: str) -> None:
+        self.view_name = view_name
+        super().__init__(
+            f"the origin message of view {view_name!r} is ephemeral and can no longer be edited:"
+            " on ephemeral views, rerender() or edit() must be the initial response,"
+            " or follow a silent defer",
+        )
+
+
 class ViewDeclarationError(RisaError):
     def __init__(self, view_name: str, reason: str) -> None:
         self.view_name = view_name
@@ -136,7 +147,7 @@ class NotAHandlerError(RisaError):
         self.type_name = type_name
         super().__init__(
             f"{type_name} has no handler identity to route under; pass a handler method"
-            f" accessed on the view instance, bare or through risa.bind(...)",
+            " accessed on the view instance, bare or through risa.bind(...)",
         )
 
 

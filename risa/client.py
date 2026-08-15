@@ -101,7 +101,13 @@ class Client(abc.ABC):
         self._auto_defer = auto_defer
         self._auto_defer_delay = auto_defer_delay
 
-        self._register_dependency(Client, self)
+        if Client in self._di.registry_for(di_.Contexts.DEFAULT):
+            _LOGGER.warning(
+                "another risa client is already registered on this dependency manager;"
+                " `client: risa.Client` injections keep resolving to that first client",
+            )
+        else:
+            self._register_dependency(Client, self)
         if register_app_dependencies:
             self._register_dependency(hikari.api.RESTClient, rest)
 
@@ -240,6 +246,16 @@ class Client(abc.ABC):
             )
         else:
             await self._stop_auto_defer_task(watchdog, state)
+            if state.thinking_unanswered:
+                _LOGGER.error(
+                    "handler %r (version %d) of view %s acknowledged interaction %s with a thinking"
+                    " defer but never responded; the spinner will hang - respond(), or use"
+                    " AutoDefer.UPDATE for handlers that rerender",
+                    handler.handler_id,
+                    handler.version,
+                    meta.name,
+                    interaction.id,
+                )
             try:
                 await ctx.acknowledge()
             except Exception:
@@ -334,24 +350,60 @@ class Client(abc.ABC):
             )
             return None
 
-        if not (signature.required <= len(frames) <= len(signature.converters)):
-            _LOGGER.warning(
-                "interaction %s routes to handler %r (version %d) of view %s with %d wire argument"
-                " frames, but the handler accepts between %d and %d; the component may be forged"
-                " or corrupted",
+        if len(frames) < signature.required:
+            _LOGGER.error(
+                "interaction %s: handler %r (version %d) of view %s received %d wire argument"
+                " frames but now requires %d; a parameter default was removed in place - bump the"
+                " handler version to retire the old components",
                 interaction_id,
                 record.handler_id,
                 record.version,
                 meta.name,
                 len(frames),
                 signature.required,
+            )
+            return None
+        if len(frames) > len(signature.converters):
+            _LOGGER.warning(
+                "interaction %s routes to handler %r (version %d) of view %s with %d wire argument"
+                " frames, but the handler accepts at most %d; the component may be forged"
+                " or corrupted",
+                interaction_id,
+                record.handler_id,
+                record.version,
+                meta.name,
+                len(frames),
                 len(signature.converters),
             )
             return None
 
+        return Client._decode_frames(frames, meta, record, interaction_id)
+
+    @staticmethod
+    def _decode_frames(
+        frames: list[str],
+        meta: registry.ViewMeta,
+        record: registry.HandlerRecord,
+        interaction_id: hikari.Snowflake,
+    ) -> list[object] | None:
+        signature = record.signature
         decoded: list[object] = []
         for (name, converter), frame in zip(signature.converters.items(), frames, strict=False):
-            value = converter.decode(frame)
+            try:
+                value = converter.decode(frame)
+            except Exception:
+                _LOGGER.warning(
+                    "interaction %s routes to handler %r (version %d) of view %s, but decoding wire"
+                    " argument %r raised; the component may be forged, or the converter cannot"
+                    " handle a stale value",
+                    interaction_id,
+                    record.handler_id,
+                    record.version,
+                    meta.name,
+                    name,
+                    exc_info=True,
+                )
+                return None
             if value is None:
                 _LOGGER.warning(
                     "interaction %s routes to handler %r (version %d) of view %s, but wire argument"

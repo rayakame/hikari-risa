@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import enum
 import inspect
+import re
 import typing
 
 import hikari
@@ -180,6 +181,8 @@ class IntConverter(ArgConverter):
 
     @typing.override
     def decode(self, raw: str) -> object | None:
+        if not raw:
+            return None
         data = wire.unpack_bytes(raw)
         if data is None:
             return None
@@ -294,14 +297,29 @@ class HandlerSignature(msgspec.Struct, frozen=True):
     fingerprint: str
 
 
+def _find_unresolvable_parameter(func: collections.abc.Callable[..., object], missing: str) -> str:
+    annotations: dict[str, object] = getattr(func, "__annotations__", {})
+    pattern = re.compile(rf"\b{re.escape(missing)}\b")
+    for name, raw in annotations.items():
+        if name != "return" and isinstance(raw, str) and pattern.search(raw):
+            return name
+    return missing
+
+
 def _resolve_hints(func: collections.abc.Callable[..., object]) -> dict[str, object]:
     try:
         return typing.get_type_hints(func)
     except NameError as exc:
+        missing = exc.name or "?"
         reason = (
-            "is not importable at runtime; annotations on handler parameters must be imported outside TYPE_CHECKING"
+            f"has annotation {missing!r}, which is not importable at runtime; annotations on"
+            " handler parameters must be imported outside TYPE_CHECKING"
         )
-        raise errors.HandlerSignatureError(func.__qualname__, exc.name or "?", reason) from exc
+        raise errors.HandlerSignatureError(
+            func.__qualname__,
+            _find_unresolvable_parameter(func, missing),
+            reason,
+        ) from exc
 
 
 def resolve_signature(func: collections.abc.Callable[..., object]) -> HandlerSignature:

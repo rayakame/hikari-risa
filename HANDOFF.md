@@ -23,7 +23,8 @@ test cases; its internals are not a blueprint.
 1. **Fresh clone strongly preferred**; `git checkout wire-args` (or branch anew off
    `main`). The histories of `main` and `start-implementation` were rewritten on
    2026-08-13 (attribution scrub) — an older clone must `git fetch origin` and
-   `git reset --hard origin/<branch>` on every branch it touches; never `git pull`.
+   `git reset --hard origin/<branch>` on every branch it touches (stash or back up
+   any local work first; the reset discards it); never `git pull`.
 2. Recreate `testbot/.env` with `TOKEN=...` — it is gitignored and does not travel.
    The probe scripts under `test_bots/` read `DISCORD_TOKEN` / `TEST_CHANNEL_ID` from
    the environment.
@@ -172,3 +173,29 @@ auto-defer watchdog), plus — all on `wire-args`, all gated by 332 green tests:
 Smaller open items, any order: slotscheck adoption (maintainer wants it, deferred —
 dev dep + nox session + config, watch the msgspec-Struct interplay); a `ui.File`
 upload through the testbot to watch a real multipart render.
+
+Open findings from the 2026-08-14 review (verified, decisions pending):
+
+- ~~`edit()`/`rerender()` on ephemeral origins~~ **resolved**: row three raises
+  `EphemeralOriginError` (named guidance: initial response or silent defer) instead
+  of 404ing; the thinking-defer half resolved earlier the same day via
+  `DispatchState.thinking_unanswered` + the end-of-dispatch ERROR. Docs pass still
+  pairs the modes: THINKING ↔ `respond()`, UPDATE/OFF ↔ `rerender()`.
+- ~~The foreign-view build check is token-only~~ **resolved**: `HandlerMethod` learns
+  its owner via `__set_name__`, `BoundHandler` carries `owner: type[View] | None`,
+  `BuildContext` carries the view class, and `_routing_id` rejects
+  `not issubclass(ctx.cls, owner)` with a "belongs to view X" `LayoutError` before
+  the token-membership backstop (which still governs owner-less hand-built
+  `BoundHandler`s). Inherited handlers pass via the subclass check.
+- ~~Fingerprint ignores requiredness~~ **resolved** with the diagnosis-only option:
+  requiredness stays unhashed (§6.4 `[decided — revised]`); dispatch diagnoses
+  fingerprint-match + under-required frames as the in-place edit at ERROR with the
+  bump-the-version fix. Folding `required` into the digest was consciously declined
+  (would tax the harmless add-a-default direction; the wire stays stable).
+- **Docs pass**: document nested `risa.bind` keyword rebinding — CPython flattens
+  nested partials with the outer keyword winning before risa can see it, so the
+  double-supply `ArgBindError` is unreachable for keyword-over-keyword; positional
+  conflicts still raise. Also document that `Rendered.respond_to` targets
+  *non-dispatched* interactions (commands and the like) — inside a risa handler it
+  bypasses the response gate, so `ctx.respond(**rendered)` is the correct spelling
+  there.

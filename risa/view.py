@@ -70,10 +70,11 @@ class BoundHandler(msgspec.Struct, frozen=True):
     version: int
     token: str
     payload: str
+    owner: type[View] | None = None
 
 
 class BoundHandlerMethod:
-    __slots__ = ("_call", "_callback_name", "_handler_id", "_signature", "_token", "_version")
+    __slots__ = ("_call", "_callback_name", "_handler_id", "_owner", "_signature", "_token", "_version")
 
     def __init__(
         self,
@@ -84,6 +85,7 @@ class BoundHandlerMethod:
         token: str,
         signature: codec.HandlerSignature,
         callback_name: str,
+        owner: type[View] | None,
     ) -> None:
         self._call = call
         self._handler_id = handler_id
@@ -91,6 +93,7 @@ class BoundHandlerMethod:
         self._token = token
         self._signature = signature
         self._callback_name = callback_name
+        self._owner = owner
 
     def __call__(self, ctx: context.ComponentContext, /) -> collections.abc.Awaitable[None]:
         return self._call(ctx)
@@ -124,7 +127,13 @@ class BoundHandlerMethod:
 
         parts = self._encode_frames(names[:k], filled)
         payload = self._signature.fingerprint + codec.pack_frames(parts) if names else ""
-        return BoundHandler(handler_id=self._handler_id, version=self._version, token=self._token, payload=payload)
+        return BoundHandler(
+            handler_id=self._handler_id,
+            version=self._version,
+            token=self._token,
+            payload=payload,
+            owner=self._owner,
+        )
 
     def _encode_frames(self, names: collections.abc.Sequence[str], filled: dict[str, object]) -> list[str]:
         parts: list[str] = []
@@ -144,7 +153,7 @@ class BoundHandlerMethod:
 
 
 class HandlerMethod[V: View, **P]:
-    __slots__ = ("_defer", "_func", "_handler_id", "_signature", "_token", "_version")
+    __slots__ = ("_defer", "_func", "_handler_id", "_owner", "_signature", "_token", "_version")
 
     def __init__(
         self,
@@ -160,6 +169,11 @@ class HandlerMethod[V: View, **P]:
         self._token = codec.make_handler_token(handler_id, version)
         self._defer = defer
         self._signature: codec.HandlerSignature | None = None
+        self._owner: type[View] | None = None
+
+    @property
+    def owner(self) -> type[View] | None:
+        return self._owner
 
     @property
     def signature(self) -> codec.HandlerSignature:
@@ -207,8 +221,12 @@ class HandlerMethod[V: View, **P]:
                 token=self._token,
                 signature=self.signature,
                 callback_name=self._func.__qualname__,
+                owner=self.owner,
             ),
         )
+
+    def __set_name__(self, owner: type[View], _name: str) -> None:
+        self._owner = owner
 
 
 class _HandlerDecorator(typing.Protocol):

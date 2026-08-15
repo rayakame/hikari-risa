@@ -198,6 +198,11 @@ def test_garbled_int_text_is_unreadable() -> None:
     assert codec.IntConverter(int).decode('"') is None
 
 
+def test_an_empty_int_frame_is_unreadable() -> None:
+    assert codec.IntConverter(int).decode("") is None
+    assert codec.IntConverter(hikari.Snowflake).decode("") is None
+
+
 @pytest.mark.parametrize("value", ["", "Red", "hÿ", "🎈🎈", "a" * 60])
 def test_a_str_survives_the_round_trip(value: str) -> None:
     converter = codec.StrConverter()
@@ -501,14 +506,15 @@ def test_a_type_checking_only_annotation_fails_with_the_import_hint() -> None:
     with pytest.raises(risa.HandlerSignatureError) as exc_info:
         codec.resolve_signature(Handlers.ghost)
 
-    assert exc_info.value.parameter == "TypeTimeOnly"
+    assert exc_info.value.parameter == "service"
+    assert "TypeTimeOnly" in str(exc_info.value)
     assert "TYPE_CHECKING" in str(exc_info.value)
 
 
 def test_the_fingerprint_is_two_wire_characters() -> None:
     fingerprint = codec.resolve_signature(Handlers.scalars).fingerprint
 
-    assert len(fingerprint) == codec.HANDLER_LENGTH
+    assert len(fingerprint) == codec.FINGERPRINT_LENGTH
     assert all(char in wire.ALPHABET for char in fingerprint)
 
 

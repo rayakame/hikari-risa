@@ -78,14 +78,12 @@ def _resolve_handler(handler: HandlerT) -> view_.BoundHandler:
 
 
 class BuildContext:
-    __slots__ = ("_index", "cookie", "tokens")
+    __slots__ = ("_index", "cls", "cookie", "tokens")
 
-    cookie: str
-    tokens: collections.abc.Set[str]
-
-    def __init__(self, cookie: str, tokens: collections.abc.Set[str]) -> None:
+    def __init__(self, cookie: str, tokens: collections.abc.Set[str], cls: type[view_.View]) -> None:
         self.cookie = cookie
         self.tokens = tokens
+        self.cls = cls
         self._index = 0
 
     def next_index(self) -> int:
@@ -113,6 +111,13 @@ class Interactive(Component):
     def bound(self) -> view_.BoundHandler: ...
 
     def _routing_id(self, ctx: BuildContext, path: str) -> str:
+        owner = self.bound.owner
+        if owner is not None and not issubclass(ctx.cls, owner):
+            reason = (
+                f"handler {self.bound.handler_id!r} (version {self.bound.version})"
+                f" belongs to view {owner.__name__!r}, not this one"
+            )
+            raise errors.LayoutError(path, reason)
         if self.bound.token not in ctx.tokens:
             reason = f"handler {self.bound.handler_id!r} (version {self.bound.version}) is not on this view"
             raise errors.LayoutError(path, reason)
@@ -673,7 +678,7 @@ type Layout = TopLevelComponent | collections.abc.Sequence[TopLevelComponent]
 
 
 def build(layout: Layout, meta: registry.ViewMeta) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
-    ctx = BuildContext(cookie=meta.key, tokens=meta.handlers.keys())
+    ctx = BuildContext(cookie=meta.key, tokens=meta.handlers.keys(), cls=meta.cls)
     if isinstance(layout, Component):
         layout = (layout,)
     return [node.build(ctx, f"{node.name}[{i}]") for i, node in enumerate(layout)]

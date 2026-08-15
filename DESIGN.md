@@ -436,7 +436,11 @@ components and today's signatures honest:
   ``int`` -> ``Snowflake`` is free). At decode it is compared against the resolved
   handler's current chain. A mismatch means the signature changed in place without a
   version bump: fail closed, log at ERROR -- it is a developer mistake with a named fix,
-  and deliberately the loudest failure in the library.
+  and deliberately the loudest failure in the library. Requiredness is deliberately
+  *not* hashed (adding a default is harmless to live components and stays free);
+  instead, a matching fingerprint with fewer frames than the handler now requires is
+  diagnosed at decode as the same in-place edit -- same ERROR, same bump-the-version
+  fix -- since no legitimate render under-supplies. **[decided -- revised]**
 
 The three retirement modes:
 
