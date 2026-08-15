@@ -244,9 +244,9 @@ class Client(abc.ABC):
                 interaction.id,
             )
         else:
-            await self._stop_auto_defer_task(watchdog, state)
             if resolved_defer is view_.AutoDefer.OFF:
                 return
+            await self._stop_auto_defer_task(watchdog, state)
             try:
                 await ctx.acknowledge()
             except Exception:
