@@ -23,7 +23,7 @@ application: the public API surface and its type annotations are the product.
 Everything runs through `uv` and `nox`. Do not `pip install` anything.
 
 ```sh
-uv run --group nox nox            # reformat, ruff, pyright, pytest, audit
+uv run --group nox nox            # reformat, ruff, slotscheck, pyright, pytest, audit
 uv run --group nox nox -s ruff    # a single session
 uv run --group pytest pytest -q   # fast inner loop while iterating
 uv lock                           # after ANY dependency change
@@ -49,6 +49,7 @@ starts failing on transitive dependencies.
 | Formatter / linter | ruff, `select = ["ALL"]`, `preview = true`, line length 120 |
 | Type checker | pyright, `typeCheckingMode = "strict"` |
 | Tests | pytest, `asyncio_mode = "auto"`, warnings are errors |
+| Slots | slotscheck, `require-subclass = true` (see `[tool.slotscheck]`) |
 
 pyright strict is the CI gate and is non-negotiable — for a `py.typed` library it is the
 guarantee shipped to downstream users. `ty` was evaluated in July 2026 and rejected: no strict
@@ -132,7 +133,7 @@ risa/
 tests/              mirrors the package layout
 testbot/            manual test bot against a real Discord app (TOKEN via .env)
 test_bots/          one-off probe scripts against the live API
-noxfile.py          reformat / format-check / ruff / pyright / pytest / audit
+noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / audit
 ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
 

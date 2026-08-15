@@ -57,10 +57,19 @@ pyright = [
 ruff = [
     "ruff==0.16.3",
 ]
+slotscheck = [
+    "slotscheck==0.20.1",
+]
 pytest = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
 ]
+
+[tool.slotscheck]
+require-subclass = true
+strict-imports = true
+# detect-unused-slots stays off: it cannot see msgspec Structs use the slots it
+# generates for them, so every Struct in the package reports a false positive.
 
 [tool.pyright]
 include = ["risa", "tests", "testbot"]

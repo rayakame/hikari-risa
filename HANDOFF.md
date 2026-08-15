@@ -192,9 +192,13 @@ auto-defer watchdog), plus — all on `wire-args`, all gated by 332 green tests:
    pass (docstrings, MIT headers for files that lack them, DESIGN §13's error-table
    additions).
 
-Smaller open items, any order: slotscheck adoption (maintainer wants it, deferred —
-dev dep + nox session + config, watch the msgspec-Struct interplay); a `ui.File`
-upload through the testbot to watch a real multipart render.
+Smaller open items, any order: a `ui.File` upload through the testbot to watch a real
+multipart render.
+
+slotscheck is adopted (nox session + `[tool.slotscheck]`, `require-subclass = true`).
+`detect-unused-slots` is deliberately **off**: it cannot see that msgspec `Struct`s use
+the slots msgspec generates for them, so all eight Structs in the package report false
+positives under it.
 
 Open findings from the reviews (verified, decisions pending):
 
