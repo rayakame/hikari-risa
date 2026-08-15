@@ -42,7 +42,7 @@ if typing.TYPE_CHECKING:
 
 __all__ = ("Dispatcher",)
 
-_LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.client")
+_LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.dispatch")
 
 
 class _Route(msgspec.Struct, frozen=True):

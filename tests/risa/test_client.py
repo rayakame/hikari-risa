@@ -230,7 +230,7 @@ async def test_a_foreign_custom_id_is_ignored_silently(
 ) -> None:
     interaction = interaction_with("miru:settings:3")
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert not caplog.records
@@ -243,7 +243,7 @@ async def test_a_risa_id_nobody_answers_for_is_logged(
 ) -> None:
     interaction = interaction_with(encoded_id_for(Elsewhere))
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "no view" in caplog.text
@@ -257,7 +257,7 @@ async def test_a_registered_views_component_is_recognised(
     client.add_view(Panel)
     interaction = interaction_with(encoded_id_for(Panel))
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "client-panel" in caplog.text
@@ -377,7 +377,7 @@ async def test_a_component_whose_handler_was_retired_warns(
     CALLS.clear()
     interaction = interaction_with(encoded_id_for(Clicker))
 
-    with caplog.at_level(logging.WARNING, logger="risa.client"):
+    with caplog.at_level(logging.WARNING, logger="risa"):
         await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "version bump" in caplog.text
@@ -391,7 +391,7 @@ async def test_a_raising_handler_is_contained_and_logged(
     client.add_view(Faulty)
     interaction = interaction_with(encoded_id_for(Faulty, handler=Faulty.boom.token))
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "boom" in caplog.text
@@ -523,7 +523,7 @@ async def test_a_failing_watchdog_ack_is_contained(caplog: pytest.LogCaptureFixt
     interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.update.token))
     rest_of(built).create_interaction_response.side_effect = RuntimeError("interaction is gone")
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await dispatch_slowly(built, interaction)
 
     assert "auto-defer failed" in caplog.text
@@ -535,7 +535,7 @@ async def test_a_failing_final_ack_is_contained(caplog: pytest.LogCaptureFixture
     rest_of(built).create_interaction_response.side_effect = RuntimeError("interaction is gone")
     CALLS.clear()
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert len(CALLS) == 1
@@ -546,7 +546,7 @@ async def test_a_view_that_cannot_be_constructed_is_contained(caplog: pytest.Log
     built = deferring_client(Needy)
     interaction = interaction_with(encoded_id_for(Needy, handler=Needy.press.token))
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "could not be constructed" in caplog.text
@@ -695,7 +695,7 @@ async def test_a_signature_edited_in_place_fails_closed_and_loud(caplog: pytest.
     swap = "!" if fingerprint[0] != "!" else "?"
     forged = raw[: codec.HEADER_LENGTH] + swap + raw[codec.HEADER_LENGTH + 1 :]
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction_with(forged))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "bump the handler version" in caplog.text
@@ -708,7 +708,7 @@ async def test_a_tail_on_a_zero_arg_handler_fails_closed_and_loud(caplog: pytest
     CALLS.clear()
     interaction = interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token, tail="ab12"))
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "declares no wire parameters" in caplog.text
@@ -721,7 +721,7 @@ async def test_a_missing_fingerprint_on_a_wire_handler_fails_closed_and_loud(
     built = wired_client()
     interaction = interaction_with(encoded_id_for(WiredClicker, handler=WiredClicker.vote.token))
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "carries no wire fingerprint" in caplog.text
@@ -733,7 +733,7 @@ async def test_unreadable_frames_fail_closed_with_a_warning(caplog: pytest.LogCa
     tail = WiredClicker.vote.signature.fingerprint + '"'
     interaction = interaction_with(encoded_id_for(WiredClicker, handler=WiredClicker.vote.token, tail=tail))
 
-    with caplog.at_level(logging.WARNING, logger="risa.client"):
+    with caplog.at_level(logging.WARNING, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "unreadable" in caplog.text
@@ -748,7 +748,7 @@ async def test_a_frame_count_outside_the_declared_range_fails_closed(caplog: pyt
         encoded_id_for(WiredClicker, handler=WiredClicker.vote.token, tail=signature.fingerprint + one_frame * 3),
     )
 
-    with caplog.at_level(logging.WARNING, logger="risa.client"):
+    with caplog.at_level(logging.WARNING, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "accepts at most" in caplog.text
@@ -763,7 +763,7 @@ async def test_a_default_removed_in_place_is_diagnosed_as_the_signature_edit(
         encoded_id_for(WiredClicker, handler=WiredClicker.vote.token, tail=WiredClicker.vote.signature.fingerprint),
     )
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "bump the handler version" in caplog.text
@@ -779,7 +779,7 @@ async def test_a_forged_empty_frame_is_not_a_zero(caplog: pytest.LogCaptureFixtu
         ),
     )
 
-    with caplog.at_level(logging.WARNING, logger="risa.client"):
+    with caplog.at_level(logging.WARNING, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "could not be decoded" in caplog.text
@@ -795,7 +795,7 @@ async def test_a_converter_that_raises_is_contained_as_unreadable(caplog: pytest
         ),
     )
 
-    with caplog.at_level(logging.WARNING, logger="risa.client"):
+    with caplog.at_level(logging.WARNING, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "raised" in caplog.text
@@ -810,7 +810,7 @@ async def test_a_second_client_on_a_shared_manager_says_which_one_wins(
     first.add_view(DiWired)
     DI_CALLS.clear()
 
-    with caplog.at_level(logging.WARNING, logger="risa.client"):
+    with caplog.at_level(logging.WARNING, logger="risa"):
         second = risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb))
 
     assert "already registered" in caplog.text
@@ -829,7 +829,7 @@ async def test_a_deleted_enum_member_fails_closed_naming_the_parameter(caplog: p
         ),
     )
 
-    with caplog.at_level(logging.WARNING, logger="risa.client"):
+    with caplog.at_level(logging.WARNING, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "could not be decoded" in caplog.text
@@ -900,7 +900,7 @@ async def test_an_unsatisfiable_dependency_is_contained(caplog: pytest.LogCaptur
     built, _database = di_client(register_database=False)
     interaction = interaction_with(custom_id_of(DiWired, ui.Button(risa.bind(DiWired().fetch, 1))))
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "failed while answering" in caplog.text
@@ -996,7 +996,7 @@ async def test_a_broken_edit_layout_is_contained_as_a_handler_failure(
     built.add_view(Repaint)
     interaction = interaction_with(encoded_id_for(Repaint, handler=Repaint.broken.token))
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "failed while answering" in caplog.text
@@ -1029,7 +1029,7 @@ async def test_an_adopted_interaction_that_answers_nothing_is_noted_at_debug(
     CALLS.clear()
     listener = built._on_interaction(interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await asyncio.wait_for(anext(listener), timeout=1.0)
         with pytest.raises(StopAsyncIteration):
             await anext(listener)
@@ -1043,7 +1043,7 @@ async def test_a_handler_that_answered_is_not_noted(caplog: pytest.LogCaptureFix
     built.add_view(Repaint)
     listener = built._on_interaction(interaction_with(encoded_id_for(Repaint, handler=Repaint.flip.token)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await asyncio.wait_for(anext(listener), timeout=1.0)
         with pytest.raises(StopAsyncIteration):
             await anext(listener)
@@ -1055,7 +1055,7 @@ async def test_a_foreign_interaction_is_never_noted(caplog: pytest.LogCaptureFix
     built = risa.client_from_app(rest_app())
     listener = built._on_interaction(interaction_with("miru:settings:3"))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await asyncio.wait_for(anext(listener), timeout=1.0)
         with pytest.raises(StopAsyncIteration):
             await anext(listener)
@@ -1084,7 +1084,7 @@ async def test_a_handler_missing_the_window_is_logged_but_never_cancelled(
     interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.alone.token))
 
     listener = built._on_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await asyncio.wait_for(anext(listener), timeout=1.0)
 
     assert "no initial response" in caplog.text
@@ -1165,7 +1165,7 @@ async def test_a_retired_handler_on_a_silent_view_warns_and_calls_nothing(
     built = outdated_client(Stoic)
     interaction = interaction_with(encoded_id_for(Stoic))
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "no handler answers to token" in caplog.text
@@ -1179,7 +1179,7 @@ async def test_a_view_that_answers_gets_the_hook_and_only_a_debug_line(
     built = outdated_client(Gracious)
     interaction = interaction_with(encoded_id_for(Gracious))
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "no handler answers to token" in caplog.text
@@ -1217,7 +1217,7 @@ async def test_a_signature_edited_in_place_reaches_the_hook_but_stays_loud(
     built = outdated_client(Gracious)
     forged = encoded_id_for(Gracious, handler=Gracious.vote.token, tail="!!")
 
-    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+    with caplog.at_level(logging.DEBUG, logger="risa"):
         await built._process_interaction(interaction_with(forged))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "bump the handler version" in caplog.text
@@ -1230,7 +1230,7 @@ async def test_unreadable_frames_never_reach_the_hook(caplog: pytest.LogCaptureF
     tail = Gracious.vote.signature.fingerprint + '"'
     forged = encoded_id_for(Gracious, handler=Gracious.vote.token, tail=tail)
 
-    with caplog.at_level(logging.WARNING, logger="risa.client"):
+    with caplog.at_level(logging.WARNING, logger="risa"):
         await built._process_interaction(interaction_with(forged))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "unreadable" in caplog.text
@@ -1249,7 +1249,7 @@ async def test_a_view_that_cannot_be_constructed_skips_the_hook(caplog: pytest.L
     built = outdated_client(Brittle)
     interaction = interaction_with(encoded_id_for(Brittle))
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "on_outdated hook never ran" in caplog.text
@@ -1260,7 +1260,7 @@ async def test_a_raising_hook_is_contained(caplog: pytest.LogCaptureFixture) -> 
     built = outdated_client(Sulky)
     interaction = interaction_with(encoded_id_for(Sulky))
 
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
+    with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert "on_outdated of view client-sulky failed" in caplog.text

@@ -106,10 +106,6 @@ classes (base before subclass) → module functions in call order, entry point l
 Inside a class: `__slots__`, `__init__`, dunders, properties, public methods, then private
 methods as pipeline stages in flow order, each followed by the leaf helpers it owns.
 
-**Log channels are observable surface.** `_LOGGER` names the component a user filters on, not the
-file it happens to live in; a module extracted out of another keeps the original channel rather
-than silently moving what downstream logging config has to match.
-
 ## Layout
 
 ```text
