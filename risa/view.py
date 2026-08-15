@@ -273,6 +273,15 @@ class View(msgspec.Struct):
         """Answer a click on a component this view can no longer route."""
 
 
+def _injected_outdated(cls: type[View]) -> collections.abc.Callable[..., collections.abc.Awaitable[None]] | None:
+    if cls.on_outdated.__func__ is View.on_outdated.__func__:
+        return None
+    return typing.cast(
+        "collections.abc.Callable[..., collections.abc.Awaitable[None]]",
+        linkd.inject(cls.on_outdated),
+    )
+
+
 def register[T: View](
     *, name: str, version: int = 1, defer: AutoDefer | None = None
 ) -> typing.Callable[[type[T]], type[T]]:
@@ -314,7 +323,7 @@ def register[T: View](
             name=name,
             version=version,
             handlers=handlers,
-            handles_outdated=cls.on_outdated.__func__ is not View.on_outdated.__func__,
+            outdated=_injected_outdated(cls),
         )
         registry.global_registry().register(meta)
         setattr(cls, constants.VIEW_META, meta)

@@ -472,8 +472,9 @@ handler and logs nothing.
 ``ComponentContext``, so it can ``respond``, ``defer`` or ``edit(layout)`` to replace the
 dead message, and its default body does nothing at all -- a view that has not overridden it
 behaves exactly as it did before the hook existed, because risa answers nothing on its own.
-It runs with the dependency-injection contexts open (it is user code and injects like a
-handler), but **without** the auto-defer watchdog and **without** the end-of-dispatch
+It is wrapped with ``linkd.inject`` at registration exactly as handlers are, so its own
+parameters resolve and nested injected helpers see the open contexts, but it runs
+**without** the auto-defer watchdog and **without** the end-of-dispatch
 acknowledge: one courtesy answer is the whole job, and ``AutoDefer.OFF`` has to keep meaning
 off. Whether a view overrides it is resolved once, at registration
 (``ViewMeta.handles_outdated``), which is both what gates the call and what downgrades the

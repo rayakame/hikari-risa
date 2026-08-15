@@ -307,7 +307,8 @@ class Client(abc.ABC):
         route: _Route,
         state: context.DispatchState,
     ) -> None:
-        if not route.meta.handles_outdated:
+        outdated = route.meta.outdated
+        if outdated is None:
             return
         made = self._make_context(interaction, route.meta, state, "so its on_outdated hook never ran")
         if made is None:
@@ -320,7 +321,7 @@ class Client(abc.ABC):
             ):
                 container.add_value(context.ComponentContext, ctx)
                 container.add_value(hikari.ComponentInteraction, interaction)
-                await route.meta.cls.on_outdated(ctx)
+                await outdated(ctx)
         except Exception:
             _LOGGER.exception(
                 "on_outdated of view %s failed while answering interaction %s",

@@ -1265,3 +1265,31 @@ async def test_a_raising_hook_is_contained(caplog: pytest.LogCaptureFixture) -> 
 
     assert "on_outdated of view client-sulky failed" in caplog.text
     assert len(OUTDATED_CALLS) == 1
+
+
+@linkd.inject
+def peek_database(db: Database = risa.INJECTED) -> Database:
+    return db
+
+
+@risa.register(name="client-injected")
+class InjectedOutdated(risa.View):
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext, db: Database = risa.INJECTED) -> None:
+        OUTDATED_CALLS.append((cls.__name__, ctx))
+        DI_CALLS.append((db, await peek_database()))
+
+
+async def test_the_hook_resolves_dependencies_like_a_handler() -> None:
+    built = outdated_client(InjectedOutdated)
+    database = Database()
+    built.di.registry_for(risa.Contexts.DEFAULT).register_value(Database, database)
+    DI_CALLS.clear()
+
+    await built._process_interaction(interaction_with(encoded_id_for(InjectedOutdated)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert len(OUTDATED_CALLS) == 1
+    ((injected, nested),) = DI_CALLS
+    assert injected is database
+    assert nested is database
