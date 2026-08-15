@@ -23,9 +23,13 @@ from risa.internal import constants
 
 __all__ = (
     "AlreadyRespondedError",
+    "ArgBindError",
     "CustomIdOverflowError",
     "DuplicateHandlerError",
     "DuplicateViewError",
+    "EphemeralOriginError",
+    "HandlerNotCallableError",
+    "HandlerSignatureError",
     "LayoutError",
     "LockTimeoutError",
     "NotAHandlerError",
@@ -33,6 +37,7 @@ __all__ = (
     "RisaError",
     "SchemaMismatchError",
     "SerializationError",
+    "SignatureMismatchError",
     "StateConflictError",
     "StateError",
     "StateNotFoundError",
@@ -41,6 +46,64 @@ __all__ = (
 
 
 class RisaError(Exception): ...
+
+
+class HandlerSignatureError(RisaError):
+    def __init__(self, callback_name: str, parameter: str, reason: str) -> None:
+        self.callback_name = callback_name
+        self.parameter = parameter
+        self.reason = reason
+        super().__init__(f"handler {callback_name!r}: parameter {parameter!r} {reason}")
+
+
+class ArgBindError(RisaError):
+    def __init__(self, callback_name: str, parameter: str | None, reason: str) -> None:
+        self.callback_name = callback_name
+        self.parameter = parameter
+        self.reason = reason
+        if parameter is None:
+            super().__init__(f"handler {callback_name!r}: {reason}")
+        else:
+            super().__init__(f"handler {callback_name!r}: parameter {parameter!r} {reason}")
+
+
+class SignatureMismatchError(RisaError):
+    def __init__(self, view_name: str, handler_id: str, version: int, *, found: str, expected: str) -> None:
+        self.view_name = view_name
+        self.handler_id = handler_id
+        self.version = version
+        self.found = found
+        self.expected = expected
+        if not expected:
+            detail = "a component carries wire arguments, but the handler declares no wire parameters"
+        elif not found:
+            detail = "a component carries no wire fingerprint, but the handler declares wire parameters"
+        else:
+            detail = f"a component carries wire fingerprint {found!r}, but the handler's current chain is {expected!r}"
+        super().__init__(
+            f"handler {handler_id!r} (version {version}) of view {view_name!r}: {detail};"
+            " the signature changed in place - bump the handler version to retire the old components",
+        )
+
+
+class HandlerNotCallableError(RisaError):
+    def __init__(self, callback_name: str) -> None:
+        self.callback_name = callback_name
+        super().__init__(
+            f"handler {callback_name!r} is dispatched by risa, not called directly;"
+            " place it on a component with risa.bind(...), or delegate through the view"
+            " class's descriptor (Type.handler.func)",
+        )
+
+
+class EphemeralOriginError(RisaError):
+    def __init__(self, view_name: str) -> None:
+        self.view_name = view_name
+        super().__init__(
+            f"the origin message of view {view_name!r} is ephemeral and can no longer be edited:"
+            " on ephemeral views, rerender() or edit() must be the initial response,"
+            " or follow a silent defer",
+        )
 
 
 class ViewDeclarationError(RisaError):
@@ -95,7 +158,7 @@ class NotAHandlerError(RisaError):
         self.type_name = type_name
         super().__init__(
             f"{type_name} has no handler identity to route under; pass a handler method"
-            f" accessed on the view instance, or the result of its bind()",
+            " accessed on the view instance, bare or through risa.bind(...)",
         )
 
 

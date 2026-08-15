@@ -22,8 +22,12 @@
 from __future__ import annotations
 
 import asyncio
+import collections.abc
 import logging
 import os
+import re
+import typing
+
 import dotenv
 import hikari
 import lightbulb
@@ -90,6 +94,65 @@ class Demo(risa.View):
 risa_client.add_view(Demo)
 
 
+POLL_OPTIONS: typing.Final = ("Red", "Green", "Blue")
+_TALLY_PATTERN: typing.Final = re.compile(r"\*\*(\w+)\*\*: (\d+)")
+
+
+def read_counts(message: hikari.Message) -> list[int]:
+    counts = [0] * len(POLL_OPTIONS)
+    for top in message.components:
+        if not isinstance(top, hikari.ContainerComponent):
+            continue
+        for child in top.components:
+            if not isinstance(child, hikari.TextDisplayComponent):
+                continue
+            for name, count in _TALLY_PATTERN.findall(child.content):
+                if name in POLL_OPTIONS:
+                    counts[POLL_OPTIONS.index(name)] = int(count)
+    return counts
+
+
+@risa.register(name="poll-demo", version=1)
+class PollDemo(risa.View):
+    counts: collections.abc.Sequence[int] = (0, 0, 0)
+
+    def render(self) -> ui.Layout:
+        tallies = "\n".join(
+            f"- **{name}**: {count}" for name, count in zip(POLL_OPTIONS, self.counts, strict=True)
+        )
+        return ui.Container(
+            ui.TextDisplay(f"## Best color?\n{tallies}"),
+            ui.Row(
+                *(
+                    ui.Button(risa.bind(self.vote, index), label=name)
+                    for index, name in enumerate(POLL_OPTIONS)
+                ),
+            ),
+        )
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext, option: int, fortnite: hikari.GatewayBot) -> None:
+        logging.getLogger("testbot").info(
+            "vote via %s (latency %.0fms)", type(fortnite).__name__, fortnite.heartbeat_latency * 1000
+        )
+        if not 0 <= option < len(POLL_OPTIONS):
+            return
+        counts = read_counts(ctx.message)
+        counts[option] += 1
+        self.counts = counts
+        await ctx.rerender()
+
+
+risa_client.add_view(PollDemo)
+
+
+@lightbulb_client.register()
+class Poll(lightbulb.SlashCommand, name="poll", description="Post a restart-proof poll."):
+    @lightbulb.invoke
+    async def invoke(self, ctx: lightbulb.Context) -> None:
+        await ctx.respond(**await risa_client.build(PollDemo()))
+
+
 @lightbulb_client.register()
 class Test(lightbulb.SlashCommand, name="test", description="Post the components under test."):
     """Post a V2 message and report what risa currently knows."""
@@ -97,7 +160,7 @@ class Test(lightbulb.SlashCommand, name="test", description="Post the components
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
         """Answer with the message ``Demo.render()`` produces."""
-        await ctx.respond(components=await risa_client.build(Demo()))
+        await ctx.respond(**await risa_client.build(Demo()))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import abc
+import collections.abc
+import functools
 import typing
 
 import hikari
@@ -11,8 +13,6 @@ from risa import view as view_
 from risa.internal import codec
 
 if typing.TYPE_CHECKING:
-    import collections.abc
-
     from hikari import colors
     from hikari import emojis
     from hikari import files
@@ -20,6 +20,12 @@ if typing.TYPE_CHECKING:
     from hikari.api import special_endpoints
 
     from risa.internal import registry
+
+    type HandlerT = (
+        collections.abc.Callable[..., collections.abc.Awaitable[None]]
+        | view_.BoundHandler
+        | functools.partial[collections.abc.Awaitable[None]]
+    )
 
 __all__ = (
     "BuildContext",
@@ -36,6 +42,7 @@ __all__ = (
     "MediaGalleryItem",
     "MentionableSelect",
     "PremiumButton",
+    "Rendered",
     "RoleSelect",
     "Row",
     "RowChild",
@@ -57,23 +64,26 @@ def _or_undefined[T](value: T | None) -> T | hikari.UndefinedType:
     return hikari.UNDEFINED if value is None else value
 
 
-def _resolve_handler(handler: view_.ZeroArgHandler | view_.BoundHandler) -> view_.BoundHandler:
+def _resolve_handler(handler: HandlerT) -> view_.BoundHandler:
     if isinstance(handler, view_.BoundHandler):
         return handler
-    if isinstance(handler, view_.ZeroArgHandler):  # type: ignore[reportUnnecessaryIsInstance]
+    if isinstance(handler, functools.partial):
+        inner = handler.func
+        if not isinstance(inner, view_.BoundHandlerMethod):
+            raise errors.NotAHandlerError(type(inner).__name__)
+        return inner.bind(*handler.args, **handler.keywords)
+    if isinstance(handler, view_.BoundHandlerMethod):
         return handler.bind()
     raise errors.NotAHandlerError(type(handler).__name__)
 
 
 class BuildContext:
-    __slots__ = ("_index", "cookie", "tokens")
+    __slots__ = ("_index", "cls", "cookie", "tokens")
 
-    cookie: str
-    tokens: collections.abc.Set[str]
-
-    def __init__(self, cookie: str, tokens: collections.abc.Set[str]) -> None:
+    def __init__(self, cookie: str, tokens: collections.abc.Set[str], cls: type[view_.View]) -> None:
         self.cookie = cookie
         self.tokens = tokens
+        self.cls = cls
         self._index = 0
 
     def next_index(self) -> int:
@@ -101,16 +111,28 @@ class Interactive(Component):
     def bound(self) -> view_.BoundHandler: ...
 
     def _routing_id(self, ctx: BuildContext, path: str) -> str:
+        owner = self.bound.owner
+        if owner is not None and not issubclass(ctx.cls, owner):
+            reason = (
+                f"handler {self.bound.handler_id!r} (version {self.bound.version})"
+                f" belongs to view {owner.__name__!r}, not this one"
+            )
+            raise errors.LayoutError(path, reason)
         if self.bound.token not in ctx.tokens:
             reason = f"handler {self.bound.handler_id!r} (version {self.bound.version}) is not on this view"
             raise errors.LayoutError(path, reason)
-        return codec.CustomID(
+        custom_id = codec.CustomID(
             cookie=ctx.cookie,
             handler=self.bound.token,
             fragment_index=ctx.next_index(),
             fragment="",
             tail=self.bound.payload,
-        ).encode()
+        )
+        try:
+            return custom_id.encode()
+        except errors.CustomIdOverflowError as exc:
+            culprit = f"{ctx.cls.__name__} at {path}, handler {self.bound.handler_id!r}"
+            raise errors.CustomIdOverflowError(culprit, exc.length) from exc
 
 
 class TextDisplay(Component):
@@ -405,7 +427,7 @@ class Button(Interactive):
 
     def __init__(
         self,
-        handler: view_.ZeroArgHandler | view_.BoundHandler,
+        handler: HandlerT,
         *,
         label: str | None = None,
         emoji: snowflakes.Snowflakeish | emojis.Emoji | str | None = None,
@@ -503,7 +525,7 @@ class Select(Interactive):
 
     def __init__(
         self,
-        handler: view_.ZeroArgHandler | view_.BoundHandler,
+        handler: HandlerT,
         *,
         placeholder: str | None = None,
         min_values: int = 1,
@@ -543,7 +565,7 @@ class TextSelect(Select):
 
     def __init__(
         self,
-        handler: view_.ZeroArgHandler | view_.BoundHandler,
+        handler: HandlerT,
         /,
         *options: SelectOption,
         placeholder: str | None = None,
@@ -622,7 +644,7 @@ class ChannelSelect(Select):
 
     def __init__(
         self,
-        handler: view_.ZeroArgHandler | view_.BoundHandler,
+        handler: HandlerT,
         *,
         channel_types: collections.abc.Sequence[hikari.ChannelType] = (),
         placeholder: str | None = None,
@@ -661,7 +683,67 @@ type Layout = TopLevelComponent | collections.abc.Sequence[TopLevelComponent]
 
 
 def build(layout: Layout, meta: registry.ViewMeta) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
-    ctx = BuildContext(cookie=meta.key, tokens=meta.handlers.keys())
+    ctx = BuildContext(cookie=meta.key, tokens=meta.handlers.keys(), cls=meta.cls)
     if isinstance(layout, Component):
         layout = (layout,)
     return [node.build(ctx, f"{node.name}[{i}]") for i, node in enumerate(layout)]
+
+
+class Rendered(collections.abc.Mapping[str, typing.Any]):
+    __slots__ = ("_components",)
+
+    def __init__(self, components: collections.abc.Sequence[special_endpoints.ComponentBuilder]) -> None:
+        self._components = components
+
+    @property
+    def components(self) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
+        return self._components
+
+    @typing.override
+    def __getitem__(self, key: str) -> typing.Any:
+        if key == "components":
+            return self._components
+        raise KeyError(key)
+
+    @typing.override
+    def __iter__(self) -> collections.abc.Iterator[str]:
+        yield "components"
+
+    @typing.override
+    def __len__(self) -> int:
+        return 1
+
+    async def send_to(
+        self,
+        rest: hikari.api.RESTClient,
+        channel: snowflakes.SnowflakeishOr[hikari.TextableChannel],
+        **forbidden: typing.Never,
+    ) -> hikari.Message:
+        _reject_forbidden(forbidden)
+        return await rest.create_message(channel, components=self._components)
+
+    async def respond_to(
+        self,
+        rest: hikari.api.RESTClient,
+        interaction: hikari.ComponentInteraction | hikari.ModalInteraction | hikari.CommandInteraction,
+        *,
+        ephemeral: bool = False,
+        **forbidden: typing.Never,
+    ) -> None:
+        _reject_forbidden(forbidden)
+        await rest.create_interaction_response(
+            interaction.id,
+            interaction.token,
+            hikari.ResponseType.MESSAGE_CREATE,
+            components=self._components,
+            flags=hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED,
+        )
+
+
+def _reject_forbidden(forbidden: collections.abc.Mapping[str, object]) -> None:
+    if forbidden:
+        msg = (
+            f"a V2 view renders the whole message; {', '.join(sorted(forbidden))} cannot ride"
+            " alongside it - put text in a ui.TextDisplay inside the view"
+        )
+        raise TypeError(msg)

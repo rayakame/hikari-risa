@@ -30,6 +30,7 @@ import linkd
 from risa import context
 from risa import di as di_
 from risa import errors
+from risa import ui
 from risa import view as view_
 from risa.internal import codec
 from risa.internal import constants
@@ -38,8 +39,6 @@ from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
     import collections.abc
-
-    from hikari.api import special_endpoints
 
 __all__ = (
     "Client",
@@ -72,8 +71,18 @@ class LightbulbClient(typing.Protocol):
     def di(self) -> linkd.DependencyInjectionManager: ...
 
 
+class _LightbulbOptions(typing.TypedDict, total=False):
+    use_global: bool
+    auto_defer: view_.AutoDefer
+    auto_defer_delay: float
+
+
+class _ClientOptions(_LightbulbOptions, total=False):
+    di: linkd.DependencyInjectionManager | None
+
+
 class Client(abc.ABC):
-    __slots__ = ("_auto_defer", "_auto_defer_delay", "_di", "_registry", "_use_global")
+    __slots__ = ("_auto_defer", "_auto_defer_delay", "_di", "_registry", "_rest", "_use_global")
 
     def __init__(
         self,
@@ -82,15 +91,22 @@ class Client(abc.ABC):
         use_global: bool = False,
         di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
-        auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
+        auto_defer: view_.AutoDefer = view_.AutoDefer.OFF,
         auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
     ) -> None:
         self._di = di if di is not None else linkd.DependencyInjectionManager()
         self._registry = registry.Registry()
+        self._rest = rest
         self._use_global = use_global
         self._auto_defer = auto_defer
         self._auto_defer_delay = auto_defer_delay
 
+        if Client in self._di.registry_for(di_.Contexts.DEFAULT):
+            _LOGGER.warning(
+                "another risa client is already registered on this dependency manager;"
+                " `client: risa.Client` injections will resolve to this newest one",
+            )
+        self._register_dependency(Client, self)
         if register_app_dependencies:
             self._register_dependency(hikari.api.RESTClient, rest)
 
@@ -102,11 +118,15 @@ class Client(abc.ABC):
     def di(self) -> linkd.DependencyInjectionManager:
         return self._di
 
-    async def build(self, view: view_.View) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:  # ruff:ignore[no-self-use]
+    @property
+    def rest(self) -> hikari.api.RESTClient:
+        return self._rest
+
+    async def build(self, view: view_.View) -> ui.Rendered:  # ruff:ignore[no-self-use]
         meta = getattr(type(view), constants.VIEW_META, None)
         if not isinstance(meta, registry.ViewMeta):
             raise errors.NotAViewError(type(view).__name__)
-        return build_(view.render(), meta)
+        return ui.Rendered(build_(view.render(), meta))
 
     def add_view[T: view_.View](self, cls: type[T]) -> type[T]:
         meta = getattr(cls, constants.VIEW_META, None)
@@ -136,10 +156,22 @@ class Client(abc.ABC):
     async def _process_interaction(
         self,
         interaction: hikari.ComponentInteraction,
+        state: context.DispatchState | None = None,
     ) -> None:
+        if state is None:
+            state = context.DispatchState()
+        try:
+            await self._dispatch(interaction, state)
+        finally:
+            state.acknowledged.set()
+
+    def _route(
+        self,
+        interaction: hikari.ComponentInteraction,
+    ) -> tuple[registry.ViewMeta, registry.HandlerRecord, list[object]] | None:
         custom_id = codec.parse_custom_id(interaction.custom_id)
         if custom_id is None:
-            return
+            return None
 
         meta = self._resolve(custom_id.cookie)
         if meta is None:
@@ -148,7 +180,7 @@ class Client(abc.ABC):
                 interaction.id,
                 custom_id.cookie,
             )
-            return
+            return None
         handler = meta.handlers.get(custom_id.handler)
         if handler is None:
             _LOGGER.warning(
@@ -159,19 +191,50 @@ class Client(abc.ABC):
                 meta.version,
                 custom_id.handler,
             )
+            return None
+
+        decoded = self._decode_args(custom_id, meta, handler, interaction.id)
+        if decoded is None:
+            return None
+        return meta, handler, decoded
+
+    async def _dispatch(
+        self,
+        interaction: hikari.ComponentInteraction,
+        state: context.DispatchState,
+    ) -> None:
+        routed = self._route(interaction)
+        if routed is None:
             return
+        meta, handler, decoded = routed
+        state.adopted = True
 
         resolved_defer = handler.defer
         if resolved_defer is None:
             resolved_defer = self._auto_defer
-        state = context.DispatchState()
-        ctx = context.ComponentContext(interaction, state)
+        try:
+            view = meta.cls()
+        except Exception:
+            _LOGGER.exception(
+                "view %s could not be constructed to answer interaction %s, so handler %r (version %d) never ran",
+                meta.name,
+                interaction.id,
+                handler.handler_id,
+                handler.version,
+            )
+            return
+        ctx = context.ComponentContext(interaction, rest=self._rest, state=state, view=view, meta=meta)
         watchdog: asyncio.Task[None] | None = None
         if resolved_defer is not view_.AutoDefer.OFF:
             watchdog = asyncio.create_task(self._auto_defer_task(ctx, resolved_defer))
         try:
-            view = meta.cls()
-            await handler.callback(view, ctx)
+            async with (
+                self._di.enter_context(di_.Contexts.DEFAULT),
+                self._di.enter_context(di_.Contexts.COMPONENT) as container,
+            ):
+                container.add_value(context.ComponentContext, ctx)
+                container.add_value(hikari.ComponentInteraction, interaction)
+                await handler.callback(view, ctx, *decoded)
         except Exception:
             await self._stop_auto_defer_task(watchdog, state)
             _LOGGER.exception(
@@ -182,11 +245,22 @@ class Client(abc.ABC):
                 interaction.id,
             )
         else:
+            if resolved_defer is view_.AutoDefer.OFF:
+                return
             await self._stop_auto_defer_task(watchdog, state)
             try:
                 await ctx.acknowledge()
             except Exception:
-                _LOGGER.exception("failed to acknowledge interaction %s after its handler finished", interaction.id)
+                _LOGGER.exception(
+                    "failed to acknowledge interaction %s after its handler finished; if the handler"
+                    " ran longer than Discord's %.1fs window the interaction is already lost -"
+                    " respond, defer, or enable auto_defer",
+                    interaction.id,
+                    constants.INTERACTION_WINDOW,
+                )
+        finally:
+            if watchdog is not None:
+                watchdog.cancel()
 
     async def _auto_defer_task(self, ctx: context.ComponentContext, defer: view_.AutoDefer) -> None:
         await asyncio.sleep(self._auto_defer_delay)
@@ -212,6 +286,140 @@ class Client(abc.ABC):
         except Exception:
             _LOGGER.exception("the auto-defer watchdog raised while being stood down")
 
+    @staticmethod
+    def _fingerprint_mismatch(
+        custom_id: codec.CustomID,
+        meta: registry.ViewMeta,
+        record: registry.HandlerRecord,
+    ) -> errors.SignatureMismatchError | None:
+        signature = record.signature
+        tail = custom_id.tail
+
+        if not signature.converters:
+            if not tail:
+                return None
+            return errors.SignatureMismatchError(
+                meta.name,
+                record.handler_id,
+                record.version,
+                found=tail[: codec.FINGERPRINT_LENGTH],
+                expected="",
+            )
+        if len(tail) < codec.FINGERPRINT_LENGTH:
+            return errors.SignatureMismatchError(
+                meta.name,
+                record.handler_id,
+                record.version,
+                found="",
+                expected=signature.fingerprint,
+            )
+        if tail[: codec.FINGERPRINT_LENGTH] != signature.fingerprint:
+            return errors.SignatureMismatchError(
+                meta.name,
+                record.handler_id,
+                record.version,
+                found=tail[: codec.FINGERPRINT_LENGTH],
+                expected=signature.fingerprint,
+            )
+        return None
+
+    @staticmethod
+    def _decode_args(
+        custom_id: codec.CustomID,
+        meta: registry.ViewMeta,
+        record: registry.HandlerRecord,
+        interaction_id: hikari.Snowflake,
+    ) -> list[object] | None:
+        signature = record.signature
+
+        mismatch = Client._fingerprint_mismatch(custom_id, meta, record)
+        if mismatch is not None:
+            _LOGGER.error("interaction %s: %s", interaction_id, mismatch)
+            return None
+        if not signature.converters:
+            return []
+
+        frames = codec.unpack_frames(custom_id.tail[codec.FINGERPRINT_LENGTH :])
+        if frames is None:
+            _LOGGER.warning(
+                "interaction %s routes to handler %r (version %d) of view %s, but its wire argument"
+                " frames are unreadable; the component may be forged or corrupted",
+                interaction_id,
+                record.handler_id,
+                record.version,
+                meta.name,
+            )
+            return None
+
+        if len(frames) < signature.required:
+            _LOGGER.error(
+                "interaction %s: handler %r (version %d) of view %s received %d wire argument"
+                " frames but now requires %d; a parameter default was removed in place - bump the"
+                " handler version to retire the old components",
+                interaction_id,
+                record.handler_id,
+                record.version,
+                meta.name,
+                len(frames),
+                signature.required,
+            )
+            return None
+        if len(frames) > len(signature.converters):
+            _LOGGER.warning(
+                "interaction %s routes to handler %r (version %d) of view %s with %d wire argument"
+                " frames, but the handler accepts at most %d; the component may be forged"
+                " or corrupted",
+                interaction_id,
+                record.handler_id,
+                record.version,
+                meta.name,
+                len(frames),
+                len(signature.converters),
+            )
+            return None
+
+        return Client._decode_frames(frames, meta, record, interaction_id)
+
+    @staticmethod
+    def _decode_frames(
+        frames: list[str],
+        meta: registry.ViewMeta,
+        record: registry.HandlerRecord,
+        interaction_id: hikari.Snowflake,
+    ) -> list[object] | None:
+        signature = record.signature
+        decoded: list[object] = []
+        for (name, converter), frame in zip(signature.converters.items(), frames, strict=False):
+            try:
+                value = converter.decode(frame)
+            except Exception:
+                _LOGGER.warning(
+                    "interaction %s routes to handler %r (version %d) of view %s, but decoding wire"
+                    " argument %r raised; the component may be forged, or the converter cannot"
+                    " handle a stale value",
+                    interaction_id,
+                    record.handler_id,
+                    record.version,
+                    meta.name,
+                    name,
+                    exc_info=True,
+                )
+                return None
+            if value is None:
+                _LOGGER.warning(
+                    "interaction %s routes to handler %r (version %d) of view %s, but wire argument"
+                    " %r could not be decoded; the component may be forged, or reference a value"
+                    " that no longer exists",
+                    interaction_id,
+                    record.handler_id,
+                    record.version,
+                    meta.name,
+                    name,
+                )
+                return None
+            decoded.append(value)
+        return decoded
+
 
 class GatewayEnabledClient(Client):
     __slots__ = ("_app",)
@@ -220,20 +428,10 @@ class GatewayEnabledClient(Client):
         self,
         app: GatewayClientAppT,
         *,
-        use_global: bool = False,
-        di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
-        auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
-        auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
+        **options: typing.Unpack[_ClientOptions],
     ) -> None:
-        super().__init__(
-            app.rest,
-            use_global=use_global,
-            di=di,
-            register_app_dependencies=register_app_dependencies,
-            auto_defer=auto_defer,
-            auto_defer_delay=auto_defer_delay,
-        )
+        super().__init__(app.rest, register_app_dependencies=register_app_dependencies, **options)
         self._app = app
 
         if register_app_dependencies:
@@ -259,20 +457,10 @@ class RestEnabledClient(Client):
         self,
         app: RestClientAppT,
         *,
-        use_global: bool = False,
-        di: linkd.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
-        auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
-        auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
+        **options: typing.Unpack[_ClientOptions],
     ) -> None:
-        super().__init__(
-            app.rest,
-            use_global=use_global,
-            di=di,
-            register_app_dependencies=register_app_dependencies,
-            auto_defer=auto_defer,
-            auto_defer_delay=auto_defer_delay,
-        )
+        super().__init__(app.rest, register_app_dependencies=register_app_dependencies, **options)
         self._app = app
 
         if register_app_dependencies:
@@ -291,75 +479,60 @@ class RestEnabledClient(Client):
         self,
         interaction: hikari.ComponentInteraction,
     ) -> collections.abc.AsyncGenerator[None, None]:
-        await self._process_interaction(interaction)
+        state = context.DispatchState()
+        task = asyncio.create_task(self._process_interaction(interaction, state))
+        try:
+            await asyncio.wait_for(state.acknowledged.wait(), timeout=constants.INTERACTION_WINDOW)
+        except TimeoutError:
+            _LOGGER.error(  # ruff:ignore[error-instead-of-exception]
+                "interaction %s received no initial response within %.1fs on the REST transport; the"
+                " interaction is lost - respond, defer, or enable auto_defer. The handler was not"
+                " cancelled and continues in the background.",
+                interaction.id,
+                constants.INTERACTION_WINDOW,
+            )
         yield
+        await task
+        if state.adopted and not state.responded:
+            _LOGGER.debug(
+                "interaction %s was answered with 204 and no response was sent through risa;"
+                " Discord shows it as failed unless the handler answered it another way",
+                interaction.id,
+            )
 
 
 @typing.overload
 def client_from_app(
     app: GatewayClientAppT,
-    *,
-    use_global: bool = ...,
-    di: linkd.DependencyInjectionManager | None = ...,
-    auto_defer: view_.AutoDefer = ...,
-    auto_defer_delay: float = ...,
+    **options: typing.Unpack[_ClientOptions],
 ) -> GatewayEnabledClient: ...
 
 
 @typing.overload
 def client_from_app(
     app: RestClientAppT,
-    *,
-    use_global: bool = ...,
-    di: linkd.DependencyInjectionManager | None = ...,
-    auto_defer: view_.AutoDefer = ...,
-    auto_defer_delay: float = ...,
+    **options: typing.Unpack[_ClientOptions],
 ) -> RestEnabledClient: ...
 
 
 def client_from_app(
     app: GatewayClientAppT | RestClientAppT,
-    *,
-    use_global: bool = False,
-    di: linkd.DependencyInjectionManager | None = None,
-    auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
-    auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
+    **options: typing.Unpack[_ClientOptions],
 ) -> Client:
     if isinstance(app, GatewayClientAppT):
-        return GatewayEnabledClient(
-            app, use_global=use_global, di=di, auto_defer=auto_defer, auto_defer_delay=auto_defer_delay
-        )
-    return RestEnabledClient(
-        app, use_global=use_global, di=di, auto_defer=auto_defer, auto_defer_delay=auto_defer_delay
-    )
+        return GatewayEnabledClient(app, **options)
+    return RestEnabledClient(app, **options)
 
 
 def client_from_lightbulb(
     lightbulb_client: LightbulbClient,
-    *,
-    use_global: bool = False,
-    auto_defer: view_.AutoDefer = view_.AutoDefer.UPDATE,
-    auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
+    **options: typing.Unpack[_LightbulbOptions],
 ) -> Client:
     app = lightbulb_client.app
     if isinstance(app, GatewayClientAppT):
-        return GatewayEnabledClient(
-            app,
-            use_global=use_global,
-            di=lightbulb_client.di,
-            register_app_dependencies=False,
-            auto_defer=auto_defer,
-            auto_defer_delay=auto_defer_delay,
-        )
+        return GatewayEnabledClient(app, di=lightbulb_client.di, register_app_dependencies=False, **options)
     if isinstance(app, RestClientAppT):
-        return RestEnabledClient(
-            app,
-            use_global=use_global,
-            di=lightbulb_client.di,
-            register_app_dependencies=False,
-            auto_defer=auto_defer,
-            auto_defer_delay=auto_defer_delay,
-        )
+        return RestEnabledClient(app, di=lightbulb_client.di, register_app_dependencies=False, **options)
 
     msg = "the lightbulb client's app has neither an event manager nor an interaction server"
     raise TypeError(msg)

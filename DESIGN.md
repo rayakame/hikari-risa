@@ -254,7 +254,7 @@ def render(self) -> ui.Layout:
         *[
             ui.Section(
                 ui.TextDisplay(f"**{o.name}** — {o.count}"),
-                accessory=ui.Button(self.vote.bind(o.id), label="Vote"),
+                accessory=ui.Button(risa.bind(self.vote, o.id), label="Vote"),
             )
             for o in self.options
         ],
@@ -358,16 +358,53 @@ Two different kinds of data. Conflating them is expensive to undo.
 | **Component args** | the custom_id, always inline | which of N buttons was clicked |
 
 ```python
-ui.Button(self.toggle.bind(role_id), label="Add")   # arg baked into THIS button's id
+ui.Button(risa.bind(self.toggle, role_id), label="Add")   # arg baked into THIS button's id
 
 async def toggle(self, ctx: risa.Context, role_id: int) -> None: ...
 ```
 
-`bind()` typed with `ParamSpec` gives a static error on arity/type mismatch.
+**Binding is `functools.partial`, statically checked through the checker's `partial`
+special-casing. [decided — revised after the typing investigation]** `risa.bind` *is*
+`functools.partial` (a bare alias; wrapping it would kill the special-casing), and instance
+access on a handler is deliberately typed as a bare
+`Callable[P, Awaitable[None]]` — a fiction over the runtime `BoundHandlerMethod`, cast in
+`HandlerMethod.__get__`. Pyright (and mypy, via its `functools` plugin) hand-validate
+`partial(f, ...)` calls against `f`'s real parameters — names, types, keywords, defaults —
+and deliberately allow omitting everything after the supplied prefix. That is exactly
+"check the wire args, ignore the DI tail", which Python's type system cannot express
+directly: PEP 612 cannot slice a `ParamSpec` from behind. Consequences, all deliberate:
+
+- **Bare DI parameters stay bare** — `db: Database` after the wire prefix needs no
+  `linkd.INJECTED` marker to typecheck at bind sites, because an omitted tail is what
+  partial application means.
+- **Missing required args and over-binding into DI slots are runtime-only** — caught
+  eagerly at the render line as `ArgBindError`, not as a red squiggle.
+- **Handlers are not directly callable in user code** — the fiction's `P` excludes `ctx`;
+  v1→v2 delegation goes through the class-level descriptor's `.func`.
+- The special-casing is checker behaviour, not typing-spec behaviour, so
+  `tests/risa/typing_guard.py` pins it in both directions: correct binds must stay
+  accepted, wrong binds carry suppressions that fail CI via
+  `reportUnnecessaryTypeIgnoreComment` if pyright ever stops flagging them.
+
+Rejected alternatives: `ParamSpec`-typed `bind(*args: P.args)` (cannot omit the DI tail, so
+`= linkd.INJECTED` becomes mandatory on every DI parameter, and a bare-DI handler stops
+satisfying the node layer's handler type entirely); a fixed-arity overload ladder with a
+`Wire`-bounded TypeVar per slot (swallows the DI tail correctly but loses keyword binding
+and trailing-default omission, and caps arity at the ladder height).
 
 Arg converters cover `int`, `str`, `bool`, `Enum`, `Snowflake` — that is essentially
 everything. Use flare's byte-oriented encodings (little-endian in latin-1), not `str()`: an
 int costs 1–2 chars instead of 19.
+
+**`Enum` means `enum.Enum`; hikari's own enums are not wire types. [decided]** hikari
+implements `hikari.internal.enums.Enum`/`.Flag` rather than subclassing the stdlib, so
+`hikari.ChannelType`, `hikari.Permissions` and friends resolve to no converter and belong
+to DI like any other unrecognised annotation. Supporting them would mean either
+duck-typing on `__members__` or importing hikari's private enum module, and it would
+import two behaviours that do not fit the codec's contract: hikari passes *unknown* values
+through instead of raising (so a retired member could not fail closed), and its flags are
+combinable (so membership is not a validity test). Pass the underlying value as an `int`
+or `str` wire argument and rebuild the hikari enum inside the handler.
 
 **Arg converters must be synchronous. [decided]** flare made them async so they could fetch
 users during decode, which puts an unbounded HTTP call inside the 3-second window *before*
@@ -383,13 +420,14 @@ a bare ``int``/``str`` dependency; wrap such a dependency in its own type. Union
 including ``X | None`` -- have no converter and are therefore DI, not wire; use a sentinel
 default rather than ``None``.
 
-**Framing. [decided]** Each arg is length-prefixed (one char, ≤255 chars of data) and
-encoded by its converter; ints are minimal-width little-endian bytes rendered as latin-1.
-``bind()`` normalises keywords to positions, requires bound args to cover a contiguous
-prefix of the wire parameters, lets trailing defaulted parameters be omitted (dispatch then
-lets the *current* Python defaults apply), and encodes eagerly, so a bad value fails at the
-``render()`` call site rather than at click time. Handlers with no required wire parameters
-may be placed on a component without calling ``bind()`` at all.
+**Framing. [decided — as built]** Each arg is length-prefixed (one wire digit, so ≤91
+chars of data per frame) and encoded by its converter; ints are minimal-width
+little-endian bytes rendered in the base85 wire alphabet (§6.1 spends the density on
+printability). Binding normalises keywords to positions, requires bound args to cover a
+contiguous prefix of the wire parameters, lets trailing defaulted parameters be omitted
+(dispatch then lets the *current* Python defaults apply), and encodes eagerly, so a bad
+value fails at the ``render()`` call site rather than at click time. Handlers with no
+required wire parameters may be placed on a component bare, with no binding at all.
 
 ### 6.4 Handler identity, versioning and the signature fingerprint **[decided]**
 
@@ -408,7 +446,11 @@ components and today's signatures honest:
   ``int`` -> ``Snowflake`` is free). At decode it is compared against the resolved
   handler's current chain. A mismatch means the signature changed in place without a
   version bump: fail closed, log at ERROR -- it is a developer mistake with a named fix,
-  and deliberately the loudest failure in the library.
+  and deliberately the loudest failure in the library. Requiredness is deliberately
+  *not* hashed (adding a default is harmless to live components and stays free);
+  instead, a matching fingerprint with fewer frames than the handler now requires is
+  diagnosed at decode as the same in-place edit -- same ERROR, same bump-the-version
+  fix -- since no legitimate render under-supplies. **[decided -- revised]**
 
 The three retirement modes:
 
@@ -621,12 +663,19 @@ not. The handler never knows it was slow.
 - **The timer starts at decode**, before store I/O — the stopwatch started at the click,
   so store latency counts against risa's budget, not the user's. (miru starts its timer at
   callback dispatch, after its own overhead; deliberately not copied.)
-- Default response is **`DEFERRED_MESSAGE_UPDATE`**, the silent ack — a component is
-  usually about to edit its own message. The knob is ``risa.AutoDefer``:
-  ``UPDATE`` (default) / ``THINKING`` / ``THINKING_EPHEMERAL`` / ``OFF``, settable per view
-  on ``@risa.register(defer=...)`` and overridden per handler on
-  ``@risa.handler(defer=...)``. ``OFF`` exists for handlers that respond with a modal,
-  which must be the *initial* response and so cannot race a watchdog.
+- **The watchdog is opt-in: the client-level default is ``OFF``. [decided — revised]**
+  An earlier draft defaulted the watchdog on; revised so that risa never issues a
+  response the developer did not ask for — ``rerender()``/``respond()`` answer fast
+  handlers within the window anyway, and a slow handler without a defer is a developer
+  choice surfaced loudly (on the REST transport, as the missed-window ERROR) rather
+  than papered over. When enabled, the response is **`DEFERRED_MESSAGE_UPDATE`**, the
+  silent ack — a component is usually about to edit its own message. The knob is
+  ``risa.AutoDefer``: ``OFF`` (default) / ``UPDATE`` / ``THINKING`` /
+  ``THINKING_EPHEMERAL``, settable on the client, per view on
+  ``@risa.register(defer=...)`` and overridden per handler on
+  ``@risa.handler(defer=...)``. ``OFF`` is also what handlers that respond with a
+  modal need, since a modal must be the *initial* response and so cannot race a
+  watchdog.
 - **Every** response path funnels through one initial-response gate — a single
   ``asyncio.Lock`` plus an issued flag — that the watchdog also takes. Whoever wins the
   lock is the initial response; the loser sees the flag. The watchdog issues its REST call
@@ -637,9 +686,13 @@ not. The handler never knows it was slow.
   of being acked into silence. That ack is **always the silent one**, whatever the watchdog
   was configured to send — a spinner promises something still to come, and nothing is coming
   from a dispatch that has ended — and it is issued only for an interaction risa actually
-  adopted, so a `custom_id` another library wrote is still never answered. It fires even
-  under `AutoDefer.OFF`, which turns off the *watchdog*, not the promise that a click gets
-  answered: that is what a conditionally-modal handler needs on the branch that opens none.
+  adopted, so a `custom_id` another library wrote is still never answered. **Under
+  `AutoDefer.OFF` it does not fire at all [decided — revised]**: `OFF` means risa never
+  answers on the developer's behalf, so a handler that responds to nothing leaves the
+  interaction unanswered and Discord says so. It is the whole point of the mode — a
+  conditionally-modal handler calls `await ctx.acknowledge()` itself on the branch that
+  opens no modal. An earlier draft fired the ack regardless of the mode; that contradicted
+  the opt-in posture the `OFF` default exists to state.
   The watchdog is stood down under the response lock it holds across its own REST call, so a
   deferral already in flight is recorded rather than aborted half-issued and then re-sent.
 
@@ -679,22 +732,31 @@ message. risa's ``rerender``/``edit`` always land on the component's message:
 | Call | Nothing sent | After defer (update) | After defer (thinking) or respond() |
 |---|---|---|---|
 | ``respond()`` | initial `MESSAGE_CREATE` | webhook `execute()` | webhook `execute()` |
+
 | ``rerender()`` / ``edit()`` | initial `MESSAGE_UPDATE` | `edit_initial_response()` | REST edit of the origin message |
 | ``defer()`` | initial `DEFERRED_*` | `AlreadyRespondedError` | `AlreadyRespondedError` |
+
+The *thinking* column's ``respond()`` row is **empirically verified** (2026-08-15, live
+Discord, throwaway testbot probe): a webhook followup after a
+``DEFERRED_MESSAGE_CREATE`` resolves the "Bot is thinking..." placeholder — it does not
+leave one stranded beside the followup, so no special case turning the first
+post-thinking ``respond()`` into an ``edit_interaction_response`` is needed.
 
 ``ctx.prompt(SomeModal, ...)`` remains the modal chapter's problem; the initial-response
 gate is built to accommodate it.
 
-### 8.3 Rendered is the whole message **[decided]**
+### 8.3 Rendered is the whole message **[decided — as built]**
 
 Because V2 forbids `content`/`embeds`, a view owns the entire message body. Make the build
-result a `Mapping` of send-kwargs (miru's trick):
+result a `Mapping` of send-kwargs (miru's trick). risa speaks bare REST throughout —
+hikari's model helper methods and model `.app` properties are slated for removal, so
+nothing in risa (or its examples) leans on them:
 
 ```python
 rendered = await client.build(view)
-await channel.send(**rendered)
-await rendered.send_to(channel)
-await rendered.respond_to(interaction)
+await client.rest.create_message(channel_id, **rendered)
+await rendered.send_to(client.rest, channel_id)
+await rendered.respond_to(client.rest, interaction)
 ```
 
 Reject `content=` at the API boundary with a real message ("this view uses V2 components; put
@@ -867,7 +929,7 @@ class Poll(risa.View):
             *[
                 ui.Section(
                     ui.TextDisplay(f"**{name}** — {count}"),
-                    accessory=ui.Button(self.vote.bind(name), label="Vote"),
+                    accessory=ui.Button(risa.bind(self.vote, name), label="Vote"),
                 )
                 for name, count in self.votes.items()
             ],
@@ -885,7 +947,7 @@ class Poll(risa.View):
         await ctx.edit(ui.TextDisplay(f"## {self.question}\n*Poll closed.*"))
 
 
-await channel.send(components=await client.build(Poll(question="Ship it?")))
+await client.rest.create_message(channel_id, **await client.build(Poll(question="Ship it?")))
 ```
 
 Everything durable with zero infrastructure, no timeout bookkeeping, no manual custom_id
