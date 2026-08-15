@@ -25,6 +25,7 @@ __all__ = (
     "FRAME_LEN_WIDTH",
     "HANDLER_LENGTH",
     "HEADER_LENGTH",
+    "MAX_FRAGMENTS",
     "MAX_FRAGMENT_LENGTH",
     "MAX_FRAME_LENGTH",
     "VERSION",
@@ -53,6 +54,7 @@ FRAGMENT_LEN_WIDTH: typing.Final[int] = 1
 HEADER_LENGTH: typing.Final[int] = (
     len(VERSION) + COOKIE_LENGTH + HANDLER_LENGTH + FRAGMENT_INDEX_WIDTH + FRAGMENT_LEN_WIDTH
 )
+MAX_FRAGMENTS: typing.Final[int] = wire.largest_value(FRAGMENT_INDEX_WIDTH) + 1
 MAX_FRAGMENT_LENGTH: typing.Final[int] = constants.MAX_CUSTOM_ID_LENGTH - HEADER_LENGTH
 FRAME_LEN_WIDTH: typing.Final[int] = 1
 MAX_FRAME_LENGTH: typing.Final[int] = wire.largest_value(FRAME_LEN_WIDTH)

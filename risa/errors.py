@@ -41,6 +41,7 @@ __all__ = (
     "StateConflictError",
     "StateError",
     "StateNotFoundError",
+    "StateOverflowError",
     "ViewDeclarationError",
 )
 
@@ -103,6 +104,19 @@ class EphemeralOriginError(RisaError):
             f"the origin message of view {view_name!r} is ephemeral and can no longer be edited:"
             " on ephemeral views, rerender() or edit() must be the initial response,"
             " or follow a silent defer",
+        )
+
+
+class StateOverflowError(RisaError):
+    def __init__(self, view_name: str, needed: int, available: int, slots: int) -> None:
+        self.view_name = view_name
+        self.needed = needed
+        self.available = available
+        self.slots = slots
+        super().__init__(
+            f"view {view_name!r} needs {needed} characters of durable state, but its {slots}"
+            f" interactive component(s) can only carry {available}; add components, shorten the"
+            " fields, or give the view state=risa.InStore(...)",
         )
 
 

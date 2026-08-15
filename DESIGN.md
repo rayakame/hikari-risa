@@ -654,9 +654,14 @@ Changes from the original protocol, all verdicts of the lock investigation:
   (not chunked — every custom_id stays self-sufficient, and stored views do not need the
   capacity). Custom_ids are therefore *stable across rerenders* — an in-flight click is
   never invalidated. A failed send leaks one entry; TTL reaps it; no two-phase commit.
-- `InMessage` blobs: `[tag][schema-fp:2][seq:3][msgpack positional array of durable
-  fields]`, chunked across the interactive leaves. No `{v,n}` envelope — the cookie
-  already pins name and schema version, and every char is capacity.
+- `InMessage` blobs: `[tag:1][total:2][schema-fp:3][seq:3][msgpack positional array of
+  durable fields]`, chunked across the interactive leaves. No `{v,n}` envelope — the cookie
+  already pins name and schema version, and every char is capacity. `total` is the anchor's
+  own length: reassembly checks contiguity, and `total` is what catches a message whose
+  *trailing* components were removed, where contiguity alone would hand msgpack a short but
+  perfectly valid prefix. **[decided — revised]** an earlier draft of this line omitted
+  `total` and gave the fingerprint 2 characters; §6.1 is the layout of record, and the three
+  extra characters are spent per *view*, not per component.
 - Evolution policy, both placements: **appending a defaulted durable field is free**
   (prefix fingerprints); remove/reorder/retype/rename fails closed to `on_outdated`.
   Bumping the view `version` changes the cookie and retires old components wholesale, as
