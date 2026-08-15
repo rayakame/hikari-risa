@@ -268,6 +268,10 @@ class View(msgspec.Struct):
     def render(self) -> ui.Layout:
         raise NotImplementedError
 
+    @classmethod
+    async def on_outdated(cls, ctx: context.ComponentContext) -> None:
+        """Answer a click on a component this view can no longer route."""
+
 
 def register[T: View](
     *, name: str, version: int = 1, defer: AutoDefer | None = None
@@ -305,7 +309,13 @@ def register[T: View](
                 signature=member.signature,
             )
 
-        meta = registry.ViewMeta(cls=cls, name=name, version=version, handlers=handlers)
+        meta = registry.ViewMeta(
+            cls=cls,
+            name=name,
+            version=version,
+            handlers=handlers,
+            handles_outdated=cls.on_outdated.__func__ is not View.on_outdated.__func__,
+        )
         registry.global_registry().register(meta)
         setattr(cls, constants.VIEW_META, meta)
         return cls

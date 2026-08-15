@@ -26,6 +26,7 @@ import typing
 
 import hikari
 import linkd
+import msgspec
 
 from risa import context
 from risa import di as di_
@@ -79,6 +80,12 @@ class _LightbulbOptions(typing.TypedDict, total=False):
 
 class _ClientOptions(_LightbulbOptions, total=False):
     di: linkd.DependencyInjectionManager | None
+
+
+class _Route(msgspec.Struct, frozen=True):
+    meta: registry.ViewMeta
+    handler: registry.HandlerRecord | None = None
+    decoded: collections.abc.Sequence[object] = ()
 
 
 class Client(abc.ABC):
@@ -168,7 +175,7 @@ class Client(abc.ABC):
     def _route(
         self,
         interaction: hikari.ComponentInteraction,
-    ) -> tuple[registry.ViewMeta, registry.HandlerRecord, list[object]] | None:
+    ) -> _Route | None:
         custom_id = codec.parse_custom_id(interaction.custom_id)
         if custom_id is None:
             return None
@@ -183,7 +190,9 @@ class Client(abc.ABC):
             return None
         handler = meta.handlers.get(custom_id.handler)
         if handler is None:
-            _LOGGER.warning(
+            level = logging.DEBUG if meta.handles_outdated else logging.WARNING
+            _LOGGER.log(
+                level,
                 "interaction %s routes to view %s (version %d), but no handler answers to token %r."
                 " A live component may predate a version bump that retired its handler.",
                 interaction.id,
@@ -191,39 +200,50 @@ class Client(abc.ABC):
                 meta.version,
                 custom_id.handler,
             )
-            return None
+            return _Route(meta=meta)
+
+        mismatch = Client._fingerprint_mismatch(custom_id, meta, handler)
+        if mismatch is not None:
+            _LOGGER.error("interaction %s: %s", interaction.id, mismatch)  # ERROR always
+            return _Route(meta=meta)
 
         decoded = self._decode_args(custom_id, meta, handler, interaction.id)
         if decoded is None:
             return None
-        return meta, handler, decoded
+        return _Route(meta=meta, handler=handler, decoded=decoded)
 
     async def _dispatch(
         self,
         interaction: hikari.ComponentInteraction,
         state: context.DispatchState,
     ) -> None:
-        routed = self._route(interaction)
-        if routed is None:
+        route = self._route(interaction)
+        if route is None:
             return
-        meta, handler, decoded = routed
         state.adopted = True
+        if route.handler is None:
+            await self._run_outdated(interaction, route, state)
+            return
 
-        resolved_defer = handler.defer
+        never_ran = f"so handler {route.handler.handler_id!r} (version {route.handler.version}) never ran"
+        made = self._make_context(interaction, route.meta, state, never_ran)
+        if made is None:
+            return
+        await self._run_handler(interaction, route, state, made)
+
+    async def _run_handler(
+        self,
+        interaction: hikari.ComponentInteraction,
+        route: _Route,
+        state: context.DispatchState,
+        made: tuple[view_.View, context.ComponentContext],
+    ) -> None:
+        if route.handler is None:
+            return
+        view, ctx = made
+        resolved_defer = route.handler.defer
         if resolved_defer is None:
             resolved_defer = self._auto_defer
-        try:
-            view = meta.cls()
-        except Exception:
-            _LOGGER.exception(
-                "view %s could not be constructed to answer interaction %s, so handler %r (version %d) never ran",
-                meta.name,
-                interaction.id,
-                handler.handler_id,
-                handler.version,
-            )
-            return
-        ctx = context.ComponentContext(interaction, rest=self._rest, state=state, view=view, meta=meta)
         watchdog: asyncio.Task[None] | None = None
         if resolved_defer is not view_.AutoDefer.OFF:
             watchdog = asyncio.create_task(self._auto_defer_task(ctx, resolved_defer))
@@ -234,14 +254,14 @@ class Client(abc.ABC):
             ):
                 container.add_value(context.ComponentContext, ctx)
                 container.add_value(hikari.ComponentInteraction, interaction)
-                await handler.callback(view, ctx, *decoded)
+                await route.handler.callback(view, ctx, *route.decoded)
         except Exception:
             await self._stop_auto_defer_task(watchdog, state)
             _LOGGER.exception(
                 "handler %r (version %d) of view %s failed while answering interaction %s",
-                handler.handler_id,
-                handler.version,
-                meta.name,
+                route.handler.handler_id,
+                route.handler.version,
+                route.meta.name,
                 interaction.id,
             )
         else:
@@ -261,6 +281,52 @@ class Client(abc.ABC):
         finally:
             if watchdog is not None:
                 watchdog.cancel()
+
+    def _make_context(
+        self,
+        interaction: hikari.ComponentInteraction,
+        meta: registry.ViewMeta,
+        state: context.DispatchState,
+        detail: str,
+    ) -> tuple[view_.View, context.ComponentContext] | None:
+        try:
+            view = meta.cls()
+        except Exception:
+            _LOGGER.exception(
+                "view %s could not be constructed to answer interaction %s, %s",
+                meta.name,
+                interaction.id,
+                detail,
+            )
+            return None
+        return view, context.ComponentContext(interaction, rest=self._rest, state=state, view=view, meta=meta)
+
+    async def _run_outdated(
+        self,
+        interaction: hikari.ComponentInteraction,
+        route: _Route,
+        state: context.DispatchState,
+    ) -> None:
+        if not route.meta.handles_outdated:
+            return
+        made = self._make_context(interaction, route.meta, state, "so its on_outdated hook never ran")
+        if made is None:
+            return
+        _view, ctx = made
+        try:
+            async with (
+                self._di.enter_context(di_.Contexts.DEFAULT),
+                self._di.enter_context(di_.Contexts.COMPONENT) as container,
+            ):
+                container.add_value(context.ComponentContext, ctx)
+                container.add_value(hikari.ComponentInteraction, interaction)
+                await route.meta.cls.on_outdated(ctx)
+        except Exception:
+            _LOGGER.exception(
+                "on_outdated of view %s failed while answering interaction %s",
+                route.meta.name,
+                interaction.id,
+            )
 
     async def _auto_defer_task(self, ctx: context.ComponentContext, defer: view_.AutoDefer) -> None:
         await asyncio.sleep(self._auto_defer_delay)
@@ -331,11 +397,6 @@ class Client(abc.ABC):
         interaction_id: hikari.Snowflake,
     ) -> list[object] | None:
         signature = record.signature
-
-        mismatch = Client._fingerprint_mismatch(custom_id, meta, record)
-        if mismatch is not None:
-            _LOGGER.error("interaction %s: %s", interaction_id, mismatch)
-            return None
         if not signature.converters:
             return []
 

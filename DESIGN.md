@@ -468,6 +468,22 @@ doing it. A retired handler can also be kept as a *rejection handler* -- same id
 and wire signature, body answers "this is outdated" -- which routes as a perfectly normal
 handler and logs nothing.
 
+**The hook's contract [decided -- as built].** ``async def on_outdated(cls, ctx)`` takes a
+``ComponentContext``, so it can ``respond``, ``defer`` or ``edit(layout)`` to replace the
+dead message, and its default body does nothing at all -- a view that has not overridden it
+behaves exactly as it did before the hook existed, because risa answers nothing on its own.
+It runs with the dependency-injection contexts open (it is user code and injects like a
+handler), but **without** the auto-defer watchdog and **without** the end-of-dispatch
+acknowledge: one courtesy answer is the whole job, and ``AutoDefer.OFF`` has to keep meaning
+off. Whether a view overrides it is resolved once, at registration
+(``ViewMeta.handles_outdated``), which is both what gates the call and what downgrades the
+token-miss log. Two boundaries worth stating: decode failures -- unreadable frames, bad
+frame counts, undecodable values -- deliberately do **not** reach the hook, because that
+input is client-forgeable and must never invoke user code; and risa default-constructs the
+view to build the context, so a view whose fields have no defaults cannot reach its own hook
+until the state pivot hydrates it from the anchor instead (the failure is contained and
+logged).
+
 Rejected alternatives: hashing the arg types into the token itself (automatic, but offers
 no way to keep old components alive and no per-handler remedy for same-type semantic
 drift, whose fix stays the whole-view version bump); per-arg type tags on the wire (more

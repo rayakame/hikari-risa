@@ -146,6 +146,20 @@ auto-defer watchdog), plus — all on `wire-args`, all gated by 332 green tests:
   `_ClientOptions` TypedDicts + `typing.Unpack` forwarding; defaults exist only in
   `Client.__init__`. **`auto_defer` defaults to `OFF`** — decided; §8.1 carries the
   `[decided — revised]` amendment (watchdog is opt-in; when enabled, silent update).
+- **`on_outdated` (§6.4).** `View.on_outdated(cls, ctx)` — classmethod, default body
+  empty, called only when a view overrides it (`ViewMeta.handles_outdated`, resolved
+  once at registration by comparing `cls.on_outdated.__func__` against `View`'s, so
+  inherited overrides count). `Client._route` now returns `_Route(meta, handler=None)`
+  for the two retirement paths instead of collapsing them into `None`: a **token
+  miss** (log downgrades WARNING → DEBUG when the view handles it) and a **fingerprint
+  mismatch** (ERROR *always*, override or not — that is a live signature edit, not
+  retirement, and §6.4 wants it unmissable; the check moved up out of `_decode_args`
+  so the two are distinguishable). `_run_outdated` builds the context through the
+  shared `_make_context` and runs the hook with DI open, no watchdog, no
+  end-of-dispatch ack. Decode failures deliberately never reach it — forgeable input
+  must not invoke user code — and a view with required fields cannot be
+  default-constructed, so its hook is skipped with a contained ERROR until the state
+  pivot hydrates instead.
 - **Testbot.** `/test` (zero-arg demo) and `/poll` — per-option `risa.bind(self.vote,
   index)` buttons, counts parsed from the message text (`read_counts` — a crude
   stand-in for the InMessage anchor, deliberately), handler mutates `self` and
@@ -166,15 +180,11 @@ auto-defer watchdog), plus — all on `wire-args`, all gated by 332 green tests:
 
 ## Next, in order
 
-1. **`on_outdated` (§6.4)** — the classmethod hook replacing the token-miss WARNING
-   (and per the retirement table, answering the fingerprint-mismatch path too);
-   overriding it downgrades the log. The one place fail-closed can still answer the
-   user politely.
-2. **The state pivot** — DESIGN §15 order: `risa/state/`, the InMessage anchor
+1. **The state pivot** — DESIGN §15 order: `risa/state/`, the InMessage anchor
    (carve/gather across fragments), `load()`, `Prop[T]`, `InStore`. `rerender()`
    gains its real meaning (hydrated `self`); the poll's `read_counts` is deleted the
    same day.
-3. **Modals (§9)**, then the 1.0 roadmap: `RedisStore` + `verify_store`, the docs
+2. **Modals (§9)**, then the 1.0 roadmap: `RedisStore` + `verify_store`, the docs
    pass (docstrings, MIT headers for files that lack them, DESIGN §13's error-table
    additions).
 
@@ -212,7 +222,11 @@ Open findings from the reviews (verified, decisions pending):
   fingerprint-match + under-required frames as the in-place edit at ERROR with the
   bump-the-version fix. Folding `required` into the digest was consciously declined
   (would tax the harmless add-a-default direction; the wire stays stable).
-- **Docs pass**: document that wire enums are stdlib `enum.Enum` only — hikari's own
+- **Docs pass**: document the **rejection handler** as the precise alternative to
+  `on_outdated` (§6.4) — keep the retired handler at the same id, version and wire
+  signature with a body that says "this is outdated"; it routes as an ordinary handler
+  and logs nothing, where `on_outdated` is the catch-all for anything on the view that
+  no longer exists. Also document that wire enums are stdlib `enum.Enum` only — hikari's own
   enums (`ChannelType`, `Permissions`, ...) are *not* wire types by decision
   (DESIGN §6.3), so `kind: hikari.ChannelType` is a DI parameter and binding one
   fails at render with an arity `ArgBindError`; pass the value as `int`/`str` and

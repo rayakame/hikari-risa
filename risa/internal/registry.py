@@ -51,6 +51,7 @@ class ViewMeta(msgspec.Struct, frozen=True):
     name: str
     version: int
     handlers: collections.abc.Mapping[str, HandlerRecord] = msgspec.field(default_factory=dict[str, HandlerRecord])
+    handles_outdated: bool = False
 
     @property
     def key(self) -> str:
