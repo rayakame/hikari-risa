@@ -27,7 +27,7 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 
-nox.options.sessions = ["reformat", "ruff", "pyright", "pytest", "audit"]
+nox.options.sessions = ["reformat", "ruff", "slotscheck", "pyright", "pytest", "audit"]
 nox.options.default_venv_backend = "uv"
 
 
@@ -56,6 +56,15 @@ def ruff(session: nox.Session) -> None:
     sync(session, groups=["ruff"], self=True)
 
     session.run("ruff", "check", *PYTHON_PATHS, *session.posargs)
+
+
+@nox.session(reuse_venv=True)
+def slotscheck(session: nox.Session) -> None:
+    # Verifies every class defines __slots__ and that no slotted class inherits
+    # from an unslotted one, which would silently restore a per-instance __dict__.
+    sync(session, groups=["slotscheck"], self=True)
+
+    session.run("slotscheck", "-m", "risa", *session.posargs)
 
 
 @nox.session(reuse_venv=True)
