@@ -1092,3 +1092,204 @@ async def test_a_handler_missing_the_window_is_logged_but_never_cancelled(
     RELEASE.event.set()
     with pytest.raises(StopAsyncIteration):
         await anext(listener)
+
+
+OUTDATED_CALLS: list[tuple[str, risa.ComponentContext]] = []
+
+
+@risa.register(name="client-stoic")
+class Stoic(risa.View):
+    @risa.handler
+    async def press(self, _ctx: risa.ComponentContext) -> None: ...
+
+
+@risa.register(name="client-gracious")
+class Gracious(risa.View):
+    @risa.handler
+    async def vote(self, _ctx: risa.ComponentContext, option: str) -> None: ...
+
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        OUTDATED_CALLS.append((cls.__name__, ctx))
+        await ctx.respond("that button is out of date", ephemeral=True)
+
+
+@risa.register(name="client-heir")
+class Heir(Gracious):
+    pass
+
+
+@risa.register(name="client-brittle")
+class Brittle(risa.View):
+    required: str
+
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        OUTDATED_CALLS.append((cls.__name__, ctx))
+
+
+@risa.register(name="client-sulky")
+class Sulky(risa.View):
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        OUTDATED_CALLS.append((cls.__name__, ctx))
+        msg = "no thanks"
+        raise RuntimeError(msg)
+
+
+def meta_of(cls: type[risa.View]) -> registry.ViewMeta:
+    meta = getattr(cls, constants.VIEW_META)
+    assert isinstance(meta, registry.ViewMeta)
+    return meta
+
+
+def outdated_client(cls: type[risa.View]) -> risa.GatewayEnabledClient:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(cls)
+    OUTDATED_CALLS.clear()
+    return built
+
+
+def test_the_census_records_whether_a_view_answers_for_outdated_components() -> None:
+    assert not meta_of(Stoic).handles_outdated
+    assert meta_of(Gracious).handles_outdated
+    assert meta_of(Heir).handles_outdated
+
+
+async def test_a_retired_handler_on_a_silent_view_warns_and_calls_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = outdated_client(Stoic)
+    interaction = interaction_with(encoded_id_for(Stoic))
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "no handler answers to token" in caplog.text
+    assert caplog.records[-1].levelno == logging.WARNING
+    assert not OUTDATED_CALLS
+
+
+async def test_a_view_that_answers_gets_the_hook_and_only_a_debug_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = outdated_client(Gracious)
+    interaction = interaction_with(encoded_id_for(Gracious))
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "no handler answers to token" in caplog.text
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    ((name, ctx),) = OUTDATED_CALLS
+    assert name == "Gracious"
+    assert ctx.interaction is interaction
+
+
+async def test_the_hook_can_answer_the_interaction() -> None:
+    built = outdated_client(Gracious)
+    interaction = interaction_with(encoded_id_for(Gracious))
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    call = rest_of(built).create_interaction_response.await_args
+    assert call is not None
+    assert call.args[2] is hikari.ResponseType.MESSAGE_CREATE
+    assert call.kwargs["flags"] is hikari.MessageFlag.EPHEMERAL
+
+
+async def test_an_inherited_hook_answers_for_the_subclass() -> None:
+    built = outdated_client(Heir)
+    interaction = interaction_with(encoded_id_for(Heir))
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    ((name, _ctx),) = OUTDATED_CALLS
+    assert name == "Heir"
+
+
+async def test_a_signature_edited_in_place_reaches_the_hook_but_stays_loud(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = outdated_client(Gracious)
+    forged = encoded_id_for(Gracious, handler=Gracious.vote.token, tail="!!")
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await built._process_interaction(interaction_with(forged))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "bump the handler version" in caplog.text
+    assert [record for record in caplog.records if record.levelno == logging.ERROR]
+    assert len(OUTDATED_CALLS) == 1
+
+
+async def test_unreadable_frames_never_reach_the_hook(caplog: pytest.LogCaptureFixture) -> None:
+    built = outdated_client(Gracious)
+    tail = Gracious.vote.signature.fingerprint + '"'
+    forged = encoded_id_for(Gracious, handler=Gracious.vote.token, tail=tail)
+
+    with caplog.at_level(logging.WARNING, logger="risa.client"):
+        await built._process_interaction(interaction_with(forged))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "unreadable" in caplog.text
+    assert not OUTDATED_CALLS
+
+
+async def test_an_unknown_cookie_never_reaches_any_hook() -> None:
+    built = outdated_client(Gracious)
+
+    await built._process_interaction(interaction_with(encoded_id_for(Elsewhere)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert not OUTDATED_CALLS
+
+
+async def test_a_view_that_cannot_be_constructed_skips_the_hook(caplog: pytest.LogCaptureFixture) -> None:
+    built = outdated_client(Brittle)
+    interaction = interaction_with(encoded_id_for(Brittle))
+
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "on_outdated hook never ran" in caplog.text
+    assert not OUTDATED_CALLS
+
+
+async def test_a_raising_hook_is_contained(caplog: pytest.LogCaptureFixture) -> None:
+    built = outdated_client(Sulky)
+    interaction = interaction_with(encoded_id_for(Sulky))
+
+    with caplog.at_level(logging.ERROR, logger="risa.client"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "on_outdated of view client-sulky failed" in caplog.text
+    assert len(OUTDATED_CALLS) == 1
+
+
+@linkd.inject
+def peek_database(db: Database = risa.INJECTED) -> Database:
+    return db
+
+
+@risa.register(name="client-injected")
+class InjectedOutdated(risa.View):
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext, db: Database = risa.INJECTED) -> None:
+        OUTDATED_CALLS.append((cls.__name__, ctx))
+        DI_CALLS.append((db, await peek_database()))
+
+
+async def test_the_hook_resolves_dependencies_like_a_handler() -> None:
+    built = outdated_client(InjectedOutdated)
+    database = Database()
+    built.di.registry_for(risa.Contexts.DEFAULT).register_value(Database, database)
+    DI_CALLS.clear()
+
+    await built._process_interaction(interaction_with(encoded_id_for(InjectedOutdated)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert len(OUTDATED_CALLS) == 1
+    ((injected, nested),) = DI_CALLS
+    assert injected is database
+    assert nested is database
