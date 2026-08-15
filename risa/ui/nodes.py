@@ -121,13 +121,18 @@ class Interactive(Component):
         if self.bound.token not in ctx.tokens:
             reason = f"handler {self.bound.handler_id!r} (version {self.bound.version}) is not on this view"
             raise errors.LayoutError(path, reason)
-        return codec.CustomID(
+        custom_id = codec.CustomID(
             cookie=ctx.cookie,
             handler=self.bound.token,
             fragment_index=ctx.next_index(),
             fragment="",
             tail=self.bound.payload,
-        ).encode()
+        )
+        try:
+            return custom_id.encode()
+        except errors.CustomIdOverflowError as exc:
+            culprit = f"{ctx.cls.__name__} at {path}, handler {self.bound.handler_id!r}"
+            raise errors.CustomIdOverflowError(culprit, exc.length) from exc
 
 
 class TextDisplay(Component):

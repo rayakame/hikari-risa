@@ -676,9 +676,13 @@ not. The handler never knows it was slow.
   of being acked into silence. That ack is **always the silent one**, whatever the watchdog
   was configured to send — a spinner promises something still to come, and nothing is coming
   from a dispatch that has ended — and it is issued only for an interaction risa actually
-  adopted, so a `custom_id` another library wrote is still never answered. It fires even
-  under `AutoDefer.OFF`, which turns off the *watchdog*, not the promise that a click gets
-  answered: that is what a conditionally-modal handler needs on the branch that opens none.
+  adopted, so a `custom_id` another library wrote is still never answered. **Under
+  `AutoDefer.OFF` it does not fire at all [decided — revised]**: `OFF` means risa never
+  answers on the developer's behalf, so a handler that responds to nothing leaves the
+  interaction unanswered and Discord says so. It is the whole point of the mode — a
+  conditionally-modal handler calls `await ctx.acknowledge()` itself on the branch that
+  opens no modal. An earlier draft fired the ack regardless of the mode; that contradicted
+  the opt-in posture the `OFF` default exists to state.
   The watchdog is stood down under the response lock it holds across its own REST call, so a
   deferral already in flight is recorded rather than aborted half-issued and then re-sent.
 
@@ -718,8 +722,15 @@ message. risa's ``rerender``/``edit`` always land on the component's message:
 | Call | Nothing sent | After defer (update) | After defer (thinking) or respond() |
 |---|---|---|---|
 | ``respond()`` | initial `MESSAGE_CREATE` | webhook `execute()` | webhook `execute()` |
+
 | ``rerender()`` / ``edit()`` | initial `MESSAGE_UPDATE` | `edit_initial_response()` | REST edit of the origin message |
 | ``defer()`` | initial `DEFERRED_*` | `AlreadyRespondedError` | `AlreadyRespondedError` |
+
+The *thinking* column's ``respond()`` row is **empirically verified** (2026-08-15, live
+Discord, throwaway testbot probe): a webhook followup after a
+``DEFERRED_MESSAGE_CREATE`` resolves the "Bot is thinking..." placeholder — it does not
+leave one stranded beside the followup, so no special case turning the first
+post-thinking ``respond()`` into an ``edit_interaction_response`` is needed.
 
 ``ctx.prompt(SomeModal, ...)`` remains the modal chapter's problem; the initial-response
 gate is built to accommodate it.

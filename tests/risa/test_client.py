@@ -455,7 +455,7 @@ async def test_a_view_level_defer_applies_to_its_handlers() -> None:
     assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_CREATE
 
 
-async def test_off_disables_the_watchdog_but_not_the_answer() -> None:
+async def test_off_leaves_the_answer_entirely_to_the_handler() -> None:
     built = deferring_client(Sluggish)
     interaction = interaction_with(encoded_id_for(Sluggish, handler=Sluggish.alone.token))
 
@@ -468,6 +468,16 @@ async def test_off_disables_the_watchdog_but_not_the_answer() -> None:
     finally:
         RELEASE.event.set()
         await task
+
+    rest_of(built).create_interaction_response.assert_not_called()
+
+
+async def test_an_armed_watchdog_still_answers_a_fast_silent_handler() -> None:
+    built = deferring_client(Clicker)
+    CALLS.clear()
+    interaction = interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token))
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     call = rest_of(built).create_interaction_response.await_args
     assert call is not None
@@ -539,6 +549,8 @@ async def test_a_view_that_cannot_be_constructed_is_contained(caplog: pytest.Log
     with caplog.at_level(logging.ERROR, logger="risa.client"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
+    assert "could not be constructed" in caplog.text
+    assert "never ran" in caplog.text
     assert "press" in caplog.text
     rest_of(built).execute_webhook.assert_not_called()
 
@@ -790,7 +802,7 @@ async def test_a_converter_that_raises_is_contained_as_unreadable(caplog: pytest
     assert not WIRE_CALLS
 
 
-async def test_a_second_client_on_a_shared_manager_warns_and_keeps_the_first(
+async def test_a_second_client_on_a_shared_manager_says_which_one_wins(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     lightbulb = LightbulbStub(GatewayApp())
@@ -799,13 +811,13 @@ async def test_a_second_client_on_a_shared_manager_warns_and_keeps_the_first(
     DI_CALLS.clear()
 
     with caplog.at_level(logging.WARNING, logger="risa.client"):
-        risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb))
+        second = risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb))
 
     assert "already registered" in caplog.text
     interaction = interaction_with(custom_id_of(DiWired, ui.Button(DiWired().whoami)))
     await first._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
     ((got,),) = DI_CALLS
-    assert got is first
+    assert got is second
 
 
 async def test_a_deleted_enum_member_fails_closed_naming_the_parameter(caplog: pytest.LogCaptureFixture) -> None:
@@ -944,46 +956,6 @@ class Repaint(risa.View):
     @risa.handler
     async def broken(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
         await ctx.edit(ui.Row(ui.Button(Sluggish().quick)))
-
-
-@risa.register(name="client-thinker")
-class Thinker(risa.View):
-    @typing.override
-    def render(self) -> ui.Layout:
-        return ui.TextDisplay("thoughts")
-
-    @risa.handler(defer=risa.AutoDefer.OFF)
-    async def brooding(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
-        await ctx.defer(thinking=True)
-        await ctx.rerender()
-
-    @risa.handler(defer=risa.AutoDefer.OFF)
-    async def decisive(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
-        await ctx.defer(thinking=True)
-        await ctx.respond("decided")
-
-
-async def test_a_thinking_defer_left_unanswered_is_logged_loudly(caplog: pytest.LogCaptureFixture) -> None:
-    built = risa.client_from_app(gateway_app())
-    built.add_view(Thinker)
-    interaction = interaction_with(encoded_id_for(Thinker, handler=Thinker.brooding.token))
-
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
-        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
-
-    assert "thinking" in caplog.text
-    assert "AutoDefer.UPDATE" in caplog.text
-
-
-async def test_a_thinking_defer_answered_by_a_respond_is_not_nagged(caplog: pytest.LogCaptureFixture) -> None:
-    built = risa.client_from_app(gateway_app())
-    built.add_view(Thinker)
-    interaction = interaction_with(encoded_id_for(Thinker, handler=Thinker.decisive.token))
-
-    with caplog.at_level(logging.ERROR, logger="risa.client"):
-        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
-
-    assert not caplog.records
 
 
 async def test_a_handler_mutating_self_and_rerendering_paints_the_mutation() -> None:

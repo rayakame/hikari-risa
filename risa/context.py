@@ -55,11 +55,6 @@ class DispatchState(msgspec.Struct):
     lock: asyncio.Lock = msgspec.field(default_factory=asyncio.Lock)
     acknowledged: asyncio.Event = msgspec.field(default_factory=asyncio.Event)
     response: _InitialResponse = msgspec.field(default=_InitialResponse.NONE)
-    thinking_answered: bool = False
-
-    @property
-    def thinking_unanswered(self) -> bool:
-        return self.response is _InitialResponse.DEFERRED_THINKING and not self.thinking_answered
 
 
 class Response:
@@ -145,7 +140,7 @@ class Response:
 class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
     __slots__ = ("_interaction", "_rest", "_state")
 
-    def __init__(self, interaction: T, rest: hikari.api.RESTClient, state: DispatchState | None = None) -> None:
+    def __init__(self, interaction: T, *, rest: hikari.api.RESTClient, state: DispatchState | None = None) -> None:
         self._interaction = interaction
         self._rest = rest
         self._state = state if state is not None else DispatchState()
@@ -255,8 +250,6 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
                 self._record_initial(_InitialResponse.MESSAGE_CREATE)
                 return Response(self._rest, self._interaction, None)
 
-            if self._state.response is _InitialResponse.DEFERRED_THINKING:
-                self._state.thinking_answered = True
             message = await self._rest.execute_webhook(
                 self._interaction.application_id,
                 self._interaction.token,
@@ -292,7 +285,7 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         meta: registry.ViewMeta,
         state: DispatchState | None = None,
     ) -> None:
-        super().__init__(interaction, rest, state)
+        super().__init__(interaction, rest=rest, state=state)
         self._view = view
         self._meta = meta
 

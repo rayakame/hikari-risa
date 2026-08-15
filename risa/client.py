@@ -104,10 +104,9 @@ class Client(abc.ABC):
         if Client in self._di.registry_for(di_.Contexts.DEFAULT):
             _LOGGER.warning(
                 "another risa client is already registered on this dependency manager;"
-                " `client: risa.Client` injections keep resolving to that first client",
+                " `client: risa.Client` injections will resolve to this newest one",
             )
-        else:
-            self._register_dependency(Client, self)
+        self._register_dependency(Client, self)
         if register_app_dependencies:
             self._register_dependency(hikari.api.RESTClient, rest)
 
@@ -216,11 +215,11 @@ class Client(abc.ABC):
             view = meta.cls()
         except Exception:
             _LOGGER.exception(
-                "handler %r (version %d) of view %s failed while answering interaction %s",
-                handler.handler_id,
-                handler.version,
+                "view %s could not be constructed to answer interaction %s, so handler %r (version %d) never ran",
                 meta.name,
                 interaction.id,
+                handler.handler_id,
+                handler.version,
             )
             return
         ctx = context.ComponentContext(interaction, rest=self._rest, state=state, view=view, meta=meta)
@@ -246,20 +245,18 @@ class Client(abc.ABC):
             )
         else:
             await self._stop_auto_defer_task(watchdog, state)
-            if state.thinking_unanswered:
-                _LOGGER.error(
-                    "handler %r (version %d) of view %s acknowledged interaction %s with a thinking"
-                    " defer but never responded; the spinner will hang - respond(), or use"
-                    " AutoDefer.UPDATE for handlers that rerender",
-                    handler.handler_id,
-                    handler.version,
-                    meta.name,
-                    interaction.id,
-                )
+            if resolved_defer is view_.AutoDefer.OFF:
+                return
             try:
                 await ctx.acknowledge()
             except Exception:
-                _LOGGER.exception("failed to acknowledge interaction %s after its handler finished", interaction.id)
+                _LOGGER.exception(
+                    "failed to acknowledge interaction %s after its handler finished; if the handler"
+                    " ran longer than Discord's %.1fs window the interaction is already lost -"
+                    " respond, defer, or enable auto_defer",
+                    interaction.id,
+                    constants.INTERACTION_WINDOW,
+                )
 
     async def _auto_defer_task(self, ctx: context.ComponentContext, defer: view_.AutoDefer) -> None:
         await asyncio.sleep(self._auto_defer_delay)

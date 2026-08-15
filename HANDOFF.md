@@ -56,8 +56,16 @@ test cases; its internals are not a blueprint.
   soft). Errors build their messages in `__init__` and expose structured fields.
   Loose storage (`Callable[..., Awaitable[None]]`-grade internals), precise boundary.
 - **Verify third-party behaviour empirically before designing on it.** The partial
-  hijack, linkd's injection rules, pyright's mapping-spread checking and hikari's
-  attachment lifting were all settled by probing installed sources, not memory.
+  hijack, linkd's injection rules, pyright's mapping-spread checking, hikari's
+  attachment lifting and the thinking-defer followup question were all settled by
+  probing installed sources or live Discord, not memory.
+- **Tools, not guardrails.** risa hands the developer everything needed to answer an
+  interaction (`ctx.rest` included) and does not police *how* they answer. Errors and
+  logs are for things risa itself did or cannot do — routing failures, forged input,
+  operations Discord rejects — never for judging a legitimate style. A check that
+  cannot observe every valid answer will false-accuse someone: that is why the
+  "thinking defer never answered" detection was removed after the `/spinner` probe
+  showed a raw `edit_interaction_response` tripping it.
 - **Bare REST only.** hikari's model helper methods (`interaction.create_initial_
   response`, `message.edit`, `channel.send`, ...) and model `.app` properties are
   slated for removal upstream; risa calls `RESTClient` methods directly everywhere.
@@ -174,7 +182,19 @@ Smaller open items, any order: slotscheck adoption (maintainer wants it, deferre
 dev dep + nox session + config, watch the msgspec-Struct interplay); a `ui.File`
 upload through the testbot to watch a real multipart render.
 
-Open findings from the 2026-08-14 review (verified, decisions pending):
+Open findings from the reviews (verified, decisions pending):
+
+- ~~Does a followup resolve a thinking defer?~~ **refuted empirically** (2026-08-15,
+  live Discord, testbot `/spinner`): a review pass argued that only a PATCH of
+  `@original` clears the "Bot is thinking..." placeholder, which would have made
+  `respond()` after `defer(thinking=True)` strand a spinner. It does not — the
+  followup resolves it. §8.2's table stands and records the verification; the
+  throwaway `/spinner` probe that settled it has been removed from the testbot.
+- **State-pivot constraint**: the auto-defer watchdog is armed *after* `meta.cls()`
+  (construction must precede the context it is stored on). `__init__` is a sync
+  msgspec constructor today, so nothing blocks there — but §7.2's `async def load()`
+  hydration must be awaited *after* the watchdog is armed, or store I/O will burn
+  the 3s window unprotected, contradicting §8.1's "the timer starts at decode".
 
 - ~~`edit()`/`rerender()` on ephemeral origins~~ **resolved**: row three raises
   `EphemeralOriginError` (named guidance: initial response or silent defer) instead

@@ -328,8 +328,11 @@ def test_a_bare_handler_with_required_args_fails_at_render() -> None:
 
 
 def test_a_legal_frame_can_still_overflow_the_custom_id() -> None:
-    with pytest.raises(risa.CustomIdOverflowError):
+    with pytest.raises(risa.CustomIdOverflowError) as exc_info:
         ui.build(ui.Row(ui.Button(risa.bind(WiredPanel().vote, "x" * 70))), meta_of(WiredPanel))
+
+    assert "Row[0] > Button[0]" in exc_info.value.view_name
+    assert "vote" in exc_info.value.view_name
 
 
 def rendered_text() -> ui.Rendered:
