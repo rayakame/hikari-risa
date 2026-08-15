@@ -41,7 +41,7 @@ class Anchor(risa.View):
 
 def component_ctx(
     interaction: unittest.mock.Mock,
-    state: risa.DispatchState | None = None,
+    gate: risa.ResponseGate | None = None,
     view: Anchor | None = None,
 ) -> risa.ComponentContext:
     meta = getattr(Anchor, constants.VIEW_META)
@@ -51,7 +51,7 @@ def component_ctx(
         rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
         view=view if view is not None else Anchor(),
         meta=meta,
-        state=state,
+        gate=gate,
     )
 
 
@@ -237,12 +237,12 @@ def test_the_context_exposes_resolved_entities() -> None:
 
 
 async def test_the_first_response_sets_the_acknowledged_event() -> None:
-    state = risa.DispatchState()
-    ctx = component_ctx(component_interaction(), state)
+    gate = risa.ResponseGate()
+    ctx = component_ctx(component_interaction(), gate)
 
-    assert not state.acknowledged.is_set()
+    assert not gate.acknowledged.is_set()
     await ctx.defer()
-    assert state.acknowledged.is_set()
+    assert gate.acknowledged.is_set()
 
 
 async def test_edit_with_nothing_sent_is_the_initial_message_update() -> None:
@@ -304,12 +304,12 @@ async def test_edit_after_a_respond_edits_the_origin_message() -> None:
 
 
 async def test_edit_sets_the_acknowledged_event() -> None:
-    state = risa.DispatchState()
-    ctx = component_ctx(component_interaction(), state)
+    gate = risa.ResponseGate()
+    ctx = component_ctx(component_interaction(), gate)
 
     await ctx.edit(ui.TextDisplay("x"))
 
-    assert state.acknowledged.is_set()
+    assert gate.acknowledged.is_set()
 
 
 async def test_editing_an_ephemeral_origin_after_a_respond_is_refused_with_guidance() -> None:

@@ -38,8 +38,8 @@ if typing.TYPE_CHECKING:
 __all__ = (
     "ComponentContext",
     "Context",
-    "DispatchState",
     "Response",
+    "ResponseGate",
 )
 
 
@@ -51,7 +51,7 @@ class _InitialResponse(enum.StrEnum):
     MESSAGE_UPDATE = enum.auto()
 
 
-class DispatchState(msgspec.Struct):
+class ResponseGate(msgspec.Struct):
     lock: asyncio.Lock = msgspec.field(default_factory=asyncio.Lock)
     acknowledged: asyncio.Event = msgspec.field(default_factory=asyncio.Event)
     response: _InitialResponse = msgspec.field(default=_InitialResponse.NONE)
@@ -143,16 +143,16 @@ class Response:
 
 
 class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
-    __slots__ = ("_interaction", "_rest", "_state")
+    __slots__ = ("_gate", "_interaction", "_rest")
 
-    def __init__(self, interaction: T, *, rest: hikari.api.RESTClient, state: DispatchState | None = None) -> None:
+    def __init__(self, interaction: T, *, rest: hikari.api.RESTClient, gate: ResponseGate | None = None) -> None:
         self._interaction = interaction
         self._rest = rest
-        self._state = state if state is not None else DispatchState()
+        self._gate = gate if gate is not None else ResponseGate()
 
     @property
     def responded(self) -> bool:
-        return self._state.responded
+        return self._gate.responded
 
     @property
     def rest(self) -> hikari.api.RESTClient:
@@ -187,10 +187,10 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
         return self._interaction.message
 
     async def defer(self, *, thinking: bool = False, ephemeral: bool = False) -> None:
-        async with self._state.lock:
-            if self._state.response is not _InitialResponse.NONE:
+        async with self._gate.lock:
+            if self._gate.response is not _InitialResponse.NONE:
                 attempted = "defer"
-                raise errors.AlreadyRespondedError(attempted, self._state.response.name)
+                raise errors.AlreadyRespondedError(attempted, self._gate.response.name)
             await self._rest.create_interaction_response(
                 self._interaction.id,
                 self._interaction.token,
@@ -202,8 +202,8 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
             self._record_initial(_InitialResponse.DEFERRED_THINKING if thinking else _InitialResponse.DEFERRED_UPDATE)
 
     async def acknowledge(self, *, thinking: bool = False, ephemeral: bool = False) -> None:
-        async with self._state.lock:
-            if self._state.response is not _InitialResponse.NONE:
+        async with self._gate.lock:
+            if self._gate.response is not _InitialResponse.NONE:
                 return
             await self._rest.create_interaction_response(
                 self._interaction.id,
@@ -233,8 +233,8 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
     ) -> Response:
         flags = hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED
 
-        async with self._state.lock:
-            if self._state.response is _InitialResponse.NONE:
+        async with self._gate.lock:
+            if self._gate.response is _InitialResponse.NONE:
                 await self._rest.create_interaction_response(
                     self._interaction.id,
                     self._interaction.token,
@@ -274,8 +274,8 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
             return Response(self._rest, self._interaction, message)
 
     def _record_initial(self, response: _InitialResponse) -> None:
-        self._state.response = response
-        self._state.acknowledged.set()
+        self._gate.response = response
+        self._gate.acknowledged.set()
 
 
 class ComponentContext(Context[hikari.ComponentInteraction]):
@@ -288,9 +288,9 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         rest: hikari.api.RESTClient,
         view: view_.View,
         meta: registry.ViewMeta,
-        state: DispatchState | None = None,
+        gate: ResponseGate | None = None,
     ) -> None:
-        super().__init__(interaction, rest=rest, state=state)
+        super().__init__(interaction, rest=rest, gate=gate)
         self._view = view
         self._meta = meta
 
@@ -309,8 +309,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
 
     async def edit(self, layout: ui.Layout, /) -> None:
         builders = ui.build(layout, self._meta)
-        async with self._state.lock:
-            if self._state.response is _InitialResponse.NONE:
+        async with self._gate.lock:
+            if self._gate.response is _InitialResponse.NONE:
                 await self._rest.create_interaction_response(
                     self._interaction.id,
                     self._interaction.token,
@@ -318,7 +318,7 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
                     components=builders,
                 )
                 self._record_initial(_InitialResponse.MESSAGE_UPDATE)
-            elif self._state.response in {_InitialResponse.DEFERRED_UPDATE, _InitialResponse.MESSAGE_UPDATE}:
+            elif self._gate.response in {_InitialResponse.DEFERRED_UPDATE, _InitialResponse.MESSAGE_UPDATE}:
                 await self._rest.edit_interaction_response(
                     self._interaction.application_id,
                     self._interaction.token,

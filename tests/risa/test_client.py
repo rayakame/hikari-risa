@@ -90,7 +90,7 @@ def rest_of(built: risa.Client) -> unittest.mock.Mock:
 def routes(built: risa.Client, cls: type[risa.View]) -> bool:
     meta = getattr(cls, constants.VIEW_META)
     assert isinstance(meta, registry.ViewMeta)
-    return built._resolve(meta.key) is not None  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    return built._resolve(meta.cookie) is not None  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
 
 @pytest.fixture
@@ -221,7 +221,7 @@ def interaction_with(custom_id: str) -> unittest.mock.Mock:
 def encoded_id_for(cls: type[risa.View], handler: str = "ab", tail: str = "") -> str:
     meta = getattr(cls, constants.VIEW_META)
     assert isinstance(meta, registry.ViewMeta)
-    return codec.CustomID(cookie=meta.key, handler=handler, fragment_index=0, fragment="", tail=tail).encode()
+    return codec.CustomID(cookie=meta.cookie, handler=handler, fragment_index=0, fragment="", tail=tail).encode()
 
 
 async def test_a_foreign_custom_id_is_ignored_silently(

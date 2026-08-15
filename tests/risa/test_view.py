@@ -66,8 +66,8 @@ def meta_of(cls: type[risa.View]) -> registry.ViewMeta:
     return typing.cast("registry.ViewMeta", getattr(cls, constants.VIEW_META))
 
 
-def engine(handler: object) -> risa.BoundHandlerMethod:
-    assert isinstance(handler, risa.BoundHandlerMethod)
+def engine(handler: object) -> risa.HandlerBinder:
+    assert isinstance(handler, risa.HandlerBinder)
     return handler
 
 
@@ -86,11 +86,11 @@ def test_a_view_is_still_an_ordinary_struct() -> None:
 
 
 def test_registering_files_the_view_process_wide() -> None:
-    assert registry.global_registry().get(meta_of(Poll).key) is meta_of(Poll)
+    assert registry.global_registry().get(meta_of(Poll).cookie) is meta_of(Poll)
 
 
 def test_a_registered_view_is_keyed_by_its_cookie() -> None:
-    assert meta_of(Poll).key == codec.make_cookie("view-poll", 1)
+    assert meta_of(Poll).cookie == codec.make_cookie("view-poll", 1)
 
 
 def test_a_version_is_part_of_what_a_view_is_looked_up_under() -> None:
@@ -99,7 +99,7 @@ def test_a_version_is_part_of_what_a_view_is_looked_up_under() -> None:
 
     risa.register(name="view-versioned", version=2)(Second)
 
-    assert meta_of(Second).key == codec.make_cookie("view-versioned", 2)
+    assert meta_of(Second).cookie == codec.make_cookie("view-versioned", 2)
     assert registry.global_registry().get(codec.make_cookie("view-versioned", 1)) is None
 
 
@@ -134,7 +134,7 @@ def test_two_views_cannot_answer_to_one_name() -> None:
 def test_registering_the_same_view_twice_is_not_a_collision() -> None:
     meta = meta_of(Poll)
     registry.global_registry().register(meta)
-    assert registry.global_registry().get(meta.key) is meta
+    assert registry.global_registry().get(meta.cookie) is meta
 
 
 def test_class_access_yields_the_descriptor_itself() -> None:
@@ -143,7 +143,7 @@ def test_class_access_yields_the_descriptor_itself() -> None:
 
 
 def test_instance_access_yields_a_bound_form() -> None:
-    assert isinstance(Machine().press, risa.BoundHandlerMethod)
+    assert isinstance(Machine().press, risa.HandlerBinder)
 
 
 def test_the_descriptor_carries_what_it_was_declared_with() -> None:
@@ -171,7 +171,7 @@ def test_a_pinned_id_keeps_the_token_across_a_rename() -> None:
 
 def test_bind_packages_identity_with_an_empty_payload() -> None:
     bound = engine(Machine().press).bind()
-    expected = risa.BoundHandler(handler_id="press", version=1, token=Machine.press.token, payload="", owner=Machine)
+    expected = risa.Binding(handler_id="press", version=1, token=Machine.press.token, payload="", owner=Machine)
     assert bound == expected
     assert not bound.payload
 

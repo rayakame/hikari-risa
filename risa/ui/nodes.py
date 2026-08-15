@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import abc
 import collections.abc
-import functools
 import typing
 
 import hikari
 from hikari import impl
 
-from risa import errors
-from risa import view as view_
-from risa.internal import codec
+from risa import binding as binding_
 
 if typing.TYPE_CHECKING:
     from hikari import colors
@@ -19,16 +16,10 @@ if typing.TYPE_CHECKING:
     from hikari import snowflakes
     from hikari.api import special_endpoints
 
-    from risa.internal import registry
+    from risa.ui.build import BuildContext
 
-    type HandlerT = (
-        collections.abc.Callable[..., collections.abc.Awaitable[None]]
-        | view_.BoundHandler
-        | functools.partial[collections.abc.Awaitable[None]]
-    )
 
 __all__ = (
-    "BuildContext",
     "Button",
     "ChannelSelect",
     "Component",
@@ -42,7 +33,6 @@ __all__ = (
     "MediaGalleryItem",
     "MentionableSelect",
     "PremiumButton",
-    "Rendered",
     "RoleSelect",
     "Row",
     "RowChild",
@@ -56,40 +46,20 @@ __all__ = (
     "Thumbnail",
     "TopLevelComponent",
     "UserSelect",
-    "build",
 )
+
+
+type RowChild = (
+    Button | ChannelSelect | LinkButton | MentionableSelect | PremiumButton | RoleSelect | TextSelect | UserSelect
+)
+type SectionAccessory = Button | LinkButton | PremiumButton | Thumbnail
+type ContainerChild = File | MediaGallery | Row | Section | Separator | TextDisplay
+type TopLevelComponent = Container | ContainerChild
+type Layout = TopLevelComponent | collections.abc.Sequence[TopLevelComponent]
 
 
 def _or_undefined[T](value: T | None) -> T | hikari.UndefinedType:
     return hikari.UNDEFINED if value is None else value
-
-
-def _resolve_handler(handler: HandlerT) -> view_.BoundHandler:
-    if isinstance(handler, view_.BoundHandler):
-        return handler
-    if isinstance(handler, functools.partial):
-        inner = handler.func
-        if not isinstance(inner, view_.BoundHandlerMethod):
-            raise errors.NotAHandlerError(type(inner).__name__)
-        return inner.bind(*handler.args, **handler.keywords)
-    if isinstance(handler, view_.BoundHandlerMethod):
-        return handler.bind()
-    raise errors.NotAHandlerError(type(handler).__name__)
-
-
-class BuildContext:
-    __slots__ = ("_index", "cls", "cookie", "tokens")
-
-    def __init__(self, cookie: str, tokens: collections.abc.Set[str], cls: type[view_.View]) -> None:
-        self.cookie = cookie
-        self.tokens = tokens
-        self.cls = cls
-        self._index = 0
-
-    def next_index(self) -> int:
-        index = self._index
-        self._index += 1
-        return index
 
 
 class Component(abc.ABC):
@@ -104,35 +74,14 @@ class Component(abc.ABC):
 
 
 class Interactive(Component):
-    __slots__ = ()
+    __slots__ = ("_binding",)
+
+    def __init__(self, handler: binding_.Handlerish) -> None:
+        self._binding = binding_.resolve(handler)
 
     @property
-    @abc.abstractmethod
-    def bound(self) -> view_.BoundHandler: ...
-
-    def _routing_id(self, ctx: BuildContext, path: str) -> str:
-        owner = self.bound.owner
-        if owner is not None and not issubclass(ctx.cls, owner):
-            reason = (
-                f"handler {self.bound.handler_id!r} (version {self.bound.version})"
-                f" belongs to view {owner.__name__!r}, not this one"
-            )
-            raise errors.LayoutError(path, reason)
-        if self.bound.token not in ctx.tokens:
-            reason = f"handler {self.bound.handler_id!r} (version {self.bound.version}) is not on this view"
-            raise errors.LayoutError(path, reason)
-        custom_id = codec.CustomID(
-            cookie=ctx.cookie,
-            handler=self.bound.token,
-            fragment_index=ctx.next_index(),
-            fragment="",
-            tail=self.bound.payload,
-        )
-        try:
-            return custom_id.encode()
-        except errors.CustomIdOverflowError as exc:
-            culprit = f"{ctx.cls.__name__} at {path}, handler {self.bound.handler_id!r}"
-            raise errors.CustomIdOverflowError(culprit, exc.length) from exc
+    def binding(self) -> binding_.Binding:
+        return self._binding
 
 
 class TextDisplay(Component):
@@ -173,68 +122,6 @@ class Separator(Component):
     @typing.override
     def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.SeparatorComponentBuilder:
         return impl.SeparatorComponentBuilder(divider=self._divider, spacing=self._spacing)
-
-
-class LinkButton(Component):
-    __slots__ = ("_disabled", "_emoji", "_label", "_url")
-
-    def __init__(
-        self,
-        url: str,
-        *,
-        label: str | None = None,
-        emoji: snowflakes.Snowflakeish | emojis.Emoji | str | None = None,
-        disabled: bool = False,
-    ) -> None:
-        self._url = url
-        self._label = label
-        self._emoji = emoji
-        self._disabled = disabled
-
-    @property
-    def url(self) -> str:
-        return self._url
-
-    @property
-    def label(self) -> str | None:
-        return self._label
-
-    @property
-    def emoji(self) -> snowflakes.Snowflakeish | emojis.Emoji | str | None:
-        return self._emoji
-
-    @property
-    def disabled(self) -> bool:
-        return self._disabled
-
-    @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.LinkButtonBuilder:
-        return impl.LinkButtonBuilder(
-            url=self._url,
-            label=_or_undefined(self._label),
-            emoji=_or_undefined(self._emoji),
-            is_disabled=self._disabled,
-        )
-
-
-class PremiumButton(Component):
-    __slots__ = ("_disabled", "_sku_id")
-
-    def __init__(self, sku_id: snowflakes.Snowflakeish, *, disabled: bool = False) -> None:
-        self._sku_id = sku_id
-        self._disabled = disabled
-
-    @property
-    def sku_id(self) -> snowflakes.Snowflakeish:
-        return self._sku_id
-
-    @property
-    def disabled(self) -> bool:
-        return self._disabled
-
-    @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.PremiumButtonBuilder:
-        return impl.PremiumButtonBuilder(sku_id=int(self._sku_id), is_disabled=self._disabled)
 
 
 class Thumbnail(Component):
@@ -423,27 +310,22 @@ class Container(Component):
 
 
 class Button(Interactive):
-    __slots__ = ("_bound", "_disabled", "_emoji", "_label", "_style")
+    __slots__ = ("_disabled", "_emoji", "_label", "_style")
 
     def __init__(
         self,
-        handler: HandlerT,
+        handler: binding_.Handlerish,
         *,
         label: str | None = None,
         emoji: snowflakes.Snowflakeish | emojis.Emoji | str | None = None,
         style: hikari.ButtonStyle = hikari.ButtonStyle.PRIMARY,
         disabled: bool = False,
     ) -> None:
-        self._bound = _resolve_handler(handler)
+        super().__init__(handler)
         self._label = label
         self._emoji = emoji
         self._style = style
         self._disabled = disabled
-
-    @property
-    @typing.override
-    def bound(self) -> view_.BoundHandler:
-        return self._bound
 
     @property
     def label(self) -> str | None:
@@ -465,11 +347,73 @@ class Button(Interactive):
     def build(self, ctx: BuildContext, path: str) -> special_endpoints.InteractiveButtonBuilder:
         return impl.InteractiveButtonBuilder(
             style=self._style,
-            custom_id=self._routing_id(ctx, path),
+            custom_id=ctx.routing_id(self.binding, path),
             label=_or_undefined(self._label),
             emoji=_or_undefined(self._emoji),
             is_disabled=self._disabled,
         )
+
+
+class LinkButton(Component):
+    __slots__ = ("_disabled", "_emoji", "_label", "_url")
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        label: str | None = None,
+        emoji: snowflakes.Snowflakeish | emojis.Emoji | str | None = None,
+        disabled: bool = False,
+    ) -> None:
+        self._url = url
+        self._label = label
+        self._emoji = emoji
+        self._disabled = disabled
+
+    @property
+    def url(self) -> str:
+        return self._url
+
+    @property
+    def label(self) -> str | None:
+        return self._label
+
+    @property
+    def emoji(self) -> snowflakes.Snowflakeish | emojis.Emoji | str | None:
+        return self._emoji
+
+    @property
+    def disabled(self) -> bool:
+        return self._disabled
+
+    @typing.override
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.LinkButtonBuilder:
+        return impl.LinkButtonBuilder(
+            url=self._url,
+            label=_or_undefined(self._label),
+            emoji=_or_undefined(self._emoji),
+            is_disabled=self._disabled,
+        )
+
+
+class PremiumButton(Component):
+    __slots__ = ("_disabled", "_sku_id")
+
+    def __init__(self, sku_id: snowflakes.Snowflakeish, *, disabled: bool = False) -> None:
+        self._sku_id = sku_id
+        self._disabled = disabled
+
+    @property
+    def sku_id(self) -> snowflakes.Snowflakeish:
+        return self._sku_id
+
+    @property
+    def disabled(self) -> bool:
+        return self._disabled
+
+    @typing.override
+    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.PremiumButtonBuilder:
+        return impl.PremiumButtonBuilder(sku_id=int(self._sku_id), is_disabled=self._disabled)
 
 
 class SelectOption:
@@ -521,27 +465,22 @@ class SelectOption:
 
 
 class Select(Interactive):
-    __slots__ = ("_bound", "_disabled", "_max_values", "_min_values", "_placeholder")
+    __slots__ = ("_disabled", "_max_values", "_min_values", "_placeholder")
 
     def __init__(
         self,
-        handler: HandlerT,
+        handler: binding_.Handlerish,
         *,
         placeholder: str | None = None,
         min_values: int = 1,
         max_values: int = 1,
         disabled: bool = False,
     ) -> None:
-        self._bound = _resolve_handler(handler)
+        super().__init__(handler)
         self._placeholder = placeholder
         self._min_values = min_values
         self._max_values = max_values
         self._disabled = disabled
-
-    @property
-    @typing.override
-    def bound(self) -> view_.BoundHandler:
-        return self._bound
 
     @property
     def placeholder(self) -> str | None:
@@ -565,7 +504,7 @@ class TextSelect(Select):
 
     def __init__(
         self,
-        handler: HandlerT,
+        handler: binding_.Handlerish,
         /,
         *options: SelectOption,
         placeholder: str | None = None,
@@ -585,7 +524,7 @@ class TextSelect(Select):
     @typing.override
     def build(self, ctx: BuildContext, path: str) -> special_endpoints.TextSelectMenuBuilder[typing.NoReturn]:
         return impl.TextSelectMenuBuilder(
-            custom_id=self._routing_id(ctx, path),
+            custom_id=ctx.routing_id(self.binding, path),
             options=[option.build() for option in self._options],
             placeholder=_or_undefined(self._placeholder),
             min_values=self._min_values,
@@ -594,14 +533,16 @@ class TextSelect(Select):
         )
 
 
-class UserSelect(Select):
+class _EntitySelect(Select):
     __slots__ = ()
+
+    _MENU_TYPE: typing.ClassVar[hikari.ComponentType]
 
     @typing.override
     def build(self, ctx: BuildContext, path: str) -> special_endpoints.SelectMenuBuilder:
         return impl.SelectMenuBuilder(
-            type=hikari.ComponentType.USER_SELECT_MENU,
-            custom_id=self._routing_id(ctx, path),
+            type=self._MENU_TYPE,
+            custom_id=ctx.routing_id(self.binding, path),
             placeholder=_or_undefined(self._placeholder),
             min_values=self._min_values,
             max_values=self._max_values,
@@ -609,34 +550,22 @@ class UserSelect(Select):
         )
 
 
-class RoleSelect(Select):
+class UserSelect(_EntitySelect):
     __slots__ = ()
 
-    @typing.override
-    def build(self, ctx: BuildContext, path: str) -> special_endpoints.SelectMenuBuilder:
-        return impl.SelectMenuBuilder(
-            type=hikari.ComponentType.ROLE_SELECT_MENU,
-            custom_id=self._routing_id(ctx, path),
-            placeholder=_or_undefined(self._placeholder),
-            min_values=self._min_values,
-            max_values=self._max_values,
-            is_disabled=self._disabled,
-        )
+    _MENU_TYPE: typing.ClassVar[hikari.ComponentType] = hikari.ComponentType.USER_SELECT_MENU
 
 
-class MentionableSelect(Select):
+class RoleSelect(_EntitySelect):
     __slots__ = ()
 
-    @typing.override
-    def build(self, ctx: BuildContext, path: str) -> special_endpoints.SelectMenuBuilder:
-        return impl.SelectMenuBuilder(
-            type=hikari.ComponentType.MENTIONABLE_SELECT_MENU,
-            custom_id=self._routing_id(ctx, path),
-            placeholder=_or_undefined(self._placeholder),
-            min_values=self._min_values,
-            max_values=self._max_values,
-            is_disabled=self._disabled,
-        )
+    _MENU_TYPE: typing.ClassVar[hikari.ComponentType] = hikari.ComponentType.ROLE_SELECT_MENU
+
+
+class MentionableSelect(_EntitySelect):
+    __slots__ = ()
+
+    _MENU_TYPE: typing.ClassVar[hikari.ComponentType] = hikari.ComponentType.MENTIONABLE_SELECT_MENU
 
 
 class ChannelSelect(Select):
@@ -644,7 +573,7 @@ class ChannelSelect(Select):
 
     def __init__(
         self,
-        handler: HandlerT,
+        handler: binding_.Handlerish,
         *,
         channel_types: collections.abc.Sequence[hikari.ChannelType] = (),
         placeholder: str | None = None,
@@ -664,86 +593,10 @@ class ChannelSelect(Select):
     @typing.override
     def build(self, ctx: BuildContext, path: str) -> special_endpoints.ChannelSelectMenuBuilder:
         return impl.ChannelSelectMenuBuilder(
-            custom_id=self._routing_id(ctx, path),
+            custom_id=ctx.routing_id(self.binding, path),
             channel_types=list(self._channel_types),
             placeholder=_or_undefined(self._placeholder),
             min_values=self._min_values,
             max_values=self._max_values,
             is_disabled=self._disabled,
         )
-
-
-type RowChild = (
-    Button | ChannelSelect | LinkButton | MentionableSelect | PremiumButton | RoleSelect | TextSelect | UserSelect
-)
-type SectionAccessory = Button | LinkButton | PremiumButton | Thumbnail
-type ContainerChild = File | MediaGallery | Row | Section | Separator | TextDisplay
-type TopLevelComponent = Container | ContainerChild
-type Layout = TopLevelComponent | collections.abc.Sequence[TopLevelComponent]
-
-
-def build(layout: Layout, meta: registry.ViewMeta) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
-    ctx = BuildContext(cookie=meta.key, tokens=meta.handlers.keys(), cls=meta.cls)
-    if isinstance(layout, Component):
-        layout = (layout,)
-    return [node.build(ctx, f"{node.name}[{i}]") for i, node in enumerate(layout)]
-
-
-class Rendered(collections.abc.Mapping[str, typing.Any]):
-    __slots__ = ("_components",)
-
-    def __init__(self, components: collections.abc.Sequence[special_endpoints.ComponentBuilder]) -> None:
-        self._components = components
-
-    @property
-    def components(self) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
-        return self._components
-
-    @typing.override
-    def __getitem__(self, key: str) -> typing.Any:
-        if key == "components":
-            return self._components
-        raise KeyError(key)
-
-    @typing.override
-    def __iter__(self) -> collections.abc.Iterator[str]:
-        yield "components"
-
-    @typing.override
-    def __len__(self) -> int:
-        return 1
-
-    async def send_to(
-        self,
-        rest: hikari.api.RESTClient,
-        channel: snowflakes.SnowflakeishOr[hikari.TextableChannel],
-        **forbidden: typing.Never,
-    ) -> hikari.Message:
-        _reject_forbidden(forbidden)
-        return await rest.create_message(channel, components=self._components)
-
-    async def respond_to(
-        self,
-        rest: hikari.api.RESTClient,
-        interaction: hikari.ComponentInteraction | hikari.ModalInteraction | hikari.CommandInteraction,
-        *,
-        ephemeral: bool = False,
-        **forbidden: typing.Never,
-    ) -> None:
-        _reject_forbidden(forbidden)
-        await rest.create_interaction_response(
-            interaction.id,
-            interaction.token,
-            hikari.ResponseType.MESSAGE_CREATE,
-            components=self._components,
-            flags=hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED,
-        )
-
-
-def _reject_forbidden(forbidden: collections.abc.Mapping[str, object]) -> None:
-    if forbidden:
-        msg = (
-            f"a V2 view renders the whole message; {', '.join(sorted(forbidden))} cannot ride"
-            " alongside it - put text in a ui.TextDisplay inside the view"
-        )
-        raise TypeError(msg)

@@ -20,16 +20,15 @@
 from __future__ import annotations
 
 import enum
-import functools
 import inspect
 import typing
 
 import linkd
 import msgspec
 
+from risa import binding as binding_
 from risa import errors
 from risa.internal import codec
-from risa.internal import constants
 from risa.internal import registry
 
 if typing.TYPE_CHECKING:
@@ -40,12 +39,9 @@ if typing.TYPE_CHECKING:
 
 __all__ = (
     "AutoDefer",
-    "BoundHandler",
-    "BoundHandlerMethod",
     "HandlerFunction",
     "HandlerMethod",
     "View",
-    "bind",
     "handler",
     "register",
 )
@@ -55,99 +51,12 @@ type HandlerFunction[V: View, **P] = collections.abc.Callable[
     collections.abc.Awaitable[None],
 ]
 
-bind: typing.Final = functools.partial
-
 
 class AutoDefer(enum.StrEnum):
     OFF = enum.auto()
     UPDATE = enum.auto()
     THINKING = enum.auto()
     THINKING_EPHEMERAL = enum.auto()
-
-
-class BoundHandler(msgspec.Struct, frozen=True):
-    handler_id: str
-    version: int
-    token: str
-    payload: str
-    owner: type[View] | None = None
-
-
-class BoundHandlerMethod:
-    __slots__ = ("_callback_name", "_handler_id", "_owner", "_signature", "_token", "_version")
-
-    def __init__(
-        self,
-        *,
-        handler_id: str,
-        version: int,
-        token: str,
-        signature: codec.HandlerSignature,
-        callback_name: str,
-        owner: type[View] | None,
-    ) -> None:
-        self._handler_id = handler_id
-        self._version = version
-        self._token = token
-        self._signature = signature
-        self._callback_name = callback_name
-        self._owner = owner
-
-    def __call__(self, *_args: object, **_kwargs: object) -> typing.NoReturn:
-        raise errors.HandlerNotCallableError(self._callback_name)
-
-    def bind(self, *args: object, **kwargs: object) -> BoundHandler:
-        names = list(self._signature.converters)
-        if len(args) > len(names):
-            raise errors.ArgBindError(
-                self._callback_name,
-                None,
-                f"received {len(args)} wire arguments, but the handler declares {len(names)}",
-            )
-        filled: dict[str, object] = dict(zip(names, args, strict=False))
-        for name, value in kwargs.items():
-            if name not in self._signature.converters:
-                raise errors.ArgBindError(self._callback_name, name, "is not a wire parameter of this handler")
-            if name in filled:
-                raise errors.ArgBindError(self._callback_name, name, "was supplied both positionally and by keyword")
-            filled[name] = value
-
-        k = len(names)
-        for index, name in enumerate(names):
-            if name not in filled:
-                k = index
-                break
-
-        if any(name in filled for name in names[k:]):
-            raise errors.ArgBindError(self._callback_name, names[k], "was not supplied, but a later wire parameter was")
-        if k < self._signature.required:
-            raise errors.ArgBindError(self._callback_name, names[k], "is required but was not supplied")
-
-        parts = self._encode_frames(names[:k], filled)
-        payload = self._signature.fingerprint + codec.pack_frames(parts) if names else ""
-        return BoundHandler(
-            handler_id=self._handler_id,
-            version=self._version,
-            token=self._token,
-            payload=payload,
-            owner=self._owner,
-        )
-
-    def _encode_frames(self, names: collections.abc.Sequence[str], filled: dict[str, object]) -> list[str]:
-        parts: list[str] = []
-        for name in names:
-            try:
-                encoded = self._signature.converters[name].encode(filled[name])
-            except (TypeError, ValueError) as exc:
-                raise errors.ArgBindError(self._callback_name, name, str(exc)) from exc
-            if len(encoded) > codec.MAX_FRAME_LENGTH:
-                reason = (
-                    f"encodes to {len(encoded)} characters, "
-                    f"which exceeds the {codec.MAX_FRAME_LENGTH}-character frame limit"
-                )
-                raise errors.ArgBindError(self._callback_name, name, reason)
-            parts.append(encoded)
-        return parts
 
 
 class HandlerMethod[V: View, **P]:
@@ -203,21 +112,19 @@ class HandlerMethod[V: View, **P]:
     def __get__(self, instance: None, owner: type[V]) -> HandlerMethod[V, P]: ...
 
     @typing.overload
-    def __get__(self, instance: V, owner: type[V]) -> collections.abc.Callable[P, collections.abc.Awaitable[None]]: ...
+    def __get__(self, instance: V, owner: type[V]) -> binding_.BindTarget[P]: ...
 
-    def __get__(
-        self, instance: V | None, owner: type[V]
-    ) -> HandlerMethod[V, P] | collections.abc.Callable[P, collections.abc.Awaitable[None]]:
+    def __get__(self, instance: V | None, owner: type[V]) -> HandlerMethod[V, P] | binding_.BindTarget[P]:
         if instance is None:
             return self
         return typing.cast(
-            "collections.abc.Callable[P, collections.abc.Awaitable[None]]",
-            BoundHandlerMethod(
+            "binding_.BindTarget[P]",
+            binding_.HandlerBinder(
                 handler_id=self._handler_id,
                 version=self._version,
                 token=self._token,
                 signature=self.signature,
-                callback_name=self._func.__qualname__,
+                func_name=self._func.__qualname__,
                 owner=self.owner,
             ),
         )
@@ -263,8 +170,6 @@ def handler(
 
 
 class View(msgspec.Struct):
-    __risa_view_meta__: typing.ClassVar[registry.ViewMeta]
-
     def render(self) -> ui.Layout:
         raise NotImplementedError
 
@@ -273,13 +178,14 @@ class View(msgspec.Struct):
         """Answer a click on a component this view can no longer route."""
 
 
-def _injected_outdated(cls: type[View]) -> collections.abc.Callable[..., collections.abc.Awaitable[None]] | None:
+def _inject(func: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> registry.DispatchCallback:
+    return typing.cast("registry.DispatchCallback", linkd.inject(func))
+
+
+def _injected_outdated(cls: type[View]) -> registry.OutdatedCallback | None:
     if cls.on_outdated.__func__ is View.on_outdated.__func__:
         return None
-    return typing.cast(
-        "collections.abc.Callable[..., collections.abc.Awaitable[None]]",
-        linkd.inject(cls.on_outdated),
-    )
+    return typing.cast("registry.OutdatedCallback", linkd.inject(cls.on_outdated))
 
 
 def register[T: View](
@@ -308,10 +214,7 @@ def register[T: View](
                 )
             resolved_defer = member.defer if member.defer is not None else defer
             handlers[member.token] = registry.HandlerRecord(
-                callback=typing.cast(
-                    "collections.abc.Callable[..., collections.abc.Awaitable[None]]",
-                    linkd.inject(member.func),
-                ),
+                callback=_inject(member.func),
                 handler_id=member.handler_id,
                 version=member.version,
                 defer=resolved_defer,
@@ -326,7 +229,7 @@ def register[T: View](
             outdated=_injected_outdated(cls),
         )
         registry.global_registry().register(meta)
-        setattr(cls, constants.VIEW_META, meta)
+        registry.stamp(cls, meta)
         return cls
 
     return decorate

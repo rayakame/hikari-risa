@@ -35,3 +35,7 @@ def pyright_must_reject(view: Guard) -> None:
     risa.bind(view.vote, "Red", "five")  # type: ignore[reportArgumentType]
     risa.bind(view.vote, colour="Red")  # type: ignore[reportCallIssue]
     risa.bind(view.buy, "not-a-snowflake")  # type: ignore[reportArgumentType]
+
+
+def rendered_is_spreadable(rendered: ui.Rendered, rest: hikari.api.RESTClient) -> None:
+    _ = rest.create_message(hikari.Snowflake(1), **rendered)
