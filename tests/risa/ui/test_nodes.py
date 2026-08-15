@@ -56,8 +56,8 @@ def meta_of(cls: type[risa.View]) -> registry.ViewMeta:
     return typing.cast("registry.ViewMeta", getattr(cls, constants.VIEW_META))
 
 
-def engine(handler: object) -> risa.BoundHandlerMethod:
-    assert isinstance(handler, risa.BoundHandlerMethod)
+def engine(handler: object) -> risa.HandlerBinder:
+    assert isinstance(handler, risa.HandlerBinder)
     return handler
 
 
@@ -205,7 +205,7 @@ def test_a_button_routes_through_a_risa_custom_id() -> None:
     (button,) = payload_of(built)["components"]
 
     custom_id = parsed(button["custom_id"])
-    assert custom_id.cookie == meta_of(Panel).key
+    assert custom_id.cookie == meta_of(Panel).cookie
     assert custom_id.handler == Panel.press.token
     assert custom_id.fragment_index == 0
     assert not custom_id.fragment
@@ -258,13 +258,13 @@ def test_an_inherited_handler_builds_on_the_subclass_view() -> None:
     (button,) = payload_of(built)["components"]
 
     custom_id = parsed(button["custom_id"])
-    assert custom_id.cookie == meta_of(SubPanel).key
+    assert custom_id.cookie == meta_of(SubPanel).cookie
     assert custom_id.handler == Panel.press.token
 
 
 def test_a_hand_built_bound_handler_falls_back_to_the_token_check() -> None:
     unrecognised = "zz"
-    unknown = risa.BoundHandler(handler_id="ghost", version=1, token=unrecognised, payload="")
+    unknown = risa.Binding(handler_id="ghost", version=1, token=unrecognised, payload="")
 
     with pytest.raises(risa.LayoutError) as exc_info:
         ui.build(ui.Row(ui.Button(unknown)), meta_of(Panel))
@@ -273,7 +273,7 @@ def test_a_hand_built_bound_handler_falls_back_to_the_token_check() -> None:
 
 
 def test_an_oversized_payload_overflows_the_custom_id() -> None:
-    oversized = risa.BoundHandler(handler_id="press", version=1, token=Panel.press.token, payload="x" * 90)
+    oversized = risa.Binding(handler_id="press", version=1, token=Panel.press.token, payload="x" * 90)
 
     with pytest.raises(risa.CustomIdOverflowError):
         ui.build(ui.Row(ui.Button(oversized)), meta_of(Panel))
@@ -417,7 +417,7 @@ def test_a_text_select_routes_and_serializes_its_options() -> None:
 
     assert select["type"] == hikari.ComponentType.TEXT_SELECT_MENU
     custom_id = parsed(select["custom_id"])
-    assert custom_id.cookie == meta_of(Panel).key
+    assert custom_id.cookie == meta_of(Panel).cookie
     assert custom_id.handler == Panel.press.token
     assert select["placeholder"] == "pick"
     assert select["min_values"] == 1

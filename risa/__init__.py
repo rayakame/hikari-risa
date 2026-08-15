@@ -19,12 +19,16 @@
 # SOFTWARE.
 from __future__ import annotations
 
-from risa._about import __author__
-from risa._about import __copyright__
-from risa._about import __discord_invite__
-from risa._about import __license__
-from risa._about import __url__
-from risa._about import __version__
+from risa import di as di
+from risa import errors as errors
+from risa import ui as ui
+from risa._about import __author__ as __author__
+from risa._about import __copyright__ as __copyright__
+from risa._about import __discord_invite__ as __discord_invite__
+from risa._about import __license__ as __license__
+from risa._about import __url__ as __url__
+from risa._about import __version__ as __version__
+from risa.binding import *
 from risa.client import *
 from risa.context import *
 from risa.di import *

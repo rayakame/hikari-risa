@@ -84,15 +84,40 @@ first time rather than discovering it from lint output.
 - Prefer `# type: ignore[rule]` over `# pyright: ignore[rule]` where both work.
   `reportUnnecessaryTypeIgnoreComment` is an error, so unused suppressions fail the build.
 
+## Placement and ordering
+
+A reader should be able to predict where a symbol lives before looking for it.
+
+**Placement.** A private helper belongs to the concept it serves, not to the file that happens
+to call it. Pick one of four: fold it into its only consumer; put it immediately above its only
+consumer; join the shared-helper block under the type aliases; or move it to the module that owns
+the concept.
+
+**Order.** A file reads top-down in the bands below, and within a band in dependency order —
+nothing appears above something it names. PEP 695 `type` aliases are exempt: they are lazily
+evaluated, so they sit at the top regardless. Private module functions are the implementation of
+the classes above them, so they follow the class band rather than preceding it.
+
+```text
+MIT header → from __future__ → imports → __all__ → _LOGGER → Final constants →
+type aliases → Protocols / TypedDicts → enums and frozen value objects →
+classes (base before subclass) → module functions in call order, entry point last
+```
+
+Inside a class: `__slots__`, `__init__`, dunders, properties, public methods, then private
+methods as pipeline stages in flow order, each followed by the leaf helpers it owns.
+
 ## Layout
 
 ```text
 risa/
-  __init__.py       star re-exports of the public API
+  __init__.py       explicit re-exports of the public API (py.typed requires `as` form)
   _about.py         package metadata (__version__, __author__, ...)
-  client.py         Client ABC + Gateway/Rest implementations, dispatch, the watchdog
+  binding.py        the functools.partial fiction: bind, Binding, HandlerBinder, resolve
+  client.py         Client ABC + Gateway/Rest implementations, registry, transports
   context.py        Context base + ComponentContext, respond/defer, the response gate
   di.py             Contexts (DEFAULT/COMPONENT/MODAL), INJECTED re-export
+  dispatch.py       Dispatcher: route, decode, run, the watchdog
   errors.py         RisaError-rooted hierarchy
   view.py           View base, @register, @handler machinery, AutoDefer
   internal/         not public API; modules here carry no leading underscore
@@ -101,7 +126,8 @@ risa/
     constants.py    Discord limits and the attribute names risa stamps
     registry.py     ViewMeta, HandlerRecord, the cookie -> view registries
   ui/
-    nodes.py        the V2 node set, BuildContext, and the build pass
+    build.py        BuildContext, the build pass, and Rendered (the send-kwargs surface)
+    nodes.py        the V2 node set
   py.typed
 tests/              mirrors the package layout
 testbot/            manual test bot against a real Discord app (TOKEN via .env)

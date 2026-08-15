@@ -114,11 +114,11 @@ class ViewDeclarationError(RisaError):
 
 
 class DuplicateViewError(RisaError):
-    def __init__(self, view_name: str, existing_name: str, key: str) -> None:
+    def __init__(self, view_name: str, existing_name: str, cookie: str) -> None:
         self.view_name = view_name
         self.existing_name = existing_name
-        self.key = key
-        super().__init__(f"view {view_name!r} collides with {existing_name!r}: both are registered under {key!r}")
+        self.cookie = cookie
+        super().__init__(f"view {view_name!r} collides with {existing_name!r}: both are registered under {cookie!r}")
 
 
 class DuplicateHandlerError(RisaError):

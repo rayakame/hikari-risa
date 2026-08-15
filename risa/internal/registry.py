@@ -26,20 +26,41 @@ import msgspec
 
 from risa import errors
 from risa.internal import codec
+from risa.internal import constants
 
 if typing.TYPE_CHECKING:
     import collections.abc
 
+    from risa import context
     from risa.view import AutoDefer
     from risa.view import View
 
-__all__ = ("HandlerRecord", "Registry", "ViewMeta", "global_registry")
+__all__ = (
+    "DispatchCallback",
+    "HandlerRecord",
+    "OutdatedCallback",
+    "Registry",
+    "ViewMeta",
+    "global_registry",
+    "meta_of",
+    "require_meta",
+    "stamp",
+)
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.internal.registry")
 
+type DispatchCallback = collections.abc.Callable[
+    typing.Concatenate[View, context.ComponentContext, ...],
+    collections.abc.Awaitable[None],
+]
+type OutdatedCallback = collections.abc.Callable[
+    typing.Concatenate[context.ComponentContext, ...],
+    collections.abc.Awaitable[None],
+]
+
 
 class HandlerRecord(msgspec.Struct, frozen=True):
-    callback: collections.abc.Callable[..., collections.abc.Awaitable[None]]
+    callback: DispatchCallback
     handler_id: str
     version: int
     defer: AutoDefer | None
@@ -51,14 +72,14 @@ class ViewMeta(msgspec.Struct, frozen=True):
     name: str
     version: int
     handlers: collections.abc.Mapping[str, HandlerRecord] = msgspec.field(default_factory=dict[str, HandlerRecord])
-    outdated: collections.abc.Callable[..., collections.abc.Awaitable[None]] | None = None
+    outdated: OutdatedCallback | None = None
 
     @property
     def handles_outdated(self) -> bool:
         return self.outdated is not None
 
     @property
-    def key(self) -> str:
+    def cookie(self) -> str:
         return codec.make_cookie(self.name, self.version)
 
 
@@ -69,11 +90,11 @@ class Registry:
         self._views: dict[str, ViewMeta] = {}
 
     def register(self, meta: ViewMeta) -> None:
-        existing = self._views.get(meta.key)
+        existing = self._views.get(meta.cookie)
         if existing is not None and existing.cls is not meta.cls:
-            raise errors.DuplicateViewError(meta.name, existing.name, meta.key)
+            raise errors.DuplicateViewError(meta.name, existing.name, meta.cookie)
         _LOGGER.debug("registering view %s", meta.name)
-        self._views[meta.key] = meta
+        self._views[meta.cookie] = meta
 
     def get(self, key: str) -> ViewMeta | None:
         return self._views.get(key)
@@ -87,3 +108,20 @@ _GLOBAL_REGISTRY: typing.Final = Registry()
 
 def global_registry() -> Registry:
     return _GLOBAL_REGISTRY
+
+
+def stamp(cls: type[View], meta: ViewMeta) -> None:
+    setattr(cls, constants.VIEW_META, meta)
+
+
+def meta_of(cls: type[View]) -> ViewMeta | None:
+    meta = cls.__dict__.get(constants.VIEW_META)
+    return meta if isinstance(meta, ViewMeta) else None
+
+
+def require_meta(obj: type[View] | View) -> ViewMeta:
+    cls = obj if isinstance(obj, type) else type(obj)
+    meta = meta_of(cls)
+    if meta is None:
+        raise errors.NotAViewError(cls.__name__)
+    return meta

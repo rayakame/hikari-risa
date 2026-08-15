@@ -26,19 +26,19 @@ def make_meta(
 
 def test_the_key_is_the_view_cookie() -> None:
     meta = make_meta()
-    assert meta.key == codec.make_cookie("registry-sample", 1)
-    assert len(meta.key) == codec.COOKIE_LENGTH
+    assert meta.cookie == codec.make_cookie("registry-sample", 1)
+    assert len(meta.cookie) == codec.COOKIE_LENGTH
 
 
 def test_bumping_the_version_changes_the_key() -> None:
-    assert make_meta(version=1).key != make_meta(version=2).key
+    assert make_meta(version=1).cookie != make_meta(version=2).cookie
 
 
 def test_registering_and_resolving_round_trips() -> None:
     reg = registry.Registry()
     meta = make_meta()
     reg.register(meta)
-    assert reg.get(meta.key) is meta
+    assert reg.get(meta.cookie) is meta
 
 
 def test_an_unknown_cookie_resolves_to_nothing() -> None:
@@ -57,7 +57,7 @@ def test_the_same_class_twice_is_not_a_collision() -> None:
     meta = make_meta()
     reg.register(meta)
     reg.register(make_meta())
-    assert reg.get(meta.key) is not None
+    assert reg.get(meta.cookie) is not None
 
 
 def test_clear_drops_every_view() -> None:
@@ -65,4 +65,18 @@ def test_clear_drops_every_view() -> None:
     meta = make_meta()
     reg.register(meta)
     reg.clear()
-    assert reg.get(meta.key) is None
+    assert reg.get(meta.cookie) is None
+
+
+def test_an_unregistered_subclass_does_not_inherit_its_parents_meta() -> None:
+    @risa.register(name="registry-parent")
+    class Parent(risa.View):
+        pass
+
+    class Child(Parent):
+        pass
+
+    assert registry.meta_of(Parent) is not None
+    assert registry.meta_of(Child) is None
+    with pytest.raises(risa.NotAViewError):
+        registry.require_meta(Child)
