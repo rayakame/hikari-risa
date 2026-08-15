@@ -396,6 +396,16 @@ Arg converters cover `int`, `str`, `bool`, `Enum`, `Snowflake` — that is essen
 everything. Use flare's byte-oriented encodings (little-endian in latin-1), not `str()`: an
 int costs 1–2 chars instead of 19.
 
+**`Enum` means `enum.Enum`; hikari's own enums are not wire types. [decided]** hikari
+implements `hikari.internal.enums.Enum`/`.Flag` rather than subclassing the stdlib, so
+`hikari.ChannelType`, `hikari.Permissions` and friends resolve to no converter and belong
+to DI like any other unrecognised annotation. Supporting them would mean either
+duck-typing on `__members__` or importing hikari's private enum module, and it would
+import two behaviours that do not fit the codec's contract: hikari passes *unknown* values
+through instead of raising (so a retired member could not fail closed), and its flags are
+combinable (so membership is not a validity test). Pass the underlying value as an `int`
+or `str` wire argument and rebuild the hikari enum inside the handler.
+
 **Arg converters must be synchronous. [decided]** flare made them async so they could fetch
 users during decode, which puts an unbounded HTTP call inside the 3-second window *before*
 the handler can defer. Store IDs; resolve them in the handler.

@@ -212,7 +212,11 @@ Open findings from the reviews (verified, decisions pending):
   fingerprint-match + under-required frames as the in-place edit at ERROR with the
   bump-the-version fix. Folding `required` into the digest was consciously declined
   (would tax the harmless add-a-default direction; the wire stays stable).
-- **Docs pass**: document nested `risa.bind` keyword rebinding — CPython flattens
+- **Docs pass**: document that wire enums are stdlib `enum.Enum` only — hikari's own
+  enums (`ChannelType`, `Permissions`, ...) are *not* wire types by decision
+  (DESIGN §6.3), so `kind: hikari.ChannelType` is a DI parameter and binding one
+  fails at render with an arity `ArgBindError`; pass the value as `int`/`str` and
+  rebuild it in the handler. Also document nested `risa.bind` keyword rebinding — CPython flattens
   nested partials with the outer keyword winning before risa can see it, so the
   double-supply `ArgBindError` is unreachable for keyword-over-keyword; positional
   conflicts still raise. Also document that `Rendered.respond_to` targets

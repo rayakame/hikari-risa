@@ -55,6 +55,11 @@ class DispatchState(msgspec.Struct):
     lock: asyncio.Lock = msgspec.field(default_factory=asyncio.Lock)
     acknowledged: asyncio.Event = msgspec.field(default_factory=asyncio.Event)
     response: _InitialResponse = msgspec.field(default=_InitialResponse.NONE)
+    adopted: bool = False
+
+    @property
+    def responded(self) -> bool:
+        return self.response is not _InitialResponse.NONE
 
 
 class Response:
@@ -147,7 +152,7 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
 
     @property
     def responded(self) -> bool:
-        return self._state.response is not _InitialResponse.NONE
+        return self._state.responded
 
     @property
     def rest(self) -> hikari.api.RESTClient:

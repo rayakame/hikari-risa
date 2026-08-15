@@ -1021,6 +1021,48 @@ async def test_the_rest_listener_answers_204_while_the_handler_still_runs() -> N
         await anext(listener)
 
 
+async def test_an_adopted_interaction_that_answers_nothing_is_noted_at_debug(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = risa.client_from_app(rest_app())
+    built.add_view(Clicker)
+    CALLS.clear()
+    listener = built._on_interaction(interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await asyncio.wait_for(anext(listener), timeout=1.0)
+        with pytest.raises(StopAsyncIteration):
+            await anext(listener)
+
+    assert len(CALLS) == 1
+    assert "204" in caplog.text
+
+
+async def test_a_handler_that_answered_is_not_noted(caplog: pytest.LogCaptureFixture) -> None:
+    built = risa.client_from_app(rest_app())
+    built.add_view(Repaint)
+    listener = built._on_interaction(interaction_with(encoded_id_for(Repaint, handler=Repaint.flip.token)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await asyncio.wait_for(anext(listener), timeout=1.0)
+        with pytest.raises(StopAsyncIteration):
+            await anext(listener)
+
+    assert "204" not in caplog.text
+
+
+async def test_a_foreign_interaction_is_never_noted(caplog: pytest.LogCaptureFixture) -> None:
+    built = risa.client_from_app(rest_app())
+    listener = built._on_interaction(interaction_with("miru:settings:3"))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    with caplog.at_level(logging.DEBUG, logger="risa.client"):
+        await asyncio.wait_for(anext(listener), timeout=1.0)
+        with pytest.raises(StopAsyncIteration):
+            await anext(listener)
+
+    assert not caplog.records
+
+
 async def test_the_rest_listener_answers_promptly_for_unroutable_ids() -> None:
     built = risa.client_from_app(rest_app())
     listener = built._on_interaction(interaction_with("miru:settings:3"))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]

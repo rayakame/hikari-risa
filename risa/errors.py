@@ -28,6 +28,7 @@ __all__ = (
     "DuplicateHandlerError",
     "DuplicateViewError",
     "EphemeralOriginError",
+    "HandlerNotCallableError",
     "HandlerSignatureError",
     "LayoutError",
     "LockTimeoutError",
@@ -82,6 +83,16 @@ class SignatureMismatchError(RisaError):
         super().__init__(
             f"handler {handler_id!r} (version {version}) of view {view_name!r}: {detail};"
             " the signature changed in place - bump the handler version to retire the old components",
+        )
+
+
+class HandlerNotCallableError(RisaError):
+    def __init__(self, callback_name: str) -> None:
+        self.callback_name = callback_name
+        super().__init__(
+            f"handler {callback_name!r} is dispatched by risa, not called directly;"
+            " place it on a component with risa.bind(...), or delegate through the view"
+            " class's descriptor (Type.handler.func)",
         )
 
 

@@ -207,6 +207,7 @@ class Client(abc.ABC):
         if routed is None:
             return
         meta, handler, decoded = routed
+        state.adopted = True
 
         resolved_defer = handler.defer
         if resolved_defer is None:
@@ -257,6 +258,9 @@ class Client(abc.ABC):
                     interaction.id,
                     constants.INTERACTION_WINDOW,
                 )
+        finally:
+            if watchdog is not None:
+                watchdog.cancel()
 
     async def _auto_defer_task(self, ctx: context.ComponentContext, defer: view_.AutoDefer) -> None:
         await asyncio.sleep(self._auto_defer_delay)
@@ -489,6 +493,12 @@ class RestEnabledClient(Client):
             )
         yield
         await task
+        if state.adopted and not state.responded:
+            _LOGGER.debug(
+                "interaction %s was answered with 204 and no response was sent through risa;"
+                " Discord shows it as failed unless the handler answered it another way",
+                interaction.id,
+            )
 
 
 @typing.overload

@@ -176,24 +176,15 @@ def test_bind_packages_identity_with_an_empty_payload() -> None:
     assert not bound.payload
 
 
-async def test_the_bound_form_runs_the_handler_against_its_instance() -> None:
-    machine = Machine()
-    other = Machine()
+def test_a_handler_is_callable_so_bind_accepts_it_but_refuses_to_run() -> None:
+    bound = engine(Machine().press)
 
-    await engine(machine.press)(component_context())
+    assert callable(bound)
+    with pytest.raises(risa.HandlerNotCallableError) as exc_info:
+        bound()
 
-    assert machine.count == 1
-    assert other.count == 0
-
-
-async def test_the_bound_form_can_be_called_repeatedly() -> None:
-    machine = Machine()
-    press = engine(machine.press)
-
-    await press(component_context())
-    await press(component_context())
-
-    assert machine.count == 2
+    assert "risa.bind" in str(exc_info.value)
+    assert exc_info.value.callback_name.endswith("press")
 
 
 def test_the_bare_and_called_decorator_forms_are_equivalent() -> None:

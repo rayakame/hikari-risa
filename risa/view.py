@@ -74,11 +74,10 @@ class BoundHandler(msgspec.Struct, frozen=True):
 
 
 class BoundHandlerMethod:
-    __slots__ = ("_call", "_callback_name", "_handler_id", "_owner", "_signature", "_token", "_version")
+    __slots__ = ("_callback_name", "_handler_id", "_owner", "_signature", "_token", "_version")
 
     def __init__(
         self,
-        call: collections.abc.Callable[..., collections.abc.Awaitable[None]],
         *,
         handler_id: str,
         version: int,
@@ -87,7 +86,6 @@ class BoundHandlerMethod:
         callback_name: str,
         owner: type[View] | None,
     ) -> None:
-        self._call = call
         self._handler_id = handler_id
         self._version = version
         self._token = token
@@ -95,8 +93,8 @@ class BoundHandlerMethod:
         self._callback_name = callback_name
         self._owner = owner
 
-    def __call__(self, ctx: context.ComponentContext, /) -> collections.abc.Awaitable[None]:
-        return self._call(ctx)
+    def __call__(self, *_args: object, **_kwargs: object) -> typing.NoReturn:
+        raise errors.HandlerNotCallableError(self._callback_name)
 
     def bind(self, *args: object, **kwargs: object) -> BoundHandler:
         names = list(self._signature.converters)
@@ -215,7 +213,6 @@ class HandlerMethod[V: View, **P]:
         return typing.cast(
             "collections.abc.Callable[P, collections.abc.Awaitable[None]]",
             BoundHandlerMethod(
-                functools.partial(self._func, instance),
                 handler_id=self._handler_id,
                 version=self._version,
                 token=self._token,

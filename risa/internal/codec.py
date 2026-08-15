@@ -298,7 +298,10 @@ class HandlerSignature(msgspec.Struct, frozen=True):
 
 
 def _find_unresolvable_parameter(func: collections.abc.Callable[..., object], missing: str) -> str:
-    annotations: dict[str, object] = getattr(func, "__annotations__", {})
+    try:
+        annotations: dict[str, object] = getattr(func, "__annotations__", {})
+    except NameError:
+        return missing
     pattern = re.compile(rf"\b{re.escape(missing)}\b")
     for name, raw in annotations.items():
         if name != "return" and isinstance(raw, str) and pattern.search(raw):
