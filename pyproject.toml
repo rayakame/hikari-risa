@@ -55,7 +55,7 @@ pyright = [
     {include-group = "bot"},
 ]
 ruff = [
-    "ruff==0.16.3",
+    "ruff==0.16.4",
 ]
 slotscheck = [
     "slotscheck==0.20.1",
