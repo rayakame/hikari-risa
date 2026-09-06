@@ -58,7 +58,7 @@ ruff = [
     "ruff==0.16.4",
 ]
 slotscheck = [
-    "slotscheck==0.20.1",
+    "slotscheck==0.21.0",
 ]
 pytest = [
     "pytest==9.1.1",
