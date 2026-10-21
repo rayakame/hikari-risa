@@ -48,7 +48,7 @@ bot = [
     "python-dotenv>=1.2.2",
 ]
 nox = [
-    "nox[uv]==2026.8.17",
+    "nox[uv]==2026.10.20",
 ]
 pyright = [
     "pyright==1.1.414",
