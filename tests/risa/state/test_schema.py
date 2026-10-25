@@ -468,4 +468,10 @@ def test_a_struct_that_contains_itself_renders_without_recursing_forever() -> No
 
 def test_an_annotation_with_no_shape_to_render_is_rejected() -> None:
     with pytest.raises(ValueError, match="cannot describe"):
-        schema_.structural_type_id(typing.Literal["a", 1])
+        schema_.structural_type_id(typing.ClassVar[int])
+
+
+def test_literal_values_are_part_of_the_shape() -> None:
+    assert schema_.structural_type_id(typing.Literal["a", "b"]) == schema_.structural_type_id(typing.Literal["b", "a"])
+    assert schema_.structural_type_id(typing.Literal["a", "b"]) != schema_.structural_type_id(typing.Literal["a", "c"])
+    assert schema_.structural_type_id(typing.Literal[1]) != schema_.structural_type_id(typing.Literal["1"])

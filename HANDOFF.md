@@ -48,7 +48,7 @@ test cases; its internals are not a blueprint.
   `collections.abc.Sequence`; storing a tuple internally is fine.
 - Everything runs through uv/nox: `uv run --group nox nox` (all six sessions) or
   `-s ruff pyright pytest` while iterating; `uv run --group pytest pytest -q` for the
-  fast loop. pyright strict is the gate. **687 tests pass** in the working tree, all nox
+  fast loop. pyright strict is the gate. **688 tests pass** in the working tree, all nox
   sessions are green (405 tests at the branch head commit; everything from step 2 onward
   is not yet committed — `git status` shows the full extent).
 - Commits are authored solely by the repository owner: no co-author trailers, no
@@ -304,6 +304,11 @@ you delete one file and there are no call sites to unpick.
 - **A webhook followup does resolve a thinking defer** (live Discord, 2026-08-15). A review
   pass argued only a PATCH of `@original` clears the "Bot is thinking..." placeholder,
   which would have stranded a spinner after `respond()`. It does not; §8.2's table stands.
+- **`uv lock --upgrade` on 2026-10-25** took msgspec 0.21.1 → 0.22.0 and linkd 0.6.2 → 0.6.5
+  (the audit session had started failing on stale transitive pins). msgspec 0.22 now
+  describes mixed-type `Literal`s instead of raising, which exposed that `Literal` values
+  were never part of the schema fingerprint; `_render` now folds them in (`literal('a','b')`),
+  so retyping a `Literal` fails closed like any other retype.
 - **msgpack ints are bounded to 64 bits**, unlike the wire-args codec's arbitrary
   precision: a durable field holding a larger int raises `OverflowError` at render. A test
   records it; `StateSchema` should turn it into a real diagnostic.

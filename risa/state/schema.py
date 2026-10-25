@@ -220,9 +220,15 @@ def _render(info: msgspec.inspect.Type, open_structs: set[int]) -> str:  # ruff:
         return f"tuple({','.join(_render(item, open_structs) for item in info.item_types)})"
     if isinstance(info, msgspec.inspect.UnionType):
         return f"union({','.join(sorted(_render(item, open_structs) for item in info.types))})"
-    if isinstance(info, msgspec.inspect.EnumType):
-        return f"enum({','.join(sorted(str(member.value) for member in info.cls))})"
+    if isinstance(info, msgspec.inspect.EnumType | msgspec.inspect.LiteralType):
+        return f"{_kind(info)}({','.join(sorted(_members(info)))})"
     return _kind(info)
+
+
+def _members(info: msgspec.inspect.EnumType | msgspec.inspect.LiteralType) -> collections.abc.Iterable[str]:
+    if isinstance(info, msgspec.inspect.EnumType):
+        return (str(member.value) for member in info.cls)
+    return (repr(value) for value in info.values)
 
 
 def structural_type_id(annotation: object) -> str:
