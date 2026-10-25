@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+from risa import codecs as codecs
 from risa import di as di
 from risa import errors as errors
 from risa import state as state

@@ -27,6 +27,7 @@ import linkd
 import msgspec
 
 from risa import binding as binding_
+from risa import codecs
 from risa import errors
 from risa.internal import codec
 from risa.internal import registry
@@ -205,6 +206,11 @@ def _check_placement(view_name: str, *, state: placement_.StatePlacement, schema
             " to store; drop the argument, or drop the marker from the fields that should persist"
         )
         raise errors.ViewDeclarationError(view_name, reason)
+    try:
+        codecs.register(state.codec)
+    except ValueError as exc:
+        raise errors.ViewDeclarationError(view_name, str(exc)) from exc
+    codecs.ensure_available(state.codec)
 
 
 def register[T: View](

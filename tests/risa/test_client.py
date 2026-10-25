@@ -30,6 +30,7 @@ import linkd
 import pytest
 
 import risa
+from risa import codecs
 from risa import ui
 from risa.internal import codec
 from risa.internal import constants
@@ -743,7 +744,7 @@ async def test_unreadable_frames_fail_closed_with_a_warning(caplog: pytest.LogCa
 async def test_a_frame_count_outside_the_declared_range_fails_closed(caplog: pytest.LogCaptureFixture) -> None:
     built = wired_client()
     signature = WiredClicker.vote.signature
-    one_frame = codec.pack_frames([codec.StrConverter().encode("x")])
+    one_frame = codec.pack_frames([codecs.BASE85.encode(codec.StrConverter().encode("x"))])
     interaction = interaction_with(
         encoded_id_for(WiredClicker, handler=WiredClicker.vote.token, tail=signature.fingerprint + one_frame * 3),
     )
@@ -788,7 +789,7 @@ async def test_a_forged_empty_frame_is_not_a_zero(caplog: pytest.LogCaptureFixtu
 
 async def test_a_converter_that_raises_is_contained_as_unreadable(caplog: pytest.LogCaptureFixture) -> None:
     built = wired_client()
-    stale = codec.pack_frames([codec.IntConverter(int).encode(99)])
+    stale = codec.pack_frames([codecs.BASE85.encode(codec.IntConverter(int).encode(99))])
     interaction = interaction_with(
         encoded_id_for(
             WiredClicker, handler=WiredClicker.prickly.token, tail=WiredClicker.prickly.signature.fingerprint + stale
@@ -822,7 +823,7 @@ async def test_a_second_client_on_a_shared_manager_says_which_one_wins(
 
 async def test_a_deleted_enum_member_fails_closed_naming_the_parameter(caplog: pytest.LogCaptureFixture) -> None:
     built = wired_client()
-    stale = codec.pack_frames([codec.IntConverter(int).encode(99)])
+    stale = codec.pack_frames([codecs.BASE85.encode(codec.IntConverter(int).encode(99))])
     interaction = interaction_with(
         encoded_id_for(
             WiredClicker, handler=WiredClicker.pick.token, tail=WiredClicker.pick.signature.fingerprint + stale

@@ -27,8 +27,7 @@ import msgspec
 import pytest
 
 import risa
-from risa.internal import anchor
-from risa.internal import wire
+from risa.state import anchor
 from risa.state import schema as schema_
 
 if typing.TYPE_CHECKING:
@@ -360,18 +359,18 @@ def test_state_written_before_the_first_durable_field_still_decodes() -> None:
     empty = schema_of(AllProps).fingerprint
 
     assert schema_of(Grown).accepts(empty) is True
-    assert schema_of(Grown).unpack(empty, "") == ()
+    assert schema_of(Grown).unpack(empty, b"") == ()
 
 
 def test_an_empty_shape_carrying_a_payload_is_refused() -> None:
     empty = schema_of(AllProps).fingerprint
-    an_encoded_empty_array = wire.pack_bytes(msgspec.msgpack.encode(()))
+    an_encoded_empty_array = msgspec.msgpack.encode(())
 
     assert schema_of(AllProps).unpack(empty, an_encoded_empty_array) is None
 
 
-@pytest.mark.parametrize("raw", ["", "!!!!!", "not base85 at all", "z"])
-def test_a_forged_payload_decodes_to_nothing(raw: str) -> None:
+@pytest.mark.parametrize("raw", [b"", b"\x00\x00\x00\x00\x00", b"not msgpack at all", b"\xc1"])
+def test_a_forged_payload_decodes_to_nothing(raw: bytes) -> None:
     schema = schema_of(Pair)
 
     assert schema.unpack(schema.fingerprint, raw) is None

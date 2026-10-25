@@ -33,6 +33,7 @@ if typing.TYPE_CHECKING:
     from hikari import snowflakes
     from hikari.api import special_endpoints
 
+    from risa import codecs
     from risa import view as view_
     from risa.internal import registry
     from risa.ui.nodes import Layout
@@ -45,12 +46,19 @@ __all__ = (
 
 
 class BuildContext:
-    __slots__ = ("_index", "cls", "cookie", "tokens")
+    __slots__ = ("_index", "cls", "codec", "cookie", "tokens")
 
-    def __init__(self, cookie: str, tokens: collections.abc.Set[str], cls: type[view_.View]) -> None:
+    def __init__(
+        self,
+        cookie: str,
+        tokens: collections.abc.Set[str],
+        cls: type[view_.View],
+        wire_codec: codecs.Codec,
+    ) -> None:
         self.cookie = cookie
         self.tokens = tokens
         self.cls = cls
+        self.codec = wire_codec
         self._index = 0
 
     def next_index(self) -> int:
@@ -74,7 +82,8 @@ class BuildContext:
             handler=binding.token,
             fragment_index=self.next_index(),
             fragment="",
-            tail=binding.payload,
+            tail=self._tail(binding),
+            codec=self.codec,
         )
         try:
             return custom_id.encode()
@@ -82,9 +91,24 @@ class BuildContext:
             culprit = f"{self.cls.__name__} at {path}, handler {binding.handler_id!r}"
             raise errors.CustomIdOverflowError(culprit, exc.length) from exc
 
+    def _tail(self, binding: binding_.Binding) -> str:
+        if not binding.fingerprint:
+            return ""
+        parts: list[str] = []
+        for frame in binding.frames:
+            text = self.codec.encode(frame.data)
+            if len(text) > codec.MAX_FRAME_LENGTH:
+                reason = (
+                    f"encodes to {len(text)} characters with codec {self.codec.name!r},"
+                    f" which exceeds the {codec.MAX_FRAME_LENGTH}-character frame limit"
+                )
+                raise errors.ArgBindError(binding.func_name, frame.name, reason)
+            parts.append(text)
+        return binding.fingerprint + codec.pack_frames(parts)
+
 
 def build(layout: Layout, meta: registry.ViewMeta) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
-    ctx = BuildContext(cookie=meta.cookie, tokens=meta.handlers.keys(), cls=meta.cls)
+    ctx = BuildContext(cookie=meta.cookie, tokens=meta.handlers.keys(), cls=meta.cls, wire_codec=meta.state.codec)
     if isinstance(layout, Component):
         layout = (layout,)
     return [node.build(ctx, f"{node.name}[{i}]") for i, node in enumerate(layout)]

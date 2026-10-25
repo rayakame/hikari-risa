@@ -23,6 +23,8 @@ import typing
 
 import msgspec
 
+from risa import codecs
+
 __all__ = (
     "DEFAULT_PLACEMENT",
     "DEFAULT_STORE",
@@ -36,12 +38,17 @@ DEFAULT_STORE: typing.Final[str] = "default"
 type StatePlacement = InMessage | InStore
 
 
-class InMessage(msgspec.Struct, frozen=True): ...
+class InMessage(msgspec.Struct, frozen=True):
+    codec: codecs.Codec = codecs.BASE85
 
 
 class InStore(msgspec.Struct, frozen=True):
     ttl: float | None
     store: str = DEFAULT_STORE
+
+    @property
+    def codec(self) -> codecs.Codec:
+        return codecs.BASE85
 
 
 DEFAULT_PLACEMENT: typing.Final[InMessage] = InMessage()

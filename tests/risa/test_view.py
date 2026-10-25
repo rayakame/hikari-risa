@@ -260,9 +260,18 @@ def test_a_pinned_id_keeps_the_token_across_a_rename() -> None:
 
 def test_bind_packages_identity_with_an_empty_payload() -> None:
     bound = engine(Machine().press).bind()
-    expected = risa.Binding(handler_id="press", version=1, token=Machine.press.token, payload="", owner=Machine)
+    expected = risa.Binding(
+        handler_id="press",
+        version=1,
+        token=Machine.press.token,
+        fingerprint="",
+        frames=(),
+        func_name=Machine.press.func.__qualname__,
+        owner=Machine,
+    )
     assert bound == expected
-    assert not bound.payload
+    assert not bound.fingerprint
+    assert not bound.frames
 
 
 def test_a_handler_is_callable_so_bind_accepts_it_but_refuses_to_run() -> None:
@@ -433,10 +442,12 @@ def test_bind_round_trips_wire_args_through_the_codec() -> None:
     bound = engine(Wired().pick).bind("Red", 5)
 
     assert bound.token == Wired.pick.token
-    assert bound.payload[: codec.FINGERPRINT_LENGTH] == signature.fingerprint
-    frames = codec.unpack_frames(bound.payload[codec.FINGERPRINT_LENGTH :])
-    assert frames is not None
-    decoded = [converter.decode(frame) for converter, frame in zip(signature.converters.values(), frames, strict=True)]
+    assert bound.fingerprint == signature.fingerprint
+    assert [frame.name for frame in bound.frames] == ["option", "count"]
+    decoded = [
+        converter.decode(frame.data)
+        for converter, frame in zip(signature.converters.values(), bound.frames, strict=True)
+    ]
     assert decoded == ["Red", 5]
 
 
@@ -445,22 +456,20 @@ def test_bind_normalizes_keywords_to_positions() -> None:
 
 
 def test_an_omitted_trailing_default_stays_off_the_wire() -> None:
-    frames = codec.unpack_frames(engine(Wired().pick).bind("Red").payload[codec.FINGERPRINT_LENGTH :])
-
-    assert frames is not None
-    assert len(frames) == 1
+    assert len(engine(Wired().pick).bind("Red").frames) == 1
 
 
 def test_a_wire_handler_bound_with_nothing_still_carries_the_fingerprint() -> None:
-    assert engine(Wired().page).bind().payload == Wired.page.signature.fingerprint
+    bound = engine(Wired().page).bind()
+
+    assert bound.fingerprint == Wired.page.signature.fingerprint
+    assert not bound.frames
 
 
 def test_a_snowflake_survives_binding_as_a_snowflake() -> None:
     bound = engine(Wired().aim).bind(hikari.Snowflake(1364800923047857855))
 
-    frames = codec.unpack_frames(bound.payload[codec.FINGERPRINT_LENGTH :])
-    assert frames is not None
-    decoded = next(iter(Wired.aim.signature.converters.values())).decode(frames[0])
+    decoded = next(iter(Wired.aim.signature.converters.values())).decode(bound.frames[0].data)
     assert isinstance(decoded, hikari.Snowflake)
     assert decoded == 1364800923047857855
 
@@ -513,12 +522,15 @@ def test_a_wrong_value_type_fails_at_bind_time() -> None:
     assert "expected a str" in str(exc_info.value)
 
 
-def test_a_value_too_wide_for_one_frame_names_the_limit() -> None:
+def test_a_value_too_wide_for_one_frame_names_the_limit_at_render() -> None:
+    layout = risa.ui.Row(risa.ui.Button(risa.bind(Wired().pick, "x" * 200)))
+
     with pytest.raises(risa.ArgBindError) as exc_info:
-        engine(Wired().pick).bind("x" * 200)
+        risa.ui.build(layout, registry.require_meta(Wired))
 
     assert exc_info.value.parameter == "option"
     assert "frame limit" in str(exc_info.value)
+    assert "base85" in str(exc_info.value)
 
 
 def test_binding_values_onto_a_zero_arg_handler_overflows() -> None:

@@ -24,6 +24,7 @@ from risa.internal import constants
 __all__ = (
     "AlreadyRespondedError",
     "ArgBindError",
+    "CodecUnavailableError",
     "CustomIdOverflowError",
     "DuplicateHandlerError",
     "DuplicateViewError",
@@ -110,15 +111,28 @@ class EphemeralOriginError(RisaError):
 
 
 class StateOverflowError(RisaError):
-    def __init__(self, view_name: str, needed: int, available: int, slots: int) -> None:
+    def __init__(self, view_name: str, *, needed: int, available: int, slots: int, codec_name: str) -> None:
         self.view_name = view_name
         self.needed = needed
         self.available = available
         self.slots = slots
+        self.codec_name = codec_name
         super().__init__(
-            f"view {view_name!r} needs {needed} characters of durable state, but its {slots}"
-            f" interactive component(s) can only carry {available}; add components, shorten the"
-            " fields, or give the view state=risa.InStore(...)",
+            f"view {view_name!r} needs {needed} bytes of durable state, but with codec {codec_name!r} its"
+            f" {slots} interactive component(s) can only carry {available}; add components, shorten the"
+            " fields, mark per-dispatch fields risa.Prop[...], pick a denser codec"
+            " (state=risa.InMessage(codec=risa.codecs.BASE32768) with hikari-risa[radixly]), or give the"
+            " view state=risa.InStore(...)",
+        )
+
+
+class CodecUnavailableError(RisaError):
+    def __init__(self, codec_name: str, extra: str) -> None:
+        self.codec_name = codec_name
+        self.extra = extra
+        super().__init__(
+            f"codec {codec_name!r} needs the optional dependency {extra!r}, which is not installed;"
+            f" install it with: pip install hikari-risa[{extra}]",
         )
 
 

@@ -25,8 +25,8 @@ import hikari
 import msgspec
 
 from risa import errors
-from risa.internal import anchor
 from risa.internal import wire
+from risa.state import anchor
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -136,14 +136,13 @@ class StateSchema:
         for field in self._fields:
             setattr(view, field.name, getattr(source, field.name))
 
-    def pack(self, values: collections.abc.Sequence[object]) -> str:
+    def pack(self, values: collections.abc.Sequence[object]) -> bytes:
         if not self._fields:
-            return ""
+            return b""
         try:
-            data = self._encoder.encode(tuple(values))
+            return self._encoder.encode(tuple(values))
         except (OverflowError, TypeError) as exc:
             raise self._encode_error(values, exc) from exc
-        return wire.pack_bytes(data)
 
     def _encode_error(
         self,
@@ -157,17 +156,14 @@ class StateSchema:
                 return errors.StateEncodeError(self._view_name, name, str(exc))
         return errors.StateEncodeError(self._view_name, "?", str(fallback))
 
-    def unpack(self, fingerprint: str, raw: str) -> collections.abc.Sequence[object] | None:
+    def unpack(self, fingerprint: str, raw: bytes) -> collections.abc.Sequence[object] | None:
         prefix = self._prefixes.get(fingerprint)
         if prefix is None or not prefix.tail_is_defaulted:
             return None
         if prefix.arity == 0:
             return () if not raw else None
-        data = wire.unpack_bytes(raw)
-        if data is None:
-            return None
         try:
-            return prefix.decoder.decode(data)
+            return prefix.decoder.decode(raw)
         except msgspec.DecodeError:
             return None
 

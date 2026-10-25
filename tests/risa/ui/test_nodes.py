@@ -7,6 +7,7 @@ import hikari
 import pytest
 
 import risa
+from risa import codecs
 from risa import ui
 from risa.internal import codec
 from risa.internal import constants
@@ -272,7 +273,9 @@ def test_an_inherited_handler_builds_on_the_subclass_view() -> None:
 
 def test_a_hand_built_bound_handler_falls_back_to_the_token_check() -> None:
     unrecognised = "zz"
-    unknown = risa.Binding(handler_id="ghost", version=1, token=unrecognised, payload="")
+    unknown = risa.Binding(
+        handler_id="ghost", version=1, token=unrecognised, fingerprint="", frames=(), func_name="ghost"
+    )
 
     with pytest.raises(risa.LayoutError) as exc_info:
         ui.build(ui.Row(ui.Button(unknown)), meta_of(Panel))
@@ -281,7 +284,14 @@ def test_a_hand_built_bound_handler_falls_back_to_the_token_check() -> None:
 
 
 def test_an_oversized_payload_overflows_the_custom_id() -> None:
-    oversized = risa.Binding(handler_id="press", version=1, token=Panel.press.token, payload="x" * 90)
+    oversized = risa.Binding(
+        handler_id="press",
+        version=1,
+        token=Panel.press.token,
+        fingerprint="zz",
+        frames=(risa.Frame("a", b"x" * 60), risa.Frame("b", b"x" * 60)),
+        func_name="press",
+    )
 
     with pytest.raises(risa.CustomIdOverflowError):
         ui.build(ui.Row(ui.Button(oversized)), meta_of(Panel))
@@ -300,7 +310,29 @@ def test_a_partial_bakes_its_args_into_the_custom_id_tail() -> None:
     (built,) = ui.build(ui.Row(ui.Button(risa.bind(view.vote, "Red", 5), label="Red")), meta_of(WiredPanel))
     (button,) = payload_of(built)["components"]
 
-    assert parsed(button["custom_id"]).tail == engine(view.vote).bind("Red", 5).payload
+    bound = engine(view.vote).bind("Red", 5)
+    expected = bound.fingerprint + codec.pack_frames([codecs.BASE85.encode(frame.data) for frame in bound.frames])
+    assert parsed(button["custom_id"]).tail == expected
+
+
+def test_a_dense_view_writes_its_tag_and_its_args_in_its_codec() -> None:
+    @risa.register(name="test-nodes-dense", version=1, state=risa.InMessage(codec=codecs.BASE32768))
+    class Dense(risa.View):
+        @risa.handler
+        async def pick(self, _ctx: risa.ComponentContext, option: str) -> None:
+            pass
+
+    view = Dense()
+    (built,) = ui.build(ui.Row(ui.Button(risa.bind(view.pick, "Red" * 10), label="x")), meta_of(Dense))
+    (button,) = payload_of(built)["components"]
+
+    custom_id = parsed(button["custom_id"])
+    assert button["custom_id"][1] == codecs.BASE32768.tag
+    assert custom_id.codec is codecs.BASE32768
+    frames = codec.unpack_frames(custom_id.tail[codec.FINGERPRINT_LENGTH :])
+    assert frames is not None
+    assert codecs.BASE32768.decode(frames[0]) == b"Red" * 10
+    assert len(frames[0]) < len(codecs.BASE85.encode(b"Red" * 10))
 
 
 def test_nested_partials_flatten_into_one_binding() -> None:

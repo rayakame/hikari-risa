@@ -164,22 +164,25 @@ risa/
   internal/
     wire.py         the printable alphabet every id is written in      [exists]
     codec.py        custom_id layout: header, fragment slot, args, fingerprints  [exists; args planned]
-    anchor.py       anchor dialects, splitting and rejoining across components   [planned]
     constants.py    Discord limits, stamped attribute names    [exists]
     registry.py     ViewMeta, cookie -> view registries        [exists]
     reader.py       message-component walk for chunk reassembly [planned]
   ui/
     nodes.py        full V2 node set + the build pass          [exists]
     build.py        two-phase flatten + emit                   [planned; the build pass lives in nodes.py until then]
-  state/                                                       [planned, all of it]
-    store.py        Store protocol, MemoryStore
-    schema.py       StateSchema: durable fields, packing, prefix fingerprints
-    placement.py    InMessage / InStore policy objects
-    backend.py      StateBackend/StateSession protocols
-    message.py      MessageSession + version cache
-    stored.py       StoredSession
-    stateless.py    the degenerate placement: nothing to keep
-    serde.py        store-entry envelope {v,n,f,d}
+  state/            risa's own state machinery; users never implement against it
+    schema.py       StateSchema: durable fields, packing, prefix fingerprints  [exists]
+    anchor.py       anchor dialects, splitting and rejoining across components   [exists]
+    placement.py    InMessage / InStore policy objects         [exists]
+    serde.py        store-entry envelope {v,n,f,d}             [planned]
+    backend.py      StateBackend/StateSession                  [planned]
+    stateless.py    the degenerate placement: nothing to keep  [planned]
+    message.py      MessageSession + version cache             [planned]
+    stored.py       StoredSession                              [planned]
+  store/            the storage extension point: what implementers target and
+                    the implementations risa ships; imports nothing from state/
+    protocol.py     Store, VersionedEntry, DEFAULT_LOCK_TIMEOUT [exists]
+    memory.py       MemoryStore                                [in progress]
     redis.py        RedisStore                                 [extra: redis; roadmap]
     testing.py      verify_store conformance kit               [roadmap]
 ```
@@ -276,12 +279,18 @@ that trades away the library's static guarantees to save a splat is a bad trade.
 ### 6.1 Wire format **[decided]**
 
 ```text
-┌─────┬──────────┬───────────┬─────┬──────────┬──────────┬──────────────┐
-│ ver │  cookie  │  handler  │ idx │ frag_len │ fragment │  sig ‖ args  │
-│  1  │    6     │     2     │  1  │    1     │  0..n    │   the rest   │
-└─────┴──────────┴───────────┴─────┴──────────┴──────────┴──────────────┘
+┌─────┬───────┬──────────┬───────────┬─────┬──────────┬──────────┬──────────────┐
+│ ver │ codec │  cookie  │  handler  │ idx │ frag_len │ fragment │  sig ‖ args  │
+│  1  │   1   │    6     │     2     │  1  │    1     │  0..n    │   the rest   │
+└─────┴───────┴──────────┴───────────┴─────┴──────────┴──────────┴──────────────┘
 
-ver       codec version (this format IS v1; nothing older ever shipped)
+ver       layout version (this layout IS v1; nothing older ever shipped)
+codec     the text codec every byte field of THIS component is written in:
+          `a` base85 (the default), `w` base32768, `u` uro14 — the dense two need
+          the optional hikari-risa[radixly] extra; a custom codec picks a free
+          letter. Read by tag, written by the view's InMessage(codec=...), so a
+          codec switch keeps live components readable. Kept apart from `ver`
+          on purpose: a layout bump must not multiply the codec letters.
 cookie    b64(blake2s(view_name + ":" + schema_version, digest_size=4))[:6]
 handler   b64(blake2s(handler_id + ":" + handler_version, digest_size=2))[:2]
 fragment  this component's slice of the view's ANCHOR (below); frag_len frames
@@ -289,25 +298,41 @@ fragment  this component's slice of the view's ANCHOR (below); frag_len frames
 sig+args  2-char signature fingerprint + length-prefixed wire args, exactly
           when the handler has wire parameters (§6.3/§6.4)
 
-anchor    InMessage: [tag:1][total:2][schema-fp:3][seq:3][msgpack durable fields],
-          chunked across the interactive leaves in tree order; reassembled
-          from interaction.message.components on every click
-          InStore:   [tag:1][96-bit key], replicated whole into every component
+anchor    InMessage: [tag:1][total:2][schema-fp:3][seq:3][msgpack durable fields]
+          as BYTES, carved across the interactive leaves in tree order with every
+          slice written in the component's codec; reassembled from
+          interaction.message.components on every click
+          InStore:   [tag:1][96-bit key] (13 bytes), replicated whole into every
+          component
 ```
 
-**Every character risa writes is printable ASCII** (`risa/internal/wire.py`): base85
-for packed bytes, a 92-symbol digit alphabet for lengths, indices and counters,
-neither containing `"` or `\`, both stable under every normalisation form.
+**By default every character risa writes is printable ASCII** (`risa/internal/wire.py`,
+`risa/codecs.py`): base85 for packed bytes, a 92-symbol digit alphabet for lengths,
+indices and counters, neither containing `"` or `\`, both stable under every
+normalisation form. The rule is *bytes go through the component's codec, small numbers
+are wire digits*: fragments, string arguments and the store key are codec text; the
+header, frame lengths, `idx`, the fingerprints and bools are digits.
 
 The limit is **100 Unicode code points** (§3), so this is a spend, not a necessity:
 latin-1 packing would buy 25% more and a CJK digit alphabet over twice as much. It
 is spent for three reasons — `custom_id`s must stay readable in logs, tracebacks and
 Discord's own error bodies; one character stays one byte in the request body, so a
-forty-component message does not balloon under JSON escaping; and the read-back path
-risa depends on most (`interaction.message.components`) has not been measured, while
-ASCII is correct regardless of the answer. A denser encoding stays open as an opt-in:
-an unrecognised anchor tag already fails closed, so one can be added later without
-disturbing live components.
+forty-component message does not balloon under JSON escaping; and, at the time of the
+decision, the read-back path risa depends on most (`interaction.message.components`)
+had not been measured. **Measured 2026-10-25** (`test_bots/dense_roundtrip.py`): a
+100-code-point `custom_id` of an 11-char ASCII header plus 89 characters of
+radixly `base32768`, `uro14` or `braille` comes back byte-identical on all three
+paths — the `create_message` response, `fetch_message`, and
+`interaction.message.components` / `interaction.custom_id` on a click — and decodes to
+the original bytes. A denser encoding is therefore a pure opt-in with no correctness
+risk. **Built the same day**: `risa.codecs` (`Codec`, `BASE85`, `BASE32768`, `URO14`,
+`register`, `by_tag`), the `codec` header character, `InMessage(codec=...)`, the
+`hikari-risa[radixly]` extra, `CodecUnavailableError` at view declaration when the extra
+is missing and an ERROR log naming the install line when a click arrives for a codec
+that is not installed. Capacity per 88-char slot: base85 70 bytes, uro14 154,
+base32768 165. The alternative of identifying the codec only by the view's
+configuration was measured and rejected: base32768's alphabet contains almost all of
+uro14's block, so 500 of 500 uro14 texts decode "successfully" through base32768.
 
 The total length lives inside the message dialect rather than in chunk 0's frame,
 so `carve`/`gather` treat the anchor as opaque and never inspect a tag. Reassembly
@@ -421,9 +446,10 @@ including ``X | None`` -- have no converter and are therefore DI, not wire; use 
 default rather than ``None``.
 
 **Framing. [decided — as built]** Each arg is length-prefixed (one wire digit, so ≤91
-chars of data per frame) and encoded by its converter; ints are minimal-width
-little-endian bytes rendered in the base85 wire alphabet (§6.1 spends the density on
-printability). Binding normalises keywords to positions, requires bound args to cover a
+chars of data per frame); converters produce bytes (ints minimal-width little-endian,
+strings UTF-8, bools one byte) and the build pass renders each frame in the
+component's codec (§6.1), so dense views get dense arguments for free. A frame that
+does not fit raises `ArgBindError` at render, naming the parameter and the codec. Binding normalises keywords to positions, requires bound args to cover a
 contiguous prefix of the wire parameters, lets trailing defaulted parameters be omitted
 (dispatch then lets the *current* Python defaults apply), and encodes eagerly, so a bad
 value fails at the ``render()`` call site rather than at click time. Handlers with no
@@ -506,15 +532,30 @@ class Poll(risa.View): ...
 class TodoList(risa.View): ...
 
 client = risa.client_from_app(bot, stores={"redis": MyRedisStore(...)})
+# single-store bots skip the dict and the name: client_from_app(bot, store=MyRedisStore(...))
 ```
 
 Placement is configuration, not taxonomy — one `View` base, one handler semantics, one
 `render()`/`rerender()` contract under both. The policy objects carry exactly their own
 knobs: `ttl` (required) exists only on `InStore`, so invalid combinations are
-unrepresentable rather than validated. Store *instances* are wired once, by name, on the
-client; a view naming an unconfigured store fails at `add_view()` — a boot error, never a
-dead click. `InStore` on the default `MemoryStore` warns loudly at startup: it silently
-forfeits the restart promise, and under multi-process REST it is *worse* than `InMessage`.
+unrepresentable rather than validated. Store *instances* are wired once on the client
+**[decided — revised]**: `store=` fills the unnamed `"default"` slot, `stores={name:
+instance}` adds named ones, and supplying `"default"` both ways is a construction-time
+error. A view naming an unconfigured store — the default slot included — fails at
+`add_view()`: a boot error, never a dead click. Nothing is auto-created (an earlier draft
+auto-supplied `MemoryStore` and only warned); the missing-default error names the one-line
+fix, `store=risa.MemoryStore()` for development. `InStore` on an explicitly wired
+`MemoryStore` still warns loudly at startup: it silently forfeits the restart promise, and
+under multi-process REST it is *worse* than `InMessage`.
+
+A client-level **default placement** was considered and refused **[decided]**: `ViewMeta`
+is one frozen object shared by the global registry and every client registry, so
+client-resolved placement would let one cookie render under two anchor tags — dead clicks
+with no boot error to point at — and a blanket `InStore` default has no coherent
+semantics because `ttl` is deliberately required and has no library-suppliable value.
+The project-wide default is a two-line user-land wrapper around `@risa.register`
+(a plain function forwarding `name`/`version` and fixing `state=`), which pyright checks
+fully; the docs teach that recipe.
 
 The decision rule the docs lead with: **bounded and world-readable → default; unbounded,
 expirable, or multi-process REST → `InStore`.** (Rails' cookie-store-vs-Redis-sessions is
@@ -636,17 +677,24 @@ Changes from the original protocol, all verdicts of the lock investigation:
   lose exclusivity under a stalled holder, which is why the lock is never the correctness
   story: every commit goes through `put_if_version`.
 - **`StoreUnavailableError`** joins the contract: an outage must not masquerade as expiry
-  in `on_state_missing`. Lost-race and entry-expired need opposite dispositions and must
-  be distinguishable at the `put_if_version` boundary.
+  in `on_state_missing`. Lost-race and entry-expired need opposite dispositions;
+  `put_if_version` stays `bool` **[decided — revised]** and `StoredSession` distinguishes
+  them by re-reading after a `False` (`None` → gone, anything else → lost the race) — a
+  three-state return was rejected because it forces every third-party store to make that
+  distinction atomically (a Lua script in Redis, not a `WATCH`/`MULTI`).
 - Store entries carry the envelope `{v, n, f, d}` — schema version, view name, durable-
   field fingerprint, data — so rename/remove/retype without a version bump fails closed
   identically on both placements, entries survive store migrations, and the future
-  `@risa.migration` hook has something dated to decode. Keys are namespaced
-  `risa:<fmt>:<token>`.
-- `MemoryStore` (OrderedDict + LRU + per-key asyncio locks) stays the zero-config default;
-  `RedisStore` plus a `risa.state.testing.verify_store` conformance kit are 1.0 roadmap —
-  the protocol is sharp to implement (leases, atomic put+ttl, CAS races), and handing it
-  to users without a test harness would be negligent.
+  `@risa.migration` hook has something dated to decode. Keys are namespaced by the
+  *backend*, not the anchor **[decided — revised]**: the anchor holds the bare 96-bit
+  token (16 chars, replicated per component), and `StoredBackend` prefixes
+  `risa:{app_id}:1:` on the way to the store, so the namespace costs no custom_id
+  capacity and cluster hash-tagging stays a store-side concern.
+- `MemoryStore` (OrderedDict + LRU + per-key asyncio locks) is the zero-infrastructure
+  development store, wired explicitly (`store=risa.MemoryStore()`) and never auto-created
+  **[decided — revised]** — see §7.1; `RedisStore` plus a `risa.store.testing.verify_store`
+  conformance kit are 1.0 roadmap — the protocol is sharp to implement (leases, atomic
+  put+ttl, CAS races), and handing it to users without a test harness would be negligent.
 
 ### 7.6 Anchors, keys, and schema evolution **[decided]**
 
@@ -655,7 +703,8 @@ Changes from the original protocol, all verdicts of the lock investigation:
   capacity). Custom_ids are therefore *stable across rerenders* — an in-flight click is
   never invalidated. A failed send leaks one entry; TTL reaps it; no two-phase commit.
 - `InMessage` blobs: `[tag:1][total:2][schema-fp:3][seq:3][msgpack positional array of
-  durable fields]`, chunked across the interactive leaves. No `{v,n}` envelope — the cookie
+  durable fields]` as bytes, carved across the interactive leaves and written slice by
+  slice in the component's codec (§6.1). No `{v,n}` envelope — the cookie
   already pins name and schema version, and every char is capacity. `total` is the anchor's
   own length: reassembly checks contiguity, and `total` is what catches a message whose
   *trailing* components were removed, where contiguity alone would hand msgpack a short but
@@ -1084,14 +1133,14 @@ be rebuilt against this design, not copied.
    invariants audit (CAS loss answers the interaction; `edit(layout)` re-embeds or raises;
    watchdog vs conditionally-modal handlers), deletion of the store-era dispatch. Also
    in this step: a third `StatelessBackend` so nothing above branches on whether a view has
-   state; named stores on the client (`stores={...}`) validated at `add_view`; and
+   state; stores on the client (`store=` for the default slot, `stores={...}` for named ones) validated at `add_view`; and
    `anchor.distribute`, which parks the components an anchor does not reach on one shared
    index rather than counting past it.
 5. **`modal.py`** — §9 as decided.
 
 ### 1.0 roadmap, after the pivot
 
-- **`RedisStore`** (`[redis]` extra) + **`risa.state.testing.verify_store`** conformance
+- **`RedisStore`** (`[redis]` extra) + **`risa.store.testing.verify_store`** conformance
   kit — the protocol is sharp to implement; shipping it without a harness is negligent.
 - Docs: the placement 2×2 (§10), the capacity/introspection story, the world-readable
   warning, a first stateful tutorial example whose state *grows*.

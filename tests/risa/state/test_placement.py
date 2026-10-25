@@ -22,6 +22,7 @@ from __future__ import annotations
 import pytest
 
 import risa
+from risa import codecs
 from risa.state import placement
 
 
@@ -66,3 +67,15 @@ def test_two_placements_of_the_same_shape_are_equal() -> None:
     assert placement.InMessage() == placement.InMessage()
     assert placement.InStore(ttl=60) == placement.InStore(ttl=60)
     assert placement.InStore(ttl=60) != placement.InStore(ttl=30)
+
+
+def test_a_message_placement_defaults_to_the_readable_codec() -> None:
+    assert placement.InMessage().codec is codecs.BASE85
+
+
+def test_a_message_placement_can_pick_a_denser_codec() -> None:
+    assert placement.InMessage(codec=codecs.BASE32768).codec is codecs.BASE32768
+
+
+def test_a_store_placement_always_writes_the_readable_codec() -> None:
+    assert placement.InStore(ttl=60).codec is codecs.BASE85
