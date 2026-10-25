@@ -7,13 +7,69 @@ evening's decisions). `DESIGN.md` is the authority on the target; this file is o
 `start-implementation` branch as a DX reference — read it for ideas, error wording and
 test cases; its internals are not a blueprint.
 
+## Resume here (written 2026-10-25, end of session)
+
+Everything below this block is still accurate; this is the short path back in.
+
+**Where the code stands.** Branch `anchor-codec`, four commits ahead of `main`, working tree
+clean, all seven nox sessions green, 688 tests. The last three commits landed today:
+`57e52f2` (schema, placements, `load()`, store package, serde, backend skeleton — the August
+work), `3a9ad47` (anchor moved to `state/` and rebuilt on bytes, the codec character in the
+header, `risa.codecs`, the `hikari-risa[radixly]` extra), `fc29e35` (lockfile refresh,
+`Literal` values in the schema fingerprint). Still deliberately not a PR.
+
+**How we work.** Claude writes the code; the maintainer decides design and DX and wants to
+understand every piece. Before building a step: present the design and the snippet a bot
+author would write, let the maintainer choose, then implement, run `uv run --group nox nox`,
+and explain the result at concept level. No docstrings or comments until the final pass.
+`collections.abc.Sequence`, never `tuple`, in annotations. Never commit, stage or push
+without being asked; commits carry no attribution of any kind.
+
+**Three pages the maintainer reads alongside this file** (private claude.ai artifacts, open
+them with the Artifact tool's `read` action — they belong to the maintainer's account):
+
+- Lagebild, the whole project on one page: https://claude.ai/artifact/FbUj2sWhVdETvsgAcj6YTN
+- custom_id anatomy and the codec decision, with real ids: https://claude.ai/artifact/AXPH1ZRr74yQEjWBGDRPb7
+- Step 3, the sessions, with the open decisions: https://claude.ai/artifact/BzHWjegiwLVZJcbPsS2W3X
+
+**The next step is step 3, the sessions** — the concrete classes under the all-abstract
+`state/backend.py`: `MessageBackend`/`MessageSession` (`state/message.py`),
+`StoredBackend`/`StoredSession` (`state/stored.py`), the message-component reader
+(`internal/reader.py`), `View.on_state_missing` wired like `on_outdated`, and `store=` /
+`stores={}` on the client. Build order: reader → message session → stored session against
+`MemoryStore` → hooks and client. Step 4 (two-phase build, dispatch rewire) comes after.
+
+**Six decisions the maintainer has NOT yet taken** (recommendation first; ask before building):
+
+1. Context before hydration: build `ComponentContext` without a view, arm the watchdog, open
+   the session, attach the hydrated view afterwards; `rerender()` without a view raises.
+   The alternative (hydrate before arming) contradicts §8.1.
+2. A lost CAS inside `rerender()`: converge per §7.3 (adopt the winner onto `self`, render
+   the winner, WARNING) rather than raising `StateConflictError`.
+3. Store key namespace: `risa:1:<token>` plus an optional `key_prefix=` on the client,
+   instead of §7.5's `risa:{app_id}:1:`, because the first send has no interaction to take
+   the app id from. Needs one sentence in §7.5 if accepted.
+4. No `StatelessBackend`: an empty schema writes no anchor at all (not an empty 9-byte
+   header) and the message session default-constructs the view. Needs one sentence in §15.
+5. `on_state_missing` default: empty plus WARNING, exactly like `on_outdated`.
+6. The reader only gathers fragments from components carrying the clicked component's
+   cookie; other views and foreign handlers in the same message are skipped.
+
+**Also pending, small:** record the modal field decision in DESIGN §9 (bare fields are the
+default, `Annotated[..., risa.TextInput(...)]` only for constraints, a `risa.Paragraph`
+alias for the multi-line case) — agreed on 2026-10-25, not yet written down there.
+
+**New machine checklist, in addition to the section below:** `ssh-add ~/.ssh/github` before
+the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"` high in
+`~/.claude/settings.json` — the default of 30 days is what deleted the August transcripts.
+
 ## Branch situation
 
 - **`main`** carries six merged milestones: the foundation (#13), typed wire args and
   the dispatch surface (#15), `on_outdated` (#17), the structural cleanup (#18),
   slotscheck (#19), and the CI checkout hardening (#20, #21).
-- **`anchor-codec`** is the current working branch: one commit, `Add the anchor codec`,
-  pushed. **Deliberately not a PR yet** — the maintainer wants more of the state pivot
+- **`anchor-codec`** is the current working branch: four commits (see "Resume here"), the
+  first of them pushed. **Deliberately not a PR yet** — the maintainer wants more of the state pivot
   in before opening one. Keep landing pivot steps on this branch.
 - Branches are squash-merged, so a merged branch is never an ancestor of `main`: delete
   local copies with `git branch -D`, never `-d`, and never branch from a merged one.
