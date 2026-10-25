@@ -11,6 +11,8 @@ from risa import ui
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
+from risa.state import placement
+from risa.state import schema as schema_
 
 
 class Canvas(risa.View):
@@ -49,7 +51,13 @@ class WiredPanel(risa.View):
         pass
 
 
-_META = registry.ViewMeta(cls=Canvas, name="test-nodes", version=1)
+_META = registry.ViewMeta(
+    cls=Canvas,
+    name="test-nodes",
+    version=1,
+    schema=schema_.StateSchema.of(Canvas, view_name="test-nodes"),
+    state=placement.DEFAULT_PLACEMENT,
+)
 
 
 def meta_of(cls: type[risa.View]) -> registry.ViewMeta:

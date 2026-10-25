@@ -5,6 +5,8 @@ import pytest
 import risa
 from risa.internal import codec
 from risa.internal import registry
+from risa.state import placement
+from risa.state import schema as schema_
 
 
 class Sample(risa.View):
@@ -21,7 +23,13 @@ def make_meta(
     version: int = 1,
     cls: type[risa.View] = Sample,
 ) -> registry.ViewMeta:
-    return registry.ViewMeta(cls=cls, name=name, version=version)
+    return registry.ViewMeta(
+        cls=cls,
+        name=name,
+        version=version,
+        schema=schema_.StateSchema.of(cls, view_name=name),
+        state=placement.DEFAULT_PLACEMENT,
+    )
 
 
 def test_the_key_is_the_view_cookie() -> None:

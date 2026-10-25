@@ -39,9 +39,11 @@ __all__ = (
     "SerializationError",
     "SignatureMismatchError",
     "StateConflictError",
+    "StateEncodeError",
     "StateError",
     "StateNotFoundError",
     "StateOverflowError",
+    "StoreUnavailableError",
     "ViewDeclarationError",
 )
 
@@ -213,6 +215,17 @@ class SchemaMismatchError(SerializationError):
         )
 
 
+class StateEncodeError(SerializationError):
+    def __init__(self, view_name: str, field: str, reason: str) -> None:
+        self.view_name = view_name
+        self.field = field
+        self.reason = reason
+        super().__init__(
+            f"view {view_name!r}: durable field {field!r} cannot be written to state: {reason};"
+            " store a value msgpack can carry, or mark the field risa.Prop[...] if it should not persist",
+        )
+
+
 class StateError(RisaError): ...
 
 
@@ -233,3 +246,13 @@ class LockTimeoutError(StateError):
         self.key = key
         self.timeout = timeout
         super().__init__(f"timed out after {timeout}s waiting for the lock on state key {key!r}")
+
+
+class StoreUnavailableError(StateError):
+    def __init__(self, key: str, reason: str) -> None:
+        self.key = key
+        self.reason = reason
+        super().__init__(
+            f"the store backing key {key!r} could not be reached: {reason};"
+            " the state is not lost - the interaction cannot be answered from it right now",
+        )

@@ -32,8 +32,11 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
     from risa import context
+    from risa.state import placement as placement_
+    from risa.state import schema as schema_
     from risa.view import AutoDefer
     from risa.view import View
+
 
 __all__ = (
     "DispatchCallback",
@@ -57,6 +60,10 @@ type OutdatedCallback = collections.abc.Callable[
     typing.Concatenate[context.ComponentContext, ...],
     collections.abc.Awaitable[None],
 ]
+type LoadCallback = collections.abc.Callable[
+    typing.Concatenate[View, ...],
+    collections.abc.Awaitable[None],
+]
 
 
 class HandlerRecord(msgspec.Struct, frozen=True):
@@ -71,8 +78,11 @@ class ViewMeta(msgspec.Struct, frozen=True):
     cls: type[View]
     name: str
     version: int
+    schema: schema_.StateSchema
+    state: placement_.StatePlacement
     handlers: collections.abc.Mapping[str, HandlerRecord] = msgspec.field(default_factory=dict[str, HandlerRecord])
     outdated: OutdatedCallback | None = None
+    loader: LoadCallback | None = None
 
     @property
     def handles_outdated(self) -> bool:
@@ -81,6 +91,10 @@ class ViewMeta(msgspec.Struct, frozen=True):
     @property
     def cookie(self) -> str:
         return codec.make_cookie(self.name, self.version)
+
+    @property
+    def handles_load(self) -> bool:
+        return self.loader is not None
 
 
 class Registry:
