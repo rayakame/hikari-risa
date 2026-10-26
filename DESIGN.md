@@ -1175,16 +1175,19 @@ against this design, not copied.
    anchor dialects, the placement tag, Prop-aware positional state encoding. Still v1.
 2. **`StateSchema` + `Prop` + `load()`** — field partition, registration validations,
    `register(state=)`, `StateOverflowError` ergonomics.
-3. **Backends and sessions** — `MessageSession` (per-message lock, seq + version cache),
-   `StoredSession` (lease-capable `lock(timeout=)`, CAS-then-edit commits, adopt-and-raise
-   on conflict, `on_state_missing`), Store protocol hardening (`StoreUnavailableError`,
-   `{v,n,f,d}` envelope, key namespace, `InStore`+`MemoryStore` warning).
-4. **Build + dispatch + context rewire** — two-phase build, message-component
-   reader, one session-driven dispatch path, commit-per-rerender, the fatal fixes from the
-   invariants audit (CAS loss answers the interaction; `edit(layout)` re-embeds or raises;
-   watchdog vs conditionally-modal handlers), deletion of the store-era dispatch. Also
-   in this step: a third `StatelessBackend` so nothing above branches on whether a view has
-   state (built with step 3; it takes no per-message lock, §7.3); stores on the client (`store=` for the default slot, `stores={...}` for named ones) validated at `add_view`; and
+3. **Backends and sessions** — the message-component reader, `MessageSession`
+   (per-message lock, seq + version cache), `StoredSession` (lease-capable
+   `lock(timeout=)`, CAS-then-edit commits, adopt-and-raise on conflict), a third
+   `StatelessBackend` so nothing above branches on whether a view has state (it takes no
+   per-message lock, §7.3), Store protocol hardening (`StoreUnavailableError`, `{v,n,f,d}`
+   envelope, key namespace), `View.on_state_missing` registered like `on_outdated`, and
+   stores on the client (`store=` for the default slot, `stores={...}` for named ones,
+   `key_prefix=`) validated at `add_view`, with the `InStore`+`MemoryStore` warning.
+4. **Build + dispatch + context rewire** — two-phase build, one session-driven dispatch
+   path (`MISSING` to `on_state_missing`, `OUTDATED` to `on_outdated`, an unconfigured
+   store reached through `use_global` an ERROR at click time), commit-per-rerender, the
+   fatal fixes from the invariants audit (`edit(layout)` re-embeds or raises; watchdog vs
+   conditionally-modal handlers), deletion of the store-era dispatch, and
    `anchor.distribute`, which parks the components an anchor does not reach on one shared
    index rather than counting past it.
 5. **`modal.py`** — §9 as decided.
