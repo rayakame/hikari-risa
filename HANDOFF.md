@@ -192,9 +192,9 @@ the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"`
   snippet a bot author would write. (Until 2026-08-17 the split was the other way
   round: the maintainer typed, Claude guided.)
 - **No docstrings, no comments** until a dedicated final pass. The comment lint families
-  (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml`; existing MIT
-  headers stay, and new modules under `risa/` carry one (`internal/` and `ui/nodes.py`
-  predate that convention and are left alone). Automated reviewers ask for docstrings
+  (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml`. The 19-line MIT
+  header is not a comment and not optional: every `.py` file carries it, including tests,
+  `test_bots/` and empty `__init__.py` files. Automated reviewers ask for docstrings
   every single round — decline with this rule, every time.
 - **Never `tuple` in annotations.** Public signatures promise
   `collections.abc.Sequence`; storing a tuple internally is fine.
