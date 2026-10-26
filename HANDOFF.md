@@ -41,8 +41,8 @@ requires a store only for a tree with something to click; DESIGN §7.6 admits th
 send leaks its record under `ttl=None`. Declined, reasons in the conversation: holding the
 gate lock across `stage()` to close a narrow `THINKING` race, folding the two build passes,
 dropping `_Click`, a fallback in `_require_backend`, dropping the `plan()` wrapper. 816
-tests, nox green. **Still to do: the live restart test** (`/poll`, vote, restart the bot,
-vote again), then the PR.
+tests, nox green. The live restart test passed on 2026-10-26: `/poll`, vote, restart the
+bot, vote again on the old message, and the count survived. **Next: the step-4 PR.**
 
 **2026-10-26, step 3 (merged as PR #39, `a5c8485`):** the six session decisions (below), the reader
 (`internal/reader.py`), `MessageBackend`/`MessageSession` (`state/message.py`),
