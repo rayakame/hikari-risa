@@ -14,7 +14,37 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
-**2026-10-26, uncommitted on top:** the six session decisions (below), the reader
+**2026-10-26, step 4 on `session-dispatch` (pushed, no PR yet):** state is live. `ui/build.py`
+is two-phase: `plan(layout, meta)` measures every interactive leaf's spare room and runs
+the tree checks, `Plan.emit(state)` carves an InMessage anchor across the leaves
+(`anchor.distribute` parks leaves past index 91 on it with a copy of its fragment),
+replicates an InStore key at index 0, or writes empty fragments; a tree without leaves
+carries nothing. `risa.ui.build` is gone from the public surface. `client.build` runs
+`load()` under `Contexts.DEFAULT`, plans, takes `first_anchor`, emits and `commit_first`s.
+`ComponentContext` takes a `ViewSlot` instead of a view; `rerender()` and `edit()` go
+through `stage` → emit → edit → `published`, and in a context without state `rerender()`,
+or `edit()` with leaves on a stateful view, raises `NoViewError`. Dispatch never
+default-constructs a view: route → backend → context → watchdog → session `open` /
+`restore` → `MISSING` to `on_state_missing`, `OUTDATED` to `on_outdated` (watchdog stood
+down first, no ack after a hook), unreachable state to ERROR with no hook → `load()` →
+handler → the end-of-dispatch commit, which is a plain `rerender()` (DESIGN §7.4 revised;
+`StoredSession.settle` now only reports dirty, and a race lost there is a WARNING in
+dispatch) → acknowledge. A raising handler commits nothing. The testbot's `read_counts` is
+gone. Two review rounds then landed. The first: a failing lock release no longer swallows
+the ack, a commit to an out-of-reach ephemeral origin is refused before `stage()`, parked
+leaves cap the last slot, a leafless tree writes no store record. The second: the InStore
+TTL refresh moved from `settle` to `close()`, so it happens once per dispatch even when the
+end-of-dispatch commit fails before `stage()`; `rerender()` in a hook works for a view
+without state; dispatch clears the context's slot when it ends, so a context kept past its
+dispatch raises `NoViewError` instead of committing outside the lock; `client.build`
+requires a store only for a tree with something to click; DESIGN §7.6 admits that a failed
+send leaks its record under `ttl=None`. Declined, reasons in the conversation: holding the
+gate lock across `stage()` to close a narrow `THINKING` race, folding the two build passes,
+dropping `_Click`, a fallback in `_require_backend`, dropping the `plan()` wrapper. 816
+tests, nox green. The live restart test passed on 2026-10-26: `/poll`, vote, restart the
+bot, vote again on the old message, and the count survived. **Next: the step-4 PR.**
+
+**2026-10-26, step 3 (merged as PR #39, `a5c8485`):** the six session decisions (below), the reader
 (`internal/reader.py`), `MessageBackend`/`MessageSession` (`state/message.py`),
 `StatelessBackend`/`StatelessSession` (`state/stateless.py`), `KeyedLocks`
 (`internal/locks.py`, now also behind `MemoryStore`), `codec.decode_text` (moved out of
@@ -52,9 +82,9 @@ conversation: a store check for `use_global` views at construction (§7.1), one 
 `_injected_hook` (costs strict typing), a module-level empty fingerprint (ordering rule),
 and docstrings (the no-docstrings rule). **Step 3 is complete. Next: step 4**, below.
 
-**Where the code stands.** Branch `anchor-codec`, open as PR #39 against `main` for steps
-1–3; `main` (its 16 Renovate updates, hikari 2.6.0 among them) was merged in to resolve the
-`pyproject.toml`/`uv.lock` conflict. 778 tests, all nox sessions green. The commits:
+**Where the code stands.** Steps 1–3 are on `main` as `a5c8485` (PR #39, squash-merged;
+the branch was merged with `main`'s 16 Renovate updates, hikari 2.6.0 among them, first).
+Step 4 is on `session-dispatch` (above). The #39 commits, kept for reference:
 `57e52f2` (schema, placements, `load()`, store package, serde, backend skeleton — the August
 work), `3a9ad47` (anchor moved to `state/` and rebuilt on bytes, the codec character in the
 header, `risa.codecs`, the `hikari-risa[radixly]` extra), `fc29e35` (lockfile refresh,
@@ -87,8 +117,8 @@ bytes, so `stage`, `first_anchor` and `commit_first` move from `str` to `bytes`)
 | `first_anchor` | `MessageAnchor(fp, seq=0, pack(values))` | `StoreAnchor.mint()` | none |
 | `commit_first` | nothing, the send is the write | `put(key, envelope, ttl)` before the send; a failed send leaks one entry to the TTL | nothing |
 
-**The next step is step 4, wiring the sessions in** — nothing built in step 3 is live yet:
-dispatch still builds views with `meta.cls()` and the build writes no anchor. The pieces:
+**Step 4, wiring the sessions in — built 2026-10-26** (see the top of this block); the
+checklist it was built to:
 - **Two-phase build**: `first_anchor` / `commit_first` on send; InMessage carves the
   anchor across the leaves, InStore replicates the key into every one; `anchor.distribute`
   parks the components the anchor does not reach on one shared index.
@@ -135,9 +165,8 @@ the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"`
 - **`main`** carries six merged milestones: the foundation (#13), typed wire args and
   the dispatch surface (#15), `on_outdated` (#17), the structural cleanup (#18),
   slotscheck (#19), and the CI checkout hardening (#20, #21).
-- **`anchor-codec`** is open as **PR #39** (steps 1–3, see "Resume here"). Merged branches
-  are never reused (next bullet), so once #39 is squash-merged, step 4 starts on a fresh
-  branch from `main`.
+- **`anchor-codec`** was squash-merged as **PR #39** (steps 1–3) and deleted.
+  **`session-dispatch`**, branched from `main` after it, carries step 4.
 - Branches are squash-merged, so a merged branch is never an ancestor of `main`: delete
   local copies with `git branch -D`, never `-d`, and never branch from a merged one.
 
@@ -163,9 +192,9 @@ the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"`
   snippet a bot author would write. (Until 2026-08-17 the split was the other way
   round: the maintainer typed, Claude guided.)
 - **No docstrings, no comments** until a dedicated final pass. The comment lint families
-  (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml`; existing MIT
-  headers stay, and new modules under `risa/` carry one (`internal/` and `ui/nodes.py`
-  predate that convention and are left alone). Automated reviewers ask for docstrings
+  (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml`. The 19-line MIT
+  header is not a comment and not optional: every `.py` file carries it, including tests,
+  `test_bots/` and empty `__init__.py` files. Automated reviewers ask for docstrings
   every single round — decline with this rule, every time.
 - **Never `tuple` in annotations.** Public signatures promise
   `collections.abc.Sequence`; storing a tuple internally is fine.

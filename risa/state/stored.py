@@ -99,6 +99,7 @@ class StoredSession(backend.StateSession):
         "_interaction",
         "_meta",
         "_placement",
+        "_refreshed",
         "_target",
         "_version",
     )
@@ -121,6 +122,7 @@ class StoredSession(backend.StateSession):
         self._version = 0
         self._baseline: bytes | None = None
         self._detached: collections.abc.Callable[[], errors.StateError] | None = None
+        self._refreshed = False
 
     @typing.override
     async def open(self) -> None:
@@ -138,7 +140,12 @@ class StoredSession(backend.StateSession):
         if self._target is None:
             await self._held.aclose()
             return
-        await _guarded(self._target.key, self._held.aclose)
+        key = self._target.key
+        try:
+            if self._baseline is not None and self._detached is None and not self._refreshed:
+                await self._touch(key)
+        finally:
+            await _guarded(key, self._held.aclose)
 
     @typing.override
     async def restore(self) -> backend.Restored | backend.Unreadably:
@@ -175,10 +182,10 @@ class StoredSession(backend.StateSession):
 
     @typing.override
     async def settle(self, view: view_.View) -> bool:
-        key = self._restored().key
-        packed = self._meta.schema.pack_view(view)
+        self._restored()
+        dirty = self._meta.schema.pack_view(view) != self._baseline
         if self._detached is not None:
-            if packed != self._baseline:
+            if dirty:
                 _LOGGER.debug(
                     "interaction %s on view %s changed durable state after its session was detached"
                     " (%s); the change was discarded",
@@ -187,20 +194,7 @@ class StoredSession(backend.StateSession):
                     self._detached(),
                 )
             return False
-        if packed == self._baseline:
-            await self._touch(key)
-            return False
-        if not await self._commit(key, packed):
-            lost = await self._lost(key, view)
-            _LOGGER.warning(
-                "interaction %s on view %s mutated durable state without calling rerender(), and the"
-                " commit at the end of the dispatch failed: %s; the change was discarded - call"
-                " ctx.rerender() in the handler to handle conflicts yourself",
-                self._interaction.id,
-                self._meta.name,
-                lost,
-            )
-        return False
+        return dirty
 
     def _locate(self) -> anchor_.StoreAnchor | None:
         found = codec.decode_text(self._component.fragment, self._component.codec)
@@ -278,6 +272,7 @@ class StoredSession(backend.StateSession):
             return False
         self._version = written
         self._baseline = packed
+        self._refreshed = True
         return True
 
     async def _lost(self, key: str, view: view_.View) -> errors.StateError:
@@ -302,6 +297,7 @@ class StoredSession(backend.StateSession):
             return
         store = self._backend.store
         await _guarded(key, lambda: store.touch(key, ttl=ttl))
+        self._refreshed = True
 
 
 class StoredBackend(backend.StateBackend):

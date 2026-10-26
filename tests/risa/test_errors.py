@@ -34,6 +34,7 @@ import risa
         risa.LayoutError,
         risa.LockTimeoutError,
         risa.NotAHandlerError,
+        risa.NoViewError,
         risa.SchemaMismatchError,
         risa.SerializationError,
         risa.StateConflictError,

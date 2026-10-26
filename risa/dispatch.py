@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import typing
 
@@ -32,6 +33,8 @@ from risa import errors
 from risa import view as view_
 from risa.internal import codec
 from risa.internal import constants
+from risa.state import backend
+from risa.state import placement
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -45,26 +48,36 @@ __all__ = ("Dispatcher",)
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.dispatch")
 
+type BackendResolver = collections.abc.Callable[[registry.ViewMeta], backend.StateBackend | None]
+
 
 class _Route(msgspec.Struct, frozen=True):
     meta: registry.ViewMeta
+    component: codec.CustomID
     handler: registry.HandlerRecord | None = None
     decoded: collections.abc.Sequence[object] = ()
 
 
-class _Prepared(msgspec.Struct, frozen=True):
-    view: view_.View
+class _Click(msgspec.Struct, frozen=True):
+    interaction: hikari.ComponentInteraction
+    meta: registry.ViewMeta
+    component: codec.CustomID
+    record: registry.HandlerRecord
+    decoded: collections.abc.Sequence[object]
     ctx: context.ComponentContext
+    slot: context.ViewSlot
+    gate: context.ResponseGate
 
 
 class Dispatcher:
-    __slots__ = ("_auto_defer", "_auto_defer_delay", "_di", "_resolve_view", "_rest")
+    __slots__ = ("_auto_defer", "_auto_defer_delay", "_backend_for", "_di", "_resolve_view", "_rest")
 
     def __init__(
         self,
         rest: hikari.api.RESTClient,
         di: linkd.DependencyInjectionManager,
         resolve_view: collections.abc.Callable[[str], registry.ViewMeta | None],
+        backend_for: BackendResolver,
         *,
         auto_defer: view_.AutoDefer,
         auto_defer_delay: float,
@@ -72,6 +85,7 @@ class Dispatcher:
         self._rest = rest
         self._di = di
         self._resolve_view = resolve_view
+        self._backend_for = backend_for
         self._auto_defer = auto_defer
         self._auto_defer_delay = auto_defer_delay
 
@@ -115,17 +129,17 @@ class Dispatcher:
                 meta.version,
                 custom_id.handler,
             )
-            return _Route(meta=meta)
+            return _Route(meta=meta, component=custom_id)
 
         mismatch = _fingerprint_mismatch(custom_id, meta, record)
         if mismatch is not None:
             _LOGGER.error("interaction %s: %s", interaction.id, mismatch)  # ERROR always
-            return _Route(meta=meta)
+            return _Route(meta=meta, component=custom_id)
 
         decoded = _decode_args(custom_id, meta, record, interaction.id)
         if decoded is None:
             return None
-        return _Route(meta=meta, handler=record, decoded=decoded)
+        return _Route(meta=meta, component=custom_id, handler=record, decoded=decoded)
 
     async def _dispatch(
         self,
@@ -136,113 +150,174 @@ class Dispatcher:
         if route is None:
             return
         gate.adopted = True
+        slot = context.ViewSlot()
+        ctx = context.ComponentContext(interaction, rest=self._rest, meta=route.meta, gate=gate, slot=slot)
         if route.handler is None:
-            await self._run_outdated(interaction, route, gate)
+            await self._run_hook(route.meta, route.meta.outdated, ctx, "on_outdated")
             return
+        click = _Click(
+            interaction=interaction,
+            meta=route.meta,
+            component=route.component,
+            record=route.handler,
+            decoded=route.decoded,
+            ctx=ctx,
+            slot=slot,
+            gate=gate,
+        )
+        await self._run_handler(click)
 
-        never_ran = f"so handler {route.handler.handler_id!r} (version {route.handler.version}) never ran"
-        made = self._make_context(interaction, route.meta, gate, never_ran)
-        if made is None:
-            return
-        await self._run_handler(interaction, route, gate, made)
-
-    async def _run_handler(
-        self,
-        interaction: hikari.ComponentInteraction,
-        route: _Route,
-        gate: context.ResponseGate,
-        made: _Prepared,
-    ) -> None:
-        if route.handler is None:
-            return
-        view, ctx = made.view, made.ctx
-        resolved_defer = route.handler.defer
-        if resolved_defer is None:
-            resolved_defer = self._auto_defer
-        watchdog: asyncio.Task[None] | None = None
-        if resolved_defer is not view_.AutoDefer.OFF:
-            watchdog = asyncio.create_task(self._auto_defer_task(ctx, resolved_defer))
-        try:
-            async with (
-                self._di.enter_context(di_.Contexts.DEFAULT),
-                self._di.enter_context(di_.Contexts.COMPONENT) as container,
-            ):
-                container.add_value(context.ComponentContext, ctx)
-                container.add_value(hikari.ComponentInteraction, interaction)
-                await route.handler.callback(view, ctx, *route.decoded)
-        except Exception:
-            await _stand_down(watchdog, gate)
-            _LOGGER.exception(
-                "handler %r (version %d) of view %s failed while answering interaction %s",
-                route.handler.handler_id,
-                route.handler.version,
-                route.meta.name,
-                interaction.id,
+    async def _run_handler(self, click: _Click) -> None:
+        state = self._backend_for(click.meta)
+        if state is None:
+            _LOGGER.error(
+                "interaction %s routes to view %s, which keeps its state in store %r, but this client has"
+                " no store of that name; pass it to the client with store= or stores=",
+                click.interaction.id,
+                click.meta.name,
+                click.meta.state.store if isinstance(click.meta.state, placement.InStore) else None,
             )
-        else:
-            if resolved_defer is view_.AutoDefer.OFF:
-                return
-            await _stand_down(watchdog, gate)
-            try:
-                await ctx.acknowledge()
-            except Exception:
-                _LOGGER.exception(
-                    "failed to acknowledge interaction %s after its handler finished; if the handler"
-                    " ran longer than Discord's %.1fs window the interaction is already lost -"
-                    " respond, defer, or enable auto_defer",
-                    interaction.id,
-                    constants.INTERACTION_WINDOW,
-                )
+            return
+        defer = click.record.defer if click.record.defer is not None else self._auto_defer
+        watchdog = (
+            None if defer is view_.AutoDefer.OFF else asyncio.create_task(self._auto_defer_task(click.ctx, defer))
+        )
+        try:
+            if await self._transact(state, click, watchdog) and defer is not view_.AutoDefer.OFF:
+                await _stand_down(watchdog, click.gate)
+                await _acknowledge(click)
         finally:
             if watchdog is not None:
                 watchdog.cancel()
 
-    async def _run_outdated(
+    async def _transact(
         self,
-        interaction: hikari.ComponentInteraction,
-        route: _Route,
-        gate: context.ResponseGate,
-    ) -> None:
-        outdated = route.meta.outdated
-        if outdated is None:
-            return
-        made = self._make_context(interaction, route.meta, gate, "so its on_outdated hook never ran")
-        if made is None:
-            return
-        _view, ctx = made.view, made.ctx
+        state: backend.StateBackend,
+        click: _Click,
+        watchdog: asyncio.Task[None] | None,
+    ) -> bool:
+        session = state.session(meta=click.meta, component=click.component, interaction=click.interaction)
         try:
-            async with (
-                self._di.enter_context(di_.Contexts.DEFAULT),
-                self._di.enter_context(di_.Contexts.COMPONENT) as container,
-            ):
-                container.add_value(context.ComponentContext, ctx)
-                container.add_value(hikari.ComponentInteraction, interaction)
-                await outdated(ctx)
+            await session.open()
+            return await self._within(click, session, watchdog)
+        except (errors.StoreUnavailableError, errors.CodecUnavailableError, errors.LockTimeoutError) as exc:
+            await _stand_down(watchdog, click.gate)
+            _LOGGER.error(  # ruff:ignore[error-instead-of-exception]
+                "interaction %s routes to view %s, but its state could not be reached: %s",
+                click.interaction.id,
+                click.meta.name,
+                exc,
+            )
+            return False
+        except Exception:
+            await _stand_down(watchdog, click.gate)
+            _LOGGER.exception(
+                "the state session of view %s failed while answering interaction %s",
+                click.meta.name,
+                click.interaction.id,
+            )
+            return False
+        finally:
+            await _release(click, session)
+            click.slot.view = None
+            click.slot.session = None
+
+    async def _within(
+        self,
+        click: _Click,
+        session: backend.StateSession,
+        watchdog: asyncio.Task[None] | None,
+    ) -> bool:
+        view = await self._hydrate(click, session, watchdog)
+        if view is None:
+            return False
+        if not await self._call(click, view):
+            await _stand_down(watchdog, click.gate)
+            return False
+        await _commit_leftovers(click, session, view)
+        return True
+
+    async def _hydrate(
+        self,
+        click: _Click,
+        session: backend.StateSession,
+        watchdog: asyncio.Task[None] | None,
+    ) -> view_.View | None:
+        restored = await session.restore()
+        if isinstance(restored, backend.Restored):
+            click.slot.view = restored.view
+            click.slot.session = session
+            return restored.view
+        await _stand_down(watchdog, click.gate)
+        if restored is backend.Unreadably.OUTDATED:
+            await self._run_hook(click.meta, click.meta.outdated, click.ctx, "on_outdated")
+            return None
+        _LOGGER.log(
+            logging.DEBUG if click.meta.handles_state_missing else logging.WARNING,
+            "interaction %s routes to view %s, but its stored state is gone - expired, evicted or"
+            " deleted; override on_state_missing to answer the user",
+            click.interaction.id,
+            click.meta.name,
+        )
+        await self._run_hook(click.meta, click.meta.state_missing, click.ctx, "on_state_missing")
+        return None
+
+    async def _call(self, click: _Click, view: view_.View) -> bool:
+        async with self._scope(click.ctx):
+            if click.meta.loader is not None:
+                try:
+                    await click.meta.loader(view)
+                except Exception:
+                    _LOGGER.exception(
+                        "load() of view %s failed while answering interaction %s, so handler %r (version %d) never ran",
+                        click.meta.name,
+                        click.interaction.id,
+                        click.record.handler_id,
+                        click.record.version,
+                    )
+                    return False
+            try:
+                await click.record.callback(view, click.ctx, *click.decoded)
+            except Exception:
+                _LOGGER.exception(
+                    "handler %r (version %d) of view %s failed while answering interaction %s",
+                    click.record.handler_id,
+                    click.record.version,
+                    click.meta.name,
+                    click.interaction.id,
+                )
+                return False
+        return True
+
+    async def _run_hook(
+        self,
+        meta: registry.ViewMeta,
+        hook: registry.HookCallback | None,
+        ctx: context.ComponentContext,
+        name: str,
+    ) -> None:
+        if hook is None:
+            return
+        try:
+            async with self._scope(ctx):
+                await hook(ctx)
         except Exception:
             _LOGGER.exception(
-                "on_outdated of view %s failed while answering interaction %s",
-                route.meta.name,
-                interaction.id,
+                "%s of view %s failed while answering interaction %s",
+                name,
+                meta.name,
+                ctx.interaction.id,
             )
 
-    def _make_context(
-        self,
-        interaction: hikari.ComponentInteraction,
-        meta: registry.ViewMeta,
-        gate: context.ResponseGate,
-        detail: str,
-    ) -> _Prepared | None:
-        try:
-            view = meta.cls()
-        except Exception:
-            _LOGGER.exception(
-                "view %s could not be constructed to answer interaction %s, %s",
-                meta.name,
-                interaction.id,
-                detail,
-            )
-            return None
-        return _Prepared(view, context.ComponentContext(interaction, rest=self._rest, gate=gate, view=view, meta=meta))
+    @contextlib.asynccontextmanager
+    async def _scope(self, ctx: context.ComponentContext) -> collections.abc.AsyncGenerator[None]:
+        async with (
+            self._di.enter_context(di_.Contexts.DEFAULT),
+            self._di.enter_context(di_.Contexts.COMPONENT) as container,
+        ):
+            container.add_value(context.ComponentContext, ctx)
+            container.add_value(hikari.ComponentInteraction, ctx.interaction)
+            yield
 
     async def _auto_defer_task(self, ctx: context.ComponentContext, defer: view_.AutoDefer) -> None:
         await asyncio.sleep(self._auto_defer_delay)
@@ -252,6 +327,70 @@ class Dispatcher:
             await ctx.acknowledge(thinking=thinking, ephemeral=ephemeral)
         except Exception:
             _LOGGER.exception("auto-defer failed to acknowledge interaction %s", ctx.interaction.id)
+
+
+async def _commit_leftovers(click: _Click, session: backend.StateSession, view: view_.View) -> None:
+    try:
+        dirty = await session.settle(view)
+    except Exception:
+        _LOGGER.exception(
+            "settling the state of view %s after interaction %s failed",
+            click.meta.name,
+            click.interaction.id,
+        )
+        return
+    if not dirty:
+        return
+    try:
+        await click.ctx.rerender()
+    except errors.EphemeralOriginError:
+        _LOGGER.warning(
+            "interaction %s on view %s mutated durable state without calling rerender(), but the"
+            " handler had already answered and the origin message is ephemeral, so the change could"
+            " not be written; call ctx.rerender() before ctx.respond()",
+            click.interaction.id,
+            click.meta.name,
+        )
+    except (errors.StateConflictError, errors.StateNotFoundError) as exc:
+        _LOGGER.warning(
+            "interaction %s on view %s mutated durable state without calling rerender(), and"
+            " committing it at the end of the dispatch failed: %s; the change was discarded - call"
+            " ctx.rerender() in the handler to handle conflicts yourself",
+            click.interaction.id,
+            click.meta.name,
+            exc,
+        )
+    except Exception:
+        _LOGGER.exception(
+            "interaction %s on view %s mutated durable state without calling rerender(), and"
+            " committing it at the end of the dispatch failed",
+            click.interaction.id,
+            click.meta.name,
+        )
+
+
+async def _release(click: _Click, session: backend.StateSession) -> None:
+    try:
+        await session.close()
+    except Exception:
+        _LOGGER.exception(
+            "releasing the state of view %s after interaction %s failed",
+            click.meta.name,
+            click.interaction.id,
+        )
+
+
+async def _acknowledge(click: _Click) -> None:
+    try:
+        await click.ctx.acknowledge()
+    except Exception:
+        _LOGGER.exception(
+            "failed to acknowledge interaction %s after its handler finished; if the handler"
+            " ran longer than Discord's %.1fs window the interaction is already lost -"
+            " respond, defer, or enable auto_defer",
+            click.interaction.id,
+            constants.INTERACTION_WINDOW,
+        )
 
 
 async def _stand_down(task: asyncio.Task[None] | None, gate: context.ResponseGate) -> None:

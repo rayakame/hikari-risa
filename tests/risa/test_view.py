@@ -27,9 +27,11 @@ import msgspec
 import pytest
 
 import risa
+from risa import context
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
+from risa.ui import build as build_
 
 
 @risa.register(name="view-poll")
@@ -58,8 +60,8 @@ def component_context() -> risa.ComponentContext:
     return risa.ComponentContext(
         unittest.mock.Mock(spec=hikari.ComponentInteraction),
         rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
-        view=Machine(),
         meta=meta_of(Machine),
+        slot=context.ViewSlot(view=Machine()),
     )
 
 
@@ -526,7 +528,7 @@ def test_a_value_too_wide_for_one_frame_names_the_limit_at_render() -> None:
     layout = risa.ui.Row(risa.ui.Button(risa.bind(Wired().pick, "x" * 200)))
 
     with pytest.raises(risa.ArgBindError) as exc_info:
-        risa.ui.build(layout, registry.require_meta(Wired))
+        build_.plan(layout, registry.require_meta(Wired))
 
     assert exc_info.value.parameter == "option"
     assert "frame limit" in str(exc_info.value)

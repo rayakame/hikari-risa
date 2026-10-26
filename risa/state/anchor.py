@@ -44,8 +44,10 @@ __all__ = (
     "STORE_ANCHOR_LENGTH",
     "TOTAL_WIDTH",
     "MessageAnchor",
+    "Slot",
     "StoreAnchor",
     "carve",
+    "distribute",
     "gather",
     "parse",
 )
@@ -63,6 +65,11 @@ MAX_SEQ: typing.Final[int] = 256**SEQ_WIDTH - 1
 
 KEY_BYTES: typing.Final[int] = 12  # 96 bits, §7.6
 STORE_ANCHOR_LENGTH: typing.Final[int] = 1 + KEY_BYTES
+
+
+class Slot(msgspec.Struct, frozen=True):
+    index: int
+    fragment: str
 
 
 class MessageAnchor(msgspec.Struct, frozen=True):
@@ -156,6 +163,14 @@ def carve(
         )
     fragments.extend("" for _ in capacities[codec.MAX_FRAGMENTS :])
     return fragments
+
+
+def distribute(fragments: collections.abc.Sequence[str]) -> collections.abc.Sequence[Slot]:
+    last = codec.MAX_FRAGMENTS - 1
+    return [
+        Slot(index=index, fragment=fragment) if index <= last else Slot(index=last, fragment=fragments[last])
+        for index, fragment in enumerate(fragments)
+    ]
 
 
 def gather(fragments: collections.abc.Mapping[int, bytes]) -> bytes | None:

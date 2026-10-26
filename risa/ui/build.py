@@ -27,6 +27,8 @@ import hikari
 from risa import binding as binding_
 from risa import errors
 from risa.internal import codec
+from risa.state import anchor
+from risa.state import placement
 from risa.ui.nodes import Component
 
 if typing.TYPE_CHECKING:
@@ -40,13 +42,14 @@ if typing.TYPE_CHECKING:
 
 __all__ = (
     "BuildContext",
+    "Plan",
     "Rendered",
-    "build",
+    "plan",
 )
 
 
 class BuildContext:
-    __slots__ = ("_index", "cls", "codec", "cookie", "tokens")
+    __slots__ = ("_capacities", "_leaf", "_reserve", "_slots", "cls", "codec", "cookie", "tokens")
 
     def __init__(
         self,
@@ -54,17 +57,22 @@ class BuildContext:
         tokens: collections.abc.Set[str],
         cls: type[view_.View],
         wire_codec: codecs.Codec,
+        *,
+        slots: collections.abc.Sequence[anchor.Slot] | None = None,
+        reserve: int = 0,
     ) -> None:
         self.cookie = cookie
         self.tokens = tokens
         self.cls = cls
         self.codec = wire_codec
-        self._index = 0
+        self._slots = slots
+        self._reserve = reserve
+        self._capacities: list[int] = []
+        self._leaf = 0
 
-    def next_index(self) -> int:
-        index = self._index
-        self._index += 1
-        return index
+    @property
+    def capacities(self) -> collections.abc.Sequence[int]:
+        return self._capacities
 
     def routing_id(self, binding: binding_.Binding, path: str) -> str:
         owner = binding.owner
@@ -77,12 +85,14 @@ class BuildContext:
         if binding.token not in self.tokens:
             reason = f"handler {binding.handler_id!r} (version {binding.version}) is not on this view"
             raise errors.LayoutError(path, reason)
+        tail = self._tail(binding)
+        slot = self._next_slot(tail)
         custom_id = codec.CustomID(
             cookie=self.cookie,
             handler=binding.token,
-            fragment_index=self.next_index(),
-            fragment="",
-            tail=self._tail(binding),
+            fragment_index=slot.index,
+            fragment=slot.fragment,
+            tail=tail,
             codec=self.codec,
         )
         try:
@@ -106,12 +116,40 @@ class BuildContext:
             parts.append(text)
         return binding.fingerprint + codec.pack_frames(parts)
 
+    def _next_slot(self, tail: str) -> anchor.Slot:
+        leaf = self._leaf
+        self._leaf += 1
+        if self._slots is not None:
+            return self._slots[leaf]
+        self._capacities.append(codec.MAX_FRAGMENT_LENGTH - len(tail))
+        return anchor.Slot(index=min(leaf, codec.MAX_FRAGMENTS - 1), fragment="!" * self._reserve)
 
-def build(layout: Layout, meta: registry.ViewMeta) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
-    ctx = BuildContext(cookie=meta.cookie, tokens=meta.handlers.keys(), cls=meta.cls, wire_codec=meta.state.codec)
-    if isinstance(layout, Component):
-        layout = (layout,)
-    return [node.build(ctx, f"{node.name}[{i}]") for i, node in enumerate(layout)]
+
+class Plan:
+    __slots__ = ("_capacities", "_layout", "_meta")
+
+    def __init__(self, layout: Layout, meta: registry.ViewMeta) -> None:
+        self._layout: collections.abc.Sequence[Component] = (layout,) if isinstance(layout, Component) else layout
+        self._meta = meta
+        measured = _context(meta, reserve=_reserve(meta))
+        _build_all(self._layout, measured)
+        self._capacities = measured.capacities
+
+    @property
+    def interactive(self) -> bool:
+        return bool(self._capacities)
+
+    def emit(self, state: bytes) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
+        return _build_all(self._layout, _context(self._meta, slots=self._slots(state)))
+
+    def _slots(self, state: bytes) -> collections.abc.Sequence[anchor.Slot]:
+        if not state or not self._capacities:
+            return anchor.distribute([""] * len(self._capacities))
+        wire_codec = self._meta.state.codec
+        if isinstance(self._meta.state, placement.InStore):
+            return [anchor.Slot(index=0, fragment=wire_codec.encode(state))] * len(self._capacities)
+        fragments = anchor.carve(state, _parked(self._capacities), wire_codec=wire_codec, view_name=self._meta.name)
+        return anchor.distribute(fragments)
 
 
 class Rendered(collections.abc.Mapping[str, typing.Any]):
@@ -172,3 +210,43 @@ def _reject_forbidden(forbidden: collections.abc.Mapping[str, object]) -> None:
             " alongside it - put text in a ui.TextDisplay inside the view"
         )
         raise TypeError(msg)
+
+
+def _parked(capacities: collections.abc.Sequence[int]) -> collections.abc.Sequence[int]:
+    last = codec.MAX_FRAGMENTS - 1
+    if len(capacities) <= codec.MAX_FRAGMENTS:
+        return capacities
+    return [*capacities[:last], min(capacities[last:]), *capacities[last + 1 :]]
+
+
+def _reserve(meta: registry.ViewMeta) -> int:
+    if not isinstance(meta.state, placement.InStore):
+        return 0
+    return len(meta.state.codec.encode(bytes(anchor.STORE_ANCHOR_LENGTH)))
+
+
+def _context(
+    meta: registry.ViewMeta,
+    *,
+    slots: collections.abc.Sequence[anchor.Slot] | None = None,
+    reserve: int = 0,
+) -> BuildContext:
+    return BuildContext(
+        meta.cookie,
+        meta.handlers.keys(),
+        meta.cls,
+        meta.state.codec,
+        slots=slots,
+        reserve=reserve,
+    )
+
+
+def _build_all(
+    layout: collections.abc.Sequence[Component],
+    ctx: BuildContext,
+) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
+    return [node.build(ctx, f"{node.name}[{i}]") for i, node in enumerate(layout)]
+
+
+def plan(layout: Layout, meta: registry.ViewMeta) -> Plan:
+    return Plan(layout, meta)

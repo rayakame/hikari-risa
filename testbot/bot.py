@@ -22,15 +22,14 @@
 from __future__ import annotations
 
 import asyncio
-import collections.abc
 import logging
 import os
-import re
 import typing
 
 import dotenv
 import hikari
 import lightbulb
+import msgspec
 
 import risa
 from risa import ui
@@ -95,26 +94,11 @@ risa_client.add_view(Demo)
 
 
 POLL_OPTIONS: typing.Final = ("Red", "Green", "Blue")
-_TALLY_PATTERN: typing.Final = re.compile(r"\*\*(\w+)\*\*: (\d+)")
-
-
-def read_counts(message: hikari.Message) -> list[int]:
-    counts = [0] * len(POLL_OPTIONS)
-    for top in message.components:
-        if not isinstance(top, hikari.ContainerComponent):
-            continue
-        for child in top.components:
-            if not isinstance(child, hikari.TextDisplayComponent):
-                continue
-            for name, count in _TALLY_PATTERN.findall(child.content):
-                if name in POLL_OPTIONS:
-                    counts[POLL_OPTIONS.index(name)] = int(count)
-    return counts
 
 
 @risa.register(name="poll-demo", version=1)
 class PollDemo(risa.View):
-    counts: collections.abc.Sequence[int] = (0, 0, 0)
+    counts: list[int] = msgspec.field(default_factory=lambda: [0] * len(POLL_OPTIONS))
 
     def render(self) -> ui.Layout:
         tallies = "\n".join(
@@ -137,9 +121,7 @@ class PollDemo(risa.View):
         )
         if not 0 <= option < len(POLL_OPTIONS):
             return
-        counts = read_counts(ctx.message)
-        counts[option] += 1
-        self.counts = counts
+        self.counts[option] += 1
         await ctx.rerender()
 
 
