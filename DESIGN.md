@@ -1129,8 +1129,9 @@ Ordered by cost of changing later.
   `register(ttl=)` are subsumed and deleted. See §7.2. *(`load()` accepted tentatively —
   revisit its final shape before 1.0.)*
 - **The locking law and the hybrid concurrency contract** — locks never span human
-  think-time; CAS is correctness, the lock is throughput; CAS losses converge, never
-  raise. See §7.3.
+  think-time; CAS is correctness, the lock is throughput; a CAS lost in `rerender()`
+  adopts the winner and raises `StateConflictError`, one lost by the end-of-dispatch
+  commit is a WARNING and the change is discarded. See §7.3.
 - **Every `rerender()` is a full commit; mutate-without-rerender auto-commits; dirty is
   computed.** See §7.4.
 - **Modals are callback-only for 1.0** (`ctx.prompt` + `carry=` + version token +
@@ -1165,18 +1166,18 @@ Ordered by cost of changing later.
 
 ### The state pivot
 
-Each step should land green. **None of these have landed on the `foundation` rewrite** —
-the pre-pivot work (identity codec, nodes, dispatch, the response surface) is in, and
-`HANDOFF.md` tracks the precise state. The old branch proved steps 1-4 once; they are to
-be rebuilt against this design, not copied.
+Each step should land green. **Steps 1–3 are built** on `anchor-codec` (PR #39, as leaves:
+nothing is wired into build or dispatch yet); steps 4 and 5 remain, and `HANDOFF.md`
+tracks the precise state. The old branch proved steps 1-4 once; they are to be rebuilt
+against this design, not copied.
 
 1. **Codec** — chunk framing (`idx`/`frag_len`, carve/gather with gap detection), the two
    anchor dialects, the placement tag, Prop-aware positional state encoding. Still v1.
 2. **`StateSchema` + `Prop` + `load()`** — field partition, registration validations,
    `register(state=)`, `StateOverflowError` ergonomics.
 3. **Backends and sessions** — `MessageSession` (per-message lock, seq + version cache),
-   `StoredSession` (lease-capable `lock(timeout=)`, CAS-then-edit commits, converge-on-
-   conflict, `on_state_missing`), Store protocol hardening (`StoreUnavailableError`,
+   `StoredSession` (lease-capable `lock(timeout=)`, CAS-then-edit commits, adopt-and-raise
+   on conflict, `on_state_missing`), Store protocol hardening (`StoreUnavailableError`,
    `{v,n,f,d}` envelope, key namespace, `InStore`+`MemoryStore` warning).
 4. **Build + dispatch + context rewire** — two-phase build, message-component
    reader, one session-driven dispatch path, commit-per-rerender, the fatal fixes from the

@@ -9,7 +9,10 @@ test cases; its internals are not a blueprint.
 
 ## Resume here (written 2026-10-25, end of session)
 
-Everything below this block is still accurate; this is the short path back in.
+This block is current; it is the short path back in. Below it, the "Next, in order"
+notes for steps 1 and 2 are the August record and are kept as history: where they and
+DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
+step 3 replaced are marked *superseded* in place.
 
 **2026-10-26, uncommitted on top:** the six session decisions (below), the reader
 (`internal/reader.py`), `MessageBackend`/`MessageSession` (`state/message.py`),
@@ -49,12 +52,14 @@ conversation: a store check for `use_global` views at construction (§7.1), one 
 `_injected_hook` (costs strict typing), a module-level empty fingerprint (ordering rule),
 and docstrings (the no-docstrings rule). **Step 3 is complete. Next: step 4**, below.
 
-**Where the code stands.** Branch `anchor-codec`, four commits ahead of `main`, working tree
-clean, all seven nox sessions green, 688 tests. The last three commits landed today:
+**Where the code stands.** Branch `anchor-codec`, open as PR #39 against `main` for steps
+1–3; `main` (its 16 Renovate updates, hikari 2.6.0 among them) was merged in to resolve the
+`pyproject.toml`/`uv.lock` conflict. 778 tests, all nox sessions green. The commits:
 `57e52f2` (schema, placements, `load()`, store package, serde, backend skeleton — the August
 work), `3a9ad47` (anchor moved to `state/` and rebuilt on bytes, the codec character in the
 header, `risa.codecs`, the `hikari-risa[radixly]` extra), `fc29e35` (lockfile refresh,
-`Literal` values in the schema fingerprint). Still deliberately not a PR.
+`Literal` values in the schema fingerprint), `136830f` (step 3, the sessions), `2207f1b`
+(the merge of `main`).
 
 **How we work.** Claude writes the code; the maintainer decides design and DX and wants to
 understand every piece. Before building a step: present the design and the snippet a bot
@@ -130,9 +135,9 @@ the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"`
 - **`main`** carries six merged milestones: the foundation (#13), typed wire args and
   the dispatch surface (#15), `on_outdated` (#17), the structural cleanup (#18),
   slotscheck (#19), and the CI checkout hardening (#20, #21).
-- **`anchor-codec`** is the current working branch: four commits (see "Resume here"), the
-  first of them pushed. **Deliberately not a PR yet** — the maintainer wants more of the state pivot
-  in before opening one. Keep landing pivot steps on this branch.
+- **`anchor-codec`** is open as **PR #39** (steps 1–3, see "Resume here"). Merged branches
+  are never reused (next bullet), so once #39 is squash-merged, step 4 starts on a fresh
+  branch from `main`.
 - Branches are squash-merged, so a merged branch is never an ancestor of `main`: delete
   local copies with `git branch -D`, never `-d`, and never branch from a merged one.
 
@@ -472,7 +477,9 @@ The state pivot, DESIGN §15. Step 1 (the anchor codec, this branch) is done.
    `store=` (fills the unnamed `"default"` slot) plus `stores={...}` for named extras,
    both-ways `"default"` a construction error; a missing store is an `add_view` boot
    error naming the fix — `MemoryStore` is never auto-created; `put_if_version` stays
-   `bool` and `StoredSession` re-reads after `False` to split lost-race from vanished;
+   `bool` and `StoredSession` re-reads after `False` to split lost-race from vanished
+   (*superseded 2026-10-26*: it returns the version it wrote or `None`; the re-read after
+   `None` stays, DESIGN §7.5);
    store keys are namespaced `risa:{app_id}:1:<token>` by the backend — the anchor
    carries the bare token.
 2. **Backends and sessions — IN PROGRESS (2026-08-17 evening, uncommitted).**
@@ -533,7 +540,9 @@ The state pivot, DESIGN §15. Step 1 (the anchor codec, this branch) is done.
      (`OUTDATED` on mismatch, `MISSING` on `None`); `settle()` = CAS via `put_if_version`,
      on `False` re-read: `None` → vanished, else → lost the race → `schema.adopt` the
      winner onto the live instance and return `False` so dispatch re-renders the winning
-     state (converge, never raise — §7.3); clean dispatches `touch()` the key (sliding
+     state (converge, never raise — §7.3) (*superseded 2026-10-26*: a race lost in
+     `rerender()` adopts the winner and raises `StateConflictError`, one lost at `settle()`
+     is a WARNING and the change is discarded); clean dispatches `touch()` the key (sliding
      TTL); `StoreUnavailableError` is raised by the *backend* when the store itself
      throws, so an outage never masquerades as expiry.
    - **`StatelessBackend`** for all-Prop views so dispatch never branches on "has state"
