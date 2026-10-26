@@ -27,13 +27,18 @@ import unittest.mock
 
 import hikari
 import linkd
+import msgspec
 import pytest
 
 import risa
+from risa import codecs
 from risa import ui
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
+from risa.state import message
+from risa.state import stateless
+from risa.state import stored
 
 
 class GatewayApp:
@@ -743,7 +748,7 @@ async def test_unreadable_frames_fail_closed_with_a_warning(caplog: pytest.LogCa
 async def test_a_frame_count_outside_the_declared_range_fails_closed(caplog: pytest.LogCaptureFixture) -> None:
     built = wired_client()
     signature = WiredClicker.vote.signature
-    one_frame = codec.pack_frames([codec.StrConverter().encode("x")])
+    one_frame = codec.pack_frames([codecs.BASE85.encode(codec.StrConverter().encode("x"))])
     interaction = interaction_with(
         encoded_id_for(WiredClicker, handler=WiredClicker.vote.token, tail=signature.fingerprint + one_frame * 3),
     )
@@ -788,7 +793,7 @@ async def test_a_forged_empty_frame_is_not_a_zero(caplog: pytest.LogCaptureFixtu
 
 async def test_a_converter_that_raises_is_contained_as_unreadable(caplog: pytest.LogCaptureFixture) -> None:
     built = wired_client()
-    stale = codec.pack_frames([codec.IntConverter(int).encode(99)])
+    stale = codec.pack_frames([codecs.BASE85.encode(codec.IntConverter(int).encode(99))])
     interaction = interaction_with(
         encoded_id_for(
             WiredClicker, handler=WiredClicker.prickly.token, tail=WiredClicker.prickly.signature.fingerprint + stale
@@ -822,7 +827,7 @@ async def test_a_second_client_on_a_shared_manager_says_which_one_wins(
 
 async def test_a_deleted_enum_member_fails_closed_naming_the_parameter(caplog: pytest.LogCaptureFixture) -> None:
     built = wired_client()
-    stale = codec.pack_frames([codec.IntConverter(int).encode(99)])
+    stale = codec.pack_frames([codecs.BASE85.encode(codec.IntConverter(int).encode(99))])
     interaction = interaction_with(
         encoded_id_for(
             WiredClicker, handler=WiredClicker.pick.token, tail=WiredClicker.pick.signature.fingerprint + stale
@@ -1293,3 +1298,156 @@ async def test_the_hook_resolves_dependencies_like_a_handler() -> None:
     ((injected, nested),) = DI_CALLS
     assert injected is database
     assert nested is database
+
+
+@risa.register(name="client-ledger", state=risa.InStore(ttl=60.0))
+class Ledger(risa.View):
+    entries: list[str] = msgspec.field(default_factory=list[str])
+
+
+@risa.register(name="client-vault", state=risa.InStore(store="redis", ttl=None))
+class Vault(risa.View):
+    secret: str = ""
+
+
+@risa.register(name="client-forgetful", state=risa.InStore(ttl=60.0))
+class Forgetful(risa.View):
+    entries: list[str] = msgspec.field(default_factory=list[str])
+
+    @classmethod
+    @typing.override
+    async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
+        await ctx.edit(ui.TextDisplay("expired"))
+
+
+@risa.register(name="client-everywhere")
+class Everywhere(risa.View):
+    note: str = ""
+
+    @classmethod
+    @typing.override
+    async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
+        await ctx.edit(ui.TextDisplay("expired"))
+
+
+def backend_of(built: risa.Client, cls: type[risa.View]) -> object:
+    return built._backend_for(meta_of(cls))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+def stored_backend_of(built: risa.Client, cls: type[risa.View]) -> stored.StoredBackend:
+    found = backend_of(built, cls)
+    assert isinstance(found, stored.StoredBackend)
+    return found
+
+
+def test_the_census_records_whether_a_view_answers_for_missing_state() -> None:
+    assert not meta_of(Ledger).handles_state_missing
+    assert meta_of(Forgetful).handles_state_missing
+
+
+def test_a_view_that_keeps_its_state_in_the_message_may_still_define_the_hook() -> None:
+    assert meta_of(Everywhere).handles_state_missing
+
+
+def test_a_stored_view_without_a_default_store_names_the_one_line_fix(client: risa.GatewayEnabledClient) -> None:
+    with pytest.raises(risa.ViewDeclarationError) as exc_info:
+        client.add_view(Ledger)
+
+    assert exc_info.value.view_name == "client-ledger"
+    assert "store=risa.MemoryStore()" in exc_info.value.reason
+
+
+def test_a_stored_view_naming_an_unconfigured_store_names_it() -> None:
+    built = risa.client_from_app(gateway_app(), store=risa.MemoryStore())
+
+    with pytest.raises(risa.ViewDeclarationError) as exc_info:
+        built.add_view(Vault)
+
+    assert "stores={'redis': ...}" in exc_info.value.reason
+
+
+def test_store_fills_the_default_slot() -> None:
+    store = risa.MemoryStore()
+    built = risa.client_from_app(gateway_app(), store=store)
+
+    built.add_view(Ledger)
+
+    assert stored_backend_of(built, Ledger).store is store
+
+
+def test_stores_adds_named_slots_and_may_name_the_default_one() -> None:
+    default, redis = risa.MemoryStore(), risa.MemoryStore()
+    built = risa.client_from_app(gateway_app(), stores={"default": default, "redis": redis})
+
+    built.add_view(Ledger)
+    built.add_view(Vault)
+
+    assert stored_backend_of(built, Ledger).store is default
+    assert stored_backend_of(built, Vault).store is redis
+
+
+def test_the_default_store_given_both_ways_is_refused() -> None:
+    with pytest.raises(ValueError, match="given twice"):
+        risa.client_from_app(gateway_app(), store=risa.MemoryStore(), stores={"default": risa.MemoryStore()})
+
+
+def test_a_blank_key_prefix_is_refused() -> None:
+    with pytest.raises(ValueError, match="key_prefix"):
+        risa.client_from_app(gateway_app(), key_prefix="  ")
+
+
+def test_key_prefix_reaches_the_store_keys() -> None:
+    built = risa.client_from_app(gateway_app(), store=risa.MemoryStore(), key_prefix="modbot")
+    clicked = unittest.mock.Mock(spec=hikari.ComponentInteraction, application_id=hikari.Snowflake(4242))
+
+    key = stored_backend_of(built, Ledger).namespace.for_click("aa", clicked)
+
+    assert key == "modbot:1:aa"
+
+
+def test_a_memory_store_behind_a_stored_view_warns_once_per_slot(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="risa")
+    built = risa.client_from_app(gateway_app(), store=risa.MemoryStore())
+
+    built.add_view(Ledger)
+    built.add_view(Forgetful)
+
+    warnings = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "MemoryStore" in warnings[0].getMessage()
+
+
+def test_a_store_of_the_users_own_does_not_warn(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="risa")
+    built = risa.client_from_app(gateway_app(), store=unittest.mock.Mock(spec=risa.Store))
+
+    built.add_view(Ledger)
+
+    assert not [record for record in caplog.records if record.levelno == logging.WARNING]
+
+
+def test_a_memory_store_nobody_keeps_state_in_does_not_warn(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="risa")
+    built = risa.client_from_app(gateway_app(), store=risa.MemoryStore())
+
+    built.add_view(Panel)
+
+    assert not [record for record in caplog.records if record.levelno == logging.WARNING]
+
+
+def test_each_view_gets_the_backend_its_state_calls_for() -> None:
+    built = risa.client_from_app(gateway_app(), store=risa.MemoryStore(), use_global=True)
+
+    assert isinstance(backend_of(built, Panel), message.MessageBackend)
+    assert isinstance(backend_of(built, Elsewhere), stateless.StatelessBackend)
+    assert isinstance(backend_of(built, Ledger), stored.StoredBackend)
+    assert backend_of(built, Vault) is None
+
+
+def test_the_lightbulb_factory_takes_the_store_options() -> None:
+    store = risa.MemoryStore()
+    built = risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", LightbulbStub(gateway_app())), store=store)
+
+    built.add_view(Ledger)
+
+    assert stored_backend_of(built, Ledger).store is store

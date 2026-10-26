@@ -388,6 +388,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+radixly = [
+    { name = "radixly" },
+]
 redis = [
     { name = "redis" },
 ]
@@ -408,6 +411,7 @@ pyright = [
 pytest = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "radixly" },
 ]
 ruff = [
     { name = "ruff" },
@@ -421,9 +425,10 @@ requires-dist = [
     { name = "hikari", specifier = "~=2.5" },
     { name = "linkd", specifier = "~=0.6" },
     { name = "msgspec", specifier = "~=0.21" },
+    { name = "radixly", marker = "extra == 'radixly'", specifier = "~=1.0" },
     { name = "redis", marker = "extra == 'redis'", specifier = "~=8.0" },
 ]
-provides-extras = ["redis"]
+provides-extras = ["radixly", "redis"]
 
 [package.metadata.requires-dev]
 bot = [
@@ -439,6 +444,7 @@ pyright = [
 pytest = [
     { name = "pytest", specifier = "==9.1.1" },
     { name = "pytest-asyncio", specifier = "==1.4.1" },
+    { name = "radixly", specifier = "~=1.0" },
 ]
 ruff = [{ name = "ruff", specifier = "==0.17.2" }]
 slotscheck = [{ name = "slotscheck", specifier = "==0.21.0" }]
@@ -928,6 +934,42 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/74/26/2fbeedb218a787a5eea551c7532cac4e009f83d689dd2faa0d0353473f86/python_dotenv-1.2.4.tar.gz", hash = "sha256:f0d53e69935a851c0dcc78f3ab7aaccd8cabef0b92382b576b824212902873c0", size = 60824, upload-time = "2026-10-01T05:36:10Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/d1/38f3a3405989a89ac18390803e70c6ad7c7760da4f9b83cbeca0c44a0c72/python_dotenv-1.2.4-py3-none-any.whl", hash = "sha256:42269a8a5b3fd54ffa6f3d84b18abed50064717576b4ecf03dc4a55d8aa04fdc", size = 23266, upload-time = "2026-10-01T05:36:08.633Z" },
+]
+
+[[package]]
+name = "radixly"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1b/60/286f994e8a43a9646fbdbe32323f4046c2104d3993ad680174b7b59df0ae/radixly-1.1.0.tar.gz", hash = "sha256:a5ab397fa30771e97d68d7dc781967fbedc60f5d4ac6fa267eb12f84d27dec58", size = 6203485, upload-time = "2026-10-26T10:30:32.078Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/a3/6459555cc74bccc12ae5a84217847fca7fc977b75513d4b427aa79c3a1a2/radixly-1.1.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:cd872410f32242f097d428a0d032b8e68cdc8b1556c4546d19851c69c0259991", size = 174383, upload-time = "2026-10-26T10:29:48.235Z" },
+    { url = "https://files.pythonhosted.org/packages/24/13/9a053018ab1aa024dddb91b70a422a68d6e286bbec9c9e8badf273af3130/radixly-1.1.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:70c0c62e9fc3ce7ea2227f020094b2c5e86bfd227b235a4fc46f0427e49c2e94", size = 172796, upload-time = "2026-10-26T10:29:49.677Z" },
+    { url = "https://files.pythonhosted.org/packages/22/88/296f0f963bfb0e5d30f3a426cc42905bace859ea76e0d20672bf5e977c58/radixly-1.1.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:702528b0c473c12cea64dc942b968e907a17b2445cce1a5939d5af498123b465", size = 395755, upload-time = "2026-10-26T10:29:52.099Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/1f/fb68c2c7b7c976d8ab2ac215f6ecf5e48c767f065136d9560f61f840ee48/radixly-1.1.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7f2a30d6b9b83577fafbe8365866800b2eba7e3646247c1b6fa07ceaf967ce6f", size = 397740, upload-time = "2026-10-26T10:29:53.713Z" },
+    { url = "https://files.pythonhosted.org/packages/15/8d/4a9ba3a27472cf3fcef90dd07b974fac88398c8207f67166dbc4d634252f/radixly-1.1.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:c83f8931f99a1c03ed68bfa22464c581b5ff73db6d1edacf4291c41d1bfc22f8", size = 389699, upload-time = "2026-10-26T10:29:55.391Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/63/441b5bcf15a7383a0b40d0209893a5ce2129eeb94648625c14eda5a3f55a/radixly-1.1.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:b4f6bd3b2ab2275414dd4f025a5e51f5cbcdc6d125ace87fb938d2bcd9b9b343", size = 393521, upload-time = "2026-10-26T10:29:56.859Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/14/819054d290b772f8093eaecc40a7037bf5c981825f8bcbb6f23ce33c8cbb/radixly-1.1.0-cp312-cp312-win_amd64.whl", hash = "sha256:3121f14b424a0f8a0117cab359afba295cc52b4ad0031d2d6cdc58f3a282c2b1", size = 167265, upload-time = "2026-10-26T10:29:58.33Z" },
+    { url = "https://files.pythonhosted.org/packages/77/50/aef5362a87c124db102c747a124a9ded42ca4b350110c03c8b5f0b37f420/radixly-1.1.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:07e3a8c29f4b981a53b130391e29dd9936363be1092f82f2537a0e10ade19a09", size = 175280, upload-time = "2026-10-26T10:29:59.648Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/a9/73abe5caa38600b63953b7e4bef1113846844b9f2babf71f3990a9c93d13/radixly-1.1.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:c15ebc89169e157769c70962d0b50204cf9d6dfb1febfa36ae808c34b1e85faf", size = 173853, upload-time = "2026-10-26T10:30:01.19Z" },
+    { url = "https://files.pythonhosted.org/packages/17/3f/2b4ac14d989595079a8f9a7df7bf60a1cebe64f01145c738ee036cf4cb36/radixly-1.1.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:fad88e4f2eaccfab4e74631756a1e0c6e4459f8d0ecfa80ebec24584c9df7db9", size = 398328, upload-time = "2026-10-26T10:30:02.561Z" },
+    { url = "https://files.pythonhosted.org/packages/16/aa/1cb0349ab3da6ccdffb8b589e9cfae36076b1bcc209118e6ba2121c3ce65/radixly-1.1.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5bbef47bdda786ff5272af123af377a66ffa73bfe658e5337de6ca28c269b89c", size = 400577, upload-time = "2026-10-26T10:30:04.051Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/2e/98ae926d9f8ac840a3187c28bcf34aa89b7689db387bb82e3d2186aedd39/radixly-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:d73fde39131ba5fdee9735f32f6d8ef62b1fab3dbe936d374f5f7cc4e10006c8", size = 392958, upload-time = "2026-10-26T10:30:05.911Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/35/5b9f4c480bebc2e5b8b8c163a90f31f43c7616aa6704ee8110f117a8df54/radixly-1.1.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:8c41d9b801998496dc04c43c354a3e370018546df475db922f4668c949e87619", size = 396371, upload-time = "2026-10-26T10:30:07.25Z" },
+    { url = "https://files.pythonhosted.org/packages/86/ec/00aba38bd9321107111221e28cd7c5d4c022bd9832605cb8d1f948860a95/radixly-1.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:51b4a608d4bc7534c6b4c53914b284e41bd0bf5936ee21d564814776429b2689", size = 167844, upload-time = "2026-10-26T10:30:08.766Z" },
+    { url = "https://files.pythonhosted.org/packages/50/0a/f4292d435f6668b965d7a127bff8baf87ad118710832d724e1fe36fe9361/radixly-1.1.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:59f5cdc6c9fa705ad6c9bc13e6a28f3b463a625b55b366b73f162ed23708778d", size = 175104, upload-time = "2026-10-26T10:30:10.066Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/7c/4b9aadfd221bf5db0fcb84e4d8b90706c9fb364203bedd7412d5291aa2c7/radixly-1.1.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:76b1388f1a196bdcc3b0d3355d482390c755166320c71f3bb91f23c2bddf061a", size = 173834, upload-time = "2026-10-26T10:30:11.636Z" },
+    { url = "https://files.pythonhosted.org/packages/20/1b/bc0439296aba2374790cbca186ea98bc333148444489d81f4700aa41720c/radixly-1.1.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:01843e69f9dbd92a1221e9360c51bba6adcd705c67f7a0e6613d478b6ddeaae9", size = 399865, upload-time = "2026-10-26T10:30:13.27Z" },
+    { url = "https://files.pythonhosted.org/packages/36/0d/2279d23e4a80b6ea441518c7e8a1647498a753eadb8816948d9253110f8c/radixly-1.1.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3e659bdc9bcc1b3c3ea81494301d49913622d73ae879388f00943900a32e6563", size = 401367, upload-time = "2026-10-26T10:30:15.214Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/a2/46b98bafe3151795f9a1fc33606d7149d7cf5e8cab35a099ba00f540e419/radixly-1.1.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:7d3a50f6cbed5948158f30eb09bac6a4127c73fbc4a84960eff4fccc08d99e35", size = 394027, upload-time = "2026-10-26T10:30:16.631Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/7d/9b86182946abb0913300ed81b6e039fc0d256e0dedf894244f8bb7aa3800/radixly-1.1.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:d9e37748900531528061d0e9e5dded2f07abdfc84c601823565baef4a1a50cbf", size = 396717, upload-time = "2026-10-26T10:30:18.19Z" },
+    { url = "https://files.pythonhosted.org/packages/82/38/eb110cee67b0a103f087525dc2bf039e3831d05d04b7099ed536f206f7d4/radixly-1.1.0-cp314-cp314-win_amd64.whl", hash = "sha256:94550cccd3a3c95646f368a3be311916af723276c1e606efb15888bf46d35adb", size = 170256, upload-time = "2026-10-26T10:30:19.733Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/6d/030d3b10f79e8f89dcdd91c6e666cbd0c4ab8ea8201c4e36d2b5a9e1dd5e/radixly-1.1.0-cp315-cp315-macosx_10_15_x86_64.whl", hash = "sha256:bb32ed0c006f8167ce4c58911025fb7ca150fedbf561ea954b8466fd8a4d6977", size = 175103, upload-time = "2026-10-26T10:30:21.358Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/f3/81dddaceafb326c5ec960403fa399f993ae86ff085f4e46382704eebcebc/radixly-1.1.0-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:ae490e9b9de70d362e51b2c9a701c7293c62dff38eea9f9b4314c5dac34d738c", size = 173943, upload-time = "2026-10-26T10:30:22.935Z" },
+    { url = "https://files.pythonhosted.org/packages/24/da/44587a7f7bd324fed906fa339ff33b73b98f3d5535940890c7aa72aaeaa3/radixly-1.1.0-cp315-cp315-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2de6fba4a2df51b1c92031aed42e414afdc4e785b5aac6d9bdc517b48dafbd97", size = 402154, upload-time = "2026-10-26T10:30:24.582Z" },
+    { url = "https://files.pythonhosted.org/packages/51/03/3a35d07ec37766ab4151c0dd8952e25a564caf3dff5eed52f414ef6e1e54/radixly-1.1.0-cp315-cp315-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0927ee7642d964fb11a64f69ebd810d82143d2b91b505fc9cc30970b452d8c67", size = 404248, upload-time = "2026-10-26T10:30:26.085Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/ab/b4779e9784bad8df8cebad91756b223aa0089250448bbf2815ef843fe84c/radixly-1.1.0-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:6047582755aab973a744cfbe0f18d02f31bcb61f512f44f5fe2a6e901a537c2d", size = 396287, upload-time = "2026-10-26T10:30:27.431Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/e1/cdbb08c9c6ef33c0d6744be6be6f51355a0d9091c2a67bfe25c0237056af/radixly-1.1.0-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:a549d67f0b90a90dbd728ce9b71d84262215808c782f14944becaca1331321a4", size = 399529, upload-time = "2026-10-26T10:30:29.003Z" },
+    { url = "https://files.pythonhosted.org/packages/52/bb/c3a7c64fefcc2e8d92d8a0bef2a6d4514f87e7f4dc585249d16afbc532f0/radixly-1.1.0-cp315-cp315-win_amd64.whl", hash = "sha256:4a60f3a8c2db9be16f632a2fcb74241a78a7ddab833caef30665b1bbf58dd2d7", size = 170239, upload-time = "2026-10-26T10:30:30.402Z" },
 ]
 
 [[package]]

@@ -23,6 +23,7 @@ import typing
 import unittest.mock
 
 import hikari
+import msgspec
 import pytest
 
 import risa
@@ -137,6 +138,94 @@ def test_registering_the_same_view_twice_is_not_a_collision() -> None:
     assert registry.global_registry().get(meta.cookie) is meta
 
 
+def test_a_view_that_says_nothing_keeps_its_state_in_the_message() -> None:
+    assert meta_of(Poll).state == risa.InMessage()
+
+
+def test_a_view_can_place_its_state_in_a_store_instead() -> None:
+    class Todo(risa.View):
+        items: list[str] = msgspec.field(default_factory=list[str])
+
+    risa.register(name="view-stored", state=risa.InStore(ttl=60, store="redis"))(Todo)
+
+    assert meta_of(Todo).state == risa.InStore(ttl=60, store="redis")
+
+
+def test_a_view_carries_the_partition_of_its_own_fields() -> None:
+    schema = meta_of(Poll).schema
+
+    assert [field.name for field in schema.fields] == ["question", "votes"]
+    assert schema.durable is True
+
+
+def test_a_prop_is_left_out_of_what_a_view_persists() -> None:
+    class Board(risa.View):
+        guild_id: int = 0
+        rows: risa.Prop[list[str]] = msgspec.field(default_factory=list[str])
+
+    risa.register(name="view-board")(Board)
+
+    assert [field.name for field in meta_of(Board).schema.fields] == ["guild_id"]
+
+
+def test_a_view_with_nothing_to_store_cannot_ask_for_a_store() -> None:
+    class Ephemeral(risa.View):
+        rows: risa.Prop[list[str]] = msgspec.field(default_factory=list[str])
+
+    with pytest.raises(risa.ViewDeclarationError) as exc_info:
+        risa.register(name="view-nothing-to-store", state=risa.InStore(ttl=60))(Ephemeral)
+
+    assert "nothing" in str(exc_info.value)
+
+
+def test_a_field_declaration_mistake_is_caught_when_the_view_is_declared() -> None:
+    class Broken(risa.View):
+        rows: risa.Prop[list[str]]
+
+    with pytest.raises(risa.ViewDeclarationError) as exc_info:
+        risa.register(name="view-broken-field")(Broken)
+
+    assert "'rows'" in str(exc_info.value)
+
+
+def test_a_view_that_never_refills_anything_has_no_loader() -> None:
+    assert meta_of(Poll).loader is None
+    assert meta_of(Poll).handles_load is False
+
+
+def test_a_view_that_overrides_load_is_wired_for_dependency_injection() -> None:
+    class Fetching(risa.View):
+        rows: risa.Prop[list[str]] = msgspec.field(default_factory=list[str])
+
+        @typing.override
+        async def load(self) -> None:
+            self.rows = ["one"]
+
+    risa.register(name="view-loading")(Fetching)
+    meta = meta_of(Fetching)
+
+    assert meta.loader is not None
+    assert meta.handles_load is True
+
+
+async def test_a_loader_refills_the_props_of_the_view_it_is_given() -> None:
+    class Fetching(risa.View):
+        rows: risa.Prop[list[str]] = msgspec.field(default_factory=list[str])
+
+        @typing.override
+        async def load(self) -> None:
+            self.rows = ["one"]
+
+    risa.register(name="view-loading-runs")(Fetching)
+    view = Fetching()
+
+    loader = meta_of(Fetching).loader
+    assert loader is not None
+    await loader(view)
+
+    assert view.rows == ["one"]
+
+
 def test_class_access_yields_the_descriptor_itself() -> None:
     assert isinstance(Machine.press, risa.HandlerMethod)
     assert Machine.press is Machine.press
@@ -171,9 +260,18 @@ def test_a_pinned_id_keeps_the_token_across_a_rename() -> None:
 
 def test_bind_packages_identity_with_an_empty_payload() -> None:
     bound = engine(Machine().press).bind()
-    expected = risa.Binding(handler_id="press", version=1, token=Machine.press.token, payload="", owner=Machine)
+    expected = risa.Binding(
+        handler_id="press",
+        version=1,
+        token=Machine.press.token,
+        fingerprint="",
+        frames=(),
+        func_name=Machine.press.func.__qualname__,
+        owner=Machine,
+    )
     assert bound == expected
-    assert not bound.payload
+    assert not bound.fingerprint
+    assert not bound.frames
 
 
 def test_a_handler_is_callable_so_bind_accepts_it_but_refuses_to_run() -> None:
@@ -344,10 +442,12 @@ def test_bind_round_trips_wire_args_through_the_codec() -> None:
     bound = engine(Wired().pick).bind("Red", 5)
 
     assert bound.token == Wired.pick.token
-    assert bound.payload[: codec.FINGERPRINT_LENGTH] == signature.fingerprint
-    frames = codec.unpack_frames(bound.payload[codec.FINGERPRINT_LENGTH :])
-    assert frames is not None
-    decoded = [converter.decode(frame) for converter, frame in zip(signature.converters.values(), frames, strict=True)]
+    assert bound.fingerprint == signature.fingerprint
+    assert [frame.name for frame in bound.frames] == ["option", "count"]
+    decoded = [
+        converter.decode(frame.data)
+        for converter, frame in zip(signature.converters.values(), bound.frames, strict=True)
+    ]
     assert decoded == ["Red", 5]
 
 
@@ -356,22 +456,20 @@ def test_bind_normalizes_keywords_to_positions() -> None:
 
 
 def test_an_omitted_trailing_default_stays_off_the_wire() -> None:
-    frames = codec.unpack_frames(engine(Wired().pick).bind("Red").payload[codec.FINGERPRINT_LENGTH :])
-
-    assert frames is not None
-    assert len(frames) == 1
+    assert len(engine(Wired().pick).bind("Red").frames) == 1
 
 
 def test_a_wire_handler_bound_with_nothing_still_carries_the_fingerprint() -> None:
-    assert engine(Wired().page).bind().payload == Wired.page.signature.fingerprint
+    bound = engine(Wired().page).bind()
+
+    assert bound.fingerprint == Wired.page.signature.fingerprint
+    assert not bound.frames
 
 
 def test_a_snowflake_survives_binding_as_a_snowflake() -> None:
     bound = engine(Wired().aim).bind(hikari.Snowflake(1364800923047857855))
 
-    frames = codec.unpack_frames(bound.payload[codec.FINGERPRINT_LENGTH :])
-    assert frames is not None
-    decoded = next(iter(Wired.aim.signature.converters.values())).decode(frames[0])
+    decoded = next(iter(Wired.aim.signature.converters.values())).decode(bound.frames[0].data)
     assert isinstance(decoded, hikari.Snowflake)
     assert decoded == 1364800923047857855
 
@@ -424,12 +522,15 @@ def test_a_wrong_value_type_fails_at_bind_time() -> None:
     assert "expected a str" in str(exc_info.value)
 
 
-def test_a_value_too_wide_for_one_frame_names_the_limit() -> None:
+def test_a_value_too_wide_for_one_frame_names_the_limit_at_render() -> None:
+    layout = risa.ui.Row(risa.ui.Button(risa.bind(Wired().pick, "x" * 200)))
+
     with pytest.raises(risa.ArgBindError) as exc_info:
-        engine(Wired().pick).bind("x" * 200)
+        risa.ui.build(layout, registry.require_meta(Wired))
 
     assert exc_info.value.parameter == "option"
     assert "frame limit" in str(exc_info.value)
+    assert "base85" in str(exc_info.value)
 
 
 def test_binding_values_onto_a_zero_arg_handler_overflows() -> None:

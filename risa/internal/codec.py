@@ -10,6 +10,7 @@ import hikari
 import linkd
 import msgspec
 
+from risa import codecs
 from risa import errors
 from risa.internal import constants
 from risa.internal import wire
@@ -18,6 +19,7 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 __all__ = (
+    "CODEC_LENGTH",
     "COOKIE_LENGTH",
     "FINGERPRINT_LENGTH",
     "FRAGMENT_INDEX_WIDTH",
@@ -25,6 +27,7 @@ __all__ = (
     "FRAME_LEN_WIDTH",
     "HANDLER_LENGTH",
     "HEADER_LENGTH",
+    "MAX_FRAGMENTS",
     "MAX_FRAGMENT_LENGTH",
     "MAX_FRAME_LENGTH",
     "VERSION",
@@ -35,6 +38,7 @@ __all__ = (
     "HandlerSignature",
     "IntConverter",
     "StrConverter",
+    "decode_text",
     "make_cookie",
     "make_handler_token",
     "pack_frames",
@@ -46,13 +50,15 @@ __all__ = (
 
 VERSION: typing.Final[str] = "1"
 
+CODEC_LENGTH: typing.Final[int] = 1
 COOKIE_LENGTH: typing.Final[int] = 6
 HANDLER_LENGTH: typing.Final[int] = 2
 FRAGMENT_INDEX_WIDTH: typing.Final[int] = 1
 FRAGMENT_LEN_WIDTH: typing.Final[int] = 1
 HEADER_LENGTH: typing.Final[int] = (
-    len(VERSION) + COOKIE_LENGTH + HANDLER_LENGTH + FRAGMENT_INDEX_WIDTH + FRAGMENT_LEN_WIDTH
+    len(VERSION) + CODEC_LENGTH + COOKIE_LENGTH + HANDLER_LENGTH + FRAGMENT_INDEX_WIDTH + FRAGMENT_LEN_WIDTH
 )
+MAX_FRAGMENTS: typing.Final[int] = wire.largest_value(FRAGMENT_INDEX_WIDTH) + 1
 MAX_FRAGMENT_LENGTH: typing.Final[int] = constants.MAX_CUSTOM_ID_LENGTH - HEADER_LENGTH
 FRAME_LEN_WIDTH: typing.Final[int] = 1
 MAX_FRAME_LENGTH: typing.Final[int] = wire.largest_value(FRAME_LEN_WIDTH)
@@ -73,6 +79,7 @@ class CustomID(msgspec.Struct, frozen=True):
     fragment_index: int
     fragment: str
     tail: str
+    codec: codecs.Codec = codecs.BASE85
 
     def encode(self) -> str:
         if len(self.cookie) != COOKIE_LENGTH:
@@ -85,6 +92,7 @@ class CustomID(msgspec.Struct, frozen=True):
         encoded = "".join(
             (
                 VERSION,
+                self.codec.tag,
                 self.cookie,
                 self.handler,
                 wire.pack_uint(self.fragment_index, FRAGMENT_INDEX_WIDTH),
@@ -100,12 +108,14 @@ class CustomID(msgspec.Struct, frozen=True):
 
 
 def parse_custom_id(raw: str) -> CustomID | None:
-    if not (HEADER_LENGTH <= len(raw) <= constants.MAX_CUSTOM_ID_LENGTH):
+    if not (HEADER_LENGTH <= len(raw) <= constants.MAX_CUSTOM_ID_LENGTH) or raw[0] != VERSION:
         return None
-    if raw[0] != VERSION:
+    wire_codec = codecs.by_tag(raw[len(VERSION)])
+    if wire_codec is None:
         return None
 
-    cookie_end = 1 + COOKIE_LENGTH
+    cookie_start = len(VERSION) + CODEC_LENGTH
+    cookie_end = cookie_start + COOKIE_LENGTH
     handler_end = cookie_end + HANDLER_LENGTH
     index_end = handler_end + FRAGMENT_INDEX_WIDTH
     if (fragment_index := wire.unpack_uint(raw[handler_end:index_end])) is None:
@@ -116,12 +126,22 @@ def parse_custom_id(raw: str) -> CustomID | None:
         return None
 
     return CustomID(
-        cookie=raw[1:cookie_end],
+        cookie=raw[cookie_start:cookie_end],
         handler=raw[cookie_end:handler_end],
         fragment_index=fragment_index,
         fragment=raw[HEADER_LENGTH : HEADER_LENGTH + fragment_length],
         tail=raw[HEADER_LENGTH + fragment_length :],
+        codec=wire_codec,
     )
+
+
+def decode_text(text: str, wire_codec: codecs.Codec) -> bytes | errors.CodecUnavailableError | None:
+    try:
+        return wire_codec.decode(text)
+    except errors.CodecUnavailableError as exc:
+        return exc
+    except ValueError:
+        return None
 
 
 class ArgConverter(abc.ABC):
@@ -132,10 +152,10 @@ class ArgConverter(abc.ABC):
     def type_id(self) -> str: ...
 
     @abc.abstractmethod
-    def encode(self, value: object) -> str: ...
+    def encode(self, value: object) -> bytes: ...
 
     @abc.abstractmethod
-    def decode(self, raw: str) -> object | None: ...
+    def decode(self, data: bytes) -> object | None: ...
 
 
 class IntConverter(ArgConverter):
@@ -150,19 +170,15 @@ class IntConverter(ArgConverter):
         return "i"
 
     @typing.override
-    def encode(self, value: object) -> str:
+    def encode(self, value: object) -> bytes:
         if type(value) is bool or not isinstance(value, int):
             msg = f"expected an int, got {type(value).__name__}"
             raise TypeError(msg)
-        data = value.to_bytes((value.bit_length() + 8) // 8, "little", signed=True)
-        return wire.pack_bytes(data)
+        return value.to_bytes((value.bit_length() + 8) // 8, "little", signed=True)
 
     @typing.override
-    def decode(self, raw: str) -> object | None:
-        if not raw:
-            return None
-        data = wire.unpack_bytes(raw)
-        if data is None:
+    def decode(self, data: bytes) -> object | None:
+        if not data:
             return None
         return self._target(int.from_bytes(data, "little", signed=True))
 
@@ -176,17 +192,14 @@ class StrConverter(ArgConverter):
         return "s"
 
     @typing.override
-    def encode(self, value: object) -> str:
+    def encode(self, value: object) -> bytes:
         if not isinstance(value, str):
             msg = f"expected a str, got {type(value).__name__}"
             raise TypeError(msg)
-        return wire.pack_bytes(value.encode())
+        return value.encode()
 
     @typing.override
-    def decode(self, raw: str) -> object | None:
-        data = wire.unpack_bytes(raw)
-        if data is None:
-            return None
+    def decode(self, data: bytes) -> object | None:
         try:
             return data.decode()
         except UnicodeDecodeError:
@@ -202,20 +215,17 @@ class BoolConverter(ArgConverter):
         return "b"
 
     @typing.override
-    def encode(self, value: object) -> str:
+    def encode(self, value: object) -> bytes:
         if type(value) is not bool:
             msg = f"expected a bool, got {type(value).__name__}"
             raise TypeError(msg)
-        return wire.pack_uint(int(value), 1)
+        return b"\x01" if value else b"\x00"
 
     @typing.override
-    def decode(self, raw: str) -> object | None:
-        if len(raw) != 1:
+    def decode(self, data: bytes) -> object | None:
+        if len(data) != 1 or data[0] > 1:
             return None
-        number = wire.unpack_uint(raw)
-        if number is None or number > 1:
-            return None
-        return number == 1
+        return data == b"\x01"
 
 
 class EnumConverter(ArgConverter):
@@ -232,15 +242,15 @@ class EnumConverter(ArgConverter):
         return self._type_id
 
     @typing.override
-    def encode(self, value: object) -> str:
+    def encode(self, value: object) -> bytes:
         if not isinstance(value, self._enum):
             msg = f"expected {self._enum.__name__}, got {type(value).__name__}"
             raise TypeError(msg)
         return self._inner.encode(value.value)
 
     @typing.override
-    def decode(self, raw: str) -> object | None:
-        inner = self._inner.decode(raw)
+    def decode(self, data: bytes) -> object | None:
+        inner = self._inner.decode(data)
         if inner is None:
             return None
         try:

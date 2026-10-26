@@ -164,22 +164,26 @@ risa/
   internal/
     wire.py         the printable alphabet every id is written in      [exists]
     codec.py        custom_id layout: header, fragment slot, args, fingerprints  [exists; args planned]
-    anchor.py       anchor dialects, splitting and rejoining across components   [planned]
     constants.py    Discord limits, stamped attribute names    [exists]
     registry.py     ViewMeta, cookie -> view registries        [exists]
-    reader.py       message-component walk for chunk reassembly [planned]
+    reader.py       message-component walk for chunk reassembly [exists]
+    locks.py        KeyedLocks, shared by MessageBackend and MemoryStore [exists]
   ui/
     nodes.py        full V2 node set + the build pass          [exists]
     build.py        two-phase flatten + emit                   [planned; the build pass lives in nodes.py until then]
-  state/                                                       [planned, all of it]
-    store.py        Store protocol, MemoryStore
-    schema.py       StateSchema: durable fields, packing, prefix fingerprints
-    placement.py    InMessage / InStore policy objects
-    backend.py      StateBackend/StateSession protocols
-    message.py      MessageSession + version cache
-    stored.py       StoredSession
-    stateless.py    the degenerate placement: nothing to keep
-    serde.py        store-entry envelope {v,n,f,d}
+  state/            risa's own state machinery; users never implement against it
+    schema.py       StateSchema: durable fields, packing, prefix fingerprints  [exists]
+    anchor.py       anchor dialects, splitting and rejoining across components   [exists]
+    placement.py    InMessage / InStore policy objects         [exists]
+    serde.py        store-entry envelope {v,n,f,d}             [exists]
+    backend.py      StateBackend/StateSession                  [exists]
+    stateless.py    the degenerate placement: nothing to keep  [exists]
+    message.py      MessageSession + version cache             [exists]
+    stored.py       StoredSession, KeyNamespace                [exists]
+  store/            the storage extension point: what implementers target and
+                    the implementations risa ships; imports nothing from state/
+    protocol.py     Store, VersionedEntry, DEFAULT_LOCK_TIMEOUT [exists]
+    memory.py       MemoryStore                                [exists]
     redis.py        RedisStore                                 [extra: redis; roadmap]
     testing.py      verify_store conformance kit               [roadmap]
 ```
@@ -276,12 +280,18 @@ that trades away the library's static guarantees to save a splat is a bad trade.
 ### 6.1 Wire format **[decided]**
 
 ```text
-┌─────┬──────────┬───────────┬─────┬──────────┬──────────┬──────────────┐
-│ ver │  cookie  │  handler  │ idx │ frag_len │ fragment │  sig ‖ args  │
-│  1  │    6     │     2     │  1  │    1     │  0..n    │   the rest   │
-└─────┴──────────┴───────────┴─────┴──────────┴──────────┴──────────────┘
+┌─────┬───────┬──────────┬───────────┬─────┬──────────┬──────────┬──────────────┐
+│ ver │ codec │  cookie  │  handler  │ idx │ frag_len │ fragment │  sig ‖ args  │
+│  1  │   1   │    6     │     2     │  1  │    1     │  0..n    │   the rest   │
+└─────┴───────┴──────────┴───────────┴─────┴──────────┴──────────┴──────────────┘
 
-ver       codec version (this format IS v1; nothing older ever shipped)
+ver       layout version (this layout IS v1; nothing older ever shipped)
+codec     the text codec every byte field of THIS component is written in:
+          `a` base85 (the default), `w` base32768, `u` uro14 — the dense two need
+          the optional hikari-risa[radixly] extra; a custom codec picks a free
+          letter. Read by tag, written by the view's InMessage(codec=...), so a
+          codec switch keeps live components readable. Kept apart from `ver`
+          on purpose: a layout bump must not multiply the codec letters.
 cookie    b64(blake2s(view_name + ":" + schema_version, digest_size=4))[:6]
 handler   b64(blake2s(handler_id + ":" + handler_version, digest_size=2))[:2]
 fragment  this component's slice of the view's ANCHOR (below); frag_len frames
@@ -289,25 +299,44 @@ fragment  this component's slice of the view's ANCHOR (below); frag_len frames
 sig+args  2-char signature fingerprint + length-prefixed wire args, exactly
           when the handler has wire parameters (§6.3/§6.4)
 
-anchor    InMessage: [tag:1][total:2][schema-fp:3][seq:3][msgpack durable fields],
-          chunked across the interactive leaves in tree order; reassembled
-          from interaction.message.components on every click
-          InStore:   [tag:1][96-bit key], replicated whole into every component
+anchor    InMessage: [tag:1][total:2][schema-fp:3][seq:3][msgpack durable fields]
+          as BYTES, carved across the interactive leaves in tree order with every
+          slice written in the component's codec; reassembled on every click from
+          the components of interaction.message that carry the clicked
+          component's cookie — other views and foreign ids are skipped, and a
+          cookie whose indices repeat reads as torn [decided 2026-10-26]
+          (empty for a view without durable fields: no anchor, not even a header)
+          InStore:   [tag:1][96-bit key] (13 bytes), replicated whole into every
+          component
 ```
 
-**Every character risa writes is printable ASCII** (`risa/internal/wire.py`): base85
-for packed bytes, a 92-symbol digit alphabet for lengths, indices and counters,
-neither containing `"` or `\`, both stable under every normalisation form.
+**By default every character risa writes is printable ASCII** (`risa/internal/wire.py`,
+`risa/codecs.py`): base85 for packed bytes, a 92-symbol digit alphabet for lengths,
+indices and counters, neither containing `"` or `\`, both stable under every
+normalisation form. The rule is *bytes go through the component's codec, small numbers
+are wire digits*: fragments, string arguments and the store key are codec text; the
+header, frame lengths, `idx`, the fingerprints and bools are digits.
 
 The limit is **100 Unicode code points** (§3), so this is a spend, not a necessity:
 latin-1 packing would buy 25% more and a CJK digit alphabet over twice as much. It
 is spent for three reasons — `custom_id`s must stay readable in logs, tracebacks and
 Discord's own error bodies; one character stays one byte in the request body, so a
-forty-component message does not balloon under JSON escaping; and the read-back path
-risa depends on most (`interaction.message.components`) has not been measured, while
-ASCII is correct regardless of the answer. A denser encoding stays open as an opt-in:
-an unrecognised anchor tag already fails closed, so one can be added later without
-disturbing live components.
+forty-component message does not balloon under JSON escaping; and, at the time of the
+decision, the read-back path risa depends on most (`interaction.message.components`)
+had not been measured. **Measured 2026-10-25** (`test_bots/dense_roundtrip.py`): a
+100-code-point `custom_id` of an 11-char ASCII header plus 89 characters of
+radixly `base32768`, `uro14` or `braille` comes back byte-identical on all three
+paths — the `create_message` response, `fetch_message`, and
+`interaction.message.components` / `interaction.custom_id` on a click — and decodes to
+the original bytes. A denser encoding is therefore a pure opt-in with no correctness
+risk. **Built the same day**: `risa.codecs` (`Codec`, `BASE85`, `BASE32768`, `URO14`,
+`register`, `by_tag`), the `codec` header character, `InMessage(codec=...)`, the
+`hikari-risa[radixly]` extra, `CodecUnavailableError` at view declaration when the extra
+is missing and an ERROR log naming the install line when a click arrives for a codec
+that is not installed. Capacity per 88-char slot: base85 70 bytes, uro14 154,
+base32768 165. The alternative of identifying the codec only by the view's
+configuration was measured and rejected: base32768's alphabet contains almost all of
+uro14's block, so 500 of 500 uro14 texts decode "successfully" through base32768.
 
 The total length lives inside the message dialect rather than in chunk 0's frame,
 so `carve`/`gather` treat the anchor as opaque and never inspect a tag. Reassembly
@@ -421,9 +450,10 @@ including ``X | None`` -- have no converter and are therefore DI, not wire; use 
 default rather than ``None``.
 
 **Framing. [decided — as built]** Each arg is length-prefixed (one wire digit, so ≤91
-chars of data per frame) and encoded by its converter; ints are minimal-width
-little-endian bytes rendered in the base85 wire alphabet (§6.1 spends the density on
-printability). Binding normalises keywords to positions, requires bound args to cover a
+chars of data per frame); converters produce bytes (ints minimal-width little-endian,
+strings UTF-8, bools one byte) and the build pass renders each frame in the
+component's codec (§6.1), so dense views get dense arguments for free. A frame that
+does not fit raises `ArgBindError` at render, naming the parameter and the codec. Binding normalises keywords to positions, requires bound args to cover a
 contiguous prefix of the wire parameters, lets trailing defaulted parameters be omitted
 (dispatch then lets the *current* Python defaults apply), and encodes eagerly, so a bad
 value fails at the ``render()`` call site rather than at click time. Handlers with no
@@ -480,10 +510,13 @@ off. Whether a view overrides it is resolved once, at registration
 (``ViewMeta.handles_outdated``), which is both what gates the call and what downgrades the
 token-miss log. Two boundaries worth stating: decode failures -- unreadable frames, bad
 frame counts, undecodable values -- deliberately do **not** reach the hook, because that
-input is client-forgeable and must never invoke user code; and risa default-constructs the
-view to build the context, so a view whose fields have no defaults cannot reach its own hook
-until the state pivot hydrates it from the anchor instead (the failure is contained and
-logged).
+input is client-forgeable and must never invoke user code; and the hook's context carries
+no view **[decided -- revised 2026-10-26]**. Dispatch builds the ``ComponentContext``
+before any state is read, so the watchdog covers the session's I/O (§8.1), and attaches
+the hydrated view only once ``restore()`` succeeds. A hook therefore never constructs the
+view -- fields without defaults are no obstacle -- and inside it ``edit(layout)`` works
+while ``rerender()`` raises, since there is no state to render. ``on_state_missing``
+(§7.6) runs under the same contract.
 
 Rejected alternatives: hashing the arg types into the token itself (automatic, but offers
 no way to keep old components alive and no per-handler remedy for same-type semantic
@@ -506,15 +539,35 @@ class Poll(risa.View): ...
 class TodoList(risa.View): ...
 
 client = risa.client_from_app(bot, stores={"redis": MyRedisStore(...)})
+# single-store bots skip the dict and the name: client_from_app(bot, store=MyRedisStore(...))
 ```
 
 Placement is configuration, not taxonomy — one `View` base, one handler semantics, one
 `render()`/`rerender()` contract under both. The policy objects carry exactly their own
 knobs: `ttl` (required) exists only on `InStore`, so invalid combinations are
-unrepresentable rather than validated. Store *instances* are wired once, by name, on the
-client; a view naming an unconfigured store fails at `add_view()` — a boot error, never a
-dead click. `InStore` on the default `MemoryStore` warns loudly at startup: it silently
-forfeits the restart promise, and under multi-process REST it is *worse* than `InMessage`.
+unrepresentable rather than validated. Store *instances* are wired once on the client
+**[decided — revised]**: `store=` fills the unnamed `"default"` slot, `stores={name:
+instance}` adds named ones, and supplying `"default"` both ways is a construction-time
+error. A view naming an unconfigured store — the default slot included — fails at
+`add_view()`: a boot error, never a dead click. Nothing is auto-created (an earlier draft
+auto-supplied `MemoryStore` and only warned); the missing-default error names the one-line
+fix, `store=risa.MemoryStore()` for development. `InStore` on an explicitly wired
+`MemoryStore` still warns loudly at startup: it silently forfeits the restart promise, and
+under multi-process REST it is *worse* than `InMessage`. **[decided 2026-10-26]** The
+warning fires at the first `add_view` of an `InStore` view on a `MemoryStore` slot, once
+per slot — a slot nobody keeps state in stays quiet. A view reached through
+`use_global=True` never passes `add_view`, so for it the missing-store message is an ERROR
+at click time instead; checking the global registry at construction cannot work, since it
+holds every imported view, libraries' included, and keeps growing afterwards.
+
+A client-level **default placement** was considered and refused **[decided]**: `ViewMeta`
+is one frozen object shared by the global registry and every client registry, so
+client-resolved placement would let one cookie render under two anchor tags — dead clicks
+with no boot error to point at — and a blanket `InStore` default has no coherent
+semantics because `ttl` is deliberately required and has no library-suppliable value.
+The project-wide default is a two-line user-land wrapper around `@risa.register`
+(a plain function forwarding `name`/`version` and fixing `state=`), which pyright checks
+fully; the docs teach that recipe.
 
 The decision rule the docs lead with: **bounded and world-readable → default; unbounded,
 expirable, or multi-process REST → `InStore`.** (Rails' cookie-store-vs-Redis-sessions is
@@ -569,17 +622,24 @@ the lock is a throughput optimization.**
 
 - Within a process, a per-key lock (message id for `InMessage`, store key for `InStore`)
   serializes handlers on the same view — atomic check-then-act, the advertised win over
-  miru/lightbulb, preserved on every gateway bot by shard-stickiness.
-- Across processes, `put_if_version` settles the race. A lost CAS is **converged, never
-  raised and never retried**: the loser suppresses nothing it already sent, re-renders the
-  winning state so the message ends true, answers its interaction, and logs — a handler
-  that already responded must not double-send, and a user must never see a hanging click.
-  Convergence works by *adopting* the winner's durable fields onto the instance the handler
-  is holding, rather than rendering a second one: the view then re-encodes to exactly what
-  was read, so nothing later in the dispatch can commit the discarded values on top of the
-  winner. When there is nothing to converge onto — the record vanished, or what replaced it
-  cannot be read — the transaction ends and `on_state_missing`/`on_outdated` answer instead,
-  with the session detached so the hook cannot commit against a dead baseline.
+  miru/lightbulb, preserved on every gateway bot by shard-stickiness. A view without
+  durable fields takes no lock **[decided 2026-10-26]**: there is nothing to protect, and a
+  public panel must not queue fifty unrelated clicks behind each other.
+- Across processes, `put_if_version` settles the race, and **the handler decides what a
+  lost race means [decided — revised 2026-10-26]**. A lost CAS inside `rerender()` first
+  *adopts* the winner's durable fields and version onto the instance the handler is
+  holding, then raises `StateConflictError(key, expected, found)`. The view re-encodes to
+  exactly what was read, so a handler that catches can re-apply its change and commit
+  again, show the truth, or answer however it likes; one that does not catch fails like any
+  handler, and the message still shows the winner, who edited it. risa never retries: a
+  handler that already responded or wrote elsewhere must not run twice. A record that
+  vanished under the handler raises `StateNotFoundError(key)` instead, and a winner that
+  cannot be read raises the conflict without adopting; both detach the session, so nothing
+  commits against a dead baseline. A race lost by the end-of-dispatch commit (§7.4) has no
+  one left to raise to: WARNING with both versions, naming `rerender()` as the way to
+  handle conflicts, and the mutation is discarded. An earlier revision converged without
+  raising. Only multi-process REST with a distributed store can lose a race at all; within
+  a process the lock queues the clicks.
 - `InMessage` cross-process (multi-process REST only) is last-write-wins, stated plainly.
   The version cache + seq counter are load-bearing within a process, advisory beyond it.
 
@@ -598,7 +658,11 @@ handlers) are designed but deferred post-1.0 (§15).
   `InStore`: CAS-write then edit, both under the lock — the message must never show state
   the store has not accepted; a crash between leaves the store authoritative and the
   visuals self-heal on the next click. Each commit advances the dirty baseline, so a
-  second rerender in the same handler compares against what the first one committed.
+  second rerender in the same handler compares against what the first one committed. An
+  `InStore` rerender whose durable fields are unchanged writes nothing and only `touch`es
+  the key **[decided 2026-10-26]**: a redraw for fresh props must neither cost a round trip
+  nor make another process's CAS fail, and if that process wrote meanwhile the redraw may
+  briefly show the older state — the store stays authoritative, the next click heals it.
 - **Dirty is computed, never declared**: re-encode the durable fields, byte-compare. No
   `state_dirty` flag exists.
 - **A handler that mutates durable state and never rerenders still commits** at dispatch
@@ -622,7 +686,7 @@ class Store(Protocol):
     async def get_versioned(self, key: str) -> tuple[bytes, int] | None: ...
     async def put(self, key: str, value: bytes, *, ttl: float | None) -> None: ...
     async def put_if_version(self, key: str, value: bytes, *,
-                             expected: int, ttl: float | None) -> bool: ...
+                             expected: int, ttl: float | None) -> int | None: ...
     async def delete(self, key: str) -> None: ...
     async def touch(self, key: str, *, ttl: float) -> None: ...
     def lock(self, key: str, *, timeout: float = 10.0) -> AsyncContextManager[None]: ...
@@ -636,17 +700,35 @@ Changes from the original protocol, all verdicts of the lock investigation:
   lose exclusivity under a stalled holder, which is why the lock is never the correctness
   story: every commit goes through `put_if_version`.
 - **`StoreUnavailableError`** joins the contract: an outage must not masquerade as expiry
-  in `on_state_missing`. Lost-race and entry-expired need opposite dispositions and must
-  be distinguishable at the `put_if_version` boundary.
+  in `on_state_missing`. Lost-race and entry-expired need opposite dispositions;
+  `put_if_version` refuses with one value **[decided — revised]** and `StoredSession`
+  distinguishes them by re-reading after a refusal (`None` → gone, anything else → lost the
+  race) — a three-state return was rejected because it forces every third-party store to
+  make that distinction atomically (a Lua script in Redis, not a `WATCH`/`MULTI`). A
+  success returns the version the write produced **[decided — revised 2026-10-26]**: the
+  next commit in the same handler needs it, and re-reading for it would race — another
+  process writing in between would hand over its version and hide the conflict.
 - Store entries carry the envelope `{v, n, f, d}` — schema version, view name, durable-
   field fingerprint, data — so rename/remove/retype without a version bump fails closed
   identically on both placements, entries survive store migrations, and the future
-  `@risa.migration` hook has something dated to decode. Keys are namespaced
-  `risa:<fmt>:<token>`.
-- `MemoryStore` (OrderedDict + LRU + per-key asyncio locks) stays the zero-config default;
-  `RedisStore` plus a `risa.state.testing.verify_store` conformance kit are 1.0 roadmap —
-  the protocol is sharp to implement (leases, atomic put+ttl, CAS races), and handing it
-  to users without a test harness would be negligent.
+  `@risa.migration` hook has something dated to decode. Keys are namespaced by the
+  *backend*, not the anchor **[decided — revised]**: the anchor holds the bare 96-bit
+  token as bytes (replicated per component), and `StoredBackend` names the entry
+  `risa:{app_id}:1:<token as 24 hex digits>` on the way to the store, so the namespace
+  costs no custom_id capacity and cluster hash-tagging stays a store-side concern.
+  **[decided 2026-10-26]** The key text is a fixed function of the token bytes,
+  independent of the wire codec — otherwise a codec switch would rename every live entry —
+  and hex keeps it free of `{}` hash-tag braces and glob characters. The app id comes from
+  `interaction.application_id` on a click and from one cached `rest.fetch_application()`
+  before the first click, never from the bot token: hikari keeps the token private, a
+  `TokenStrategy` has none, and its first segment is the bot *user* id. `key_prefix=` on
+  the client replaces `risa:{app_id}` wholesale, for Redis ACL key patterns and shared
+  instances.
+- `MemoryStore` (OrderedDict + LRU + per-key asyncio locks) is the zero-infrastructure
+  development store, wired explicitly (`store=risa.MemoryStore()`) and never auto-created
+  **[decided — revised]** — see §7.1; `RedisStore` plus a `risa.store.testing.verify_store`
+  conformance kit are 1.0 roadmap — the protocol is sharp to implement (leases, atomic
+  put+ttl, CAS races), and handing it to users without a test harness would be negligent.
 
 ### 7.6 Anchors, keys, and schema evolution **[decided]**
 
@@ -654,15 +736,32 @@ Changes from the original protocol, all verdicts of the lock investigation:
   (not chunked — every custom_id stays self-sufficient, and stored views do not need the
   capacity). Custom_ids are therefore *stable across rerenders* — an in-flight click is
   never invalidated. A failed send leaks one entry; TTL reaps it; no two-phase commit.
-- `InMessage` blobs: `[tag][schema-fp:2][seq:3][msgpack positional array of durable
-  fields]`, chunked across the interactive leaves. No `{v,n}` envelope — the cookie
-  already pins name and schema version, and every char is capacity.
+  Every `InStore` component carries fragment index 0 **[decided 2026-10-26]** — nothing is
+  chunked, and it lets a click on a component with any other index, an empty fragment or
+  a message-tagged one be diagnosed as a placement switch without a version bump, instead
+  of as forgery or, for an unlucky 13-byte slice, as a store key that went missing.
+- `InMessage` blobs: `[tag:1][total:2][schema-fp:3][seq:3][msgpack positional array of
+  durable fields]` as bytes, carved across the interactive leaves and written slice by
+  slice in the component's codec (§6.1). No `{v,n}` envelope — the cookie
+  already pins name and schema version, and every char is capacity. `total` is the anchor's
+  own length: reassembly checks contiguity, and `total` is what catches a message whose
+  *trailing* components were removed, where contiguity alone would hand msgpack a short but
+  perfectly valid prefix. **[decided — revised]** an earlier draft of this line omitted
+  `total` and gave the fingerprint 2 characters; §6.1 is the layout of record, and the three
+  extra characters are spent per *view*, not per component.
 - Evolution policy, both placements: **appending a defaulted durable field is free**
   (prefix fingerprints); remove/reorder/retype/rename fails closed to `on_outdated`.
+  That includes the *first* durable field of a formerly stateless view **[decided
+  2026-10-26]**: a view without durable fields writes no anchor, and a message whose
+  fragments under the view's cookie are all empty *and* indexed 0..n without a gap reads as
+  the empty prefix. Any gap is torn — a silent reset to defaults must never come from a
+  mangled message.
   Bumping the view `version` changes the cookie and retires old components wholesale, as
   before. `on_state_missing` exists only for `InStore` (expiry/eviction/flush are store
   phenomena; message-resident state cannot go missing — the one torn-message case routes
-  to `on_outdated`).
+  to `on_outdated`). An `InMessage` view may still define it without error, so a project's
+  shared base view can carry both hooks; there it simply never fires **[decided
+  2026-10-26]**.
 - Durable state is **world-readable and client-forgeable** — never secrets, never the sole
   basis of an authorization decision. Documented at the point of use, not in an appendix.
 
@@ -870,7 +969,8 @@ default.
   state. Retrofitting invalidates every live key.
 - **Read from the primary.** Replica reads break read-your-writes on re-render.
 - **Lock is unsafe under failover.** Accepted; the version check (§7.3) is the backstop.
-- **Namespace with the application ID** — `risa:{app_id}:`.
+- **Namespace with the application ID** — `risa:{app_id}:`, the default; `key_prefix=`
+  on the client replaces it (§7.5).
 
 ### Lock tiering **[resolved by §7.3]**
 
@@ -985,9 +1085,12 @@ new types ad hoc:
 | encoded custom_id > 100 chars | `CustomIdOverflowError` |
 | durable state exceeds the tree's chunk capacity | `StateOverflowError` (at build/rerender; per-field size breakdown, suggests `Prop`/`InStore`) |
 | stored state predates a schema bump | `SchemaMismatchError` |
-| store entry gone (expired/evicted) | `StateNotFoundError` → routed to `on_state_missing` |
+| store entry gone before the handler (expired/evicted) | routed to `on_state_missing` |
+| store entry gone while the handler runs | `StateNotFoundError` from `rerender()`, session detached (§7.3) |
 | store unreachable (never conflated with "gone") | `StoreUnavailableError` |
-| CAS lost | converged in dispatch (§7.3) — never raised to the user |
+| state written in a codec this host cannot load | `CodecUnavailableError` from the session's `restore()`: ERROR with the install line, no hook (§6.1) |
+| CAS lost in `rerender()` | `StateConflictError` after adopting the winner (§7.3) |
+| CAS lost by the end-of-dispatch commit | logged at WARNING, mutation discarded (§7.3) |
 | lock not acquired within `timeout` | `LockTimeoutError` |
 | wire args predate a signature edit | `SignatureMismatchError` (caught in dispatch: logged, routed to `on_outdated`) |
 | anchor's placement tag ≠ registered placement | routed to `on_outdated`, precise ERROR log |
@@ -1010,13 +1113,14 @@ Ordered by cost of changing later.
 1. **One view per message, or composable sub-views?** Sub-views suit V2 nesting
    (`ui.Container(*ProfileCard(user).render())`) but multiply the anchor story. Punt, but
    do not design them out.
-2. **Does `on_state_missing` disable the components in place?** Polite, but costs an extra
-   edit.
-3. **Is `render()` allowed to be async?** Tempting (fetch data to display), but `load()`
+2. **Is `render()` allowed to be async?** Tempting (fetch data to display), but `load()`
    (§7.2) now covers the legitimate need without I/O inside every redraw. Leaning **no**.
 
 ### Settled since
 
+- **`on_state_missing` does not disable the components in place** — its default body does
+  nothing, exactly like `on_outdated`: WARNING naming view and key, DEBUG once a view
+  overrides the hook. Disabling is one `ctx.edit(layout)` in the override. *(2026-10-26)*
 - **State placement is per view: `state=risa.InMessage()` (default) `| risa.InStore(store=,
   ttl=)`** — flare's model scaled by V2 as the zero-infra default, miru's ergonomics made
   durable behind a pluggable store. See §2.3/§7.1.
@@ -1025,8 +1129,9 @@ Ordered by cost of changing later.
   `register(ttl=)` are subsumed and deleted. See §7.2. *(`load()` accepted tentatively —
   revisit its final shape before 1.0.)*
 - **The locking law and the hybrid concurrency contract** — locks never span human
-  think-time; CAS is correctness, the lock is throughput; CAS losses converge, never
-  raise. See §7.3.
+  think-time; CAS is correctness, the lock is throughput; a CAS lost in `rerender()`
+  adopts the winner and raises `StateConflictError`, one lost by the end-of-dispatch
+  commit is a WARNING and the change is discarded. See §7.3.
 - **Every `rerender()` is a full commit; mutate-without-rerender auto-commits; dirty is
   computed.** See §7.4.
 - **Modals are callback-only for 1.0** (`ctx.prompt` + `carry=` + version token +
@@ -1061,32 +1166,35 @@ Ordered by cost of changing later.
 
 ### The state pivot
 
-Each step should land green. **None of these have landed on the `foundation` rewrite** —
-the pre-pivot work (identity codec, nodes, dispatch, the response surface) is in, and
-`HANDOFF.md` tracks the precise state. The old branch proved steps 1-4 once; they are to
-be rebuilt against this design, not copied.
+Each step should land green. **Steps 1–3 are built** on `anchor-codec` (PR #39, as leaves:
+nothing is wired into build or dispatch yet); steps 4 and 5 remain, and `HANDOFF.md`
+tracks the precise state. The old branch proved steps 1-4 once; they are to be rebuilt
+against this design, not copied.
 
 1. **Codec** — chunk framing (`idx`/`frag_len`, carve/gather with gap detection), the two
    anchor dialects, the placement tag, Prop-aware positional state encoding. Still v1.
 2. **`StateSchema` + `Prop` + `load()`** — field partition, registration validations,
    `register(state=)`, `StateOverflowError` ergonomics.
-3. **Backends and sessions** — `MessageSession` (per-message lock, seq + version cache),
-   `StoredSession` (lease-capable `lock(timeout=)`, CAS-then-edit commits, converge-on-
-   conflict, `on_state_missing`), Store protocol hardening (`StoreUnavailableError`,
-   `{v,n,f,d}` envelope, key namespace, `InStore`+`MemoryStore` warning).
-4. **Build + dispatch + context rewire** — two-phase build, message-component
-   reader, one session-driven dispatch path, commit-per-rerender, the fatal fixes from the
-   invariants audit (CAS loss answers the interaction; `edit(layout)` re-embeds or raises;
-   watchdog vs conditionally-modal handlers), deletion of the store-era dispatch. Also
-   in this step: a third `StatelessBackend` so nothing above branches on whether a view has
-   state; named stores on the client (`stores={...}`) validated at `add_view`; and
+3. **Backends and sessions** — the message-component reader, `MessageSession`
+   (per-message lock, seq + version cache), `StoredSession` (lease-capable
+   `lock(timeout=)`, CAS-then-edit commits, adopt-and-raise on conflict), a third
+   `StatelessBackend` so nothing above branches on whether a view has state (it takes no
+   per-message lock, §7.3), Store protocol hardening (`StoreUnavailableError`, `{v,n,f,d}`
+   envelope, key namespace), `View.on_state_missing` registered like `on_outdated`, and
+   stores on the client (`store=` for the default slot, `stores={...}` for named ones,
+   `key_prefix=`) validated at `add_view`, with the `InStore`+`MemoryStore` warning.
+4. **Build + dispatch + context rewire** — two-phase build, one session-driven dispatch
+   path (`MISSING` to `on_state_missing`, `OUTDATED` to `on_outdated`, an unconfigured
+   store reached through `use_global` an ERROR at click time), commit-per-rerender, the
+   fatal fixes from the invariants audit (`edit(layout)` re-embeds or raises; watchdog vs
+   conditionally-modal handlers), deletion of the store-era dispatch, and
    `anchor.distribute`, which parks the components an anchor does not reach on one shared
    index rather than counting past it.
 5. **`modal.py`** — §9 as decided.
 
 ### 1.0 roadmap, after the pivot
 
-- **`RedisStore`** (`[redis]` extra) + **`risa.state.testing.verify_store`** conformance
+- **`RedisStore`** (`[redis]` extra) + **`risa.store.testing.verify_store`** conformance
   kit — the protocol is sharp to implement; shipping it without a harness is negligent.
 - Docs: the placement 2×2 (§10), the capacity/introspection story, the world-readable
   warning, a first stateful tutorial example whose state *grows*.

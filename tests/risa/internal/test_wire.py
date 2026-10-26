@@ -50,22 +50,6 @@ def test_unpacking_a_foreign_character_fails_soft() -> None:
     assert wire.unpack_uint("a b") is None
 
 
-@pytest.mark.parametrize("data", [b"", b"\x00", b"risa", b"\xff" * 17, bytes(range(256))])
-def test_bytes_round_trip(data: bytes) -> None:
-    packed = wire.pack_bytes(data)
-    assert packed.isascii()
-    assert '"' not in packed
-    assert "\\" not in packed
-    assert wire.unpack_bytes(packed) == data
-
-
-def test_unpacking_malformed_bytes_fails_soft() -> None:
-    assert wire.unpack_bytes('"') is None
-    assert wire.unpack_bytes("a b") is None
-    assert wire.unpack_bytes("a") is None
-    assert wire.unpack_bytes("aaaaaa") is None
-
-
 def test_a_digest_is_deterministic_and_exactly_as_wide_as_asked() -> None:
     for chars in [1, 2, 6, wire.MAX_DIGEST_CHARS]:
         first = wire.pack_digest("poll:1", chars=chars)

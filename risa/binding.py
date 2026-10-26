@@ -25,16 +25,17 @@ import typing
 import msgspec
 
 from risa import errors
-from risa.internal import codec
 
 if typing.TYPE_CHECKING:
     import collections.abc
 
     from risa import view as view_
+    from risa.internal import codec
 
 __all__ = (
     "BindTarget",
     "Binding",
+    "Frame",
     "HandlerBinder",
     "Handlerish",
     "bind",
@@ -52,11 +53,18 @@ type Handlerish = (
 bind: typing.Final = functools.partial
 
 
+class Frame(msgspec.Struct, frozen=True):
+    name: str
+    data: bytes
+
+
 class Binding(msgspec.Struct, frozen=True):
     handler_id: str
     version: int
     token: str
-    payload: str
+    fingerprint: str
+    frames: collections.abc.Sequence[Frame]
+    func_name: str
     owner: type[view_.View] | None = None
 
 
@@ -110,31 +118,29 @@ class HandlerBinder:
         if k < self._signature.required:
             raise errors.ArgBindError(self._func_name, names[k], "is required but was not supplied")
 
-        parts = self._encode_frames(names[:k], filled)
-        payload = self._signature.fingerprint + codec.pack_frames(parts) if names else ""
         return Binding(
             handler_id=self._handler_id,
             version=self._version,
             token=self._token,
-            payload=payload,
+            fingerprint=self._signature.fingerprint if names else "",
+            frames=self._encode_frames(names[:k], filled),
+            func_name=self._func_name,
             owner=self._owner,
         )
 
-    def _encode_frames(self, names: collections.abc.Sequence[str], filled: dict[str, object]) -> list[str]:
-        parts: list[str] = []
+    def _encode_frames(
+        self,
+        names: collections.abc.Sequence[str],
+        filled: dict[str, object],
+    ) -> collections.abc.Sequence[Frame]:
+        frames: list[Frame] = []
         for name in names:
             try:
-                encoded = self._signature.converters[name].encode(filled[name])
+                data = self._signature.converters[name].encode(filled[name])
             except (TypeError, ValueError) as exc:
                 raise errors.ArgBindError(self._func_name, name, str(exc)) from exc
-            if len(encoded) > codec.MAX_FRAME_LENGTH:
-                reason = (
-                    f"encodes to {len(encoded)} characters, "
-                    f"which exceeds the {codec.MAX_FRAME_LENGTH}-character frame limit"
-                )
-                raise errors.ArgBindError(self._func_name, name, reason)
-            parts.append(encoded)
-        return parts
+            frames.append(Frame(name=name, data=data))
+        return tuple(frames)
 
 
 def resolve(handler: Handlerish) -> Binding:

@@ -38,6 +38,7 @@ if typing.TYPE_CHECKING:
 
     import linkd
 
+    from risa import codecs
     from risa.internal import registry
 
 __all__ = ("Dispatcher",)
@@ -353,11 +354,12 @@ def _decode_args(
         )
         return None
 
-    return _decode_frames(frames, meta, record, interaction_id)
+    return _decode_frames(frames, custom_id.codec, meta, record, interaction_id)
 
 
 def _decode_frames(
     frames: list[str],
+    wire_codec: codecs.Codec,
     meta: registry.ViewMeta,
     record: registry.HandlerRecord,
     interaction_id: hikari.Snowflake,
@@ -365,8 +367,35 @@ def _decode_frames(
     signature = record.signature
     decoded: list[object] = []
     for (name, converter), frame in zip(signature.converters.items(), frames, strict=False):
+        data = codec.decode_text(frame, wire_codec)
+        if isinstance(data, errors.CodecUnavailableError):
+            _LOGGER.error(
+                "interaction %s routes to handler %r (version %d) of view %s, but the component was"
+                " written with codec %r, which needs the optional dependency %r: pip install"
+                " hikari-risa[%s]",
+                interaction_id,
+                record.handler_id,
+                record.version,
+                meta.name,
+                data.codec_name,
+                data.extra,
+                data.extra,
+            )
+            return None
+        if data is None:
+            _LOGGER.warning(
+                "interaction %s routes to handler %r (version %d) of view %s, but wire argument %r"
+                " is not valid %s text; the component may be forged or corrupted",
+                interaction_id,
+                record.handler_id,
+                record.version,
+                meta.name,
+                name,
+                wire_codec.name,
+            )
+            return None
         try:
-            value = converter.decode(frame)
+            value = converter.decode(data)
         except Exception:
             _LOGGER.warning(
                 "interaction %s routes to handler %r (version %d) of view %s, but decoding wire"

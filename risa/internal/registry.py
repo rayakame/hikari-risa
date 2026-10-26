@@ -32,13 +32,16 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
     from risa import context
+    from risa.state import placement as placement_
+    from risa.state import schema as schema_
     from risa.view import AutoDefer
     from risa.view import View
+
 
 __all__ = (
     "DispatchCallback",
     "HandlerRecord",
-    "OutdatedCallback",
+    "HookCallback",
     "Registry",
     "ViewMeta",
     "global_registry",
@@ -53,8 +56,12 @@ type DispatchCallback = collections.abc.Callable[
     typing.Concatenate[View, context.ComponentContext, ...],
     collections.abc.Awaitable[None],
 ]
-type OutdatedCallback = collections.abc.Callable[
+type HookCallback = collections.abc.Callable[
     typing.Concatenate[context.ComponentContext, ...],
+    collections.abc.Awaitable[None],
+]
+type LoadCallback = collections.abc.Callable[
+    typing.Concatenate[View, ...],
     collections.abc.Awaitable[None],
 ]
 
@@ -71,16 +78,28 @@ class ViewMeta(msgspec.Struct, frozen=True):
     cls: type[View]
     name: str
     version: int
+    schema: schema_.StateSchema
+    state: placement_.StatePlacement
     handlers: collections.abc.Mapping[str, HandlerRecord] = msgspec.field(default_factory=dict[str, HandlerRecord])
-    outdated: OutdatedCallback | None = None
+    outdated: HookCallback | None = None
+    state_missing: HookCallback | None = None
+    loader: LoadCallback | None = None
 
     @property
     def handles_outdated(self) -> bool:
         return self.outdated is not None
 
     @property
+    def handles_state_missing(self) -> bool:
+        return self.state_missing is not None
+
+    @property
     def cookie(self) -> str:
         return codec.make_cookie(self.name, self.version)
+
+    @property
+    def handles_load(self) -> bool:
+        return self.loader is not None
 
 
 class Registry:

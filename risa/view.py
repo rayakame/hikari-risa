@@ -27,9 +27,12 @@ import linkd
 import msgspec
 
 from risa import binding as binding_
+from risa import codecs
 from risa import errors
 from risa.internal import codec
 from risa.internal import registry
+from risa.state import placement as placement_
+from risa.state import schema as schema_
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -173,23 +176,58 @@ class View(msgspec.Struct):
     def render(self) -> ui.Layout:
         raise NotImplementedError
 
+    async def load(self) -> None: ...
+
     @classmethod
     async def on_outdated(cls, ctx: context.ComponentContext) -> None:
         """Answer a click on a component this view can no longer route."""
+
+    @classmethod
+    async def on_state_missing(cls, ctx: context.ComponentContext) -> None: ...
 
 
 def _inject(func: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> registry.DispatchCallback:
     return typing.cast("registry.DispatchCallback", linkd.inject(func))
 
 
-def _injected_outdated(cls: type[View]) -> registry.OutdatedCallback | None:
+def _injected_outdated(cls: type[View]) -> registry.HookCallback | None:
     if cls.on_outdated.__func__ is View.on_outdated.__func__:
         return None
-    return typing.cast("registry.OutdatedCallback", linkd.inject(cls.on_outdated))
+    return typing.cast("registry.HookCallback", linkd.inject(cls.on_outdated))
+
+
+def _injected_state_missing(cls: type[View]) -> registry.HookCallback | None:
+    if cls.on_state_missing.__func__ is View.on_state_missing.__func__:
+        return None
+    return typing.cast("registry.HookCallback", linkd.inject(cls.on_state_missing))
+
+
+def _injected_load(cls: type[View]) -> registry.LoadCallback | None:
+    if cls.load is View.load:
+        return None
+    return typing.cast("registry.LoadCallback", linkd.inject(cls.load))
+
+
+def _check_placement(view_name: str, *, state: placement_.StatePlacement, schema: schema_.StateSchema) -> None:
+    if isinstance(state, placement_.InStore) and not schema.durable:
+        reason = (
+            "state=risa.InStore(...) was given, but every field is a risa.Prop, so there is nothing"
+            " to store; drop the argument, or drop the marker from the fields that should persist"
+        )
+        raise errors.ViewDeclarationError(view_name, reason)
+    try:
+        codecs.register(state.codec)
+    except ValueError as exc:
+        raise errors.ViewDeclarationError(view_name, str(exc)) from exc
+    codecs.ensure_available(state.codec)
 
 
 def register[T: View](
-    *, name: str, version: int = 1, defer: AutoDefer | None = None
+    *,
+    name: str,
+    version: int = 1,
+    defer: AutoDefer | None = None,
+    state: placement_.StatePlacement = placement_.DEFAULT_PLACEMENT,
 ) -> typing.Callable[[type[T]], type[T]]:
     def decorate(cls: type[T]) -> type[T]:
         if not name.strip():
@@ -198,6 +236,9 @@ def register[T: View](
         if version < 1:
             reason = f"version must be 1 or greater, got {version}"
             raise errors.ViewDeclarationError(name, reason)
+
+        schema = schema_.StateSchema.of(cls, view_name=name)
+        _check_placement(name, state=state, schema=schema)
 
         handlers: dict[str, registry.HandlerRecord] = {}
         for _, member in inspect.getmembers(cls):
@@ -225,8 +266,12 @@ def register[T: View](
             cls=cls,
             name=name,
             version=version,
+            schema=schema,
+            state=state,
             handlers=handlers,
             outdated=_injected_outdated(cls),
+            state_missing=_injected_state_missing(cls),
+            loader=_injected_load(cls),
         )
         registry.global_registry().register(meta)
         registry.stamp(cls, meta)

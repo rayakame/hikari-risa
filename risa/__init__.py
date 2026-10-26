@@ -19,8 +19,11 @@
 # SOFTWARE.
 from __future__ import annotations
 
+from risa import codecs as codecs
 from risa import di as di
 from risa import errors as errors
+from risa import state as state
+from risa import store as store
 from risa import ui as ui
 from risa._about import __author__ as __author__
 from risa._about import __copyright__ as __copyright__
@@ -33,4 +36,6 @@ from risa.client import *
 from risa.context import *
 from risa.di import *
 from risa.errors import *
+from risa.state import *
+from risa.store import *
 from risa.view import *

@@ -8,6 +8,7 @@ import linkd
 import pytest
 
 import risa
+from risa import codecs
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import wire
@@ -54,7 +55,7 @@ def test_the_name_participates_in_both_identities() -> None:
 
 
 def test_the_header_arithmetic_adds_up() -> None:
-    assert codec.HEADER_LENGTH == 11
+    assert codec.HEADER_LENGTH == 12
     assert codec.MAX_FRAGMENT_LENGTH == constants.MAX_CUSTOM_ID_LENGTH - codec.HEADER_LENGTH
 
 
@@ -131,14 +132,45 @@ def test_a_wrong_version_character_fails_soft() -> None:
     assert codec.parse_custom_id("2" + encoded[1:]) is None
 
 
+def test_the_codec_character_rides_right_behind_the_version() -> None:
+    encoded = custom_id(fragment="abc").encode()
+
+    assert encoded[0] == codec.VERSION
+    assert encoded[1] == codecs.BASE85.tag
+
+
+def test_an_unknown_codec_character_fails_soft() -> None:
+    encoded = custom_id(fragment="abc").encode()
+    assert codec.parse_custom_id(encoded[:1] + "\x00" + encoded[2:]) is None
+
+
+def test_a_dense_codec_round_trips_its_tag() -> None:
+    original = codec.CustomID(
+        cookie=codec.make_cookie("poll", 1),
+        handler=codec.make_handler_token("vote", 1),
+        fragment_index=0,
+        fragment="",
+        tail="",
+        codec=codecs.BASE32768,
+    )
+
+    parsed = codec.parse_custom_id(original.encode())
+
+    assert parsed == original
+    assert parsed is not None
+    assert parsed.codec is codecs.BASE32768
+
+
 def test_a_corrupted_index_character_fails_soft() -> None:
     encoded = custom_id(fragment="abc").encode()
-    assert codec.parse_custom_id(encoded[:9] + '"' + encoded[10:]) is None
+    at = codec.HEADER_LENGTH - codec.FRAGMENT_LEN_WIDTH - codec.FRAGMENT_INDEX_WIDTH
+    assert codec.parse_custom_id(encoded[:at] + '"' + encoded[at + 1 :]) is None
 
 
 def test_a_corrupted_length_character_fails_soft() -> None:
     encoded = custom_id(fragment="abc").encode()
-    assert codec.parse_custom_id(encoded[:10] + '"' + encoded[11:]) is None
+    at = codec.HEADER_LENGTH - codec.FRAGMENT_LEN_WIDTH
+    assert codec.parse_custom_id(encoded[:at] + '"' + encoded[at + 1 :]) is None
 
 
 def test_an_id_truncated_mid_fragment_fails_soft() -> None:
@@ -155,6 +187,33 @@ def test_parse_never_inspects_the_tail() -> None:
     parsed = codec.parse_custom_id(custom_id(tail='weird "tail" \\ content').encode())
     assert parsed is not None
     assert parsed.tail == 'weird "tail" \\ content'
+
+
+def test_decode_text_returns_the_bytes() -> None:
+    assert codec.decode_text(codecs.BASE85.encode(b"state"), codecs.BASE85) == b"state"
+
+
+def test_decode_text_fails_soft_on_text_the_codec_did_not_write() -> None:
+    assert codec.decode_text("x", codecs.BASE85) is None
+
+
+def test_decode_text_hands_back_a_missing_codec_as_a_value() -> None:
+    name = "dense"
+
+    def missing(_text: str) -> bytes:
+        raise risa.CodecUnavailableError(name, codecs.RADIXLY_EXTRA)
+
+    absent = codecs.Codec(
+        tag="?",
+        name=name,
+        encode=codecs.BASE85.encode,
+        decode=missing,
+        max_bytes=codecs.BASE85.max_bytes,
+    )
+    result = codec.decode_text("abc", absent)
+
+    assert isinstance(result, risa.CodecUnavailableError)
+    assert result.codec_name == name
 
 
 class Color(enum.Enum):
@@ -194,13 +253,9 @@ def test_an_int_converter_rejects_other_types() -> None:
         codec.IntConverter(int).encode("5")
 
 
-def test_garbled_int_text_is_unreadable() -> None:
-    assert codec.IntConverter(int).decode('"') is None
-
-
 def test_an_empty_int_frame_is_unreadable() -> None:
-    assert codec.IntConverter(int).decode("") is None
-    assert codec.IntConverter(hikari.Snowflake).decode("") is None
+    assert codec.IntConverter(int).decode(b"") is None
+    assert codec.IntConverter(hikari.Snowflake).decode(b"") is None
 
 
 @pytest.mark.parametrize("value", ["", "Red", "hÿ", "🎈🎈", "a" * 60])
@@ -211,7 +266,7 @@ def test_a_str_survives_the_round_trip(value: str) -> None:
 
 
 def test_bytes_that_are_not_utf8_are_unreadable() -> None:
-    assert codec.StrConverter().decode(wire.pack_bytes(b"\xff\xfe")) is None
+    assert codec.StrConverter().decode(b"\xff\xfe") is None
 
 
 def test_a_str_converter_rejects_other_types() -> None:
@@ -220,7 +275,7 @@ def test_a_str_converter_rejects_other_types() -> None:
 
 
 @pytest.mark.parametrize("value", [True, False])
-def test_a_bool_survives_the_round_trip_in_one_char(*, value: bool) -> None:
+def test_a_bool_survives_the_round_trip_in_one_byte(*, value: bool) -> None:
     converter = codec.BoolConverter()
 
     encoded = converter.encode(value)
@@ -235,8 +290,8 @@ def test_a_bool_converter_rejects_ints() -> None:
 
 
 def test_a_forged_bool_is_unreadable() -> None:
-    assert codec.BoolConverter().decode(wire.pack_uint(5, 1)) is None
-    assert codec.BoolConverter().decode("00") is None
+    assert codec.BoolConverter().decode(b"\x05") is None
+    assert codec.BoolConverter().decode(b"\x00\x00") is None
 
 
 def test_an_int_valued_enum_survives_the_round_trip() -> None:
@@ -297,15 +352,13 @@ def test_a_bad_length_digit_is_unreadable() -> None:
 
 def test_everything_encoded_stays_inside_the_wire_alphabet() -> None:
     truthy: bool = True
-    emitted = "".join(
-        (
-            codec.IntConverter(int).encode(-(2**64)),
-            codec.StrConverter().encode('🎈 weird " text \\ here'),
-            codec.BoolConverter().encode(truthy),
-            codec.EnumConverter(Mode, codec.StrConverter(), "es").encode(Mode.SLOW),
-            codec.pack_frames(["abc", ""]),
-        ),
+    parts = (
+        codec.IntConverter(int).encode(-(2**64)),
+        codec.StrConverter().encode('🎈 weird " text \\ here'),
+        codec.BoolConverter().encode(truthy),
+        codec.EnumConverter(Mode, codec.StrConverter(), "es").encode(Mode.SLOW),
     )
+    emitted = codec.pack_frames([codecs.BASE85.encode(part) for part in parts]) + custom_id().encode()
 
     assert all(char in wire.ALPHABET for char in emitted)
 
