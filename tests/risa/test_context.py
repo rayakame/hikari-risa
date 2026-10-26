@@ -45,6 +45,15 @@ class Anchor(risa.View):
     async def press(self, ctx: risa.ComponentContext) -> None: ...
 
 
+@risa.register(name="context-menu")
+class Menu(risa.View):
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.pick, label="current"))
+
+    @risa.handler
+    async def pick(self, ctx: risa.ComponentContext) -> None: ...
+
+
 def component_ctx(
     interaction: unittest.mock.Mock,
     gate: risa.ResponseGate | None = None,
@@ -405,3 +414,18 @@ async def test_a_terminal_screen_counts_as_the_commit() -> None:
     session = ctx._slot.session  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
     assert session is not None
     assert await session.settle(view) is False
+
+
+async def test_a_hook_on_a_view_without_state_can_still_rerender() -> None:
+    interaction = component_interaction()
+    ctx = risa.ComponentContext(
+        interaction,
+        rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
+        meta=registry.require_meta(Menu),
+    )
+
+    await ctx.rerender()
+
+    call = rest_of(ctx).create_interaction_response.await_args
+    assert call is not None
+    assert call.args[2] is hikari.ResponseType.MESSAGE_UPDATE

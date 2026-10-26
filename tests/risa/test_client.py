@@ -1519,6 +1519,7 @@ def test_the_lightbulb_factory_takes_the_store_options() -> None:
 
 
 STATE_CALLS: list[str] = []
+KEPT: list[risa.ComponentContext] = []
 RIVAL_WRITES: list[collections.abc.Callable[[], collections.abc.Awaitable[None]]] = []
 
 
@@ -1535,6 +1536,7 @@ class Tally(risa.View):
                 ui.Button(risa.bind(self.vote, 1)),
                 ui.Button(self.quiet),
                 ui.Button(self.boom),
+                ui.Button(self.keep),
             ),
         )
 
@@ -1556,6 +1558,10 @@ class Tally(risa.View):
         self.counts[0] += 100
         msg = "handler gave up"
         raise RuntimeError(msg)
+
+    @risa.handler
+    async def keep(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        KEPT.append(ctx)
 
 
 @risa.register(name="client-unloadable")
@@ -1983,7 +1989,7 @@ async def test_a_leftover_commit_on_an_ephemeral_origin_writes_nothing_and_says_
     assert entry.version == 1
 
 
-async def test_a_failing_touch_is_reported_as_what_it_is(caplog: pytest.LogCaptureFixture) -> None:
+async def test_a_failing_ttl_refresh_is_reported_as_what_it_is(caplog: pytest.LogCaptureFixture) -> None:
     built = stored_client(UntouchableStore())
     ids = ids_of((await built.build(Diary())).components)
     caplog.clear()
@@ -1991,7 +1997,7 @@ async def test_a_failing_touch_is_reported_as_what_it_is(caplog: pytest.LogCaptu
     with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(click(ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    assert "settling the state of view client-diary" in caplog.text
+    assert "releasing the state of view client-diary" in caplog.text
     assert "mutated durable state" not in caplog.text
 
 
@@ -2016,3 +2022,42 @@ async def test_a_dispatch_refreshes_the_ttl_once() -> None:
     assert store.touches == 0
     await built._process_interaction(click(diary_ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
     assert store.touches == 1
+
+
+async def test_a_failed_leftover_commit_still_refreshes_the_ttl() -> None:
+    store = CountingStore()
+    built = stored_client(store)
+    ids = ids_of((await built.build(Notebook())).components)
+    interaction = click(ids, 0)
+    interaction.custom_id = ids_of(
+        build_.plan(ui.Row(ui.Button(Notebook().whisper)), registry.require_meta(Notebook)).emit(
+            codecs.BASE85.decode(codec.parse_custom_id(ids[0]).fragment),  # type: ignore[union-attr]
+        )
+    )[0]
+    interaction.message.flags = hikari.MessageFlag.EPHEMERAL
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert store.touches == 1
+
+
+async def test_a_context_that_outlives_its_dispatch_cannot_commit() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Tally)
+    ids = ids_of((await built.build(Tally())).components)
+    KEPT.clear()
+
+    await built._process_interaction(click(ids, 4))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    (kept,) = KEPT
+    with pytest.raises(risa.NoViewError) as exc_info:
+        await kept.rerender()
+    assert "already ended" in str(exc_info.value)
+
+
+async def test_a_stored_view_with_nothing_to_click_builds_without_its_store() -> None:
+    built = risa.client_from_app(gateway_app())
+
+    rendered = await built.build(Receipt(total=3))
+
+    assert not ids_of(rendered.components)

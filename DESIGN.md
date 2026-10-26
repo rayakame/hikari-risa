@@ -741,6 +741,9 @@ Changes from the original protocol, all verdicts of the lock investigation:
   (not chunked — every custom_id stays self-sufficient, and stored views do not need the
   capacity). Custom_ids are therefore *stable across rerenders* — an in-flight click is
   never invalidated. A failed send leaks one entry; TTL reaps it; no two-phase commit.
+  `client.build` cannot do better, since a bot may spread the result into a send risa never
+  sees. With `InStore(ttl=None)` that leaked entry is permanent — the price of opting out of
+  expiry, worth stating where `ttl=None` is documented.
   Every `InStore` component carries fragment index 0 **[decided 2026-10-26]** — nothing is
   chunked, and it lets a click on a component with any other index, an empty fragment or
   a message-tagged one be diagnosed as a placement switch without a version bump, instead

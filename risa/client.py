@@ -169,13 +169,13 @@ class Client(abc.ABC):
 
     async def build(self, view: view_.View) -> ui.Rendered:
         meta = registry.require_meta(view)
-        state = self._require_backend(meta)
         if meta.loader is not None:
             async with self._di.enter_context(di_.Contexts.DEFAULT):
                 await meta.loader(view)
         plan = build_.plan(view.render(), meta)
         if not plan.interactive:
             return ui.Rendered(plan.emit(b""))
+        state = self._require_backend(meta)
         anchor = state.first_anchor(meta=meta, view=view)
         builders = plan.emit(anchor)
         await state.commit_first(meta=meta, view=view, anchor=anchor)

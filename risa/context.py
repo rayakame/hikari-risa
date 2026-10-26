@@ -328,9 +328,12 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
 
     async def rerender(self) -> None:
         view, session = self._slot.view, self._slot.session
-        if view is None or session is None:
+        if view is not None and session is not None:
+            await self._commit(view, session, build_.plan(view.render(), self._meta))
+            return
+        if self._meta.schema.durable:
             raise errors.NoViewError(self._meta.name, "rerender()")
-        await self._commit(view, session, build_.plan(view.render(), self._meta))
+        await self._update_origin(build_.plan(self._meta.cls().render(), self._meta).emit(b""))
 
     async def _commit(self, view: view_.View, session: backend.StateSession, plan: build_.Plan) -> None:
         if self._origin_is_out_of_reach():

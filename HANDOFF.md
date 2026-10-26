@@ -14,7 +14,7 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
-**2026-10-26, step 4 on `session-dispatch`, uncommitted:** state is live. `ui/build.py`
+**2026-10-26, step 4 on `session-dispatch` (pushed, no PR yet):** state is live. `ui/build.py`
 is two-phase: `plan(layout, meta)` measures every interactive leaf's spare room and runs
 the tree checks, `Plan.emit(state)` carves an InMessage anchor across the leaves
 (`anchor.distribute` parks leaves past index 91 on it with a copy of its fragment),
@@ -30,8 +30,19 @@ down first, no ack after a hook), unreachable state to ERROR with no hook → `l
 handler → the end-of-dispatch commit, which is a plain `rerender()` (DESIGN §7.4 revised;
 `StoredSession.settle` now only reports dirty, and a race lost there is a WARNING in
 dispatch) → acknowledge. A raising handler commits nothing. The testbot's `read_counts` is
-gone. 805 tests, nox green. **Still to do: the live restart test** (`/poll`, vote, restart
-the bot, vote again), then commit and PR.
+gone. Two review rounds then landed. The first: a failing lock release no longer swallows
+the ack, a commit to an out-of-reach ephemeral origin is refused before `stage()`, parked
+leaves cap the last slot, a leafless tree writes no store record. The second: the InStore
+TTL refresh moved from `settle` to `close()`, so it happens once per dispatch even when the
+end-of-dispatch commit fails before `stage()`; `rerender()` in a hook works for a view
+without state; dispatch clears the context's slot when it ends, so a context kept past its
+dispatch raises `NoViewError` instead of committing outside the lock; `client.build`
+requires a store only for a tree with something to click; DESIGN §7.6 admits that a failed
+send leaks its record under `ttl=None`. Declined, reasons in the conversation: holding the
+gate lock across `stage()` to close a narrow `THINKING` race, folding the two build passes,
+dropping `_Click`, a fallback in `_require_backend`, dropping the `plan()` wrapper. 816
+tests, nox green. **Still to do: the live restart test** (`/poll`, vote, restart the bot,
+vote again), then the PR.
 
 **2026-10-26, step 3 (merged as PR #39, `a5c8485`):** the six session decisions (below), the reader
 (`internal/reader.py`), `MessageBackend`/`MessageSession` (`state/message.py`),

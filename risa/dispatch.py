@@ -219,6 +219,8 @@ class Dispatcher:
             return False
         finally:
             await _release(click, session)
+            click.slot.view = None
+            click.slot.session = None
 
     async def _within(
         self,

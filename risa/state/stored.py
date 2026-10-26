@@ -140,7 +140,12 @@ class StoredSession(backend.StateSession):
         if self._target is None:
             await self._held.aclose()
             return
-        await _guarded(self._target.key, self._held.aclose)
+        key = self._target.key
+        try:
+            if self._baseline is not None and self._detached is None and not self._refreshed:
+                await self._touch(key)
+        finally:
+            await _guarded(key, self._held.aclose)
 
     @typing.override
     async def restore(self) -> backend.Restored | backend.Unreadably:
@@ -177,7 +182,7 @@ class StoredSession(backend.StateSession):
 
     @typing.override
     async def settle(self, view: view_.View) -> bool:
-        key = self._restored().key
+        self._restored()
         dirty = self._meta.schema.pack_view(view) != self._baseline
         if self._detached is not None:
             if dirty:
@@ -189,8 +194,6 @@ class StoredSession(backend.StateSession):
                     self._detached(),
                 )
             return False
-        if not dirty and not self._refreshed:
-            await self._touch(key)
         return dirty
 
     def _locate(self) -> anchor_.StoreAnchor | None:

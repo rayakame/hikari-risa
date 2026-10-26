@@ -205,8 +205,9 @@ class NoViewError(RisaError):
         self.attempted = attempted
         super().__init__(
             f"{attempted} on view {view_name!r} needs the view's state, but this context has none - it"
-            " belongs to on_outdated or on_state_missing; answer with ctx.edit(layout) using a tree"
-            " without interactive components, or with ctx.respond(...)",
+            " belongs to on_outdated or on_state_missing, or to a dispatch that has already ended;"
+            " answer with ctx.edit(layout) using a tree without interactive components, or with"
+            " ctx.respond(...)",
         )
 
 
