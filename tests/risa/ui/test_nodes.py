@@ -14,6 +14,11 @@ from risa.internal import constants
 from risa.internal import registry
 from risa.state import placement
 from risa.state import schema as schema_
+from risa.ui import build as build_
+
+
+def emitted(layout: ui.Layout, meta: registry.ViewMeta) -> typing.Sequence[hikari.api.ComponentBuilder]:
+    return build_.plan(layout, meta).emit(b"")
 
 
 class Canvas(risa.View):
@@ -77,7 +82,7 @@ def parsed(raw: str) -> codec.CustomID:
 
 
 def build(layout: ui.Layout) -> typing.Sequence[hikari.api.ComponentBuilder]:
-    return ui.build(layout, _META)
+    return emitted(layout, _META)
 
 
 def payload_of(builder: hikari.api.ComponentBuilder) -> typing.Mapping[str, typing.Any]:
@@ -210,7 +215,7 @@ def test_absent_optionals_are_omitted_from_the_payload() -> None:
 
 
 def test_a_button_routes_through_a_risa_custom_id() -> None:
-    (built,) = ui.build(ui.Row(ui.Button(Panel().press, label="go")), meta_of(Panel))
+    (built,) = emitted(ui.Row(ui.Button(Panel().press, label="go")), meta_of(Panel))
     (button,) = payload_of(built)["components"]
 
     custom_id = parsed(button["custom_id"])
@@ -222,14 +227,14 @@ def test_a_button_routes_through_a_risa_custom_id() -> None:
 
 
 def test_a_bare_handler_and_its_bind_build_identically() -> None:
-    (bare,) = ui.build(ui.Row(ui.Button(Panel().press, label="go")), meta_of(Panel))
-    (bound,) = ui.build(ui.Row(ui.Button(engine(Panel().press).bind(), label="go")), meta_of(Panel))
+    (bare,) = emitted(ui.Row(ui.Button(Panel().press, label="go")), meta_of(Panel))
+    (bound,) = emitted(ui.Row(ui.Button(engine(Panel().press).bind(), label="go")), meta_of(Panel))
 
     assert payload_of(bare) == payload_of(bound)
 
 
 def test_fragment_indices_follow_tree_order() -> None:
-    built = ui.build(
+    built = emitted(
         [
             ui.Row(ui.Button(Panel().press), ui.Button(Panel().press)),
             ui.Section(ui.TextDisplay("x"), accessory=ui.Button(Panel().press)),
@@ -247,7 +252,7 @@ def test_a_foreign_handler_is_rejected_with_its_path() -> None:
     layout = ui.Container(ui.Row(ui.LinkButton("https://example.invalid"), ui.Button(Elsewhere().other)))
 
     with pytest.raises(risa.LayoutError) as exc_info:
-        ui.build(layout, meta_of(Panel))
+        emitted(layout, meta_of(Panel))
 
     assert exc_info.value.path == "Container[0] > Row[0] > Button[1]"
     assert "other" in exc_info.value.reason
@@ -257,13 +262,13 @@ def test_a_colliding_token_from_another_view_is_still_rejected() -> None:
     assert Rival.press.token == Panel.press.token
 
     with pytest.raises(risa.LayoutError) as exc_info:
-        ui.build(ui.Row(ui.Button(Rival().press)), meta_of(Panel))
+        emitted(ui.Row(ui.Button(Rival().press)), meta_of(Panel))
 
     assert "belongs to view 'Rival'" in exc_info.value.reason
 
 
 def test_an_inherited_handler_builds_on_the_subclass_view() -> None:
-    (built,) = ui.build(ui.Row(ui.Button(SubPanel().press)), meta_of(SubPanel))
+    (built,) = emitted(ui.Row(ui.Button(SubPanel().press)), meta_of(SubPanel))
     (button,) = payload_of(built)["components"]
 
     custom_id = parsed(button["custom_id"])
@@ -278,7 +283,7 @@ def test_a_hand_built_bound_handler_falls_back_to_the_token_check() -> None:
     )
 
     with pytest.raises(risa.LayoutError) as exc_info:
-        ui.build(ui.Row(ui.Button(unknown)), meta_of(Panel))
+        emitted(ui.Row(ui.Button(unknown)), meta_of(Panel))
 
     assert "is not on this view" in exc_info.value.reason
 
@@ -294,7 +299,7 @@ def test_an_oversized_payload_overflows_the_custom_id() -> None:
     )
 
     with pytest.raises(risa.CustomIdOverflowError):
-        ui.build(ui.Row(ui.Button(oversized)), meta_of(Panel))
+        emitted(ui.Row(ui.Button(oversized)), meta_of(Panel))
 
 
 def test_something_that_is_not_a_handler_is_rejected() -> None:
@@ -307,7 +312,7 @@ def test_something_that_is_not_a_handler_is_rejected() -> None:
 def test_a_partial_bakes_its_args_into_the_custom_id_tail() -> None:
     view = WiredPanel()
 
-    (built,) = ui.build(ui.Row(ui.Button(risa.bind(view.vote, "Red", 5), label="Red")), meta_of(WiredPanel))
+    (built,) = emitted(ui.Row(ui.Button(risa.bind(view.vote, "Red", 5), label="Red")), meta_of(WiredPanel))
     (button,) = payload_of(built)["components"]
 
     bound = engine(view.vote).bind("Red", 5)
@@ -323,7 +328,7 @@ def test_a_dense_view_writes_its_tag_and_its_args_in_its_codec() -> None:
             pass
 
     view = Dense()
-    (built,) = ui.build(ui.Row(ui.Button(risa.bind(view.pick, "Red" * 10), label="x")), meta_of(Dense))
+    (built,) = emitted(ui.Row(ui.Button(risa.bind(view.pick, "Red" * 10), label="x")), meta_of(Dense))
     (button,) = payload_of(built)["components"]
 
     custom_id = parsed(button["custom_id"])
@@ -338,8 +343,8 @@ def test_a_dense_view_writes_its_tag_and_its_args_in_its_codec() -> None:
 def test_nested_partials_flatten_into_one_binding() -> None:
     view = WiredPanel()
 
-    (curried,) = ui.build(ui.Row(ui.Button(risa.bind(risa.bind(view.vote, "Red"), 5))), meta_of(WiredPanel))
-    (direct,) = ui.build(ui.Row(ui.Button(risa.bind(view.vote, "Red", 5))), meta_of(WiredPanel))
+    (curried,) = emitted(ui.Row(ui.Button(risa.bind(risa.bind(view.vote, "Red"), 5))), meta_of(WiredPanel))
+    (direct,) = emitted(ui.Row(ui.Button(risa.bind(view.vote, "Red", 5))), meta_of(WiredPanel))
 
     assert payload_of(curried) == payload_of(direct)
 
@@ -369,7 +374,7 @@ def test_a_bare_handler_with_required_args_fails_at_render() -> None:
 
 def test_a_legal_frame_can_still_overflow_the_custom_id() -> None:
     with pytest.raises(risa.CustomIdOverflowError) as exc_info:
-        ui.build(ui.Row(ui.Button(risa.bind(WiredPanel().vote, "x" * 70))), meta_of(WiredPanel))
+        emitted(ui.Row(ui.Button(risa.bind(WiredPanel().vote, "x" * 70))), meta_of(WiredPanel))
 
     assert "Row[0] > Button[0]" in exc_info.value.view_name
     assert "vote" in exc_info.value.view_name
@@ -441,7 +446,7 @@ async def test_embeds_alongside_a_rendered_view_are_rejected_too() -> None:
 
 
 def test_a_text_select_routes_and_serializes_its_options() -> None:
-    (built,) = ui.build(
+    (built,) = emitted(
         ui.Row(
             ui.TextSelect(
                 Panel().press,
@@ -483,7 +488,7 @@ def test_an_entity_select_emits_its_type_and_routes(
     node_type: type[ui.UserSelect | ui.RoleSelect | ui.MentionableSelect],
     component_type: hikari.ComponentType,
 ) -> None:
-    (built,) = ui.build(ui.Row(node_type(Panel().press, placeholder="who")), meta_of(Panel))
+    (built,) = emitted(ui.Row(node_type(Panel().press, placeholder="who")), meta_of(Panel))
     (select,) = payload_of(built)["components"]
 
     assert select["type"] == component_type
@@ -492,7 +497,7 @@ def test_an_entity_select_emits_its_type_and_routes(
 
 
 def test_a_channel_select_defaults_to_no_filter() -> None:
-    (built,) = ui.build(ui.Row(ui.ChannelSelect(Panel().press, disabled=True)), meta_of(Panel))
+    (built,) = emitted(ui.Row(ui.ChannelSelect(Panel().press, disabled=True)), meta_of(Panel))
     (select,) = payload_of(built)["components"]
 
     assert select["type"] == hikari.ComponentType.CHANNEL_SELECT_MENU
@@ -501,7 +506,7 @@ def test_a_channel_select_defaults_to_no_filter() -> None:
 
 
 def test_a_channel_select_filters_channel_types() -> None:
-    (built,) = ui.build(
+    (built,) = emitted(
         ui.Row(ui.ChannelSelect(Panel().press, channel_types=[hikari.ChannelType.GUILD_TEXT])),
         meta_of(Panel),
     )
@@ -511,7 +516,7 @@ def test_a_channel_select_filters_channel_types() -> None:
 
 
 def test_selects_count_in_tree_order_with_buttons() -> None:
-    built = ui.build(
+    built = emitted(
         [
             ui.Row(ui.Button(Panel().press), ui.UserSelect(Panel().press)),
             ui.Row(ui.TextSelect(Panel().press, ui.SelectOption("x"))),
@@ -529,7 +534,7 @@ def test_a_foreign_handler_on_a_select_is_rejected_with_its_path() -> None:
     layout = ui.Row(ui.UserSelect(Elsewhere().other))
 
     with pytest.raises(risa.LayoutError) as exc_info:
-        ui.build(layout, meta_of(Panel))
+        emitted(layout, meta_of(Panel))
 
     assert exc_info.value.path == "Row[0] > UserSelect[0]"
 

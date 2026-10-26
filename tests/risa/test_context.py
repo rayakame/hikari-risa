@@ -26,9 +26,12 @@ import hikari
 import pytest
 
 import risa
+from risa import context
 from risa import ui
+from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
+from risa.state import message
 
 
 @risa.register(name="context-anchor")
@@ -38,20 +41,30 @@ class Anchor(risa.View):
     def render(self) -> ui.Layout:
         return ui.TextDisplay(self.note)
 
+    @risa.handler
+    async def press(self, ctx: risa.ComponentContext) -> None: ...
+
 
 def component_ctx(
     interaction: unittest.mock.Mock,
     gate: risa.ResponseGate | None = None,
     view: Anchor | None = None,
+    *,
+    bare: bool = False,
 ) -> risa.ComponentContext:
     meta = getattr(Anchor, constants.VIEW_META)
     assert isinstance(meta, registry.ViewMeta)
+    slot = context.ViewSlot()
+    if not bare:
+        clicked = codec.CustomID(cookie=meta.cookie, handler="ab", fragment_index=0, fragment="", tail="")
+        session = message.MessageBackend().session(meta=meta, component=clicked, interaction=interaction)
+        slot = context.ViewSlot(view=view if view is not None else Anchor(), session=session)
     return risa.ComponentContext(
         interaction,
         rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
-        view=view if view is not None else Anchor(),
         meta=meta,
         gate=gate,
+        slot=slot,
     )
 
 
@@ -349,3 +362,46 @@ async def test_rerender_paints_what_render_returns() -> None:
     (sent,) = call.kwargs["components"]
     payload, _attachments = sent.build()
     assert payload["content"] == "fresh"
+
+
+async def test_rerender_without_state_names_the_way_out() -> None:
+    ctx = component_ctx(component_interaction(), bare=True)
+
+    with pytest.raises(risa.NoViewError) as exc_info:
+        await ctx.rerender()
+
+    assert exc_info.value.attempted == "rerender()"
+    assert "ctx.edit(layout)" in str(exc_info.value)
+    rest_of(ctx).create_interaction_response.assert_not_called()
+
+
+async def test_a_hook_cannot_put_interactive_components_on_a_stateful_view() -> None:
+    ctx = component_ctx(component_interaction(), bare=True)
+
+    with pytest.raises(risa.NoViewError):
+        await ctx.edit(ui.Row(ui.Button(Anchor().press)))
+
+    rest_of(ctx).create_interaction_response.assert_not_called()
+
+
+async def test_a_hook_can_still_replace_the_message_with_a_terminal_screen() -> None:
+    ctx = component_ctx(component_interaction(), bare=True)
+
+    await ctx.edit(ui.TextDisplay("This panel is gone."))
+
+    call = rest_of(ctx).create_interaction_response.await_args
+    assert call is not None
+    assert call.args[2] is hikari.ResponseType.MESSAGE_UPDATE
+
+
+async def test_a_terminal_screen_counts_as_the_commit() -> None:
+    interaction = component_interaction()
+    interaction.message = mock_message(1)
+    view = Anchor(note="changed")
+    ctx = component_ctx(interaction, view=view)
+
+    await ctx.edit(ui.TextDisplay("Poll closed."))
+
+    session = ctx._slot.session  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert session is not None
+    assert await session.settle(view) is False

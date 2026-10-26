@@ -33,6 +33,7 @@ __all__ = (
     "HandlerSignatureError",
     "LayoutError",
     "LockTimeoutError",
+    "NoViewError",
     "NotAHandlerError",
     "NotAViewError",
     "RisaError",
@@ -196,6 +197,17 @@ class NotAViewError(RisaError):
     def __init__(self, type_name: str) -> None:
         self.type_name = type_name
         super().__init__(f"{type_name} is not a registered view; decorate it with @risa.register")
+
+
+class NoViewError(RisaError):
+    def __init__(self, view_name: str, attempted: str) -> None:
+        self.view_name = view_name
+        self.attempted = attempted
+        super().__init__(
+            f"{attempted} on view {view_name!r} needs the view's state, but this context has none - it"
+            " belongs to on_outdated or on_state_missing; answer with ctx.edit(layout) using a tree"
+            " without interactive components, or with ctx.respond(...)",
+        )
 
 
 class LayoutError(RisaError):

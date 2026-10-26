@@ -27,13 +27,17 @@ import hikari
 import msgspec
 
 from risa import errors
-from risa import ui
+from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
     import collections.abc
 
+    from hikari.api import special_endpoints
+
+    from risa import ui
     from risa import view as view_
     from risa.internal import registry
+    from risa.state import backend
 
 __all__ = (
     "ComponentContext",
@@ -60,6 +64,11 @@ class ResponseGate(msgspec.Struct):
     @property
     def responded(self) -> bool:
         return self.response is not _InitialResponse.NONE
+
+
+class ViewSlot(msgspec.Struct):
+    view: view_.View | None = None
+    session: backend.StateSession | None = None
 
 
 class Response:
@@ -279,20 +288,20 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
 
 
 class ComponentContext(Context[hikari.ComponentInteraction]):
-    __slots__ = ("_meta", "_view")
+    __slots__ = ("_meta", "_slot")
 
     def __init__(
         self,
         interaction: hikari.ComponentInteraction,
         *,
         rest: hikari.api.RESTClient,
-        view: view_.View,
         meta: registry.ViewMeta,
         gate: ResponseGate | None = None,
+        slot: ViewSlot | None = None,
     ) -> None:
         super().__init__(interaction, rest=rest, gate=gate)
-        self._view = view
         self._meta = meta
+        self._slot = slot if slot is not None else ViewSlot()
 
     @property
     @typing.override
@@ -308,7 +317,27 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         return self._interaction.resolved
 
     async def edit(self, layout: ui.Layout, /) -> None:
-        builders = ui.build(layout, self._meta)
+        plan = build_.plan(layout, self._meta)
+        view, session = self._slot.view, self._slot.session
+        if view is not None and session is not None:
+            await self._commit(view, session, plan)
+            return
+        if plan.interactive and self._meta.schema.durable:
+            raise errors.NoViewError(self._meta.name, "edit() with interactive components")
+        await self._update_origin(plan.emit(b""))
+
+    async def rerender(self) -> None:
+        view, session = self._slot.view, self._slot.session
+        if view is None or session is None:
+            raise errors.NoViewError(self._meta.name, "rerender()")
+        await self._commit(view, session, build_.plan(view.render(), self._meta))
+
+    async def _commit(self, view: view_.View, session: backend.StateSession, plan: build_.Plan) -> None:
+        state = await session.stage(view)
+        await self._update_origin(plan.emit(state))
+        await session.published(view)
+
+    async def _update_origin(self, builders: collections.abc.Sequence[special_endpoints.ComponentBuilder]) -> None:
         async with self._gate.lock:
             if self._gate.response is _InitialResponse.NONE:
                 await self._rest.create_interaction_response(
@@ -328,6 +357,3 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
                 if hikari.MessageFlag.EPHEMERAL in self.message.flags:
                     raise errors.EphemeralOriginError(self._meta.name)
                 await self._rest.edit_message(self.message.channel_id, self.message.id, components=builders)
-
-    async def rerender(self) -> None:
-        await self.edit(self._view.render())

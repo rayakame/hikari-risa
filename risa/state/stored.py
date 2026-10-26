@@ -176,9 +176,9 @@ class StoredSession(backend.StateSession):
     @typing.override
     async def settle(self, view: view_.View) -> bool:
         key = self._restored().key
-        packed = self._meta.schema.pack_view(view)
+        dirty = self._meta.schema.pack_view(view) != self._baseline
         if self._detached is not None:
-            if packed != self._baseline:
+            if dirty:
                 _LOGGER.debug(
                     "interaction %s on view %s changed durable state after its session was detached"
                     " (%s); the change was discarded",
@@ -187,20 +187,9 @@ class StoredSession(backend.StateSession):
                     self._detached(),
                 )
             return False
-        if packed == self._baseline:
+        if not dirty:
             await self._touch(key)
-            return False
-        if not await self._commit(key, packed):
-            lost = await self._lost(key, view)
-            _LOGGER.warning(
-                "interaction %s on view %s mutated durable state without calling rerender(), and the"
-                " commit at the end of the dispatch failed: %s; the change was discarded - call"
-                " ctx.rerender() in the handler to handle conflicts yourself",
-                self._interaction.id,
-                self._meta.name,
-                lost,
-            )
-        return False
+        return dirty
 
     def _locate(self) -> anchor_.StoreAnchor | None:
         found = codec.decode_text(self._component.fragment, self._component.codec)

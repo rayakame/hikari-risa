@@ -14,7 +14,26 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
-**2026-10-26, uncommitted on top:** the six session decisions (below), the reader
+**2026-10-26, step 4 on `session-dispatch`, uncommitted:** state is live. `ui/build.py`
+is two-phase: `plan(layout, meta)` measures every interactive leaf's spare room and runs
+the tree checks, `Plan.emit(state)` carves an InMessage anchor across the leaves
+(`anchor.distribute` parks leaves past index 91 on it with a copy of its fragment),
+replicates an InStore key at index 0, or writes empty fragments; a tree without leaves
+carries nothing. `risa.ui.build` is gone from the public surface. `client.build` runs
+`load()` under `Contexts.DEFAULT`, plans, takes `first_anchor`, emits and `commit_first`s.
+`ComponentContext` takes a `ViewSlot` instead of a view; `rerender()` and `edit()` go
+through `stage` → emit → edit → `published`, and in a context without state `rerender()`,
+or `edit()` with leaves on a stateful view, raises `NoViewError`. Dispatch never
+default-constructs a view: route → backend → context → watchdog → session `open` /
+`restore` → `MISSING` to `on_state_missing`, `OUTDATED` to `on_outdated` (watchdog stood
+down first, no ack after a hook), unreachable state to ERROR with no hook → `load()` →
+handler → the end-of-dispatch commit, which is a plain `rerender()` (DESIGN §7.4 revised;
+`StoredSession.settle` now only reports dirty, and a race lost there is a WARNING in
+dispatch) → acknowledge. A raising handler commits nothing. The testbot's `read_counts` is
+gone. 805 tests, nox green. **Still to do: the live restart test** (`/poll`, vote, restart
+the bot, vote again), then commit and PR.
+
+**2026-10-26, step 3 (merged as PR #39, `a5c8485`):** the six session decisions (below), the reader
 (`internal/reader.py`), `MessageBackend`/`MessageSession` (`state/message.py`),
 `StatelessBackend`/`StatelessSession` (`state/stateless.py`), `KeyedLocks`
 (`internal/locks.py`, now also behind `MemoryStore`), `codec.decode_text` (moved out of
@@ -52,9 +71,9 @@ conversation: a store check for `use_global` views at construction (§7.1), one 
 `_injected_hook` (costs strict typing), a module-level empty fingerprint (ordering rule),
 and docstrings (the no-docstrings rule). **Step 3 is complete. Next: step 4**, below.
 
-**Where the code stands.** Branch `anchor-codec`, open as PR #39 against `main` for steps
-1–3; `main` (its 16 Renovate updates, hikari 2.6.0 among them) was merged in to resolve the
-`pyproject.toml`/`uv.lock` conflict. 778 tests, all nox sessions green. The commits:
+**Where the code stands.** Steps 1–3 are on `main` as `a5c8485` (PR #39, squash-merged;
+the branch was merged with `main`'s 16 Renovate updates, hikari 2.6.0 among them, first).
+Step 4 is on `session-dispatch` (above). The #39 commits, kept for reference:
 `57e52f2` (schema, placements, `load()`, store package, serde, backend skeleton — the August
 work), `3a9ad47` (anchor moved to `state/` and rebuilt on bytes, the codec character in the
 header, `risa.codecs`, the `hikari-risa[radixly]` extra), `fc29e35` (lockfile refresh,
@@ -87,8 +106,8 @@ bytes, so `stage`, `first_anchor` and `commit_first` move from `str` to `bytes`)
 | `first_anchor` | `MessageAnchor(fp, seq=0, pack(values))` | `StoreAnchor.mint()` | none |
 | `commit_first` | nothing, the send is the write | `put(key, envelope, ttl)` before the send; a failed send leaks one entry to the TTL | nothing |
 
-**The next step is step 4, wiring the sessions in** — nothing built in step 3 is live yet:
-dispatch still builds views with `meta.cls()` and the build writes no anchor. The pieces:
+**Step 4, wiring the sessions in — built 2026-10-26** (see the top of this block); the
+checklist it was built to:
 - **Two-phase build**: `first_anchor` / `commit_first` on send; InMessage carves the
   anchor across the leaves, InStore replicates the key into every one; `anchor.distribute`
   parks the components the anchor does not reach on one shared index.
@@ -135,9 +154,8 @@ the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"`
 - **`main`** carries six merged milestones: the foundation (#13), typed wire args and
   the dispatch surface (#15), `on_outdated` (#17), the structural cleanup (#18),
   slotscheck (#19), and the CI checkout hardening (#20, #21).
-- **`anchor-codec`** is open as **PR #39** (steps 1–3, see "Resume here"). Merged branches
-  are never reused (next bullet), so once #39 is squash-merged, step 4 starts on a fresh
-  branch from `main`.
+- **`anchor-codec`** was squash-merged as **PR #39** (steps 1–3) and deleted.
+  **`session-dispatch`**, branched from `main` after it, carries step 4.
 - Branches are squash-merged, so a merged branch is never an ancestor of `main`: delete
   local copies with `git branch -D`, never `-d`, and never branch from a merged one.
 

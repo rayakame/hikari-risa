@@ -280,7 +280,7 @@ async def test_an_untouched_click_slides_the_ttl() -> None:
     assert await items_in(store, raw) == ["milk"]
 
 
-async def test_a_mutation_without_rerender_commits_at_settle() -> None:
+async def test_a_mutation_without_rerender_is_reported_dirty_and_left_to_dispatch() -> None:
     store = memory.MemoryStore()
     owner = backend_for(store)
     raw = await sent(owner, TodoList())
@@ -288,8 +288,8 @@ async def test_a_mutation_without_rerender_commits_at_settle() -> None:
 
     todo.items.append("milk")
 
-    assert await session.settle(todo) is False
-    assert await items_in(store, raw) == ["milk"]
+    assert await session.settle(todo) is True
+    assert await items_in(store, raw) == []
 
 
 async def test_a_lost_race_adopts_the_winner_and_raises() -> None:
@@ -400,21 +400,6 @@ async def test_an_unreadable_winner_raises_without_adopting() -> None:
     assert exc_info.value.found == 2
     assert todo.items == ["mine"]
     assert await session.settle(todo) is False
-
-
-async def test_a_race_lost_at_settle_is_logged_and_discarded(caplog: pytest.LogCaptureFixture) -> None:
-    caplog.set_level(logging.DEBUG, logger="risa")
-    store = memory.MemoryStore()
-    owner = backend_for(store)
-    raw = await sent(owner, TodoList())
-    session, todo = await click(owner, raw)
-    await another_process_writes(store, raw, TodoList(items=["theirs"]))
-
-    todo.items.append("mine")
-
-    assert await session.settle(todo) is False
-    assert await items_in(store, raw) == ["theirs"]
-    assert any("discarded" in line for line in records_at(caplog, logging.WARNING))
 
 
 async def test_an_expired_record_reads_as_missing_without_a_log_of_its_own(caplog: pytest.LogCaptureFixture) -> None:

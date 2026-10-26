@@ -169,8 +169,8 @@ risa/
     reader.py       message-component walk for chunk reassembly [exists]
     locks.py        KeyedLocks, shared by MessageBackend and MemoryStore [exists]
   ui/
-    nodes.py        full V2 node set + the build pass          [exists]
-    build.py        two-phase flatten + emit                   [planned; the build pass lives in nodes.py until then]
+    nodes.py        the V2 node set                            [exists]
+    build.py        two-phase build: plan (measure) + emit, Rendered [exists]
   state/            risa's own state machinery; users never implement against it
     schema.py       StateSchema: durable fields, packing, prefix fingerprints  [exists]
     anchor.py       anchor dialects, splitting and rejoining across components   [exists]
@@ -666,8 +666,13 @@ handlers) are designed but deferred post-1.0 (§15).
 - **Dirty is computed, never declared**: re-encode the durable fields, byte-compare. No
   `state_dirty` flag exists.
 - **A handler that mutates durable state and never rerenders still commits** at dispatch
-  end (`InStore`: the CAS; `InMessage`: an automatic, visually-identical components edit).
-  Mutating state and silently losing it is not an outcome this library ships.
+  end, and the commit is a plain `rerender()` under both placements **[decided — revised
+  2026-10-26]**: the message is always `render(state)` (§8.2), so a handler that bumps a
+  count and only answers ephemerally does not leave the next user looking at the old count,
+  and an otherwise unanswered interaction is answered by the `MESSAGE_UPDATE`. An earlier
+  draft wanted a visually-identical components edit, which would have meant rebuilding the
+  message from hikari's component models. A handler that raises commits nothing. Mutating
+  state and silently losing it is not an outcome this library ships.
 - Clean dispatches on `InStore` `touch()` the key — sliding TTL, so a view in use never
   expires and an abandoned one eventually does.
 - `ctx.edit(layout)` must re-embed the current anchor into the ad-hoc tree, or raise
@@ -1098,6 +1103,7 @@ new types ad hoc:
 | view declaration contradicts itself (marker misuse, missing defaults, unknown store name) | `ViewDeclarationError` (at import / `add_view`) |
 | `bind()` args don't fit the wire parameters | `ArgBindError` (at render) |
 | defer/modal after a response already went out | `AlreadyRespondedError` |
+| `rerender()`, or `edit()` with interactive components on a stateful view, where no state exists (a hook) | `NoViewError` |
 | modal submitted against changed state | routed to `on_prompt_conflict` — never raised |
 
 **[decided]** There is no `NoResponseIssuedError`. Under the event/204 pattern (§11) a
@@ -1166,8 +1172,8 @@ Ordered by cost of changing later.
 
 ### The state pivot
 
-Each step should land green. **Steps 1–3 are built** on `anchor-codec` (PR #39, as leaves:
-nothing is wired into build or dispatch yet); steps 4 and 5 remain, and `HANDOFF.md`
+Each step should land green. **Steps 1–3 are on `main`** (PR #39) and **step 4 is built**
+on `session-dispatch`, pending the live restart test; step 5 remains, and `HANDOFF.md`
 tracks the precise state. The old branch proved steps 1-4 once; they are to be rebuilt
 against this design, not copied.
 

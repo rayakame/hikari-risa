@@ -40,6 +40,7 @@ from risa.state import placement as placement_
 from risa.state import stateless
 from risa.state import stored
 from risa.store import memory
+from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -149,6 +150,7 @@ class Client(abc.ABC):
             rest,
             self._di,
             self._resolve,
+            self._backend_for,
             auto_defer=auto_defer,
             auto_defer_delay=auto_defer_delay,
         )
@@ -165,8 +167,17 @@ class Client(abc.ABC):
     def rest(self) -> hikari.api.RESTClient:
         return self._rest
 
-    async def build(self, view: view_.View) -> ui.Rendered:  # ruff:ignore[no-self-use]
-        return ui.Rendered(ui.build(view.render(), registry.require_meta(view)))
+    async def build(self, view: view_.View) -> ui.Rendered:
+        meta = registry.require_meta(view)
+        state = self._require_backend(meta)
+        if meta.loader is not None:
+            async with self._di.enter_context(di_.Contexts.DEFAULT):
+                await meta.loader(view)
+        plan = build_.plan(view.render(), meta)
+        anchor = state.first_anchor(meta=meta, view=view)
+        builders = plan.emit(anchor)
+        await state.commit_first(meta=meta, view=view, anchor=anchor)
+        return ui.Rendered(builders)
 
     def add_view[T: view_.View](self, cls: type[T]) -> type[T]:
         meta = registry.require_meta(cls)
@@ -191,6 +202,13 @@ class Client(abc.ABC):
                 meta.name,
                 state.store,
             )
+
+    def _require_backend(self, meta: registry.ViewMeta) -> backend_.StateBackend:
+        found = self._backend_for(meta)
+        if found is None:
+            name = meta.state.store if isinstance(meta.state, placement_.InStore) else placement_.DEFAULT_STORE
+            raise errors.ViewDeclarationError(meta.name, _missing_store(name))
+        return found
 
     def _backend_for(self, meta: registry.ViewMeta) -> backend_.StateBackend | None:
         if not meta.schema.durable:
