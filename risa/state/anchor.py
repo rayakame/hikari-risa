@@ -26,7 +26,6 @@ import msgspec
 
 from risa import errors
 from risa.internal import codec
-from risa.internal import wire
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -122,7 +121,7 @@ class StoreAnchor(msgspec.Struct, frozen=True):
 
     @property
     def token(self) -> str:
-        return wire.pack_bytes(self.key)
+        return self.key.hex()
 
     def pack(self) -> bytes:
         if len(self.key) != KEY_BYTES:

@@ -11,6 +11,44 @@ test cases; its internals are not a blueprint.
 
 Everything below this block is still accurate; this is the short path back in.
 
+**2026-10-26, uncommitted on top:** the six session decisions (below), the reader
+(`internal/reader.py`), `MessageBackend`/`MessageSession` (`state/message.py`),
+`StatelessBackend`/`StatelessSession` (`state/stateless.py`), `KeyedLocks`
+(`internal/locks.py`, now also behind `MemoryStore`), `codec.decode_text` (moved out of
+dispatch), `StateSchema.empty_fingerprint`, and `backend.py` speaking bytes. 738 tests,
+nox green. Built to these calls, all taken that day: a codec this host cannot load makes
+`restore()` raise `CodecUnavailableError` (no hook, like a store outage); the version cache
+is keyed by (message id, cookie), an LRU of 10 000, and wins only when its `seq` is strictly
+newer, compared modulo 2²⁴; the in-process lock waits `DEFAULT_LOCK_TIMEOUT`; OUTDATED logs
+ERROR for a schema edit or placement switch without a version bump and WARNING for torn or
+forged. Also built the same day: `StoredBackend`/`StoredSession`/`KeyNamespace`
+(`state/stored.py`, 26 tests against `MemoryStore`), 764 tests in all. Calls taken for it:
+`Store.put_if_version` now returns the new version or `None` (DESIGN §7.5, MemoryStore and
+its tests follow); one `StoredBackend` per store slot; the CAS happens in `stage()`, so
+`published()` is a no-op for stores; every store call goes through `_guarded`, which lets
+`LockTimeoutError` through and turns anything else into `StoreUnavailableError(key,
+reason)`; `StoreAnchor.token` is hex; `StateConflictError` carries `expected`/`found`.
+Open, small: `MessageAnchor.parse` and `StoreAnchor.parse` do not check their own tag
+byte (only `anchor.parse` does) — `commit_first` tripped over it. Then the hooks and the
+client, 778 tests: `View.on_state_missing` with `ViewMeta.state_missing` /
+`handles_state_missing` (`OutdatedCallback` renamed `HookCallback`, one convention for both
+hooks; allowed on InMessage views, where it never fires); `store=`, `stores={}` and
+`key_prefix=` on the client and on `client_from_lightbulb`, "default" both ways and a blank
+prefix are `ValueError`; `add_view` raises `ViewDeclarationError` naming the fix for a
+missing store and warns once per `MemoryStore` slot; the client builds one
+`MessageBackend`, one `StatelessBackend` and one `StoredBackend` per slot, and
+`Client._backend_for(meta)` picks one (`None` for an unconfigured store, which only a
+`use_global` view can reach). A review pass over all of step 3 then landed: detached
+sessions raise a fresh exception each time and log a later discarded change at DEBUG; an
+unchanged InStore `stage()` writes nothing and only touches (DESIGN §7.4); `_locate`
+treats a fragment index other than 0, an empty fragment or a message-tagged one as a
+placement switch, which makes **InStore components carry fragment index 0** a constraint
+on the step-4 build (DESIGN §7.6); `StateSchema.pack_view`; the dead `wire.pack_bytes` /
+`unpack_bytes` are gone. Declined from that review, with reasons recorded in the
+conversation: a store check for `use_global` views at construction (§7.1), one shared
+`_injected_hook` (costs strict typing), a module-level empty fingerprint (ordering rule),
+and docstrings (the no-docstrings rule). **Step 3 is complete. Next: step 4**, below.
+
 **Where the code stands.** Branch `anchor-codec`, four commits ahead of `main`, working tree
 clean, all seven nox sessions green, 688 tests. The last three commits landed today:
 `57e52f2` (schema, placements, `load()`, store package, serde, backend skeleton — the August
@@ -25,35 +63,59 @@ and explain the result at concept level. No docstrings or comments until the fin
 `collections.abc.Sequence`, never `tuple`, in annotations. Never commit, stage or push
 without being asked; commits carry no attribution of any kind.
 
-**Three pages the maintainer reads alongside this file** (private claude.ai artifacts, open
-them with the Artifact tool's `read` action — they belong to the maintainer's account):
+**The three explainer pages of 2026-10-25** (Lagebild, custom_id anatomy, step 3) were
+private claude.ai artifacts bound to an account the maintainer is leaving; do not rely on
+their links. Everything load-bearing from them lives here and in DESIGN. The one piece
+that did not, the step-3 verb table, is below.
 
-- Lagebild, the whole project on one page: https://claude.ai/artifact/FbUj2sWhVdETvsgAcj6YTN
-- custom_id anatomy and the codec decision, with real ids: https://claude.ai/artifact/AXPH1ZRr74yQEjWBGDRPb7
-- Step 3, the sessions, with the open decisions: https://claude.ai/artifact/BzHWjegiwLVZJcbPsS2W3X
+**What each session verb does per backend** (the build checklist for step 3; anchors are
+bytes, so `stage`, `first_anchor` and `commit_first` move from `str` to `bytes`):
 
-**The next step is step 3, the sessions** — the concrete classes under the all-abstract
-`state/backend.py`: `MessageBackend`/`MessageSession` (`state/message.py`),
-`StoredBackend`/`StoredSession` (`state/stored.py`), the message-component reader
-(`internal/reader.py`), `View.on_state_missing` wired like `on_outdated`, and `store=` /
-`stores={}` on the client. Build order: reader → message session → stored session against
-`MemoryStore` → hooks and client. Step 4 (two-phase build, dispatch rewire) comes after.
+| Verb | `MessageSession` | `StoredSession` | `StatelessSession` |
+|---|---|---|---|
+| `open()` | per-message-id `asyncio.Lock`, dropped when the last waiter leaves (like `MemoryStore`) | enter `store.lock(key, timeout=)`; a throwing store → `StoreUnavailableError` | nothing |
+| `restore()` | reader → `gather` → `parse`; wrong tag, unknown fingerprint, failed unpack → `OUTDATED`; empty gather → arity-0 prefix | `get_versioned`; `None` → `MISSING`; envelope `n`/`v`/`f` mismatch → `OUTDATED`; remember the version | `meta.cls()` |
+| `stage(view)` | `schema.pack`, `seq + 1`, `MessageAnchor.pack()`; no I/O | envelope, `put_if_version`; on `None` re-read: gone → `StateNotFoundError`, unreadable → `StateConflictError`, else adopt + take version + `StateConflictError` | no anchor |
+| `published(view)` | baseline := packed bytes, `seq` into the version cache | nothing — the CAS in `stage` already committed | nothing |
+| `settle(view)` | packed ≠ baseline → `True`, dispatch renders once more | packed ≠ baseline → CAS as in `stage`, a loss is WARNING + discard; clean → `touch(key, ttl)` | never dirty |
+| `close()` | release the lock | leave the lock context | nothing |
+| `first_anchor` | `MessageAnchor(fp, seq=0, pack(values))` | `StoreAnchor.mint()` | none |
+| `commit_first` | nothing, the send is the write | `put(key, envelope, ttl)` before the send; a failed send leaks one entry to the TTL | nothing |
 
-**Six decisions the maintainer has NOT yet taken** (recommendation first; ask before building):
+**The next step is step 4, wiring the sessions in** — nothing built in step 3 is live yet:
+dispatch still builds views with `meta.cls()` and the build writes no anchor. The pieces:
+- **Two-phase build**: `first_anchor` / `commit_first` on send; InMessage carves the
+  anchor across the leaves, InStore replicates the key into every one; `anchor.distribute`
+  parks the components the anchor does not reach on one shared index.
+- **Dispatch through the session** (E1): context without a view, watchdog armed,
+  `open` → `restore` → `MISSING` to `on_state_missing` (WARNING, DEBUG once overridden),
+  `OUTDATED` to `on_outdated`, `StoreUnavailableError` / `CodecUnavailableError` to ERROR
+  with no hook → attach the view → `load()` → handler → `settle` (InMessage `True` means one
+  more commit) → `close`. A `None` from `Client._backend_for` is an ERROR at click time.
+- **Context**: `rerender()` = `stage` → build with the anchor → edit → `published`;
+  `rerender()` without a view raises; `edit(layout)` re-embeds the anchor or raises.
+- Then delete `read_counts` from the testbot and repeat the live test.
 
-1. Context before hydration: build `ComponentContext` without a view, arm the watchdog, open
-   the session, attach the hydrated view afterwards; `rerender()` without a view raises.
-   The alternative (hydrate before arming) contradicts §8.1.
-2. A lost CAS inside `rerender()`: converge per §7.3 (adopt the winner onto `self`, render
-   the winner, WARNING) rather than raising `StateConflictError`.
-3. Store key namespace: `risa:1:<token>` plus an optional `key_prefix=` on the client,
-   instead of §7.5's `risa:{app_id}:1:`, because the first send has no interaction to take
-   the app id from. Needs one sentence in §7.5 if accepted.
-4. No `StatelessBackend`: an empty schema writes no anchor at all (not an empty 9-byte
-   header) and the message session default-constructs the view. Needs one sentence in §15.
-5. `on_state_missing` default: empty plus WARNING, exactly like `on_outdated`.
-6. The reader only gathers fragments from components carrying the clicked component's
-   cookie; other views and foreign handlers in the same message are skipped.
+**The six session decisions, taken 2026-10-26** (all written into DESIGN):
+
+1. Context before hydration: `ComponentContext` is built without a view, the watchdog is
+   armed, the session opens, and the hydrated view is attached after `restore()`. Hooks run
+   with no view: `edit(layout)` works, `rerender()` raises (§6.4).
+2. A lost CAS inside `rerender()` **raises** `StateConflictError(key, expected, found)`
+   after adopting the winner's fields and version onto `self` — reversing §7.3's old
+   "converge, never raise". A record gone mid-handler raises `StateNotFoundError(key)`; an
+   unreadable winner raises the conflict without adopting; both detach the session. A race
+   lost by the end-of-dispatch commit logs WARNING and discards. Both error classes stay.
+3. Store key: `risa:{app_id}:1:<24 hex digits>`. The app id comes from
+   `interaction.application_id` on a click, else one cached `rest.fetch_application()`;
+   never from the bot token. `key_prefix=` on the client replaces `risa:{app_id}`
+   wholesale. The key text is independent of the wire codec (§7.5).
+4. A `StatelessBackend` after all, because views without durable fields take **no lock**
+   (a public panel must not queue unrelated clicks). They write no anchor at all; an empty
+   contiguous gather reads as the arity-0 prefix, so a first durable field stays free.
+5. `on_state_missing` default: empty, WARNING, DEBUG once overridden. Closes §14.2.
+6. The reader gathers only components carrying the clicked component's cookie; repeated
+   indices under one cookie read as torn.
 
 **Also pending, small:** record the modal field decision in DESIGN §9 (bare fields are the
 default, `Annotated[..., risa.TextInput(...)]` only for constraints, a `risa.Paragraph`
@@ -202,7 +264,7 @@ risa/
   errors.py       RisaError-rooted hierarchy
   view.py         View, @register, @handler, HandlerMethod, AutoDefer, on_outdated
   internal/       private by virtue of living here; no leading underscores
-    wire.py       the 92-char alphabet, pack_uint/pack_bytes/pack_digest, largest_value
+    wire.py       the 92-char alphabet, pack_uint/pack_digest, largest_value
     codec.py      the custom_id layout (12-char header incl. the codec letter),
                   byte converters, HandlerSignature, MAX_FRAGMENTS
     constants.py  Discord limits, the attribute names risa stamps

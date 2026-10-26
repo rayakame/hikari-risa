@@ -189,6 +189,33 @@ def test_parse_never_inspects_the_tail() -> None:
     assert parsed.tail == 'weird "tail" \\ content'
 
 
+def test_decode_text_returns_the_bytes() -> None:
+    assert codec.decode_text(codecs.BASE85.encode(b"state"), codecs.BASE85) == b"state"
+
+
+def test_decode_text_fails_soft_on_text_the_codec_did_not_write() -> None:
+    assert codec.decode_text("x", codecs.BASE85) is None
+
+
+def test_decode_text_hands_back_a_missing_codec_as_a_value() -> None:
+    name = "dense"
+
+    def missing(_text: str) -> bytes:
+        raise risa.CodecUnavailableError(name, codecs.RADIXLY_EXTRA)
+
+    absent = codecs.Codec(
+        tag="?",
+        name=name,
+        encode=codecs.BASE85.encode,
+        decode=missing,
+        max_bytes=codecs.BASE85.max_bytes,
+    )
+    result = codec.decode_text("abc", absent)
+
+    assert isinstance(result, risa.CodecUnavailableError)
+    assert result.codec_name == name
+
+
 class Color(enum.Enum):
     RED = 1
     BLUE = 2

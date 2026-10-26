@@ -78,7 +78,7 @@ class StateSession(abc.ABC):
     async def restore(self) -> Restored | Unreadably: ...
 
     @abc.abstractmethod
-    async def stage(self, view: view_.View) -> str: ...
+    async def stage(self, view: view_.View) -> bytes: ...
 
     @abc.abstractmethod
     async def published(self, view: view_.View) -> None: ...
@@ -100,7 +100,7 @@ class StateBackend(abc.ABC):
     ) -> StateSession: ...
 
     @abc.abstractmethod
-    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> str: ...
+    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes: ...
 
     @abc.abstractmethod
     async def commit_first(
@@ -108,7 +108,7 @@ class StateBackend(abc.ABC):
         *,
         meta: registry.ViewMeta,
         view: view_.View,
-        anchor: str,
+        anchor: bytes,
     ) -> None: ...
 
 

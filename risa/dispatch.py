@@ -367,7 +367,7 @@ def _decode_frames(
     signature = record.signature
     decoded: list[object] = []
     for (name, converter), frame in zip(signature.converters.items(), frames, strict=False):
-        data = _decode_text(frame, wire_codec)
+        data = codec.decode_text(frame, wire_codec)
         if isinstance(data, errors.CodecUnavailableError):
             _LOGGER.error(
                 "interaction %s routes to handler %r (version %d) of view %s, but the component was"
@@ -423,12 +423,3 @@ def _decode_frames(
             return None
         decoded.append(value)
     return decoded
-
-
-def _decode_text(frame: str, wire_codec: codecs.Codec) -> bytes | errors.CodecUnavailableError | None:
-    try:
-        return wire_codec.decode(frame)
-    except errors.CodecUnavailableError as exc:
-        return exc
-    except ValueError:
-        return None

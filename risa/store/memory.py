@@ -19,17 +19,18 @@
 # SOFTWARE.
 from __future__ import annotations
 
-import asyncio
 import collections.abc
-import contextlib
 import logging
 import time
 import typing
 
 import msgspec
 
-from risa import errors
+from risa.internal import locks
 from risa.store import protocol
+
+if typing.TYPE_CHECKING:
+    import contextlib
 
 __all__ = (
     "DEFAULT_MAX_ENTRIES",
@@ -47,11 +48,6 @@ class _Entry(msgspec.Struct):
     expires_at: float | None
 
 
-class _KeyLock(msgspec.Struct):
-    lock: asyncio.Lock
-    waiters: int = 0
-
-
 class MemoryStore:
     __slots__ = ("_capacity_warned", "_clock", "_entries", "_locks", "_max_entries")
 
@@ -62,7 +58,7 @@ class MemoryStore:
         clock: collections.abc.Callable[[], float] = time.monotonic,
     ) -> None:
         self._entries: collections.OrderedDict[str, _Entry] = collections.OrderedDict()
-        self._locks: dict[str, _KeyLock] = {}
+        self._locks = locks.KeyedLocks()
         self._max_entries = max_entries
         self._clock = clock
         self._capacity_warned = False
@@ -79,12 +75,12 @@ class MemoryStore:
         existing = self._live(key)
         self._write(key, value, version=1 if existing is None else existing.version + 1, ttl=ttl)
 
-    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> bool:
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
         existing = self._live(key)
         if existing is None or existing.version != expected:
-            return False
+            return None
         self._write(key, value, version=existing.version + 1, ttl=ttl)
-        return True
+        return existing.version + 1
 
     async def delete(self, key: str) -> None:
         self._entries.pop(key, None)
@@ -102,7 +98,7 @@ class MemoryStore:
         *,
         timeout: float = protocol.DEFAULT_LOCK_TIMEOUT,
     ) -> contextlib.AbstractAsyncContextManager[None]:
-        return self._locked(key, timeout)
+        return self._locks.hold(key, timeout=timeout)
 
     def _live(self, key: str) -> _Entry | None:
         entry = self._entries.get(key)
@@ -135,26 +131,3 @@ class MemoryStore:
                 )
             key, _ = self._entries.popitem(last=False)
             _LOGGER.debug("evicted state key %r to stay within %d entries", key, self._max_entries)
-
-    @contextlib.asynccontextmanager
-    async def _locked(
-        self,
-        key: str,
-        timeout: float,  # ruff:ignore[async-function-with-timeout]
-    ) -> collections.abc.AsyncGenerator[None]:
-        entry = self._locks.setdefault(key, _KeyLock(lock=asyncio.Lock()))
-        entry.waiters += 1
-        try:
-            try:
-                async with asyncio.timeout(timeout):
-                    await entry.lock.acquire()
-            except TimeoutError as exc:
-                raise errors.LockTimeoutError(key, timeout) from exc
-            try:
-                yield
-            finally:
-                entry.lock.release()
-        finally:
-            entry.waiters -= 1
-            if entry.waiters == 0:
-                del self._locks[key]

@@ -91,10 +91,11 @@ def test_a_store_anchor_is_short_enough_to_replicate_everywhere() -> None:
     assert len(codecs.BASE85.encode(raw)) < codec.MAX_FRAGMENT_LENGTH
 
 
-def test_a_store_token_is_printable_and_stable() -> None:
+def test_a_store_token_is_the_key_in_hex() -> None:
     minted = anchor.StoreAnchor.mint()
 
-    assert all(char in wire.ALPHABET for char in minted.token)
+    assert minted.token == minted.key.hex()
+    assert len(minted.token) == 2 * anchor.KEY_BYTES
     assert minted.token == anchor.StoreAnchor(minted.key).token
 
 

@@ -41,7 +41,7 @@ if typing.TYPE_CHECKING:
 __all__ = (
     "DispatchCallback",
     "HandlerRecord",
-    "OutdatedCallback",
+    "HookCallback",
     "Registry",
     "ViewMeta",
     "global_registry",
@@ -56,7 +56,7 @@ type DispatchCallback = collections.abc.Callable[
     typing.Concatenate[View, context.ComponentContext, ...],
     collections.abc.Awaitable[None],
 ]
-type OutdatedCallback = collections.abc.Callable[
+type HookCallback = collections.abc.Callable[
     typing.Concatenate[context.ComponentContext, ...],
     collections.abc.Awaitable[None],
 ]
@@ -81,12 +81,17 @@ class ViewMeta(msgspec.Struct, frozen=True):
     schema: schema_.StateSchema
     state: placement_.StatePlacement
     handlers: collections.abc.Mapping[str, HandlerRecord] = msgspec.field(default_factory=dict[str, HandlerRecord])
-    outdated: OutdatedCallback | None = None
+    outdated: HookCallback | None = None
+    state_missing: HookCallback | None = None
     loader: LoadCallback | None = None
 
     @property
     def handles_outdated(self) -> bool:
         return self.outdated is not None
+
+    @property
+    def handles_state_missing(self) -> bool:
+        return self.state_missing is not None
 
     @property
     def cookie(self) -> str:

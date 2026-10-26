@@ -136,7 +136,7 @@ async def test_a_cas_with_the_current_version_wins_and_advances_it() -> None:
     store = memory.MemoryStore()
     await store.put("k", b"one", ttl=None)
 
-    assert await store.put_if_version("k", b"two", expected=1, ttl=None) is True
+    assert await store.put_if_version("k", b"two", expected=1, ttl=None) == 2
 
     assert await store.get_versioned("k") == protocol.VersionedEntry(data=b"two", version=2)
 
@@ -146,13 +146,13 @@ async def test_a_cas_against_any_other_version_is_refused(expected: int) -> None
     store = memory.MemoryStore()
     await store.put("k", b"one", ttl=None)
 
-    assert await store.put_if_version("k", b"loser", expected=expected, ttl=None) is False
+    assert await store.put_if_version("k", b"loser", expected=expected, ttl=None) is None
 
 
 async def test_a_cas_on_a_missing_key_is_refused() -> None:
     store = memory.MemoryStore()
 
-    assert await store.put_if_version("missing", b"value", expected=1, ttl=None) is False
+    assert await store.put_if_version("missing", b"value", expected=1, ttl=None) is None
 
 
 async def test_a_refused_cas_changes_nothing() -> None:
@@ -213,7 +213,7 @@ async def test_an_expired_record_refuses_a_cas() -> None:
 
     clock.now = 6.0
 
-    assert await store.put_if_version("k", b"late", expected=1, ttl=None) is False
+    assert await store.put_if_version("k", b"late", expected=1, ttl=None) is None
 
 
 async def test_touch_keeps_a_record_alive() -> None:

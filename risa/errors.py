@@ -250,9 +250,14 @@ class StateNotFoundError(StateError):
 
 
 class StateConflictError(StateError):
-    def __init__(self, key: str) -> None:
+    def __init__(self, key: str, *, expected: int, found: int) -> None:
         self.key = key
-        super().__init__(f"state for key {key!r} was modified concurrently; the write was rejected")
+        self.expected = expected
+        self.found = found
+        super().__init__(
+            f"state for key {key!r} was written concurrently: this handler read version {expected},"
+            f" the store holds version {found}; the write was rejected",
+        )
 
 
 class LockTimeoutError(StateError):

@@ -9,10 +9,8 @@ __all__ = (
     "ALPHABET_SIZE",
     "MAX_DIGEST_CHARS",
     "largest_value",
-    "pack_bytes",
     "pack_digest",
     "pack_uint",
-    "unpack_bytes",
     "unpack_uint",
 )
 
@@ -53,19 +51,6 @@ def unpack_uint(raw: str) -> int | None:
             return None
         value = value * ALPHABET_SIZE + digit
     return value
-
-
-def pack_bytes(data: bytes) -> str:
-    return base64.b85encode(data).decode("ascii")
-
-
-def unpack_bytes(raw: str) -> bytes | None:
-    if len(raw) % 5 == 1:
-        return None
-    try:
-        return base64.b85decode(raw)
-    except ValueError:
-        return None
 
 
 def pack_digest(data: str, *, chars: int) -> str:

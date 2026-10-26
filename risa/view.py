@@ -182,15 +182,24 @@ class View(msgspec.Struct):
     async def on_outdated(cls, ctx: context.ComponentContext) -> None:
         """Answer a click on a component this view can no longer route."""
 
+    @classmethod
+    async def on_state_missing(cls, ctx: context.ComponentContext) -> None: ...
+
 
 def _inject(func: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> registry.DispatchCallback:
     return typing.cast("registry.DispatchCallback", linkd.inject(func))
 
 
-def _injected_outdated(cls: type[View]) -> registry.OutdatedCallback | None:
+def _injected_outdated(cls: type[View]) -> registry.HookCallback | None:
     if cls.on_outdated.__func__ is View.on_outdated.__func__:
         return None
-    return typing.cast("registry.OutdatedCallback", linkd.inject(cls.on_outdated))
+    return typing.cast("registry.HookCallback", linkd.inject(cls.on_outdated))
+
+
+def _injected_state_missing(cls: type[View]) -> registry.HookCallback | None:
+    if cls.on_state_missing.__func__ is View.on_state_missing.__func__:
+        return None
+    return typing.cast("registry.HookCallback", linkd.inject(cls.on_state_missing))
 
 
 def _injected_load(cls: type[View]) -> registry.LoadCallback | None:
@@ -261,6 +270,7 @@ def register[T: View](
             state=state,
             handlers=handlers,
             outdated=_injected_outdated(cls),
+            state_missing=_injected_state_missing(cls),
             loader=_injected_load(cls),
         )
         registry.global_registry().register(meta)

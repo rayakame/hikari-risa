@@ -38,6 +38,7 @@ __all__ = (
     "HandlerSignature",
     "IntConverter",
     "StrConverter",
+    "decode_text",
     "make_cookie",
     "make_handler_token",
     "pack_frames",
@@ -132,6 +133,15 @@ def parse_custom_id(raw: str) -> CustomID | None:
         tail=raw[HEADER_LENGTH + fragment_length :],
         codec=wire_codec,
     )
+
+
+def decode_text(text: str, wire_codec: codecs.Codec) -> bytes | errors.CodecUnavailableError | None:
+    try:
+        return wire_codec.decode(text)
+    except errors.CodecUnavailableError as exc:
+        return exc
+    except ValueError:
+        return None
 
 
 class ArgConverter(abc.ABC):

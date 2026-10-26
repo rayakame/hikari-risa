@@ -60,7 +60,7 @@ class _Prefix(msgspec.Struct, frozen=True):
 
 
 class StateSchema:
-    __slots__ = ("_encoder", "_fields", "_fingerprint", "_names", "_prefixes", "_view_name")
+    __slots__ = ("_empty_fingerprint", "_encoder", "_fields", "_fingerprint", "_names", "_prefixes", "_view_name")
 
     def __init__(self, fields: collections.abc.Sequence[DurableField], *, view_name: str) -> None:
         self._fields = tuple(fields)
@@ -76,6 +76,7 @@ class StateSchema:
             for size in range(len(self._fields) + 1)
         }
         self._fingerprint = _fingerprint(self._fields)
+        self._empty_fingerprint = _fingerprint(())
 
     @classmethod
     def of(cls, view_cls: type[msgspec.Struct], *, view_name: str) -> StateSchema:
@@ -125,6 +126,10 @@ class StateSchema:
     def fingerprint(self) -> str:
         return self._fingerprint
 
+    @property
+    def empty_fingerprint(self) -> str:
+        return self._empty_fingerprint
+
     def accepts(self, fingerprint: str) -> bool:
         prefix = self._prefixes.get(fingerprint)
         return prefix is not None and prefix.tail_is_defaulted
@@ -143,6 +148,9 @@ class StateSchema:
             return self._encoder.encode(tuple(values))
         except (OverflowError, TypeError) as exc:
             raise self._encode_error(values, exc) from exc
+
+    def pack_view(self, view: msgspec.Struct) -> bytes:
+        return self.pack(self.values(view))
 
     def _encode_error(
         self,
