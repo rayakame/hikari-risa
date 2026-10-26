@@ -45,6 +45,7 @@ from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
     import collections.abc
+    import contextlib
 
 
 def emitted(layout: ui.Layout, meta: registry.ViewMeta) -> typing.Sequence[hikari.api.ComponentBuilder]:
@@ -1592,6 +1593,11 @@ class Notebook(risa.View):
         for write in RIVAL_WRITES:
             await write()
 
+    @risa.handler
+    async def whisper(self, ctx: risa.ComponentContext) -> None:
+        self.entries.append("whispered")
+        await ctx.respond("noted", ephemeral=True)
+
     @classmethod
     @typing.override
     async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
@@ -1617,6 +1623,58 @@ class DownStore(risa.MemoryStore):
     @typing.override
     async def get_versioned(self, key: str) -> risa.VersionedEntry | None:
         msg = "redis went away"
+        raise ConnectionError(msg)
+
+
+@risa.register(name="client-receipt", state=risa.InStore(ttl=60.0))
+class Receipt(risa.View):
+    total: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.TextDisplay(f"total: {self.total}")
+
+
+class CountingStore(risa.MemoryStore):
+    __slots__ = ("touches",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.touches = 0
+
+    @typing.override
+    async def touch(self, key: str, *, ttl: float) -> None:
+        self.touches += 1
+        await super().touch(key, ttl=ttl)
+
+
+class StuckUnlock:
+    async def __aenter__(self) -> None:
+        pass
+
+    async def __aexit__(self, *exc: object) -> None:
+        msg = "redis went away during unlock"
+        raise ConnectionError(msg)
+
+
+class StuckStore(risa.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    def lock(
+        self,
+        key: str,
+        *,
+        timeout: float = risa.DEFAULT_LOCK_TIMEOUT,
+    ) -> contextlib.AbstractAsyncContextManager[None]:
+        return StuckUnlock()
+
+
+class UntouchableStore(risa.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def touch(self, key: str, *, ttl: float) -> None:
+        msg = "redis went away during touch"
         raise ConnectionError(msg)
 
 
@@ -1882,3 +1940,79 @@ async def test_a_race_lost_by_the_end_of_dispatch_commit_is_logged_and_discarded
 
     assert "the change was discarded" in caplog.text
     assert await store.get(key) == b"another process"
+
+
+async def test_a_failing_unlock_after_a_good_click_still_acknowledges(caplog: pytest.LogCaptureFixture) -> None:
+    built = stored_client(StuckStore(), auto_defer=risa.AutoDefer.UPDATE, auto_defer_delay=10.0)
+    ids = ids_of((await built.build(Diary())).components)
+    STATE_CALLS.clear()
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await built._process_interaction(click(ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert STATE_CALLS == ["read"]
+    assert "releasing the state of view client-diary" in caplog.text
+    assert "but its state could not be reached" not in caplog.text
+    call = rest_of(built).create_interaction_response.await_args
+    assert call is not None
+    assert call.args[2] is hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+
+
+async def test_a_leftover_commit_on_an_ephemeral_origin_writes_nothing_and_says_why(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    store = risa.MemoryStore()
+    built = stored_client(store)
+    ids = ids_of((await built.build(Notebook())).components)
+    (key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    interaction = click(ids, 0)
+    interaction.custom_id = ids_of(
+        build_.plan(ui.Row(ui.Button(Notebook().whisper)), registry.require_meta(Notebook)).emit(
+            codecs.BASE85.decode(codec.parse_custom_id(ids[0]).fragment),  # type: ignore[union-attr]
+        )
+    )[0]
+    interaction.message.flags = hikari.MessageFlag.EPHEMERAL
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "origin message is ephemeral" in caplog.text
+    entry = await store.get_versioned(key)
+    assert entry is not None
+    assert entry.version == 1
+
+
+async def test_a_failing_touch_is_reported_as_what_it_is(caplog: pytest.LogCaptureFixture) -> None:
+    built = stored_client(UntouchableStore())
+    ids = ids_of((await built.build(Diary())).components)
+    caplog.clear()
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await built._process_interaction(click(ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "settling the state of view client-diary" in caplog.text
+    assert "mutated durable state" not in caplog.text
+
+
+async def test_a_stored_view_with_nothing_to_click_writes_no_record() -> None:
+    store = risa.MemoryStore()
+    built = risa.client_from_app(gateway_app(), store=store, key_prefix="test")
+    built.add_view(Receipt)
+
+    rendered = await built.build(Receipt(total=12))
+
+    assert not ids_of(rendered.components)
+    assert not store._entries  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+async def test_a_dispatch_refreshes_the_ttl_once() -> None:
+    store = CountingStore()
+    built = stored_client(store)
+    notebook_ids = ids_of((await built.build(Notebook())).components)
+    diary_ids = ids_of((await built.build(Diary())).components)
+
+    await built._process_interaction(click(notebook_ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert store.touches == 0
+    await built._process_interaction(click(diary_ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert store.touches == 1

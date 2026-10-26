@@ -174,6 +174,8 @@ class Client(abc.ABC):
             async with self._di.enter_context(di_.Contexts.DEFAULT):
                 await meta.loader(view)
         plan = build_.plan(view.render(), meta)
+        if not plan.interactive:
+            return ui.Rendered(plan.emit(b""))
         anchor = state.first_anchor(meta=meta, view=view)
         builders = plan.emit(anchor)
         await state.commit_first(meta=meta, view=view, anchor=anchor)

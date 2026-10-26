@@ -333,6 +333,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         await self._commit(view, session, build_.plan(view.render(), self._meta))
 
     async def _commit(self, view: view_.View, session: backend.StateSession, plan: build_.Plan) -> None:
+        if self._origin_is_out_of_reach():
+            raise errors.EphemeralOriginError(self._meta.name)
         state = await session.stage(view)
         await self._update_origin(plan.emit(state))
         await session.published(view)
@@ -354,6 +356,13 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
                     components=builders,
                 )
             else:
-                if hikari.MessageFlag.EPHEMERAL in self.message.flags:
+                if self._origin_is_out_of_reach():
                     raise errors.EphemeralOriginError(self._meta.name)
                 await self._rest.edit_message(self.message.channel_id, self.message.id, components=builders)
+
+    def _origin_is_out_of_reach(self) -> bool:
+        answered_elsewhere = self._gate.response in {
+            _InitialResponse.DEFERRED_THINKING,
+            _InitialResponse.MESSAGE_CREATE,
+        }
+        return answered_elsewhere and hikari.MessageFlag.EPHEMERAL in self.message.flags

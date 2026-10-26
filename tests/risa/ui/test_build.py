@@ -46,6 +46,9 @@ class Poll(risa.View):
     @risa.handler
     async def close(self, ctx: risa.ComponentContext) -> None: ...
 
+    @risa.handler
+    async def pick(self, ctx: risa.ComponentContext, label: str) -> None: ...
+
 
 @risa.register(name="build-ledger", state=risa.InStore(ttl=60.0))
 class Ledger(risa.View):
@@ -213,3 +216,33 @@ def test_distribute_copies_the_last_slot_onto_the_parked_leaves() -> None:
     last = codec.MAX_FRAGMENTS - 1
     assert slots[last] == anchor.Slot(index=last, fragment=f"f{last}")
     assert slots[-2:] == [anchor.Slot(index=last, fragment=f"f{last}")] * 2
+
+
+def parked_layout(poll: Poll) -> ui.Layout:
+    leaves = [ui.Button(poll.close) for _ in range(codec.MAX_FRAGMENTS + 2)]
+    leaves.append(ui.Button(risa.bind(poll.pick, "a long label that takes room")))
+    return ui.Row(*leaves)
+
+
+def test_the_last_slot_holds_only_what_every_parked_leaf_can_carry_a_copy_of() -> None:
+    poll = Poll(question="x" * 6376)
+    raw = state_of(poll)
+
+    ids = custom_ids(build_.plan(parked_layout(poll), POLL).emit(raw))
+
+    assert all(len(i) <= 100 for i in ids)
+    last_slot = parsed(ids[codec.MAX_FRAGMENTS - 1]).fragment
+    assert last_slot
+    assert parsed(ids[-1]).fragment == last_slot
+    found = reader.fragments(as_message(ids), cookie=POLL.cookie)
+    assert isinstance(found, dict)
+    assert anchor.gather(found) == raw
+
+
+def test_state_that_would_crowd_out_a_parked_leaf_is_a_state_overflow() -> None:
+    poll = Poll(question="x" * 6416)
+
+    plan = build_.plan(parked_layout(poll), POLL)
+
+    with pytest.raises(risa.StateOverflowError):
+        plan.emit(state_of(poll))

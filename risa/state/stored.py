@@ -99,6 +99,7 @@ class StoredSession(backend.StateSession):
         "_interaction",
         "_meta",
         "_placement",
+        "_refreshed",
         "_target",
         "_version",
     )
@@ -121,6 +122,7 @@ class StoredSession(backend.StateSession):
         self._version = 0
         self._baseline: bytes | None = None
         self._detached: collections.abc.Callable[[], errors.StateError] | None = None
+        self._refreshed = False
 
     @typing.override
     async def open(self) -> None:
@@ -187,7 +189,7 @@ class StoredSession(backend.StateSession):
                     self._detached(),
                 )
             return False
-        if not dirty:
+        if not dirty and not self._refreshed:
             await self._touch(key)
         return dirty
 
@@ -267,6 +269,7 @@ class StoredSession(backend.StateSession):
             return False
         self._version = written
         self._baseline = packed
+        self._refreshed = True
         return True
 
     async def _lost(self, key: str, view: view_.View) -> errors.StateError:
@@ -291,6 +294,7 @@ class StoredSession(backend.StateSession):
             return
         store = self._backend.store
         await _guarded(key, lambda: store.touch(key, ttl=ttl))
+        self._refreshed = True
 
 
 class StoredBackend(backend.StateBackend):

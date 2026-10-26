@@ -148,7 +148,7 @@ class Plan:
         wire_codec = self._meta.state.codec
         if isinstance(self._meta.state, placement.InStore):
             return [anchor.Slot(index=0, fragment=wire_codec.encode(state))] * len(self._capacities)
-        fragments = anchor.carve(state, self._capacities, wire_codec=wire_codec, view_name=self._meta.name)
+        fragments = anchor.carve(state, _parked(self._capacities), wire_codec=wire_codec, view_name=self._meta.name)
         return anchor.distribute(fragments)
 
 
@@ -210,6 +210,13 @@ def _reject_forbidden(forbidden: collections.abc.Mapping[str, object]) -> None:
             " alongside it - put text in a ui.TextDisplay inside the view"
         )
         raise TypeError(msg)
+
+
+def _parked(capacities: collections.abc.Sequence[int]) -> collections.abc.Sequence[int]:
+    last = codec.MAX_FRAGMENTS - 1
+    if len(capacities) <= codec.MAX_FRAGMENTS:
+        return capacities
+    return [*capacities[:last], min(capacities[last:]), *capacities[last + 1 :]]
 
 
 def _reserve(meta: registry.ViewMeta) -> int:

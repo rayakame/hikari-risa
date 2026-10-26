@@ -44,11 +44,11 @@ if typing.TYPE_CHECKING:
     from risa import codecs
     from risa.internal import registry
 
-type BackendResolver = collections.abc.Callable[[registry.ViewMeta], backend.StateBackend | None]
-
 __all__ = ("Dispatcher",)
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.dispatch")
+
+type BackendResolver = collections.abc.Callable[[registry.ViewMeta], backend.StateBackend | None]
 
 
 class _Route(msgspec.Struct, frozen=True):
@@ -198,8 +198,8 @@ class Dispatcher:
     ) -> bool:
         session = state.session(meta=click.meta, component=click.component, interaction=click.interaction)
         try:
-            async with session:
-                return await self._within(click, session, watchdog)
+            await session.open()
+            return await self._within(click, session, watchdog)
         except (errors.StoreUnavailableError, errors.CodecUnavailableError, errors.LockTimeoutError) as exc:
             await _stand_down(watchdog, click.gate)
             _LOGGER.error(  # ruff:ignore[error-instead-of-exception]
@@ -217,6 +217,8 @@ class Dispatcher:
                 click.interaction.id,
             )
             return False
+        finally:
+            await _release(click, session)
 
     async def _within(
         self,
@@ -327,8 +329,26 @@ class Dispatcher:
 
 async def _commit_leftovers(click: _Click, session: backend.StateSession, view: view_.View) -> None:
     try:
-        if await session.settle(view):
-            await click.ctx.rerender()
+        dirty = await session.settle(view)
+    except Exception:
+        _LOGGER.exception(
+            "settling the state of view %s after interaction %s failed",
+            click.meta.name,
+            click.interaction.id,
+        )
+        return
+    if not dirty:
+        return
+    try:
+        await click.ctx.rerender()
+    except errors.EphemeralOriginError:
+        _LOGGER.warning(
+            "interaction %s on view %s mutated durable state without calling rerender(), but the"
+            " handler had already answered and the origin message is ephemeral, so the change could"
+            " not be written; call ctx.rerender() before ctx.respond()",
+            click.interaction.id,
+            click.meta.name,
+        )
     except (errors.StateConflictError, errors.StateNotFoundError) as exc:
         _LOGGER.warning(
             "interaction %s on view %s mutated durable state without calling rerender(), and"
@@ -344,6 +364,17 @@ async def _commit_leftovers(click: _Click, session: backend.StateSession, view: 
             " committing it at the end of the dispatch failed",
             click.interaction.id,
             click.meta.name,
+        )
+
+
+async def _release(click: _Click, session: backend.StateSession) -> None:
+    try:
+        await session.close()
+    except Exception:
+        _LOGGER.exception(
+            "releasing the state of view %s after interaction %s failed",
+            click.meta.name,
+            click.interaction.id,
         )
 
 
