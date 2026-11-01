@@ -1022,6 +1022,19 @@ interaction is dead either way, but the handler may be mid-write in the user's d
 and killing user work to save a doomed ack is the wrong trade. Log at ERROR and let it
 finish.
 
+**Sharing the listener slot [decided 2026-11-01].** The REST server keeps one listener per
+interaction class, and lightbulb's REST client takes the component slot when it is built,
+so a plain `set_listener` made `client_from_lightbulb` raise `TypeError` at startup. risa
+now reads the slot's holder, takes the slot with `replace=True`, and hands every
+interaction it does not adopt (a foreign `custom_id`, or a risa one this client has no
+view for) to that holder, relaying its answer and its errors unchanged. Replacing without
+handing on was rejected: the holder's components would go silent with no error. Taking
+over a holder logs a WARNING that names it, so the relay is never hidden; it is silenced
+only by an explicit `warn_shared_listener=False` on the REST client, on `client_from_app`
+for a REST app (pyright rejects it for a gateway app) or on `client_from_lightbulb`. The
+relay works only when the other listener registers first, which `client_from_lightbulb`
+guarantees; a library registering after risa raises its own `TypeError`.
+
 hikari has no combined Gateway+REST ABC, so a `runtime_checkable` Protocol intersecting
 `RESTAware` + `EventManagerAware` is needed (miru calls it `GatewayBotLike`).
 

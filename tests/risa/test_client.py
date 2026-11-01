@@ -58,10 +58,57 @@ class GatewayApp:
         self.event_manager = unittest.mock.Mock(spec=hikari.api.EventManager)
 
 
+class InteractionServerStub:
+    def __init__(self) -> None:
+        self.listeners: dict[type[hikari.PartialInteraction], object] = {}
+
+    def get_listener(self, interaction_type: type[hikari.PartialInteraction], /) -> object | None:
+        return self.listeners.get(interaction_type)
+
+    def set_listener(
+        self,
+        interaction_type: type[hikari.PartialInteraction],
+        listener: object,
+        /,
+        *,
+        replace: bool = False,
+    ) -> None:
+        if not replace and interaction_type in self.listeners:
+            msg = f"Listener already set for {interaction_type.__name__}"
+            raise TypeError(msg)
+        self.listeners[interaction_type] = listener
+
+
 class RestApp:
     def __init__(self) -> None:
         self.rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
-        self.interaction_server = unittest.mock.Mock(spec=hikari.api.InteractionServer)
+        self.interaction_server = InteractionServerStub()
+        self.entity_factory = unittest.mock.Mock(spec=hikari.api.EntityFactory)
+        self.http_settings = hikari.impl.HTTPSettings()
+        self.proxy_settings = hikari.impl.ProxySettings()
+        self.executor = None
+
+
+class Downstream:
+    def __init__(self) -> None:
+        self.seen: list[hikari.ComponentInteraction] = []
+        self.response = unittest.mock.Mock(spec=hikari.api.InteractionMessageBuilder)
+
+    async def stream(
+        self,
+        interaction: hikari.ComponentInteraction,
+    ) -> collections.abc.AsyncGenerator[hikari.api.InteractionResponseBuilder | None, None]:
+        self.seen.append(interaction)
+        yield self.response
+
+    async def answer(self, interaction: hikari.ComponentInteraction) -> hikari.api.InteractionResponseBuilder | None:
+        self.seen.append(interaction)
+        return self.response
+
+    async def fail(self, interaction: hikari.ComponentInteraction) -> hikari.api.InteractionResponseBuilder | None:
+        self.seen.append(interaction)
+        msg = "downstream broke"
+        raise RuntimeError(msg)
 
 
 class LightbulbStub:
@@ -99,6 +146,12 @@ def rest_app() -> risa.RestClientAppT:
     return typing.cast("risa.RestClientAppT", RestApp())
 
 
+def sharing_app(listener: object) -> RestApp:
+    app = RestApp()
+    app.interaction_server.set_listener(hikari.ComponentInteraction, listener)
+    return app
+
+
 def rest_of(built: risa.Client) -> unittest.mock.Mock:
     return typing.cast("unittest.mock.Mock", built.rest)
 
@@ -132,10 +185,53 @@ def test_the_gateway_client_listens_for_component_interactions() -> None:
 
 def test_the_rest_client_registers_an_interaction_listener() -> None:
     app = RestApp()
-    risa.client_from_app(typing.cast("risa.RestClientAppT", app))
+    built = risa.client_from_app(typing.cast("risa.RestClientAppT", app))
 
-    app.interaction_server.set_listener.assert_called_once()
-    assert app.interaction_server.set_listener.call_args.args[0] is hikari.ComponentInteraction
+    assert app.interaction_server.get_listener(hikari.ComponentInteraction) == built._on_interaction  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+def test_a_rest_client_takes_the_slot_a_listener_already_holds() -> None:
+    app = sharing_app(Downstream().stream)
+    built = risa.client_from_app(typing.cast("risa.RestClientAppT", app))
+
+    assert app.interaction_server.get_listener(hikari.ComponentInteraction) == built._on_interaction  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+def test_taking_over_a_listener_warns_and_names_it(caplog: pytest.LogCaptureFixture) -> None:
+    app = sharing_app(Downstream().stream)
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        risa.client_from_app(typing.cast("risa.RestClientAppT", app))
+
+    (record,) = caplog.records
+    assert record.levelno == logging.WARNING
+    assert "Downstream.stream" in record.getMessage()
+    assert "warn_shared_listener=False" in record.getMessage()
+
+
+def test_the_takeover_warning_can_be_switched_off(caplog: pytest.LogCaptureFixture) -> None:
+    app = sharing_app(Downstream().stream)
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        risa.client_from_app(typing.cast("risa.RestClientAppT", app), warn_shared_listener=False)
+
+    assert not caplog.records
+
+
+def test_an_empty_slot_is_taken_without_a_warning(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        risa.client_from_app(rest_app())
+
+    assert not caplog.records
+
+
+def test_a_lightbulb_client_passes_the_switch_on(caplog: pytest.LogCaptureFixture) -> None:
+    lightbulb = LightbulbStub(sharing_app(Downstream().stream))
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb), warn_shared_listener=False)
+
+    assert not caplog.records
 
 
 def test_the_client_keeps_the_application_it_was_built_from() -> None:
@@ -1143,6 +1239,67 @@ async def test_the_rest_listener_answers_promptly_for_unroutable_ids() -> None:
 
     with pytest.raises(StopAsyncIteration):
         await anext(listener)
+
+
+async def test_a_foreign_interaction_goes_to_the_listener_risa_replaced() -> None:
+    downstream = Downstream()
+    built = risa.client_from_app(typing.cast("risa.RestClientAppT", sharing_app(downstream.stream)))
+    interaction = interaction_with("miru:settings:3")
+
+    listener = built._on_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert await asyncio.wait_for(anext(listener), timeout=1.0) is downstream.response
+    with pytest.raises(StopAsyncIteration):
+        await anext(listener)
+
+    assert downstream.seen == [interaction]
+
+
+async def test_a_replaced_listener_that_returns_its_answer_is_handed_on_too() -> None:
+    downstream = Downstream()
+    built = risa.client_from_app(typing.cast("risa.RestClientAppT", sharing_app(downstream.answer)))
+    interaction = interaction_with("miru:settings:3")
+
+    listener = built._on_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert await asyncio.wait_for(anext(listener), timeout=1.0) is downstream.response
+    with pytest.raises(StopAsyncIteration):
+        await anext(listener)
+
+    assert downstream.seen == [interaction]
+
+
+async def test_a_risa_id_without_a_view_here_goes_to_the_replaced_listener() -> None:
+    downstream = Downstream()
+    built = risa.client_from_app(typing.cast("risa.RestClientAppT", sharing_app(downstream.stream)))
+    interaction = interaction_with(encoded_id_for(Elsewhere))
+
+    listener = built._on_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert await asyncio.wait_for(anext(listener), timeout=1.0) is downstream.response
+
+    assert downstream.seen == [interaction]
+
+
+async def test_an_interaction_risa_handles_never_reaches_the_replaced_listener() -> None:
+    downstream = Downstream()
+    built = risa.client_from_app(typing.cast("risa.RestClientAppT", sharing_app(downstream.stream)))
+    built.add_view(Clicker)
+    CALLS.clear()
+
+    listener = built._on_interaction(interaction_with(encoded_id_for(Clicker, handler=Clicker.press.token)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert await asyncio.wait_for(anext(listener), timeout=1.0) is None
+    with pytest.raises(StopAsyncIteration):
+        await anext(listener)
+
+    assert len(CALLS) == 1
+    assert downstream.seen == []
+
+
+async def test_a_replaced_listener_that_raises_reaches_the_server_unchanged() -> None:
+    downstream = Downstream()
+    built = risa.client_from_app(typing.cast("risa.RestClientAppT", sharing_app(downstream.fail)))
+
+    listener = built._on_interaction(interaction_with("miru:settings:3"))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    with pytest.raises(RuntimeError, match="downstream broke"):
+        await asyncio.wait_for(anext(listener), timeout=1.0)
 
 
 async def test_a_handler_missing_the_window_is_logged_but_never_cancelled(

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import abc
 import asyncio
+import collections.abc
 import logging
 import typing
 
@@ -43,7 +44,7 @@ from risa.store import memory
 from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
-    import collections.abc
+    from hikari.api import interaction_server as interaction_server_
 
     from risa.state import backend as backend_
     from risa.store import protocol
@@ -60,6 +61,11 @@ __all__ = (
 )
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.client")
+
+type _ComponentResponse = (
+    hikari.api.InteractionDeferredBuilder | hikari.api.InteractionMessageBuilder | hikari.api.InteractionModalBuilder
+)
+type _ComponentListener = interaction_server_.ListenerT[hikari.ComponentInteraction, _ComponentResponse]
 
 
 @typing.runtime_checkable
@@ -274,13 +280,14 @@ class GatewayEnabledClient(Client):
 
 
 class RestEnabledClient(Client):
-    __slots__ = ("_app",)
+    __slots__ = ("_app", "_replaced")
 
     def __init__(
         self,
         app: RestClientAppT,
         *,
         register_app_dependencies: bool = True,
+        warn_shared_listener: bool = True,
         **options: typing.Unpack[_ClientOptions],
     ) -> None:
         super().__init__(app.rest, register_app_dependencies=register_app_dependencies, **options)
@@ -291,7 +298,18 @@ class RestEnabledClient(Client):
             if isinstance(app, hikari.RESTBot):
                 self._register_dependency(hikari.RESTBot, app)
 
-        app.interaction_server.set_listener(hikari.ComponentInteraction, self._on_interaction)
+        self._replaced = typing.cast(
+            "_ComponentListener | None",
+            app.interaction_server.get_listener(hikari.ComponentInteraction),
+        )
+        if self._replaced is not None and warn_shared_listener:
+            _LOGGER.warning(
+                "the interaction server already had a component listener, %r; risa now receives every"
+                " component interaction first and passes each one it does not handle on to that listener."
+                " Pass warn_shared_listener=False to the risa client once this is intended",
+                self._replaced,
+            )
+        app.interaction_server.set_listener(hikari.ComponentInteraction, self._on_interaction, replace=True)
 
     @property
     @typing.override
@@ -301,7 +319,7 @@ class RestEnabledClient(Client):
     async def _on_interaction(
         self,
         interaction: hikari.ComponentInteraction,
-    ) -> collections.abc.AsyncGenerator[None, None]:
+    ) -> collections.abc.AsyncGenerator[_ComponentResponse | None, None]:
         gate = context.ResponseGate()
         task = asyncio.create_task(self._process_interaction(interaction, gate))
         try:
@@ -314,7 +332,16 @@ class RestEnabledClient(Client):
                 interaction.id,
                 constants.INTERACTION_WINDOW,
             )
-        yield
+        if not gate.adopted and self._replaced is not None:
+            await task
+            call = self._replaced(interaction)
+            if isinstance(call, collections.abc.AsyncGenerator):
+                async for response in call:
+                    yield response
+            else:
+                yield await call
+            return
+        yield None
         await task
         if gate.adopted and not gate.responded:
             _LOGGER.debug(
@@ -334,28 +361,40 @@ def client_from_app(
 @typing.overload
 def client_from_app(
     app: RestClientAppT,
+    *,
+    warn_shared_listener: bool = True,
     **options: typing.Unpack[_ClientOptions],
 ) -> RestEnabledClient: ...
 
 
 def client_from_app(
     app: GatewayClientAppT | RestClientAppT,
+    *,
+    warn_shared_listener: bool = True,
     **options: typing.Unpack[_ClientOptions],
 ) -> Client:
     if isinstance(app, GatewayClientAppT):
         return GatewayEnabledClient(app, **options)
-    return RestEnabledClient(app, **options)
+    return RestEnabledClient(app, warn_shared_listener=warn_shared_listener, **options)
 
 
 def client_from_lightbulb(
     lightbulb_client: LightbulbClient,
+    *,
+    warn_shared_listener: bool = True,
     **options: typing.Unpack[_LightbulbOptions],
 ) -> Client:
     app = lightbulb_client.app
     if isinstance(app, GatewayClientAppT):
         return GatewayEnabledClient(app, di=lightbulb_client.di, register_app_dependencies=False, **options)
     if isinstance(app, RestClientAppT):
-        return RestEnabledClient(app, di=lightbulb_client.di, register_app_dependencies=False, **options)
+        return RestEnabledClient(
+            app,
+            di=lightbulb_client.di,
+            register_app_dependencies=False,
+            warn_shared_listener=warn_shared_listener,
+            **options,
+        )
 
     msg = "the lightbulb client's app has neither an event manager nor an interaction server"
     raise TypeError(msg)
