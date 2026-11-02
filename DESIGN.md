@@ -757,8 +757,9 @@ Changes from the original protocol, all verdicts of the lock investigation:
   whole acquisition, Redis round trips included, runs under the lock's deadline, so a
   stalled Redis raises `LockTimeoutError` on time. A `SET` cut off by that deadline may
   still have landed, and its lease then blocks the view for at most `lease`, the same
-  bound as a crashed holder. A lapsed lease is logged and left to the CAS. On first use the store reads `maxmemory-policy` and warns for any policy but
-  `noeviction`; a server that hides its config is noted at DEBUG.
+  bound as a crashed holder. A lapsed lease is logged and left to the CAS. On first use
+  the store reads `maxmemory-policy` and warns for any policy but `noeviction`; a server
+  that hides its config or leaves the policy out of its reply is noted at DEBUG.
 
 ### 7.6 Anchors, keys, and schema evolution **[decided]**
 
@@ -995,9 +996,11 @@ default.
 ### Redis notes **[decided]**
 
 - **`maxmemory-policy`** — `allkeys-lru` evicts unexpired state and kills components silently.
-  So do the `volatile-*` policies, since every risa entry has a TTL; only `noeviction` keeps
-  live state, by refusing writes when Redis is full. `RedisStore` checks on first use and
-  warns for anything else **[built 2026-11-01]**.
+  The `volatile-*` policies spare entries written with `ttl=None`, but they still evict
+  every entry with a TTL before it expires, and that includes the lock leases. Only
+  `noeviction` keeps all live state, by refusing writes when Redis is full. `RedisStore`
+  checks on first use and warns for anything else, and notes at DEBUG a server that will
+  not say **[built 2026-11-01]**.
 - **Persistence** — RDB-only loses recent state on crash. AOF with `appendfsync everysec` is
   what makes the durability claim real. Document next to the claim, not in an appendix.
 - **Hash tags from day one** — `{key}:s` / `{key}:l`, so cluster mode can co-locate lock and

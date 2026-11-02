@@ -34,6 +34,7 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 LATENCY = 0.06
+SLOW_RACER = 1.5
 
 
 class IgnoresExpectedVersion(memory.MemoryStore):
@@ -183,6 +184,28 @@ class Ledger(memory.MemoryStore):
         await super().delete(key)
 
 
+class OneRacingCasRaises(memory.MemoryStore):
+    __slots__ = ("in_flight",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.in_flight = 0
+
+    @typing.override
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        if not key.endswith(":racing_cas_writes_have_one_winner"):
+            return await super().put_if_version(key, value, expected=expected, ttl=ttl)
+        if value == b"writer 0":
+            msg = "one racer broke"
+            raise RuntimeError(msg)
+        self.in_flight += 1
+        try:
+            await asyncio.sleep(SLOW_RACER)
+            return await super().put_if_version(key, value, expected=expected, ttl=ttl)
+        finally:
+            self.in_flight -= 1
+
+
 async def failures_of(store: protocol.Store) -> collections.abc.Sequence[str]:
     with pytest.raises(risa.StoreConformanceError) as caught:
         await testing.verify_store(store)
@@ -201,6 +224,15 @@ async def test_a_slow_store_that_keeps_an_expiry_on_overwrite_is_caught() -> Non
     failures = await failures_of(KeepsExpiryWhenOverwriting())
 
     assert [failure.split(":")[0] for failure in failures] == ["a_put_without_ttl_clears_the_expiry"]
+
+
+async def test_a_racer_that_raises_is_reported_after_every_racer_settled() -> None:
+    store = OneRacingCasRaises()
+
+    failures = await failures_of(store)
+
+    assert failures == ["racing_cas_writes_have_one_winner: raised RuntimeError: one racer broke"]
+    assert store.in_flight == 0
 
 
 async def test_cancelling_the_kit_still_cleans_up() -> None:

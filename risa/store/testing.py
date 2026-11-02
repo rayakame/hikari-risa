@@ -127,8 +127,11 @@ async def _racing_cas_writes_have_one_winner(store: protocol.Store, key: str) ->
         return "an entry written with put could not be read back with get_versioned"
     contenders = [f"writer {index}".encode() for index in range(_RACERS)]
     written = await asyncio.gather(
-        *(store.put_if_version(key, value, expected=current.version, ttl=None) for value in contenders)
+        *(store.put_if_version(key, value, expected=current.version, ttl=None) for value in contenders),
+        return_exceptions=True,
     )
+    if raised := [outcome for outcome in written if isinstance(outcome, BaseException)]:
+        raise raised[0]
     winners = [value for value, version in zip(contenders, written, strict=True) if version is not None]
     if len(winners) != 1:
         return f"{len(winners)} of {_RACERS} racing put_if_version calls on one version won"

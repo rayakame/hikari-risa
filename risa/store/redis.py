@@ -185,7 +185,11 @@ class RedisStore:
             )
             return
         policy = reply.get("maxmemory-policy")
-        if policy is not None and policy != _SAFE_POLICY:
+        if policy is None:
+            _LOGGER.debug(
+                "Redis did not report its maxmemory-policy; risa cannot tell whether Redis may evict live state",
+            )
+        elif policy != _SAFE_POLICY:
             _LOGGER.warning(
                 "Redis runs with maxmemory-policy=%s, so under memory pressure it may evict view state that"
                 " has not expired yet, and components whose state is evicted stop working; with"

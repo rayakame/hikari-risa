@@ -237,6 +237,24 @@ async def test_noeviction_draws_no_warning(
     assert not caplog.records
 
 
+async def test_a_reply_without_the_policy_is_noted_at_debug(
+    client: redis.asyncio.Redis,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def config_get(pattern: str) -> dict[str | None, str | None]:  # ruff:ignore[unused-async]
+        del pattern
+        return {}
+
+    monkeypatch.setattr(client, "config_get", config_get)
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await redis_store.RedisStore(client).get(fresh_key())
+
+    assert [record.levelno for record in caplog.records] == [logging.DEBUG]
+    assert "maxmemory-policy" in caplog.records[0].getMessage()
+
+
 async def test_a_server_that_hides_its_policy_is_only_noted_at_debug(
     client: redis.asyncio.Redis,
     monkeypatch: pytest.MonkeyPatch,
