@@ -38,6 +38,7 @@ _GRACE_TTL: typing.Final[float] = 0.5
 _GRACE_LAPSE: typing.Final[float] = 0.75
 _LONG_TTL: typing.Final[float] = 5.0
 _PATIENCE: typing.Final[float] = 2.0
+_CHECK_DEADLINE: typing.Final[float] = 10.0
 _SAMPLES: typing.Final[collections.abc.Sequence[bytes]] = (b"", b"\x00", b"\xff\xfe\x00 mixed", bytes(range(256)))
 _RACERS: typing.Final[int] = 8
 _HOLDERS: typing.Final[int] = 3
@@ -283,19 +284,29 @@ _CHECKS: typing.Final[collections.abc.Mapping[str, _Check]] = {
 }
 
 
+def _explained(exc: Exception, limit: asyncio.Timeout) -> str:
+    if limit.expired():
+        return f"did not finish within {_CHECK_DEADLINE}s"
+    return f"raised {type(exc).__name__}: {exc}"
+
+
 async def _isolated(store: protocol.Store, check: _Check, key: str) -> str | None:
     problems: list[str] = []
+    limit = asyncio.timeout(_CHECK_DEADLINE)
     try:
-        if (problem := await check(store, key)) is not None:
-            problems.append(problem)
+        async with limit:
+            if (problem := await check(store, key)) is not None:
+                problems.append(problem)
     except Exception as exc:  # ruff:ignore[blind-except]
-        problems.append(f"raised {type(exc).__name__}: {exc}")
+        problems.append(_explained(exc, limit))
     finally:
+        cleanup = asyncio.timeout(_CHECK_DEADLINE)
         try:
-            await store.delete(key)
-            await store.delete(_other(key))
+            async with cleanup:
+                await store.delete(key)
+                await store.delete(_other(key))
         except Exception as exc:  # ruff:ignore[blind-except]
-            problems.append(f"cleaning up raised {type(exc).__name__}: {exc}")
+            problems.append(f"cleaning up {_explained(exc, cleanup)}")
     return "; ".join(problems) or None
 
 

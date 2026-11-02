@@ -35,6 +35,7 @@ if typing.TYPE_CHECKING:
 
 LATENCY = 0.06
 SLOW_RACER = 1.5
+SHORT_DEADLINE = 1.5
 
 
 class IgnoresExpectedVersion(memory.MemoryStore):
@@ -136,6 +137,28 @@ class TouchRaises(memory.MemoryStore):
         raise RuntimeError(msg)
 
 
+class OneRacerHangs(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        if key.endswith(":racing_cas_writes_have_one_winner"):
+            if value == b"writer 0":
+                msg = "one racer broke"
+                raise RuntimeError(msg)
+            if value == b"writer 1":
+                await asyncio.Event().wait()
+        return await super().put_if_version(key, value, expected=expected, ttl=ttl)
+
+
+class DeleteHangs(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def delete(self, key: str) -> None:
+        await asyncio.Event().wait()
+
+
 class DeleteRaises(memory.MemoryStore):
     __slots__ = ()
 
@@ -233,6 +256,23 @@ async def test_a_racer_that_raises_is_reported_after_every_racer_settled() -> No
 
     assert failures == ["racing_cas_writes_have_one_winner: raised RuntimeError: one racer broke"]
     assert store.in_flight == 0
+
+
+async def test_a_check_that_hangs_is_reported_once_its_deadline_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(testing, "_CHECK_DEADLINE", SHORT_DEADLINE)
+
+    failures = await asyncio.wait_for(failures_of(OneRacerHangs()), timeout=SHORT_DEADLINE * 4)
+
+    assert failures == [f"racing_cas_writes_have_one_winner: did not finish within {SHORT_DEADLINE}s"]
+
+
+async def test_a_cleanup_that_hangs_is_reported_once_its_deadline_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(testing, "_CHECK_DEADLINE", SHORT_DEADLINE)
+
+    failures = await asyncio.wait_for(failures_of(DeleteHangs()), timeout=SHORT_DEADLINE * 4)
+
+    assert len(failures) == 17
+    assert all(f"cleaning up did not finish within {SHORT_DEADLINE}s" in failure for failure in failures)
 
 
 async def test_cancelling_the_kit_still_cleans_up() -> None:

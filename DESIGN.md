@@ -741,9 +741,11 @@ Changes from the original protocol, all verdicts of the lock investigation:
   timeout, independence and release on error). They run concurrently on their own random
   keys and delete what they write. Every failure is collected into one
   `StoreConformanceError(failures)`, and that includes an exception the store raises during
-  a check or its cleanup. A check whose entry must outlive further store calls gives it
-  half a second, so a conforming store across a network passes. The kit is plain async,
-  with no pytest dependency.
+  a check or its cleanup. A check or a cleanup still running after ten seconds is cancelled
+  and reported as unfinished, so a store that hangs fails the kit instead of hanging it. A
+  check whose entry must outlive further store calls gives it half a second, so a
+  conforming store across a network passes. The kit is plain async, with no pytest
+  dependency.
 - **`RedisStore(client, *, lease=5.0, max_hold=60.0)`** **[built 2026-11-01]**, from
   `risa.store.redis` with the `[redis]` extra (redis-py 8). It takes a
   `redis.asyncio.Redis` the bot owns and never opens or closes connections, and it refuses
@@ -1023,7 +1025,9 @@ clicks on one view land on two processes, both read the same version, and the la
 loses the CAS. A handler that relied on the end-of-dispatch commit has no one to raise to,
 so its mutation is discarded with a WARNING (§7.3). `RedisStore.lock()` therefore takes a
 renewed lease (§7.5), and those clicks queue as they do within one process. Its costs are
-two Redis round trips per click and a view blocked for at most `lease` after a crash. The
+two Redis round trips for a click that meets no contention and finishes within `lease/3`,
+plus a poll every few milliseconds while it waits for the lock and a renewal every
+`lease/3` while it holds it. After a crash, the view is blocked for at most `lease`. The
 lease is still not the correctness story: a stalled holder can lose it, and the CAS
 settles that case. The deferred `isolation=risa.Serialized()` (§15) stays deferred. It is
 about side effects that must never run twice, which a lease that can lapse does not
