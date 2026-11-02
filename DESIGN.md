@@ -184,8 +184,8 @@ risa/
                     the implementations risa ships; imports nothing from state/
     protocol.py     Store, VersionedEntry, DEFAULT_LOCK_TIMEOUT [exists]
     memory.py       MemoryStore                                [exists]
-    redis.py        RedisStore                                 [extra: redis; roadmap]
-    testing.py      verify_store conformance kit               [roadmap]
+    redis.py        RedisStore                                 [exists; extra: redis]
+    testing.py      verify_store conformance kit               [exists]
 ```
 
 ---
@@ -538,8 +538,9 @@ class Poll(risa.View): ...
 @risa.register(name="todo", version=1, state=risa.InStore(store="redis", ttl=30 * 86400))
 class TodoList(risa.View): ...
 
-client = risa.client_from_app(bot, stores={"redis": MyRedisStore(...)})
-# single-store bots skip the dict and the name: client_from_app(bot, store=MyRedisStore(...))
+store = RedisStore(redis.asyncio.Redis.from_url("redis://localhost"))  # from risa.store.redis
+client = risa.client_from_app(bot, stores={"redis": store})
+# single-store bots skip the dict and the name: client_from_app(bot, store=store)
 ```
 
 Placement is configuration, not taxonomy — one `View` base, one handler semantics, one
@@ -731,9 +732,28 @@ Changes from the original protocol, all verdicts of the lock investigation:
   instances.
 - `MemoryStore` (OrderedDict + LRU + per-key asyncio locks) is the zero-infrastructure
   development store, wired explicitly (`store=risa.MemoryStore()`) and never auto-created
-  **[decided — revised]** — see §7.1; `RedisStore` plus a `risa.store.testing.verify_store`
-  conformance kit are 1.0 roadmap — the protocol is sharp to implement (leases, atomic
-  put+ttl, CAS races), and handing it to users without a test harness would be negligent.
+  **[decided — revised]** — see §7.1.
+- **`risa.store.testing.verify_store(store)`** **[built 2026-11-01]** is the conformance kit:
+  sixteen checks (byte-exact round trips, versions that change on every write, CAS that
+  wins on the current version and refuses a stale one or a missing key, exactly one winner
+  among racing CAS writes, expiry, `ttl=None` clearing an earlier expiry, `touch` keeping
+  data and version and creating nothing, lock exclusion, timeout, independence and release
+  on error). They run concurrently on their own random keys, delete what they write, and
+  every failure is collected into one `StoreConformanceError(failures)`. The kit is plain
+  async, with no pytest dependency.
+- **`RedisStore(client, *, lease=5.0, max_hold=60.0)`** **[built 2026-11-01]**, from
+  `risa.store.redis` with the `[redis]` extra (redis-py 8). It takes a
+  `redis.asyncio.Redis` the bot owns and never opens or closes connections, and it refuses
+  a client with `decode_responses=True`. An entry is one hash `{K}:s` holding the data and
+  the version; `put` and `put_if_version` are Lua scripts, so data, version and expiry
+  change in one step and the CAS compares in that same step. **`lock()` takes a lease
+  across processes [decided 2026-11-01 — revises "Lock tiering", §10]:** after the
+  in-process per-key lock, it sets `{K}:l` to a random token with `NX` and a `lease`
+  expiry, polling with backoff until the timeout, renews it every `lease/3` while held,
+  stops renewing after `max_hold` and releases it only if the token is still its own. A
+  crashed holder blocks a view for at most `lease`, and a lapsed lease is logged and left
+  to the CAS. On first use the store reads `maxmemory-policy` and warns for any policy but
+  `noeviction`; a server that hides its config is noted at DEBUG.
 
 ### 7.6 Anchors, keys, and schema evolution **[decided]**
 
@@ -970,11 +990,14 @@ default.
 ### Redis notes **[decided]**
 
 - **`maxmemory-policy`** — `allkeys-lru` evicts unexpired state and kills components silently.
-  Want `volatile-lru` or `noeviction`. Check at startup and warn.
+  So do the `volatile-*` policies, since every risa entry has a TTL; only `noeviction` keeps
+  live state, by refusing writes when Redis is full. `RedisStore` checks on first use and
+  warns for anything else **[built 2026-11-01]**.
 - **Persistence** — RDB-only loses recent state on crash. AOF with `appendfsync everysec` is
   what makes the durability claim real. Document next to the claim, not in an appendix.
 - **Hash tags from day one** — `{key}:s` / `{key}:l`, so cluster mode can co-locate lock and
-  state. Retrofitting invalidates every live key.
+  state. Retrofitting invalidates every live key. `RedisStore` writes exactly these two
+  keys **[built 2026-11-01]**.
 - **Read from the primary.** Replica reads break read-your-writes on re-render.
 - **Lock is unsafe under failover.** Accepted; the version check (§7.3) is the backstop.
 - **Namespace with the application ID** — `risa:{app_id}:`, the default; `key_prefix=`
@@ -983,10 +1006,20 @@ default.
 ### Lock tiering **[resolved by §7.3]**
 
 The old open question ("skip the distributed lock on gateway bots?") dissolved into the
-hybrid contract: the in-process lock is always taken (free, unleakable), the CAS is always
-the cross-process arbiter, and a *distributed* lock is never on the default path at all —
-it returns only with the deferred `isolation=risa.Serialized()` declaration for handlers
-whose side effects must never run twice.
+hybrid contract: the in-process lock is always taken (free, unleakable), and the CAS is
+always the cross-process arbiter.
+
+**Revised 2026-11-01: a shared store's lock spans processes.** The earlier rule kept a
+distributed lock off the default path entirely. That loses work on multi-process REST: two
+clicks on one view land on two processes, both read the same version, and the later commit
+loses the CAS. A handler that relied on the end-of-dispatch commit has no one to raise to,
+so its mutation is discarded with a WARNING (§7.3). `RedisStore.lock()` therefore takes a
+renewed lease (§7.5), and those clicks queue as they do within one process. Its costs are
+two Redis round trips per click and a view blocked for at most `lease` after a crash. The
+lease is still not the correctness story: a stalled holder can lose it, and the CAS
+settles that case. The deferred `isolation=risa.Serialized()` (§15) stays deferred. It is
+about side effects that must never run twice, which a lease that can lapse does not
+guarantee.
 
 ---
 
@@ -1052,7 +1085,7 @@ from risa import ui
 
 bot = hikari.GatewayBot("...")
 client = risa.client_from_app(bot)              # zero infra needed for InMessage views
-# client = risa.client_from_app(bot, stores={"redis": MyRedisStore(...)})  # for InStore
+# client = risa.client_from_app(bot, stores={"redis": RedisStore(redis_client)})  # for InStore
 
 
 @risa.register(name="poll", version=1)          # state=risa.InMessage() — the default
@@ -1188,10 +1221,9 @@ Ordered by cost of changing later.
 
 ### The state pivot
 
-Each step should land green. **Steps 1–3 are on `main`** (PR #39) and **step 4 is built**
-on `session-dispatch`, pending the live restart test; step 5 remains, and `HANDOFF.md`
-tracks the precise state. The old branch proved steps 1-4 once; they are to be rebuilt
-against this design, not copied.
+Each step should land green. **Steps 1–4 are on `main`** (PR #39, PR #40); step 5 is
+designed and parked on the `modals` branch, and `HANDOFF.md` tracks the precise state. The
+old branch proved steps 1-4 once; they are to be rebuilt against this design, not copied.
 
 1. **Codec** — chunk framing (`idx`/`frag_len`, carve/gather with gap detection), the two
    anchor dialects, the placement tag, Prop-aware positional state encoding. Still v1.
@@ -1216,8 +1248,8 @@ against this design, not copied.
 
 ### 1.0 roadmap, after the pivot
 
-- **`RedisStore`** (`[redis]` extra) + **`risa.store.testing.verify_store`** conformance
-  kit — the protocol is sharp to implement; shipping it without a harness is negligent.
+- ~~**`RedisStore`** (`[redis]` extra) + **`risa.store.testing.verify_store`** conformance
+  kit~~ — built 2026-11-01 (§7.5).
 - Docs: the placement 2×2 (§10), the capacity/introspection story, the world-readable
   warning, a first stateful tutorial example whose state *grows*.
 

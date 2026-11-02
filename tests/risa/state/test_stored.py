@@ -24,6 +24,7 @@ import logging
 import typing
 import unittest.mock
 
+import fakeredis
 import hikari
 import msgspec
 import pytest
@@ -39,6 +40,7 @@ from risa.state import serde
 from risa.state import stored
 from risa.store import memory
 from risa.store import protocol
+from risa.store import redis as redis_store
 
 if typing.TYPE_CHECKING:
     import contextlib
@@ -305,6 +307,25 @@ async def test_a_lost_race_adopts_the_winner_and_raises() -> None:
 
     assert (exc_info.value.expected, exc_info.value.found) == (1, 2)
     assert todo.items == ["theirs"]
+
+
+async def test_two_processes_on_one_redis_queue_their_clicks_instead_of_racing() -> None:
+    server = fakeredis.FakeServer()
+    first_store = redis_store.RedisStore(fakeredis.FakeAsyncRedis(server=server))
+    first = backend_for(first_store)
+    second = backend_for(redis_store.RedisStore(fakeredis.FakeAsyncRedis(server=server)))
+    raw = await sent(first, TodoList())
+
+    async def add(owner: stored.StoredBackend, item: str) -> None:
+        session, todo = await click(owner, raw)
+        todo.items.append(item)
+        await asyncio.sleep(0.05)
+        await session.stage(todo)
+        await session.close()
+
+    await asyncio.gather(add(first, "milk"), add(second, "eggs"))
+
+    assert sorted(await items_in(first_store, raw) or []) == ["eggs", "milk"]
 
 
 async def test_after_a_lost_race_the_handler_can_commit_on_top_of_the_winner() -> None:

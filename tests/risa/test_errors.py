@@ -40,6 +40,7 @@ import risa
         risa.StateConflictError,
         risa.StateError,
         risa.StateNotFoundError,
+        risa.StoreConformanceError,
     ],
 )
 def test_every_error_inherits_from_risa_error(exc_type: type[Exception]) -> None:
@@ -91,3 +92,20 @@ def test_schema_mismatch_reports_both_versions() -> None:
 
     assert error.found_version == 1
     assert error.expected_version == 2
+
+
+def test_store_conformance_lists_every_failed_check() -> None:
+    error = risa.StoreConformanceError(
+        [
+            "a_stale_cas_is_refused: accepted expected=1 after the version moved to 2",
+            "touch_ignores_a_missing_key: touch created an entry",
+        ]
+    )
+
+    assert error.failures == [
+        "a_stale_cas_is_refused: accepted expected=1 after the version moved to 2",
+        "touch_ignores_a_missing_key: touch created an entry",
+    ]
+    assert "2 conformance checks" in str(error)
+    assert "a_stale_cas_is_refused" in str(error)
+    assert "touch_ignores_a_missing_key" in str(error)

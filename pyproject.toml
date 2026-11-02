@@ -63,11 +63,14 @@ ruff = [
 ]
 slotscheck = [
     "slotscheck==0.21.0",
+    "redis~=8.0",
 ]
 pytest = [
+    "fakeredis[lua]==2.40.0",
     "pytest==9.2.0",
     "pytest-asyncio==1.4.1",
     "radixly~=1.0",
+    "redis~=8.0",
 ]
 
 [tool.slotscheck]
