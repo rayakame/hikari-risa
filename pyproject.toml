@@ -28,6 +28,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+postgres = [
+    "asyncpg~=0.32",
+]
 radixly = [
     "radixly~=1.0",
 ]
@@ -55,6 +58,7 @@ nox = [
     "nox[uv]==2026.10.20",
 ]
 pyright = [
+    "asyncpg-stubs==0.32.0",
     "pyright==1.1.414",
     {include-group = "bot"},
 ]
@@ -62,10 +66,12 @@ ruff = [
     "ruff==0.17.3",
 ]
 slotscheck = [
-    "slotscheck==0.21.0",
+    "asyncpg~=0.32",
     "redis~=8.0",
+    "slotscheck==0.21.0",
 ]
 pytest = [
+    "asyncpg~=0.32",
     "fakeredis[lua]==2.40.0",
     "pytest==9.2.0",
     "pytest-asyncio==1.4.1.post1",

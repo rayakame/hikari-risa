@@ -6,16 +6,29 @@ were lost, so this file is the *only* record of that evening's decisions). `DESI
 `start-implementation` branch as a DX reference — read it for ideas, error wording and
 test cases; its internals are not a blueprint.
 
-## Resume here (written 2026-10-25, updated 2026-11-01)
+## Resume here (written 2026-10-25, updated 2026-11-02)
 
 This block is current; it is the short path back in. Below it, the "Next, in order"
 notes for steps 1 and 2 are the August record and are kept as history: where they and
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
-**2026-11-02, housekeeping (branch `housekeeping`):** `CONTRIBUTING.md` is the contributor
-guide (commands, toolchain, code style, placement and ordering, layout, design direction,
-gotchas); its docstring rule now matches `ruff.toml` and the working rules below.
+**2026-11-02, `PostgresStore` (branch `postgres-store`):**
+`risa.store.postgres.PostgresStore(pool, *, table="risa_state", lease=5.0, max_hold=60.0)`
+on asyncpg, the `[postgres]` extra, with `asyncpg-stubs` for pyright. An entry is a row
+(key, data, version, `expires_at`), the CAS is one `UPDATE … WHERE version = $expected`, and
+every time comes from the database clock. Expired rows are invisible at once and deleted by
+the store itself: on its first write, then every hundredth, 500 at a time. The tables and
+the expiry index are created on first use when missing. The lease lock moved out of
+`RedisStore` into `internal/leases.py` (`LeaseLocks`), and both stores now run it over their
+own claim, renew and release; the Redis tests pass unchanged. DESIGN §7.5 and the new
+"Postgres notes" in §10 hold the decisions. The Postgres tests need a real server
+(`RISA_TEST_POSTGRES_URL`); CI's test job gained a `postgres:18-alpine` service. 909 tests;
+without either server, 33 of them skip.
+
+**2026-11-02, housekeeping (merged as PR #48, `e973b10`):** `CONTRIBUTING.md` is the
+contributor guide (commands, toolchain, code style, placement and ordering, layout, design
+direction, gotchas); its docstring rule now matches `ruff.toml` and the working rules below.
 `testbot/README.md` explains how to run the test bot and what each command exercises. The
 merged `session-dispatch` branch is gone.
 
@@ -190,7 +203,9 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
 - **`main`** carries the foundation (#13), typed wire args and the dispatch surface (#15),
   `on_outdated` (#17), the structural cleanup (#18), slotscheck (#19), the CI checkout
   hardening (#20, #21), the state pivot's steps 1–3 (#39) and step 4 (#40), the shared
-  REST listener slot (#44) and `RedisStore` with `verify_store` (#47).
+  REST listener slot (#44), `RedisStore` with `verify_store` (#47) and the contributor
+  guide (#48).
+- **`postgres-store`** carries `PostgresStore` and the shared lease lock.
 - **`modals`** carries the step 5 design, parked until hikari parses the new modal
   components: one commit on top of `main`, rebased whenever `main` moves.
 - **`anchor-codec`** (steps 1–3) and **`session-dispatch`** (step 4) were squash-merged and
