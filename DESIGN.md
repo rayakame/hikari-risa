@@ -294,7 +294,7 @@ codec     the text codec every byte field of THIS component is written in:
           letter. Read by tag, written by the view's InMessage(codec=...), so a
           codec switch keeps live components readable. Kept apart from `ver`
           on purpose: a layout bump must not multiply the codec letters.
-cookie    b85(blake2s(view_name + ":" + schema_version, digest_size=4))[:6]
+cookie    b85(blake2s(view_name + ":" + schema_version, digest_size=5))[:6]
 handler   b85(blake2s(handler_id + ":" + handler_version, digest_size=2))[:2]
 fragment  this component's slice of the view's ANCHOR (below); frag_len frames
           it so the args section is findable; empty for all-Prop views

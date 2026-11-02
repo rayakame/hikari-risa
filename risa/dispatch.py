@@ -386,7 +386,9 @@ async def _commit_leftovers(click: _Click, session: backend.StateSession, view: 
     """Save durable changes the handler made without rerendering.
 
     The commit is a plain `rerender()`. Nobody is left to raise to, so a failure is
-    logged and the change discarded.
+    logged. A lost race discards the change. An `InStore` commit that fails after the
+    store accepted it, while editing the message, leaves the state saved and only the
+    message behind, which the next click redraws.
     """
     try:
         dirty = await session.settle(view)
