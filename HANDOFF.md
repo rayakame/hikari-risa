@@ -173,8 +173,16 @@ on a REST bot no longer raises `TypeError` at startup. risa takes hikari's singl
 component-listener slot, hands every interaction it does not adopt to the previous holder,
 and logs a WARNING naming it unless `warn_shared_listener=False` (DESIGN §11).
 
-Step 5 (modals) is designed and parked on the `modals` branch until hikari parses the new
-modal components.
+**2026-10-31, step 5 (modals): designed, parked on branch `modals`.** The whole design is
+`docs/specs/2026-10-31-modals.md`; DESIGN §9 now points to it and the old §9 is gone. In
+short: one class per form (`risa.Modal`, or `risa.ViewModal[V]` on top of a view), input
+keys declared as `name = risa.Input[str]()`, a mandatory `render()` returning `risa.Form`,
+answers read through `ctx.value(key)` and `ctx.changed(key)`, view state through
+`async with ctx.origin()`, and a Python 3.13 floor for `Context[T = ...]`. **Building waits
+for hikari** to parse the new modal components: Label, the selects and File Upload are in
+hikari PR #2489 (open), Radio Group, Checkbox Group and Checkbox are in no PR yet. When it
+lands: run the live probe (§9 of the design), revise the design if it fails, then write the
+implementation plan against the released hikari API.
 
 **2026-10-26, step 4 (merged as PR #40, `7ad1903`):** state is live. `ui/build.py`
 is two-phase: `plan(layout, meta)` measures every interactive leaf's spare room and runs
@@ -204,7 +212,8 @@ send leaks its record under `ttl=None`. Declined, reasons in the conversation: h
 gate lock across `stage()` to close a narrow `THINKING` race, folding the two build passes,
 dropping `_Click`, a fallback in `_require_backend`, dropping the `plan()` wrapper. 816
 tests, nox green. The live restart test passed on 2026-10-26: `/poll`, vote, restart the
-bot, vote again on the old message, and the count survived.
+bot, vote again on the old message, and the count survived. CodeRabbit's one finding on
+#40 was the missing MIT header, which every `.py` file now carries.
 
 **2026-10-26, step 3 (merged as PR #39, `a5c8485`):** the six session decisions (below), the reader
 (`internal/reader.py`), `MessageBackend`/`MessageSession` (`state/message.py`),
@@ -313,10 +322,6 @@ checklist it was built to:
 5. `on_state_missing` default: empty, WARNING, DEBUG once overridden. Closes §14.2.
 6. The reader gathers only components carrying the clicked component's cookie; repeated
    indices under one cookie read as torn.
-
-**Also pending, small:** record the modal field decision in DESIGN §9 (bare fields are the
-default, `Annotated[..., risa.TextInput(...)]` only for constraints, a `risa.Paragraph`
-alias for the multi-line case) — agreed on 2026-10-25, not yet written down there.
 
 **New machine checklist, in addition to the section below:** `ssh-add ~/.ssh/github` before
 the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).

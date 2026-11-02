@@ -160,7 +160,7 @@ risa/
   di.py             Contexts, INJECTED re-export               [exists]
   errors.py         exception hierarchy                        [exists]
   view.py           View base, @register(state=), @handler, Prop, load()   [exists; state knobs planned]
-  modal.py          Modal base, @modal, TextInput, prompt machinery   [pivot step 5]
+  modal.py          Modal base, @modal, Input, prompt machinery      [step 5, parked; §9]
   internal/
     wire.py         the printable alphabet every id is written in      [exists]
     codec.py        custom_id layout: header, fragment slot, args, fingerprints  [exists; args planned]
@@ -951,63 +951,23 @@ your text in a `ui.TextDisplay`") rather than letting Discord 400.
 
 ---
 
-## 9. Modals **[decided: callback-only for 1.0]**
+## 9. Modals **[decided 2026-10-31 — parked until hikari parses the new modal components]**
 
-A modal is a schema class; opening one is `ctx.prompt`; the submission is an **ordinary
-fresh dispatch** — its own lock, load, commit — so modals survive restarts and load
-balancers by construction, which none of the three existing libraries manage.
+The full design lives in `docs/specs/2026-10-31-modals.md`, which is the authority for
+modals; it supersedes the callback design that stood here (`carry=`, a version token,
+`on_prompt_conflict`, fields as plain annotations). In short:
 
-```python
-@risa.modal(title="Rename option")
-class RenameModal(risa.Modal):
-    name: typing.Annotated[str, risa.TextInput(max_length=50)]
-    reason: typing.Annotated[str | None, risa.TextInput(paragraph=True)] = None
-
-
-@risa.handler(defer=risa.AutoDefer.OFF)
-async def edit_option(self, ctx: risa.ComponentContext, option_id: int) -> None:
-    await ctx.prompt(
-        RenameModal(name=self.options[option_id]),   # prefill = constructor
-        self.renamed,                                 # submit handler
-        carry=(option_id,),                           # typed, wire-encoded flow data
-    )
-
-@risa.handler
-async def renamed(self, ctx: risa.ModalContext, values: RenameModal, option_id: int) -> None:
-    self.options[option_id] = values.name
-    await ctx.rerender()
-```
-
-- Fields are `Annotated[..., risa.TextInput(...)]` — typed values, optionality from the
-  annotation (`str | None` → optional input, empty arrives as `None`), labels defaulting
-  from field names. Same pattern language as `Prop`.
-- Modals are not registered and have no cookie of their own: identity rides the submit
-  handler's token; the modal class resolves from the handler's signature at registration.
-  The modal's field schema folds into that handler's fingerprint, so schema drift against
-  an open form fails closed like any signature drift.
-- **`carry=`** wire-encodes flow data into the modal's `custom_id` (the same trade
-  `bind()` made): what would have been a stale closure becomes an explicit, typed,
-  restart-surviving parameter.
-- **A version token rides the modal's `custom_id`** (Fowler's optimistic offline lock):
-  the submission compares it against current state; a mismatch skips the handler and
-  routes to an overridable `on_prompt_conflict` (default: re-render the truth, ephemeral
-  "this changed while your form was open").
-
-**The inline await form (`prompt_wait`) was investigated and rejected for stateful views**
-(§15 roadmap keeps a constrained future variant). Three findings closed it: Discord
-forbids a modal in response to a MODAL_SUBMIT, so a frame gets at most one wait and the
-multi-step wizard — the flagship reason to want it — cannot exist on the platform in any
-design; the rendezvous is process-local, so it cannot work on multi-process REST, the one
-deployment where its lock hazard mattered; and every resume mechanism (refresh-in-place,
-rebind) converts idiomatic captures into silent wrong-row writes. Wizards are chains of
-`prompt` callbacks with `carry=`/durable state threading the steps — which is the only
-shape Discord permits anyway.
-
-Check-then-act across a form (claim-then-confirm) is **not atomic in any design** — the
-gap is human think-time, which the locking law forbids holding anything across. 1.0
-teaches the honest pattern (re-check in the submit handler; the version token catches the
-rest); the structural fix, `ctx.reserve(name, ttl=)` — an expiring, atomically-acquired
-flow hold outside the blob — is designed and deferred (§15).
+- One class per form: `risa.Modal` (opened from a command through `client.build_modal`, or
+  from a handler through `ctx.prompt`) or `risa.ViewModal[V]` (opened from a view's
+  handler, with locked access to its state through `async with ctx.origin()`).
+- Input keys are declared as `name = risa.Input[str]()`; annotated fields are the data the
+  bot passes in (durable by default, `risa.Prop[T]` for open-only data, as in §7.2).
+- `render()` is mandatory and returns a `risa.Form` of nodes (Label, Text Display, text
+  input, selects, radio and checkbox groups, checkbox, file upload).
+- Answers come from `ctx.value(key)`, never from `self`; `ctx.changed(key)` says whether the
+  user edited an input's prefill. risa does no staleness check.
+- `prompt_wait` stays rejected (Discord forbids a modal in answer to a submit; the
+  rendezvous is process-local), and `ctx.reserve` stays deferred (§15).
 
 ---
 
@@ -1214,7 +1174,7 @@ new types ad hoc:
 | `bind()` args don't fit the wire parameters | `ArgBindError` (at render) |
 | defer/modal after a response already went out | `AlreadyRespondedError` |
 | `rerender()`, or `edit()` with interactive components on a stateful view, where no state exists (a hook) | `NoViewError` |
-| modal submitted against changed state | routed to `on_prompt_conflict` — never raised |
+| `ctx.value` / `ctx.changed` for an input that was not in the submitted form | `InputMissingError` |
 
 **[decided]** There is no `NoResponseIssuedError`. Under the event/204 pattern (§11) a
 handler that never responds has no caller to throw to — the REST listener logs at ERROR and
@@ -1250,9 +1210,10 @@ Ordered by cost of changing later.
   commit is a WARNING and the change is discarded. See §7.3.
 - **Every `rerender()` is a full commit; mutate-without-rerender auto-commits; dirty is
   computed.** See §7.4.
-- **Modals are callback-only for 1.0** (`ctx.prompt` + `carry=` + version token +
-  `on_prompt_conflict`); `prompt_wait` rejected for stateful views after investigation
-  (Discord forbids modal-after-modal; the rendezvous is process-local). See §9.
+- **Modals are self-contained classes** (`risa.Modal`, `risa.ViewModal[V]`) with typed
+  input keys and a mandatory `render()`; `prompt_wait` rejected for stateful views after
+  investigation (Discord forbids modal-after-modal; the rendezvous is process-local).
+  See §9 and `docs/specs/2026-10-31-modals.md`.
 - **No codec version ceremony pre-release**: the chunked wire format simply *is* v1.
 - **Handler identity is `(handler_id, version)`; arg-carrying components carry a signature
   fingerprint.** See §6.4 for the full scheme, the retirement modes and the rejected
@@ -1305,7 +1266,8 @@ old branch proved steps 1-4 once; they are to be rebuilt against this design, no
    conditionally-modal handlers), deletion of the store-era dispatch, and
    `anchor.distribute`, which parks the components an anchor does not reach on one shared
    index rather than counting past it.
-5. **`modal.py`** — §9 as decided.
+5. **Modals** — parked until hikari parses the new modal components; the build order is
+   §11 of `docs/specs/2026-10-31-modals.md`.
 
 ### 1.0 roadmap, after the pivot
 
