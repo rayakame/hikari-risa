@@ -153,6 +153,27 @@ async def test_a_lapsed_holder_letting_go_leaves_the_next_holder_alone(client: r
         await holder
 
 
+async def stall(*args: object, **kwargs: object) -> typing.NoReturn:
+    del args, kwargs
+    await asyncio.Event().wait()
+    msg = "a stalled call never returns"
+    raise AssertionError(msg)
+
+
+@pytest.mark.parametrize("command", ["set", "config_get"])
+async def test_a_stalled_redis_cannot_stretch_the_lock_timeout(
+    client: redis.asyncio.Redis,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+) -> None:
+    monkeypatch.setattr(client, command, stall)
+    store = redis_store.RedisStore(client)
+
+    with pytest.raises(risa.LockTimeoutError):
+        async with asyncio.timeout(2.0), store.lock(fresh_key(), timeout=0.1):
+            pytest.fail("the lock was granted by a Redis that never answered")
+
+
 async def test_contention_within_one_process_queues_without_timing_out(client: redis.asyncio.Redis) -> None:
     store = redis_store.RedisStore(client)
     key = fresh_key()

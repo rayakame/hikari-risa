@@ -163,9 +163,9 @@ async def _an_entry_expires_after_its_ttl(store: protocol.Store, key: str) -> st
 
 
 async def _a_put_without_ttl_clears_the_expiry(store: protocol.Store, key: str) -> str | None:
-    await store.put(key, b"one", ttl=_SHORT_TTL)
+    await store.put(key, b"one", ttl=_GRACE_TTL)
     await store.put(key, b"two", ttl=None)
-    await asyncio.sleep(_LAPSE)
+    await asyncio.sleep(_GRACE_LAPSE)
     if await store.get(key) != b"two":
         return "put with ttl=None kept the expiry of the write before it"
     return None
@@ -281,17 +281,19 @@ _CHECKS: typing.Final[collections.abc.Mapping[str, _Check]] = {
 
 
 async def _isolated(store: protocol.Store, check: _Check, key: str) -> str | None:
+    problems: list[str] = []
     try:
-        problem = await check(store, key)
+        if (problem := await check(store, key)) is not None:
+            problems.append(problem)
     except Exception as exc:  # ruff:ignore[blind-except]
-        problem = f"raised {type(exc).__name__}: {exc}"
-    try:
-        await store.delete(key)
-        await store.delete(_other(key))
-    except Exception as exc:  # ruff:ignore[blind-except]
-        cleanup = f"cleaning up raised {type(exc).__name__}: {exc}"
-        problem = cleanup if problem is None else f"{problem}; {cleanup}"
-    return problem
+        problems.append(f"raised {type(exc).__name__}: {exc}")
+    finally:
+        try:
+            await store.delete(key)
+            await store.delete(_other(key))
+        except Exception as exc:  # ruff:ignore[blind-except]
+            problems.append(f"cleaning up raised {type(exc).__name__}: {exc}")
+    return "; ".join(problems) or None
 
 
 async def verify_store(store: protocol.Store) -> None:

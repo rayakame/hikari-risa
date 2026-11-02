@@ -753,9 +753,11 @@ Changes from the original protocol, all verdicts of the lock investigation:
   across processes [decided 2026-11-01 — revises "Lock tiering", §10]:** after the
   in-process per-key lock, it sets `{K}:l` to a random token with `NX` and a `lease`
   expiry, polling with backoff until the timeout, renews it every `lease/3` while held,
-  stops renewing after `max_hold` and releases it only if the token is still its own. A
-  crashed holder blocks a view for at most `lease`, and a lapsed lease is logged and left
-  to the CAS. On first use the store reads `maxmemory-policy` and warns for any policy but
+  stops renewing after `max_hold` and releases it only if the token is still its own. The
+  whole acquisition, Redis round trips included, runs under the lock's deadline, so a
+  stalled Redis raises `LockTimeoutError` on time. A `SET` cut off by that deadline may
+  still have landed, and its lease then blocks the view for at most `lease`, the same
+  bound as a crashed holder. A lapsed lease is logged and left to the CAS. On first use the store reads `maxmemory-policy` and warns for any policy but
   `noeviction`; a server that hides its config is noted at DEBUG.
 
 ### 7.6 Anchors, keys, and schema evolution **[decided]**

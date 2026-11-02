@@ -203,10 +203,13 @@ class RedisStore:
     ) -> collections.abc.AsyncGenerator[None]:
         deadline = asyncio.get_running_loop().time() + timeout
         async with self._local.hold(key, timeout=timeout):
-            await self._inspect()
             token = secrets.token_hex(16)
-            if not await self._acquire(_lease_key(key), token, deadline=deadline):
-                raise errors.LockTimeoutError(key, timeout)
+            try:
+                async with asyncio.timeout_at(deadline):
+                    await self._inspect()
+                    await self._acquire(_lease_key(key), token)
+            except TimeoutError as exc:
+                raise errors.LockTimeoutError(key, timeout) from exc
             keeper = asyncio.create_task(self._keep(key, token))
             try:
                 yield
@@ -215,16 +218,11 @@ class RedisStore:
                 await asyncio.wait([keeper])
                 await self._let_go(key, token)
 
-    async def _acquire(self, lease_key: str, token: str, *, deadline: float) -> bool:
-        loop = asyncio.get_running_loop()
+    async def _acquire(self, lease_key: str, token: str) -> None:
         pause = _FIRST_PAUSE
         while not await self._client.set(lease_key, token, nx=True, px=_milliseconds(self._lease)):
-            remaining = deadline - loop.time()
-            if remaining <= 0:
-                return False
-            await asyncio.sleep(min(pause, remaining))
+            await asyncio.sleep(pause)
             pause = min(pause * 2, _LONGEST_PAUSE)
-        return True
 
     async def _keep(self, key: str, token: str) -> None:
         loop = asyncio.get_running_loop()

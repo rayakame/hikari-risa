@@ -109,6 +109,23 @@ class Distant(memory.MemoryStore):
         await super().touch(key, ttl=ttl)
 
 
+class KeepsExpiryWhenOverwriting(Distant):
+    __slots__ = ("deadlines",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.deadlines: dict[str, float] = {}
+
+    @typing.override
+    async def put(self, key: str, value: bytes, *, ttl: float | None) -> None:
+        now = asyncio.get_running_loop().time()
+        if ttl is not None:
+            self.deadlines[key] = now + ttl
+        elif (deadline := self.deadlines.get(key)) is not None and deadline > now:
+            ttl = deadline - now
+        await super().put(key, value, ttl=ttl)
+
+
 class TouchRaises(memory.MemoryStore):
     __slots__ = ()
 
@@ -178,6 +195,24 @@ async def test_the_memory_store_conforms() -> None:
 
 async def test_a_conforming_store_across_a_network_passes() -> None:
     await testing.verify_store(Distant())
+
+
+async def test_a_slow_store_that_keeps_an_expiry_on_overwrite_is_caught() -> None:
+    failures = await failures_of(KeepsExpiryWhenOverwriting())
+
+    assert [failure.split(":")[0] for failure in failures] == ["a_put_without_ttl_clears_the_expiry"]
+
+
+async def test_cancelling_the_kit_still_cleans_up() -> None:
+    store = Ledger()
+    running = asyncio.create_task(testing.verify_store(store))
+    await asyncio.sleep(0.1)
+
+    running.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await running
+
+    assert store.live == set()
 
 
 async def test_a_cas_that_ignores_the_expected_version_is_caught() -> None:
