@@ -104,15 +104,15 @@ class KeyNamespace:
 class StoredSession(backend.StateSession):
     """One click on an `InStore` view.
 
-    `open` locates the key in the clicked component and takes the store's lock.
-    `restore` reads the record and remembers its version. `stage` writes only when the
-    durable fields changed, with a compare-and-set on that version, and merely touches the
-    record otherwise. A lost compare-and-set adopts the state that won as the new
-    baseline and raises `StateConflictError`, so the handler can apply its change again
-    and commit on top. A record that is gone, or a winner that cannot be read, detaches
-    the session instead and raises `StateNotFoundError` or `StateConflictError`, so
-    nothing more commits against a dead baseline. `close`
-    touches the record if nothing has refreshed its TTL yet, then releases the lock.
+    `open` locates the key in the clicked component and takes the store's lock. `restore`
+    reads the record and remembers its version. `stage` writes only when the durable fields
+    changed, with a compare-and-set on that version; otherwise it only restarts the record's
+    TTL, and does nothing under `ttl=None`. A lost compare-and-set adopts the state that won
+    as the new baseline and raises `StateConflictError`, so the handler can apply its change
+    again and commit on top. A record that is gone, or a winner that cannot be read,
+    detaches the session instead and raises `StateNotFoundError` or `StateConflictError`, so
+    nothing more commits against a dead baseline. `close` restarts the TTL if nothing has
+    yet, then releases the lock.
     """
 
     __slots__ = (
