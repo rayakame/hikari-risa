@@ -19,7 +19,12 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import typing
+
 from risa.internal import constants
+
+if typing.TYPE_CHECKING:
+    import collections.abc
 
 __all__ = (
     "AlreadyRespondedError",
@@ -45,6 +50,7 @@ __all__ = (
     "StateError",
     "StateNotFoundError",
     "StateOverflowError",
+    "StoreConformanceError",
     "StoreUnavailableError",
     "ViewDeclarationError",
 )
@@ -288,3 +294,11 @@ class StoreUnavailableError(StateError):
             f"the store backing key {key!r} could not be reached: {reason};"
             " the state is not lost - the interaction cannot be answered from it right now",
         )
+
+
+class StoreConformanceError(RisaError):
+    def __init__(self, failures: collections.abc.Sequence[str]) -> None:
+        self.failures = failures
+        listed = "".join(f"\n- {failure}" for failure in failures)
+        checks = "check" if len(failures) == 1 else "checks"
+        super().__init__(f"the store failed {len(failures)} conformance {checks}:{listed}")
