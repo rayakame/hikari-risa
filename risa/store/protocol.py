@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The contract a state store implements."""
+
 from __future__ import annotations
 
 import typing
@@ -36,17 +38,78 @@ DEFAULT_LOCK_TIMEOUT: typing.Final[float] = 10.0
 
 
 class VersionedEntry(msgspec.Struct, frozen=True):
+    """An entry as a store holds it.
+
+    Attributes
+    ----------
+    data
+        The bytes last written.
+    version
+        The version of that write. It changes with every write to the entry.
+    """
+
     data: bytes
     version: int
 
 
 class Store(typing.Protocol):
-    async def get(self, key: str) -> bytes | None: ...
-    async def get_versioned(self, key: str) -> VersionedEntry | None: ...
-    async def put(self, key: str, value: bytes, *, ttl: float | None) -> None: ...
-    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None: ...
-    async def delete(self, key: str) -> None: ...
-    async def touch(self, key: str, *, ttl: float) -> None: ...
-    def lock(
-        self, key: str, *, timeout: float = DEFAULT_LOCK_TIMEOUT
-    ) -> contextlib.AbstractAsyncContextManager[None]: ...
+    """Where risa keeps the state of `InStore` views.
+
+    Implement it to keep state somewhere risa ships no store for, and check the
+    implementation with `risa.store.testing.verify_store`. A missing or expired entry is
+    never an error: it reads as `None`. Apart from `LockTimeoutError` from `lock`, any
+    exception a method raises means the backend could not be reached, and risa reports it
+    as `StoreUnavailableError`.
+    """
+
+    __slots__ = ()
+
+    async def get(self, key: str) -> bytes | None:
+        """Return the data under `key`, or `None` if there is none or it has expired."""
+
+    async def get_versioned(self, key: str) -> VersionedEntry | None:
+        """Return the data and version under `key`, or `None` if there is none or it has expired."""
+
+    async def put(self, key: str, value: bytes, *, ttl: float | None) -> None:
+        """Write `value` under `key`, whether or not an entry exists.
+
+        The entry's version changes. `ttl` is the entry's lifetime in seconds from now, and
+        `None` clears any expiry, so the entry lives until it is deleted.
+        """
+
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        """Write `value` under `key` only if the entry is still at version `expected`.
+
+        The compare and the write are one atomic step: of several writers expecting the same
+        version, exactly one succeeds. `ttl` works as in `put`.
+
+        Returns
+        -------
+        int | None
+            The entry's new version, or `None` if the entry is missing, expired, or at a
+            different version, in which case nothing was written.
+        """
+
+    async def delete(self, key: str) -> None:
+        """Remove the entry under `key`, if there is one."""
+
+    async def touch(self, key: str, *, ttl: float) -> None:
+        """Restart the lifetime of the entry under `key`, which now expires `ttl` seconds from now.
+
+        The data and version stay as they are, and a missing key stays missing.
+        """
+
+    def lock(self, key: str, *, timeout: float = DEFAULT_LOCK_TIMEOUT) -> contextlib.AbstractAsyncContextManager[None]:
+        """Hold `key` exclusively while the returned context manager is entered.
+
+        risa holds it for the length of a click, so clicks on one view run one after
+        another. A store that several processes share should exclude all of them; when such
+        a lock lapses, the version check of `put_if_version` still decides whose write
+        lands.
+
+        Raises
+        ------
+        LockTimeoutError
+            If the lock is not granted within `timeout` seconds.
+        """
+        ...

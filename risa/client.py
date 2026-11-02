@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The client that routes clicks to views, and the functions that make one."""
+
 from __future__ import annotations
 
 import abc
@@ -69,20 +71,28 @@ type _ComponentListener = interaction_server_.ListenerT[hikari.ComponentInteract
 
 
 @typing.runtime_checkable
-class GatewayClientAppT(hikari.EventManagerAware, hikari.RESTAware, typing.Protocol): ...
+class GatewayClientAppT(hikari.EventManagerAware, hikari.RESTAware, typing.Protocol):
+    """A gateway app, with an event manager and a REST client, such as `hikari.GatewayBot`."""
 
 
 @typing.runtime_checkable
-class RestClientAppT(hikari.InteractionServerAware, hikari.RESTAware, typing.Protocol): ...
+class RestClientAppT(hikari.InteractionServerAware, hikari.RESTAware, typing.Protocol):
+    """A REST app, with an interaction server and a REST client, such as `hikari.RESTBot`."""
 
 
 @typing.runtime_checkable
 class LightbulbClient(typing.Protocol):
-    @property
-    def app(self) -> hikari.RESTAware: ...
+    """The part of a lightbulb client risa uses."""
 
     @property
-    def di(self) -> linkd.DependencyInjectionManager: ...
+    def app(self) -> hikari.RESTAware:
+        """The hikari app the lightbulb client runs on."""
+        ...
+
+    @property
+    def di(self) -> linkd.DependencyInjectionManager:
+        """The lightbulb client's dependency manager."""
+        ...
 
 
 class _LightbulbOptions(typing.TypedDict, total=False):
@@ -99,6 +109,40 @@ class _ClientOptions(_LightbulbOptions, total=False):
 
 
 class Client(abc.ABC):
+    """Routes clicks on registered views to their handlers.
+
+    Make one with `client_from_app` or `client_from_lightbulb`, add views with
+    `add_view`, and send a view with `build`. A client answers only `custom_id`s risa
+    wrote, so it can share a bot with other component handlers.
+
+    Parameters
+    ----------
+    use_global
+        Also route views registered with `@risa.register` but never added to this client.
+    di
+        The linkd manager handlers are injected from; a new one by default.
+    register_app_dependencies
+        Register the app, its REST client, and its event manager or interaction server
+        for injection.
+    auto_defer
+        The `AutoDefer` of views and handlers that set none, `OFF` by default.
+    auto_defer_delay
+        Seconds after which auto-defer answers a click in its handler's place.
+    store
+        The store `InStore` views use unless they name another.
+    stores
+        Further stores, by the name `InStore(store=...)` refers to them by.
+    key_prefix
+        The prefix of every store key, `risa:{application id}` by default. Set it to
+        fit a Redis ACL pattern, or to separate bots that share one store.
+
+    Raises
+    ------
+    ValueError
+        If `key_prefix` is blank, or the default store is given both as `store` and in
+        `stores`.
+    """
+
     __slots__ = (
         "_auto_defer",
         "_auto_defer_delay",
@@ -163,17 +207,45 @@ class Client(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def app(self) -> hikari.RESTAware: ...
+    def app(self) -> hikari.RESTAware:
+        """The hikari app the client receives interactions from."""
 
     @property
     def di(self) -> linkd.DependencyInjectionManager:
+        """The dependency manager handlers are injected from."""
         return self._di
 
     @property
     def rest(self) -> hikari.api.RESTClient:
+        """The REST client risa answers interactions through."""
         return self._rest
 
     async def build(self, view: view_.View) -> ui.Rendered:
+        """Render `view` into the components of a new message, ready to send.
+
+        ```python
+        await ctx.respond(**await client.build(Poll(question="Ship it?")))
+        ```
+
+        It runs the view's `load`, renders it, and writes an `InStore` view's first record.
+        The result spreads into any hikari or lightbulb call that takes `components=`. If
+        that send fails, the record stays behind until its TTL reaps it, or for good under
+        `InStore(ttl=None)`.
+
+        Returns
+        -------
+        Rendered
+            The components, as a mapping that spreads into a send.
+
+        Raises
+        ------
+        NotAViewError
+            If the view's class was never registered.
+        ViewDeclarationError
+            If the view keeps its state in a store this client does not have.
+        StateOverflowError
+            If an `InMessage` view's state does not fit its components.
+        """
         meta = registry.require_meta(view)
         if meta.loader is not None:
             async with self._di.enter_context(di_.Contexts.DEFAULT):
@@ -188,6 +260,20 @@ class Client(abc.ABC):
         return ui.Rendered(builders)
 
     def add_view[T: view_.View](self, cls: type[T]) -> type[T]:
+        """Route clicks on the components of `cls` through this client.
+
+        Returns
+        -------
+        type[T]
+            The class, so that this also works as a decorator below `@risa.register`.
+
+        Raises
+        ------
+        NotAViewError
+            If the class was never registered.
+        ViewDeclarationError
+            If the view keeps its state in a store this client does not have.
+        """
         meta = registry.require_meta(cls)
         self._check_store(meta)
         _LOGGER.debug("registering view %s to client", meta.name)
@@ -251,6 +337,8 @@ class Client(abc.ABC):
 
 
 class GatewayEnabledClient(Client):
+    """A client that receives clicks as gateway events."""
+
     __slots__ = ("_app",)
 
     def __init__(
@@ -273,6 +361,7 @@ class GatewayEnabledClient(Client):
     @property
     @typing.override
     def app(self) -> GatewayClientAppT:
+        """The gateway app the client receives interactions from."""
         return self._app
 
     async def _on_interaction_create(self, event: hikari.ComponentInteractionCreateEvent) -> None:
@@ -280,6 +369,13 @@ class GatewayEnabledClient(Client):
 
 
 class RestEnabledClient(Client):
+    """A client that receives clicks from hikari's interaction server.
+
+    The interaction server has a single component listener. The client takes it over and
+    passes every interaction it does not handle on to the listener it replaced, and it
+    logs a warning naming that listener unless `warn_shared_listener=False`.
+    """
+
     __slots__ = ("_app", "_replaced")
 
     def __init__(
@@ -314,6 +410,7 @@ class RestEnabledClient(Client):
     @property
     @typing.override
     def app(self) -> RestClientAppT:
+        """The REST app the client receives interactions from."""
         return self._app
 
     async def _on_interaction(
@@ -373,6 +470,28 @@ def client_from_app(
     warn_shared_listener: bool = True,
     **options: typing.Unpack[_ClientOptions],
 ) -> Client:
+    """Make a client for a hikari app, gateway or REST.
+
+    ```python
+    bot = hikari.GatewayBot(TOKEN)
+    client = risa.client_from_app(bot, store=risa.MemoryStore())
+    ```
+
+    Parameters
+    ----------
+    app
+        The app to receive interactions from.
+    warn_shared_listener
+        REST only: warn when the client takes over a component listener another library
+        set.
+    **options
+        The options of `Client`.
+
+    Returns
+    -------
+    Client
+        A `GatewayEnabledClient` or a `RestEnabledClient`, depending on the app.
+    """
     if isinstance(app, GatewayClientAppT):
         return GatewayEnabledClient(app, **options)
     return RestEnabledClient(app, warn_shared_listener=warn_shared_listener, **options)
@@ -384,6 +503,30 @@ def client_from_lightbulb(
     warn_shared_listener: bool = True,
     **options: typing.Unpack[_LightbulbOptions],
 ) -> Client:
+    """Make a client that shares a lightbulb client's app and dependency manager.
+
+    Handlers can then be injected with anything registered with lightbulb. The app's own
+    dependencies are left to lightbulb, which registers them already.
+
+    Parameters
+    ----------
+    lightbulb_client
+        The lightbulb client to share.
+    warn_shared_listener
+        REST only: warn when the client takes over lightbulb's component listener.
+    **options
+        The options of `Client`, apart from `di`.
+
+    Returns
+    -------
+    Client
+        A `GatewayEnabledClient` or a `RestEnabledClient`, depending on the app.
+
+    Raises
+    ------
+    TypeError
+        If the lightbulb client's app is neither a gateway nor a REST app.
+    """
     app = lightbulb_client.app
     if isinstance(app, GatewayClientAppT):
         return GatewayEnabledClient(app, di=lightbulb_client.di, register_app_dependencies=False, **options)

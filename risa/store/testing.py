@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""`verify_store`, the conformance check for `Store` implementations."""
+
 from __future__ import annotations
 
 import asyncio
@@ -311,6 +313,18 @@ async def _isolated(store: protocol.Store, check: _Check, key: str) -> str | Non
 
 
 async def verify_store(store: protocol.Store) -> None:
+    """Check that `store` behaves the way risa relies on.
+
+    Seventeen checks cover round trips, versions, the compare-and-set, expiry, `touch`
+    and the lock. They run concurrently, each on its own random key under
+    `risa:conformance:`, and each deletes what it wrote. Run it against a real instance
+    of the backend, from a test or a script; it needs no test framework.
+
+    Raises
+    ------
+    StoreConformanceError
+        If any check fails. It lists every failure, not just the first.
+    """
     namespace = f"risa:conformance:{secrets.token_hex(8)}"
     async with asyncio.TaskGroup() as group:
         outcomes = {

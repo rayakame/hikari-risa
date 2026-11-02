@@ -73,10 +73,18 @@ time rather than after the lint output.
   file. This includes test files, `test_bots/` and `__init__.py`.
 - **`from __future__ import annotations` is a required import** in every module.
 - **One import per line.** `force-single-line = true`: no `from x import a, b`.
-- **No docstrings and no comments yet.** Documentation is a dedicated pass once the API has
-  settled, so the comment and docstring lint families (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`)
-  are disabled in `ruff.toml`. The license header and linter directives are not comments and
-  stay. Review bots ask for docstrings on every pull request; decline them with this rule.
+- **Every module has a docstring, and so does all of the public API, kept short.** numpy
+  style, saying what a caller needs to know rather than how it works inside; ruff's `D` and
+  `DOC` rules enforce it. In `risa/internal/`, `dispatch.py` and the session machinery in
+  `state/`, classes and functions carry one only where they are hard to follow without it:
+  a layout, a lifecycle, an invariant. Tests and the noxfile need none. A one-line
+  docstring needs no `Returns` or `Raises` section. A longer one documents what it returns,
+  if anything, and what it raises, including what a callee raises, which is why `DOC502`
+  is off. Review bots that ask for a docstring on every internal function are declined
+  with this rule.
+- **Comments only for a why the code cannot show**: a workaround, a constraint that is not
+  obvious, a link to an issue. One line, never what the code does or what changed. The
+  license header and linter directives are not comments and stay.
 - **`__all__` is a tuple, sorted alphabetically**, declared right after the imports.
 - **`collections.abc.Sequence`, never `tuple`, in annotations.** Public signatures promise a
   sequence; storing a tuple internally is fine.
@@ -179,8 +187,8 @@ with id/version/defer, zero-argument and argument-carrying `bind()`), `@register
 handler census, the complete V2 node layer with the build pass, the response surface
 (`respond`/`defer`/`acknowledge`, `rerender()`/`edit(layout)`, the auto-defer watchdog), and
 the dual-placement state architecture: `InMessage` and `InStore` views, their sessions,
-`on_outdated` and `on_state_missing`, `MemoryStore`, `RedisStore`, `PostgresStore` and the
-`verify_store` conformance kit. On a REST bot, risa shares hikari's single component-listener
+`on_outdated` and `on_state_missing`, `MemoryStore`, `RedisStore`, `PostgresStore`, the
+`verify_store` conformance kit, and docstrings for the whole public API. On a REST bot, risa shares hikari's single component-listener
 slot with whatever listener held it before. Modals are designed (DESIGN §9 and the spec it
 points to) and wait for hikari to parse Discord's new modal components. DESIGN §15 holds the
 build order and the 1.0 roadmap.
@@ -201,7 +209,7 @@ build order and the 1.0 roadmap.
   distributed store. Fields are durable by default; `risa.Prop[T]` marks per-dispatch props
   refilled in `load()`. Handler code is identical under both placements.
 - **`custom_id` wire format** (DESIGN §6.1):
-  `[ver:1][cookie:6][handler:2][idx:1][frag_len:1][fragment][fingerprint ‖ args]` within
+  `[ver:1][codec:1][cookie:6][handler:2][idx:1][frag_len:1][fragment][fingerprint ‖ args]` within
   Discord's 100-character limit. The fragment is the component's slice of the state anchor
   (inline blob or store key, led by a 1-char placement tag). The cookie hashes the view name
   *and* its schema version, the handler token hashes the handler id *and* its version, and

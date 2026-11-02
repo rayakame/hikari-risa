@@ -17,6 +17,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The exceptions risa raises.
+
+Every exception derives from `RisaError`, builds its own message, and keeps the
+details it was raised with as attributes, so callers can branch on fields instead
+of parsing the message.
+"""
+
 from __future__ import annotations
 
 import typing
@@ -42,7 +49,6 @@ __all__ = (
     "NotAHandlerError",
     "NotAViewError",
     "RisaError",
-    "SchemaMismatchError",
     "SerializationError",
     "SignatureMismatchError",
     "StateConflictError",
@@ -56,10 +62,23 @@ __all__ = (
 )
 
 
-class RisaError(Exception): ...
+class RisaError(Exception):
+    """Base class of every exception risa raises."""
 
 
 class HandlerSignatureError(RisaError):
+    """Raised at registration when a handler's parameters cannot be routed.
+
+    Attributes
+    ----------
+    callback_name
+        The qualified name of the handler.
+    parameter
+        The parameter at fault.
+    reason
+        What is wrong with it.
+    """
+
     def __init__(self, callback_name: str, parameter: str, reason: str) -> None:
         self.callback_name = callback_name
         self.parameter = parameter
@@ -68,6 +87,18 @@ class HandlerSignatureError(RisaError):
 
 
 class ArgBindError(RisaError):
+    """Raised when `risa.bind` gets arguments the handler cannot carry on the wire.
+
+    Attributes
+    ----------
+    callback_name
+        The qualified name of the handler.
+    parameter
+        The parameter at fault, or `None` when the arguments as a whole do not fit.
+    reason
+        What is wrong with them.
+    """
+
     def __init__(self, callback_name: str, parameter: str | None, reason: str) -> None:
         self.callback_name = callback_name
         self.parameter = parameter
@@ -79,6 +110,26 @@ class ArgBindError(RisaError):
 
 
 class SignatureMismatchError(RisaError):
+    """Logged, not raised, when a click carries wire arguments for another handler signature.
+
+    The handler's wire parameters changed without a version bump. risa logs this error
+    and routes the click to `View.on_outdated`. Bump the version in
+    `@risa.handler(version=...)` so the old components are retired instead.
+
+    Attributes
+    ----------
+    view_name
+        The view the handler belongs to.
+    handler_id
+        The handler's id.
+    version
+        The handler's version.
+    found
+        The fingerprint the component carries.
+    expected
+        The fingerprint of the handler's current signature.
+    """
+
     def __init__(self, view_name: str, handler_id: str, version: int, *, found: str, expected: str) -> None:
         self.view_name = view_name
         self.handler_id = handler_id
@@ -98,6 +149,14 @@ class SignatureMismatchError(RisaError):
 
 
 class HandlerNotCallableError(RisaError):
+    """Raised when a handler is called directly instead of being dispatched by risa.
+
+    Attributes
+    ----------
+    callback_name
+        The qualified name of the handler.
+    """
+
     def __init__(self, callback_name: str) -> None:
         self.callback_name = callback_name
         super().__init__(
@@ -108,6 +167,17 @@ class HandlerNotCallableError(RisaError):
 
 
 class EphemeralOriginError(RisaError):
+    """Raised when an ephemeral origin message can no longer be edited.
+
+    On an ephemeral view, `rerender()` and `edit()` must be the initial response, or
+    follow a silent `defer()`.
+
+    Attributes
+    ----------
+    view_name
+        The view whose message could not be edited.
+    """
+
     def __init__(self, view_name: str) -> None:
         self.view_name = view_name
         super().__init__(
@@ -118,6 +188,22 @@ class EphemeralOriginError(RisaError):
 
 
 class StateOverflowError(RisaError):
+    """Raised when an `InMessage` view's durable state does not fit its components.
+
+    Attributes
+    ----------
+    view_name
+        The view whose state overflowed.
+    needed
+        The bytes of state to write.
+    available
+        The bytes the rendered components can carry.
+    slots
+        The number of interactive components.
+    codec_name
+        The codec the state was written with.
+    """
+
     def __init__(self, view_name: str, *, needed: int, available: int, slots: int, codec_name: str) -> None:
         self.view_name = view_name
         self.needed = needed
@@ -134,6 +220,16 @@ class StateOverflowError(RisaError):
 
 
 class CodecUnavailableError(RisaError):
+    """Raised when a codec needs an optional dependency that is not installed.
+
+    Attributes
+    ----------
+    codec_name
+        The codec that is unavailable.
+    extra
+        The `hikari-risa` extra that installs it.
+    """
+
     def __init__(self, codec_name: str, extra: str) -> None:
         self.codec_name = codec_name
         self.extra = extra
@@ -144,6 +240,16 @@ class CodecUnavailableError(RisaError):
 
 
 class ViewDeclarationError(RisaError):
+    """Raised when a view is declared or added in a way risa cannot serve.
+
+    Attributes
+    ----------
+    view_name
+        The view at fault.
+    reason
+        What is wrong with it.
+    """
+
     def __init__(self, view_name: str, reason: str) -> None:
         self.view_name = view_name
         self.reason = reason
@@ -151,6 +257,18 @@ class ViewDeclarationError(RisaError):
 
 
 class DuplicateViewError(RisaError):
+    """Raised when two views would route under the same cookie.
+
+    Attributes
+    ----------
+    view_name
+        The view being registered.
+    existing_name
+        The view already registered under that cookie.
+    cookie
+        The cookie both views hash to.
+    """
+
     def __init__(self, view_name: str, existing_name: str, cookie: str) -> None:
         self.view_name = view_name
         self.existing_name = existing_name
@@ -159,6 +277,20 @@ class DuplicateViewError(RisaError):
 
 
 class DuplicateHandlerError(RisaError):
+    """Raised when two handlers of one view would route under the same token.
+
+    Attributes
+    ----------
+    view_name
+        The view both handlers belong to.
+    token
+        The token both handlers hash to.
+    first_id, first_version
+        The id and version of the first handler.
+    second_id, second_version
+        The id and version of the second handler.
+    """
+
     def __init__(
         self,
         view_name: str,
@@ -182,6 +314,16 @@ class DuplicateHandlerError(RisaError):
 
 
 class AlreadyRespondedError(RisaError):
+    """Raised when an interaction that already has its initial response is deferred.
+
+    Attributes
+    ----------
+    attempted
+        What was attempted.
+    already_sent
+        The initial response the interaction already received.
+    """
+
     def __init__(self, attempted: str, already_sent: str) -> None:
         self.attempted = attempted
         self.already_sent = already_sent
@@ -191,6 +333,14 @@ class AlreadyRespondedError(RisaError):
 
 
 class NotAHandlerError(RisaError):
+    """Raised when a component is given something that is not a risa handler.
+
+    Attributes
+    ----------
+    type_name
+        The type of the object that was given.
+    """
+
     def __init__(self, type_name: str) -> None:
         self.type_name = type_name
         super().__init__(
@@ -200,12 +350,33 @@ class NotAHandlerError(RisaError):
 
 
 class NotAViewError(RisaError):
+    """Raised when a class or instance that was never `@risa.register`-ed is used as a view.
+
+    Attributes
+    ----------
+    type_name
+        The type that was given.
+    """
+
     def __init__(self, type_name: str) -> None:
         self.type_name = type_name
         super().__init__(f"{type_name} is not a registered view; decorate it with @risa.register")
 
 
 class NoViewError(RisaError):
+    """Raised when an operation needs the view's state, but the context has none.
+
+    That is the case in `on_outdated` and `on_state_missing`, and in a context kept past
+    the end of its dispatch.
+
+    Attributes
+    ----------
+    view_name
+        The view the context belongs to.
+    attempted
+        The operation that needed the state.
+    """
+
     def __init__(self, view_name: str, attempted: str) -> None:
         self.view_name = view_name
         self.attempted = attempted
@@ -218,6 +389,16 @@ class NoViewError(RisaError):
 
 
 class LayoutError(RisaError):
+    """Raised when a layout cannot be built.
+
+    Attributes
+    ----------
+    path
+        Where in the tree the problem is, such as `Container > Row[1] > Button[0]`.
+    reason
+        What is wrong there.
+    """
+
     def __init__(self, path: str, reason: str) -> None:
         self.path = path
         self.reason = reason
@@ -225,6 +406,16 @@ class LayoutError(RisaError):
 
 
 class CustomIdOverflowError(RisaError):
+    """Raised when a component's `custom_id` would exceed Discord's limit.
+
+    Attributes
+    ----------
+    view_name
+        The view the component belongs to.
+    length
+        The length the `custom_id` would have.
+    """
+
     def __init__(self, view_name: str, length: int) -> None:
         self.view_name = view_name
         self.length = length
@@ -234,21 +425,23 @@ class CustomIdOverflowError(RisaError):
         )
 
 
-class SerializationError(RisaError): ...
-
-
-class SchemaMismatchError(SerializationError):
-    def __init__(self, view_name: str, found_version: int, expected_version: int) -> None:
-        self.view_name = view_name
-        self.found_version = found_version
-        self.expected_version = expected_version
-        super().__init__(
-            f"state for view {view_name!r} was written by schema version {found_version}, "
-            f"but the registered view declares version {expected_version}",
-        )
+class SerializationError(RisaError):
+    """Base class of the errors raised while writing or reading view state."""
 
 
 class StateEncodeError(SerializationError):
+    """Raised when a durable field holds a value that cannot be serialized.
+
+    Attributes
+    ----------
+    view_name
+        The view the field belongs to.
+    field
+        The field at fault.
+    reason
+        Why its value cannot be written.
+    """
+
     def __init__(self, view_name: str, field: str, reason: str) -> None:
         self.view_name = view_name
         self.field = field
@@ -259,16 +452,40 @@ class StateEncodeError(SerializationError):
         )
 
 
-class StateError(RisaError): ...
+class StateError(RisaError):
+    """Base class of the errors raised while working with `InStore` state."""
 
 
 class StateNotFoundError(StateError):
+    """Raised when a view's stored state is gone in the middle of a dispatch.
+
+    Attributes
+    ----------
+    key
+        The store key of the state.
+    """
+
     def __init__(self, key: str) -> None:
         self.key = key
         super().__init__(f"no state found for key {key!r}; it may have expired or been evicted")
 
 
 class StateConflictError(StateError):
+    """Raised when another process wrote a view's state first.
+
+    By the time it is raised, the view already holds the state that won, so the handler
+    can apply its change again on top of it.
+
+    Attributes
+    ----------
+    key
+        The store key of the state.
+    expected
+        The version this dispatch read.
+    found
+        The version the store holds.
+    """
+
     def __init__(self, key: str, *, expected: int, found: int) -> None:
         self.key = key
         self.expected = expected
@@ -280,6 +497,16 @@ class StateConflictError(StateError):
 
 
 class LockTimeoutError(StateError):
+    """Raised when the lock on a view's state is not granted in time.
+
+    Attributes
+    ----------
+    key
+        The store key of the state.
+    timeout
+        How long risa waited, in seconds.
+    """
+
     def __init__(self, key: str, timeout: float) -> None:
         self.key = key
         self.timeout = timeout
@@ -287,6 +514,19 @@ class LockTimeoutError(StateError):
 
 
 class StoreUnavailableError(StateError):
+    """Raised when the store holding a view's state cannot be reached.
+
+    The state is not lost; it only cannot be read or written right now. A store reports
+    missing state by returning nothing, never with this error.
+
+    Attributes
+    ----------
+    key
+        The store key of the state.
+    reason
+        What went wrong.
+    """
+
     def __init__(self, key: str, reason: str) -> None:
         self.key = key
         self.reason = reason
@@ -297,6 +537,14 @@ class StoreUnavailableError(StateError):
 
 
 class StoreConformanceError(RisaError):
+    """Raised by `risa.store.testing.verify_store` when a store fails any check.
+
+    Attributes
+    ----------
+    failures
+        One line per failed check, naming the check and what went wrong.
+    """
+
     def __init__(self, failures: collections.abc.Sequence[str]) -> None:
         self.failures = failures
         listed = "".join(f"\n- {failure}" for failure in failures)

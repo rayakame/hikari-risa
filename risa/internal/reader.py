@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Collecting a view's anchor fragments from the message a click came from."""
+
 from __future__ import annotations
 
 import typing
@@ -56,6 +58,20 @@ def fragments(
     *,
     cookie: str,
 ) -> collections.abc.Mapping[int, bytes] | errors.CodecUnavailableError | None:
+    """Collect the anchor fragments of the view with `cookie` from a message's components.
+
+    Every interactive leaf is visited, nested ones included, and only `custom_id`s of
+    that view count, so other views and other libraries on the same message are passed
+    over. Components that share an index must agree, since parked leaves repeat the last
+    fragment.
+
+    Returns
+    -------
+    Mapping[int, bytes] | CodecUnavailableError | None
+        The decoded fragments by index; the error, unraised, when a fragment's codec
+        cannot load on this host; or `None` when two fragments at one index disagree or
+        one cannot be decoded, which means the message was edited or forged.
+    """
     found: dict[int, bytes] = {}
     for leaf in _leaves(components):
         raw = _custom_id(leaf)

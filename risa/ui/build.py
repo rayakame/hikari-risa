@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Building a view's layout into the components of a message."""
+
 from __future__ import annotations
 
 import collections.abc
@@ -49,6 +51,20 @@ __all__ = (
 
 
 class BuildContext:
+    """What a component gets while a view is built: the view's routing identity and codec.
+
+    Attributes
+    ----------
+    cookie
+        The cookie the view routes under.
+    tokens
+        The routing tokens of the view's handlers.
+    cls
+        The view class being built.
+    codec
+        The codec the view's state is written in.
+    """
+
     __slots__ = ("_capacities", "_leaf", "_reserve", "_slots", "cls", "codec", "cookie", "tokens")
 
     def __init__(
@@ -72,9 +88,27 @@ class BuildContext:
 
     @property
     def capacities(self) -> collections.abc.Sequence[int]:
+        """The spare characters of each interactive component built so far."""
         return self._capacities
 
     def routing_id(self, binding: binding_.Binding, path: str) -> str:
+        """Return the `custom_id` for an interactive component bound to `binding`.
+
+        Returns
+        -------
+        str
+            The `custom_id`, carrying the route, the wire arguments and the component's share
+            of the state.
+
+        Raises
+        ------
+        LayoutError
+            If the handler belongs to another view.
+        ArgBindError
+            If a wire argument is too long to carry.
+        CustomIdOverflowError
+            If the `custom_id` would exceed Discord's limit.
+        """
         owner = binding.owner
         if owner is not None and not issubclass(self.cls, owner):
             reason = (
@@ -126,6 +160,8 @@ class BuildContext:
 
 
 class Plan:
+    """A layout measured for one view, ready to be built with that view's state."""
+
     __slots__ = ("_capacities", "_layout", "_meta")
 
     def __init__(self, layout: Layout, meta: registry.ViewMeta) -> None:
@@ -137,9 +173,11 @@ class Plan:
 
     @property
     def interactive(self) -> bool:
+        """Whether the layout has anything to click."""
         return bool(self._capacities)
 
     def emit(self, state: bytes) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
+        """Build the layout with `state` spread across its interactive components."""
         return _build_all(self._layout, _context(self._meta, slots=self._slots(state)))
 
     def _slots(self, state: bytes) -> collections.abc.Sequence[anchor.Slot]:
@@ -153,6 +191,13 @@ class Plan:
 
 
 class Rendered(collections.abc.Mapping[str, typing.Any]):
+    """A built view: the components of a message, ready to send.
+
+    It is a mapping, so it spreads into any call that takes `components=`:
+    `await ctx.respond(**rendered)`. A Components V2 message carries nothing but its
+    components, so there is nothing else to spread.
+    """
+
     __slots__ = ("_components",)
 
     def __init__(self, components: collections.abc.Sequence[special_endpoints.ComponentBuilder]) -> None:
@@ -160,6 +205,7 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
 
     @property
     def components(self) -> collections.abc.Sequence[special_endpoints.ComponentBuilder]:
+        """The built components."""
         return self._components
 
     @typing.override
@@ -182,6 +228,13 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         channel: snowflakes.SnowflakeishOr[hikari.TextableChannel],
         **forbidden: typing.Never,
     ) -> hikari.Message:
+        """Send the view as a new message in `channel`.
+
+        Returns
+        -------
+        hikari.Message
+            The message sent.
+        """
         _reject_forbidden(forbidden)
         return await rest.create_message(channel, components=self._components)
 
@@ -193,6 +246,17 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         ephemeral: bool = False,
         **forbidden: typing.Never,
     ) -> None:
+        """Answer `interaction` with the view, as its initial response.
+
+        For interactions risa does not dispatch, such as slash commands. In a risa handler,
+        answer with `ctx.respond(**rendered)` instead, which knows whether the interaction
+        has been answered already.
+
+        Parameters
+        ----------
+        ephemeral
+            Show the message only to the user who used the command.
+        """
         _reject_forbidden(forbidden)
         await rest.create_interaction_response(
             interaction.id,
@@ -249,4 +313,5 @@ def _build_all(
 
 
 def plan(layout: Layout, meta: registry.ViewMeta) -> Plan:
+    """Measure `layout` for the view described by `meta`."""
     return Plan(layout, meta)

@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Views, their handlers, and how they are registered."""
+
 from __future__ import annotations
 
 import enum
@@ -56,6 +58,28 @@ type HandlerFunction[V: View, **P] = collections.abc.Callable[
 
 
 class AutoDefer(enum.StrEnum):
+    """How risa answers a click whose handler has not answered in time.
+
+    Discord fails an interaction that gets no answer within three seconds. With
+    auto-defer, risa acknowledges the click in the handler's place after the client's
+    `auto_defer_delay`, and the handler carries on. Set it on the client, on a view with
+    `@risa.register(defer=...)`, or on a handler with `@risa.handler(defer=...)`; the
+    most specific setting wins.
+
+    Attributes
+    ----------
+    OFF
+        Never answer in the handler's place. The default.
+    UPDATE
+        Acknowledge silently, for a handler that answers with `ctx.rerender()` or
+        `ctx.edit(...)`.
+    THINKING
+        Show a "thinking..." message, for a handler that answers with `ctx.respond(...)`,
+        which then takes its place.
+    THINKING_EPHEMERAL
+        The same, visible only to the user who clicked.
+    """
+
     OFF = enum.auto()
     UPDATE = enum.auto()
     THINKING = enum.auto()
@@ -63,6 +87,14 @@ class AutoDefer(enum.StrEnum):
 
 
 class HandlerMethod[V: View, **P]:
+    """A view method made a handler by `@risa.handler`.
+
+    Accessed on a view instance, as `self.vote`, it is the handler to put on a component,
+    bare or through `risa.bind`. It cannot be called. Accessed on the class, as
+    `Poll.vote`, it is this object, and `Poll.vote.func` is the plain function, for one
+    handler that delegates to another.
+    """
+
     __slots__ = ("_defer", "_func", "_handler_id", "_owner", "_signature", "_token", "_version")
 
     def __init__(
@@ -83,32 +115,39 @@ class HandlerMethod[V: View, **P]:
 
     @property
     def owner(self) -> type[View] | None:
+        """The view class the handler is defined on."""
         return self._owner
 
     @property
     def signature(self) -> codec.HandlerSignature:
+        """The handler's wire parameters, resolved on first use."""
         if self._signature is None:
             self._signature = codec.resolve_signature(self._func)
         return self._signature
 
     @property
     def func(self) -> collections.abc.Callable[..., collections.abc.Awaitable[None]]:
+        """The decorated function."""
         return self._func
 
     @property
     def handler_id(self) -> str:
+        """The id the handler routes under."""
         return self._handler_id
 
     @property
     def version(self) -> int:
+        """The handler's version."""
         return self._version
 
     @property
     def token(self) -> str:
+        """The routing token, a hash of the id and the version."""
         return self._token
 
     @property
     def defer(self) -> AutoDefer | None:
+        """The handler's own `AutoDefer`, or `None` to use the view's."""
         return self._defer
 
     @typing.overload
@@ -161,6 +200,43 @@ def handler(
     version: int = 1,
     defer: AutoDefer | None = None,
 ) -> object:
+    """Make a view method a handler that components can route to.
+
+    Use it bare or with options. A handler takes the view and a `ComponentContext`, then
+    its wire parameters, then anything to inject:
+
+    ```python
+    @risa.handler(defer=risa.AutoDefer.UPDATE)
+    async def vote(
+        self, ctx: risa.ComponentContext, option: int, db: Database
+    ) -> None: ...
+    ```
+
+    Wire parameters come first, are positional, and are annotated `bool`, `int`, `str`,
+    `hikari.Snowflake` or an `enum.Enum` of `int` or `str` values. They receive the
+    values `risa.bind` put on the component. Every parameter after them is injected
+    through linkd, so a hikari enum such as `hikari.ChannelType`, which is not an
+    `enum.Enum`, is injected too; to carry one on the wire, bind its value as an `int`.
+    A handler returns `None`.
+
+    Parameters
+    ----------
+    handler_id
+        The id the handler routes under, the method's name by default. Pin it before
+        renaming the method, so components already sent keep working.
+    version
+        Bump it when the wire parameters change. Components sent before keep routing to a
+        method that still has the old version; once none does, they go to
+        `View.on_outdated`.
+    defer
+        The handler's `AutoDefer`, overriding the view's.
+
+    Returns
+    -------
+    HandlerMethod | Callable[[HandlerFunction], HandlerMethod]
+        The handler, or a decorator that makes one when options are given.
+    """
+
     def decorate(f: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> HandlerMethod[View, ...]:
         return HandlerMethod(
             f,
@@ -173,17 +249,78 @@ def handler(
 
 
 class View(msgspec.Struct):
+    """Base class of a view: a message's layout, its state, and the handlers behind it.
+
+    A view is a `msgspec.Struct`, and its annotated fields are its durable state, carried
+    from click to click. Mark a field `risa.Prop[...]` to rebuild it fresh on every click
+    instead, typically in `load`. Register the class with `@risa.register`, return its
+    layout from `render`, and send it with `client.build`:
+
+    ```python
+    @risa.register(name="counter")
+    class Counter(risa.View):
+        count: int = 0
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.add, label=f"Clicked {self.count} times"))
+
+        @risa.handler
+        async def add(self, ctx: risa.ComponentContext) -> None:
+            self.count += 1
+            await ctx.rerender()
+    ```
+
+    Each click runs its handler on the latest saved state of its view, and clicks on one
+    view queue up within a process, each waiting up to ten seconds for the lock; one that
+    waits longer is logged and goes unanswered. A view without durable fields has nothing to
+    protect and takes no lock, so its handlers may run at the same time. Across processes,
+    an `InStore` view on a shared store lets the first write win, while for an `InMessage`
+    view the last edit of the message wins. A change made without `ctx.rerender()` is saved
+    when the handler returns, but that save can only log a failure, so a handler that must
+    know calls `ctx.rerender()` itself, before any `ctx.respond()`. A handler that raises
+    keeps what it saved through `rerender()` or `edit()` before, and loses the rest.
+    """
+
     def render(self) -> ui.Layout:
+        """Return the view's layout, drawn from its current state.
+
+        It runs for the first send and for every rerender. Keep it synchronous and free of
+        I/O; fetch what it shows in `load`.
+        """
         raise NotImplementedError
 
-    async def load(self) -> None: ...
+    async def load(self) -> None:
+        """Fill the view's props before it renders.
+
+        risa awaits it before the first send and on every click, after restoring the durable
+        state and before the handler runs. Its parameters are injected, as a handler's are.
+        """
 
     @classmethod
     async def on_outdated(cls, ctx: context.ComponentContext) -> None:
-        """Answer a click on a component this view can no longer route."""
+        """Answer a click on a component this view can no longer route.
+
+        The component's handler was retired by a version bump, its wire parameters
+        changed without one, or its state was written by durable fields the view no
+        longer has. The default does nothing, so the click fails on the user's side, and
+        risa logs it. Override it to answer the user, or to replace the dead message with
+        `ctx.edit(...)`. Its parameters are injected, as a handler's are, and `ctx` has
+        no view state.
+
+        To answer clicks on one retired handler differently, keep a method with its id,
+        version and wire parameters whose body says the component is outdated. It routes
+        like any handler, and nothing is logged.
+        """
 
     @classmethod
-    async def on_state_missing(cls, ctx: context.ComponentContext) -> None: ...
+    async def on_state_missing(cls, ctx: context.ComponentContext) -> None:
+        """Answer a click on an `InStore` view whose state is gone.
+
+        The record expired or was deleted. The default does nothing, so the click fails on
+        the user's side, and risa logs a warning. Override it to answer the user, or to
+        replace the message with `ctx.edit(...)`. Its parameters are injected, as a
+        handler's are, and `ctx` has no view state.
+        """
 
 
 def _inject(func: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> registry.DispatchCallback:
@@ -229,6 +366,36 @@ def register[T: View](
     defer: AutoDefer | None = None,
     state: placement_.StatePlacement = placement_.DEFAULT_PLACEMENT,
 ) -> typing.Callable[[type[T]], type[T]]:
+    """Register a view class so its components can be routed.
+
+    ```python
+    @risa.register(name="poll", state=risa.InStore(ttl=30 * 86400))
+    class Poll(risa.View): ...
+    ```
+
+    A client then routes it once it is passed to `client.add_view`. The decorator raises
+    `ViewDeclarationError` for a class risa cannot serve, such as a blank name, a prop
+    without a default, or an `InStore` view without durable fields.
+
+    Parameters
+    ----------
+    name
+        The name the view routes under. Renaming it retires every component already sent.
+    version
+        The schema version of the durable state. Appending fields that have defaults needs
+        no bump; any other change to the durable fields does, and components sent before
+        the bump no longer route to the view.
+    defer
+        The view's `AutoDefer`, for handlers that set none.
+    state
+        Where the durable state lives: `InMessage()`, the default, or `InStore(...)`.
+
+    Returns
+    -------
+    Callable[[type[T]], type[T]]
+        The decorator. It returns the class unchanged.
+    """
+
     def decorate(cls: type[T]) -> type[T]:
         if not name.strip():
             reason = "a view needs a name to be routable, and it must not be blank"

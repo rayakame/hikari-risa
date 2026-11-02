@@ -17,6 +17,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The path of one click, from `custom_id` to acknowledgement.
+
+route → state session `open` → `restore` (or `on_state_missing` / `on_outdated`) →
+`load()` → handler → the end-of-dispatch commit → `close` → acknowledge. The
+auto-defer watchdog runs beside it from the moment the click is routed.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -70,6 +77,24 @@ class _Click(msgspec.Struct, frozen=True):
 
 
 class Dispatcher:
+    """Runs clicks through the views a client routes.
+
+    Parameters
+    ----------
+    rest
+        The REST client interactions are answered through.
+    di
+        The dependency manager handlers and hooks are injected from.
+    resolve_view
+        Finds the view for a cookie.
+    backend_for
+        Finds the state backend for a view, or `None` when its store is not configured.
+    auto_defer
+        The client's `AutoDefer`, for handlers and views that set none.
+    auto_defer_delay
+        Seconds after which the watchdog answers in a handler's place.
+    """
+
     __slots__ = ("_auto_defer", "_auto_defer_delay", "_backend_for", "_di", "_resolve_view", "_rest")
 
     def __init__(
@@ -94,6 +119,12 @@ class Dispatcher:
         interaction: hikari.ComponentInteraction,
         gate: context.ResponseGate | None = None,
     ) -> None:
+        """Dispatch one component interaction.
+
+        The gate's `acknowledged` event is set when this returns, whatever happened, so the
+        REST transport never waits out its timeout for a click risa ignored or could not
+        answer.
+        """
         if gate is None:
             gate = context.ResponseGate()
         try:
@@ -105,6 +136,18 @@ class Dispatcher:
         self,
         interaction: hikari.ComponentInteraction,
     ) -> _Route | None:
+        """Find where a click goes, or return `None` to ignore it.
+
+        A `custom_id` risa did not write is ignored without a word, and a cookie no view of
+        this client has with a DEBUG line, so other handlers can answer the click. A known
+        view with an unknown handler token or a mismatched wire signature routes without a
+        handler, which sends the click to `on_outdated`.
+
+        Returns
+        -------
+        _Route | None
+            The route, or `None` for a click that is not this client's.
+        """
         custom_id = codec.parse_custom_id(interaction.custom_id)
         if custom_id is None:
             return None
@@ -196,6 +239,16 @@ class Dispatcher:
         click: _Click,
         watchdog: asyncio.Task[None] | None,
     ) -> bool:
+        """Run a routed click inside its state session, and report whether it ran to the end.
+
+        Failures to reach the state are logged at ERROR, and the session is closed
+        whatever happens.
+
+        Returns
+        -------
+        bool
+            Whether the handler ran and nothing failed after it.
+        """
         session = state.session(meta=click.meta, component=click.component, interaction=click.interaction)
         try:
             await session.open()
@@ -330,6 +383,13 @@ class Dispatcher:
 
 
 async def _commit_leftovers(click: _Click, session: backend.StateSession, view: view_.View) -> None:
+    """Save durable changes the handler made without rerendering.
+
+    The commit is a plain `rerender()`. Nobody is left to raise to, so a failure is
+    logged. A lost race discards the change. An `InStore` commit that fails after the
+    store accepted it, while editing the message, leaves the state saved and only the
+    message behind, which the next click redraws.
+    """
     try:
         dirty = await session.settle(view)
     except Exception:
@@ -394,6 +454,16 @@ async def _acknowledge(click: _Click) -> None:
 
 
 async def _stand_down(task: asyncio.Task[None] | None, gate: context.ResponseGate) -> None:
+    """Stop the watchdog before risa answers a click itself.
+
+    If the watchdog has already started acknowledging, this waits for it to finish, so
+    risa's own answer cannot race it.
+
+    Raises
+    ------
+    CancelledError
+        If the caller itself is cancelled while waiting.
+    """
     if task is None:
         return
     async with gate.lock:

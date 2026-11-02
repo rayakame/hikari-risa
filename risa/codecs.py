@@ -17,6 +17,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""How `InMessage` state is written into `custom_id` characters.
+
+`BASE85`, the default, is built in and keeps every character printable ASCII.
+`BASE32768` and `URO14` come with the `[radixly]` extra and carry more than twice as
+many bytes per character.
+"""
+
 from __future__ import annotations
 
 import base64
@@ -55,6 +62,22 @@ class _RadixlyModule(typing.Protocol):
 
 
 class Codec(msgspec.Struct, frozen=True):
+    """A way of writing bytes as `custom_id` characters.
+
+    Attributes
+    ----------
+    tag
+        One character, written ahead of the state, that names the codec on the wire.
+    name
+        A human-readable name for messages and logs.
+    encode
+        Turns bytes into text.
+    decode
+        Turns that text back into the same bytes.
+    max_bytes
+        How many bytes fit into a given number of characters.
+    """
+
     tag: str
     name: str
     encode: collections.abc.Callable[[bytes], str]
@@ -125,6 +148,13 @@ _REGISTRY: typing.Final[dict[str, Codec]] = {c.tag: c for c in (BASE85, BASE3276
 
 
 def register(codec: Codec) -> None:
+    """Make `codec` known under its tag, so state written with it can be read back.
+
+    Raises
+    ------
+    ValueError
+        If a different codec already has the tag.
+    """
     existing = _REGISTRY.get(codec.tag)
     if existing is None:
         _REGISTRY[codec.tag] = codec
@@ -134,8 +164,10 @@ def register(codec: Codec) -> None:
 
 
 def by_tag(tag: str) -> Codec | None:
+    """Return the codec registered under `tag`, or `None`."""
     return _REGISTRY.get(tag)
 
 
 def ensure_available(codec: Codec) -> None:
+    """Raise `CodecUnavailableError` if `codec` needs an extra that is not installed."""
     codec.max_bytes(1)

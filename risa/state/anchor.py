@@ -17,6 +17,15 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The anchor: the bytes a message carries for its view's state.
+
+An anchor comes in two dialects, told apart by its first byte. A message anchor
+carries the state itself, `m | total:2 | schema fingerprint:3 | seq:3 | payload`; a
+store anchor carries only the key of a store record, `s | key:12`. The anchor is cut
+into fragments, one per interactive component in render order, each written into that
+component's `custom_id`.
+"""
+
 from __future__ import annotations
 
 import secrets
@@ -59,7 +68,7 @@ PLACEMENT_STORE: typing.Final[bytes] = b"s"
 TOTAL_WIDTH: typing.Final[int] = 2
 SCHEMA_FP_LENGTH: typing.Final[int] = 3
 SEQ_WIDTH: typing.Final[int] = 3
-MESSAGE_HEADER_LENGTH: typing.Final[int] = 1 + TOTAL_WIDTH + SCHEMA_FP_LENGTH + SEQ_WIDTH  # 9
+MESSAGE_HEADER_LENGTH: typing.Final[int] = 1 + TOTAL_WIDTH + SCHEMA_FP_LENGTH + SEQ_WIDTH
 MAX_TOTAL: typing.Final[int] = 256**TOTAL_WIDTH - 1
 MAX_SEQ: typing.Final[int] = 256**SEQ_WIDTH - 1
 
@@ -68,17 +77,41 @@ STORE_ANCHOR_LENGTH: typing.Final[int] = 1 + KEY_BYTES
 
 
 class Slot(msgspec.Struct, frozen=True):
+    """What one interactive component carries of the anchor.
+
+    Attributes
+    ----------
+    index
+        Which fragment it is.
+    fragment
+        The fragment, encoded.
+    """
+
     index: int
     fragment: str
 
 
 class MessageAnchor(msgspec.Struct, frozen=True):
+    """An anchor that carries the state itself.
+
+    Attributes
+    ----------
+    schema_fp
+        The fingerprint of the durable fields that wrote `payload`.
+    seq
+        A counter bumped on every commit, which tells a fresher cached commit from the
+        message a click arrived with.
+    payload
+        The packed durable fields.
+    """
+
     schema_fp: str
     seq: int
     payload: bytes
 
     @classmethod
     def parse(cls, raw: bytes) -> typing.Self | None:
+        """Read a message anchor, or return `None` if its length or header does not add up."""
         if len(raw) < MESSAGE_HEADER_LENGTH:
             return None
         if int.from_bytes(raw[1 : 1 + TOTAL_WIDTH], "big") != len(raw):
@@ -92,6 +125,18 @@ class MessageAnchor(msgspec.Struct, frozen=True):
         return cls(schema_fp=schema_fp, seq=seq, payload=raw[MESSAGE_HEADER_LENGTH:])
 
     def pack(self) -> bytes:
+        """Write the anchor out, header first.
+
+        Returns
+        -------
+        bytes
+            The anchor.
+
+        Raises
+        ------
+        ValueError
+            If a header field does not fit its width.
+        """
         if len(self.schema_fp) != SCHEMA_FP_LENGTH or not self.schema_fp.isascii():
             msg = f"schema fingerprint must be exactly {SCHEMA_FP_LENGTH} ASCII characters, got {self.schema_fp!r}"
             raise ValueError(msg)
@@ -114,23 +159,36 @@ class MessageAnchor(msgspec.Struct, frozen=True):
 
 
 class StoreAnchor(msgspec.Struct, frozen=True):
+    """An anchor that carries the key of a store record.
+
+    Attributes
+    ----------
+    key
+        96 random bits. Every interactive component carries the whole anchor, so each one
+        can locate the record on its own.
+    """
+
     key: bytes
 
     @classmethod
     def mint(cls) -> typing.Self:
+        """Return a store anchor with a fresh random key."""
         return cls(secrets.token_bytes(KEY_BYTES))
 
     @classmethod
     def parse(cls, raw: bytes) -> typing.Self | None:
+        """Read a store anchor, or return `None` if it has the wrong length."""
         if len(raw) != STORE_ANCHOR_LENGTH:
             return None
         return cls(key=raw[1:])
 
     @property
     def token(self) -> str:
+        """The key as hex, the form store keys are built from."""
         return self.key.hex()
 
     def pack(self) -> bytes:
+        """Write the anchor out, raising `ValueError` for a key of the wrong length."""
         if len(self.key) != KEY_BYTES:
             msg = f"a store key is exactly {KEY_BYTES} bytes, got {len(self.key)}"
             raise ValueError(msg)
@@ -144,6 +202,22 @@ def carve(
     wire_codec: codecs.Codec,
     view_name: str,
 ) -> collections.abc.Sequence[str]:
+    """Cut `anchor` into one encoded fragment per interactive component, in render order.
+
+    Each component takes as many bytes as its spare characters hold under `wire_codec`.
+    Only the first `MAX_FRAGMENTS` components can carry a fragment; the rest get empty
+    ones here, and `distribute` parks them.
+
+    Returns
+    -------
+    Sequence[str]
+        One fragment per capacity.
+
+    Raises
+    ------
+    StateOverflowError
+        If the components cannot carry the whole anchor.
+    """
     fragments: list[str] = []
     position = 0
     usable = 0
@@ -166,6 +240,16 @@ def carve(
 
 
 def distribute(fragments: collections.abc.Sequence[str]) -> collections.abc.Sequence[Slot]:
+    """Assign each component its slot.
+
+    A component past the last fragment index is parked on that index with a copy of its
+    fragment, since an index is one character and cannot count further.
+
+    Returns
+    -------
+    Sequence[Slot]
+        One slot per fragment, in render order.
+    """
     last = codec.MAX_FRAGMENTS - 1
     return [
         Slot(index=index, fragment=fragment) if index <= last else Slot(index=last, fragment=fragments[last])
@@ -174,6 +258,7 @@ def distribute(fragments: collections.abc.Sequence[str]) -> collections.abc.Sequ
 
 
 def gather(fragments: collections.abc.Mapping[int, bytes]) -> bytes | None:
+    """Join fragments from index 0 up to the first gap, or return `None` without fragment 0."""
     if 0 not in fragments:
         return None
     parts: list[bytes] = []
@@ -185,6 +270,7 @@ def gather(fragments: collections.abc.Mapping[int, bytes]) -> bytes | None:
 
 
 def parse(raw: bytes) -> MessageAnchor | StoreAnchor | None:
+    """Read an anchor of either dialect, or return `None` for one of neither."""
     head = raw[:1]
     if head == PLACEMENT_MESSAGE:
         return MessageAnchor.parse(raw)

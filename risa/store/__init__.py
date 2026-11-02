@@ -17,6 +17,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Stores for `InStore` state: the `Store` protocol and the stores risa ships.
+
+`MemoryStore` is importable from here. `risa.store.redis.RedisStore` and
+`risa.store.postgres.PostgresStore` live in their own modules, which need the
+`[redis]` and `[postgres]` extras.
+"""
+
 from __future__ import annotations
 
 from risa.store.memory import *

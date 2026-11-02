@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The envelope a store entry is written in."""
+
 from __future__ import annotations
 
 import typing
@@ -31,6 +33,20 @@ __all__ = (
 
 
 class Envelope(msgspec.Struct, frozen=True):
+    """A store entry: the state and what it belongs to.
+
+    Attributes
+    ----------
+    v
+        The view's schema version.
+    n
+        The view's name.
+    f
+        The fingerprint of the durable fields that wrote `d`.
+    d
+        The packed durable fields.
+    """
+
     v: int
     n: str
     f: str
@@ -46,6 +62,7 @@ def pack_entry(envelope: Envelope) -> bytes:
 
 
 def unpack_entry(raw: bytes) -> Envelope | None:
+    """Read an envelope, or return `None` for bytes that are not one."""
     try:
         return _DECODER.decode(raw)
     except msgspec.DecodeError:

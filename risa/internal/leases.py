@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The lease lock `RedisStore` and `PostgresStore` hold across processes."""
+
 from __future__ import annotations
 
 import asyncio
@@ -52,6 +54,39 @@ type Prepare = collections.abc.Callable[[], collections.abc.Awaitable[None]]
 
 
 class LeaseLocks:
+    """A lock that spans processes, built from three operations a store supplies.
+
+    A holder first takes the in-process lock for the key, then claims a lease: a record
+    under the key with a random token and an expiry. It polls with backoff until the
+    claim succeeds, renews the lease every third of its length while inside, stops
+    renewing after `max_hold`, and releases it only while the token is still its own.
+    A crashed holder therefore blocks its key for at most one lease. A lease can lapse
+    under a stalled holder; that is logged, and the version check of `put_if_version`
+    decides whose write lands.
+
+    Parameters
+    ----------
+    claim
+        Take the lease for a key if it is free or lapsed, and say whether it was taken.
+    renew
+        Extend a live lease that still carries the token, and say whether it did.
+    release
+        Remove the lease if it still carries the token, and say whether it was live.
+    prepare
+        Run once inside the deadline before the first claim, such as creating tables.
+    transient
+        The exceptions a failed renewal may raise; one is logged and retried.
+    lease
+        The lease length in seconds.
+    max_hold
+        Seconds after which a held lease is no longer renewed.
+
+    Raises
+    ------
+    ValueError
+        If `lease` is not positive or `max_hold` is shorter than `lease`.
+    """
+
     __slots__ = ("_claim", "_lease", "_local", "_max_hold", "_prepare", "_release", "_renew", "_transient")
 
     def __init__(
@@ -87,6 +122,16 @@ class LeaseLocks:
         *,
         timeout: float,  # ruff:ignore[async-function-with-timeout]
     ) -> collections.abc.AsyncGenerator[None]:
+        """Hold `key` across processes while the returned context manager is entered.
+
+        The whole acquisition, store round trips included, runs under one deadline, so a
+        store that stalls cannot stretch `timeout`.
+
+        Raises
+        ------
+        LockTimeoutError
+            If the lock is not granted within `timeout` seconds.
+        """
         deadline = asyncio.get_running_loop().time() + timeout
         async with self._local.hold(key, timeout=timeout):
             token = secrets.token_hex(16)

@@ -17,6 +17,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The printable alphabet every id risa writes is spelled in.
+
+`ALPHABET` is the 92 printable ASCII characters from `!` to `~` without the double
+quote and the backslash, so ids survive JSON and logs unescaped. Integers are written in it as fixed-width
+base-92 numbers, most significant digit first.
+"""
+
 from __future__ import annotations
 
 import base64
@@ -48,6 +55,18 @@ def largest_value(width: int) -> int:
 
 
 def pack_uint(value: int, width: int) -> str:
+    """Write `value` as exactly `width` base-92 digits.
+
+    Returns
+    -------
+    str
+        The digits, most significant first.
+
+    Raises
+    ------
+    ValueError
+        If `value` is negative or needs more than `width` digits.
+    """
     if value < 0:
         msg = f"cannot pack negative value {value}"
         raise ValueError(msg)
@@ -63,6 +82,7 @@ def pack_uint(value: int, width: int) -> str:
 
 
 def unpack_uint(raw: str) -> int | None:
+    """Read base-92 digits back into an integer, or return `None` if one is not in the alphabet."""
     value = 0
     for char in raw:
         digit = _INDEX.get(char)
@@ -73,6 +93,22 @@ def unpack_uint(raw: str) -> int | None:
 
 
 def pack_digest(data: str, *, chars: int) -> str:
+    """Hash `data` into `chars` characters of the alphabet.
+
+    blake2s, cut to the bytes `chars` base85 characters need, then base85-encoded and cut
+    again. base85's characters are a subset of the alphabet. Cookies, handler tokens and
+    fingerprints are all such digests.
+
+    Returns
+    -------
+    str
+        The digest, `chars` characters long.
+
+    Raises
+    ------
+    ValueError
+        If `chars` is not between 1 and `MAX_DIGEST_CHARS`.
+    """
     if not 1 <= chars <= MAX_DIGEST_CHARS:
         msg = f"chars must be between 1 and {MAX_DIGEST_CHARS}, got {chars}"
         raise ValueError(msg)

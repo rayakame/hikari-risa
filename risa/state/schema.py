@@ -17,6 +17,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""A view's durable fields, and how their values are packed into state.
+
+Fields are durable by default. `risa.Prop[T]` marks a field that is rebuilt fresh on
+every click instead: it is never saved, costs nothing on the wire, must have a
+default, and is typically filled in `load`.
+"""
+
 from __future__ import annotations
 
 import typing
@@ -48,6 +55,19 @@ class _PropMarker:
 
 
 class DurableField(msgspec.Struct, frozen=True):
+    """One durable field of a view.
+
+    Attributes
+    ----------
+    name
+        The field's name.
+    annotation
+        The field's type.
+    has_default
+        Whether the field has a default, which lets state written before it was added
+        still be read.
+    """
+
     name: str
     annotation: object
     has_default: bool
@@ -60,6 +80,13 @@ class _Prefix(msgspec.Struct, frozen=True):
 
 
 class StateSchema:
+    """The durable fields of a view, in declaration order, and their packing.
+
+    risa builds one per view at registration. State is packed as the values of the
+    durable fields in order, so appending a field that has a default leaves earlier state
+    readable.
+    """
+
     __slots__ = ("_empty_fingerprint", "_encoder", "_fields", "_fingerprint", "_names", "_prefixes", "_view_name")
 
     def __init__(self, fields: collections.abc.Sequence[DurableField], *, view_name: str) -> None:
@@ -80,6 +107,19 @@ class StateSchema:
 
     @classmethod
     def of(cls, view_cls: type[msgspec.Struct], *, view_name: str) -> StateSchema:
+        """Read the schema of a view class from its fields.
+
+        Returns
+        -------
+        StateSchema
+            The schema of the class's durable fields.
+
+        Raises
+        ------
+        ViewDeclarationError
+            If a prop has no default, a `risa.Prop` marker sits inside an annotation instead
+            of around it, or a field's type cannot be described.
+        """
         durable: list[DurableField] = []
         for field in _fields_of(view_cls, view_name):
             if _hides_a_prop(field.type):
@@ -116,32 +156,51 @@ class StateSchema:
 
     @property
     def fields(self) -> collections.abc.Sequence[DurableField]:
+        """The durable fields, in declaration order."""
         return self._fields
 
     @property
     def durable(self) -> bool:
+        """Whether the view has any durable fields."""
         return bool(self._fields)
 
     @property
     def fingerprint(self) -> str:
+        """The hash of the durable fields' names and types, which state is tagged with."""
         return self._fingerprint
 
     @property
     def empty_fingerprint(self) -> str:
+        """The fingerprint of a view without durable fields."""
         return self._empty_fingerprint
 
     def accepts(self, fingerprint: str) -> bool:
+        """Whether state tagged `fingerprint` can be read into this schema."""
         prefix = self._prefixes.get(fingerprint)
         return prefix is not None and prefix.tail_is_defaulted
 
     def values(self, view: msgspec.Struct) -> collections.abc.Sequence[object]:
+        """Return the values of `view`'s durable fields, in order."""
         return [getattr(view, f.name) for f in self._fields]
 
     def adopt(self, view: msgspec.Struct, source: msgspec.Struct) -> None:
+        """Copy the durable fields of `source` onto `view`."""
         for field in self._fields:
             setattr(view, field.name, getattr(source, field.name))
 
     def pack(self, values: collections.abc.Sequence[object]) -> bytes:
+        """Pack the values of the durable fields, in order, into state.
+
+        Returns
+        -------
+        bytes
+            The packed state, empty for a view without durable fields.
+
+        Raises
+        ------
+        StateEncodeError
+            If a value cannot be serialized.
+        """
         if not self._fields:
             return b""
         try:
@@ -150,6 +209,7 @@ class StateSchema:
             raise self._encode_error(values, exc) from exc
 
     def pack_view(self, view: msgspec.Struct) -> bytes:
+        """Pack the durable fields of `view` into state."""
         return self.pack(self.values(view))
 
     def _encode_error(
@@ -165,6 +225,7 @@ class StateSchema:
         return errors.StateEncodeError(self._view_name, "?", str(fallback))
 
     def unpack(self, fingerprint: str, raw: bytes) -> collections.abc.Sequence[object] | None:
+        """Unpack state tagged `fingerprint`, or return `None` if this schema cannot read it."""
         prefix = self._prefixes.get(fingerprint)
         if prefix is None or not prefix.tail_is_defaulted:
             return None
@@ -240,6 +301,18 @@ def _members(info: msgspec.inspect.EnumType | msgspec.inspect.LiteralType) -> co
 
 
 def structural_type_id(annotation: object) -> str:
+    """Describe a field type by its structure, for the schema fingerprint.
+
+    Returns
+    -------
+    str
+        The same text for types of the same structure, whatever they are named.
+
+    Raises
+    ------
+    ValueError
+        If msgspec cannot describe the type.
+    """
     try:
         info = msgspec.inspect.type_info(annotation)
     except TypeError as exc:

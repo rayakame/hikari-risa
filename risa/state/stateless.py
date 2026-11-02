@@ -17,6 +17,11 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The placement of a view without durable fields: nothing to read, write or lock.
+
+It exists so that dispatch never branches on whether a view has state.
+"""
+
 from __future__ import annotations
 
 import typing

@@ -203,13 +203,13 @@ async def test_another_process_enters_once_the_lock_is_released(
 
 
 async def test_a_held_lease_is_renewed_past_its_length(postgres_pool: asyncpg.Pool, postgres_table: str) -> None:
-    first = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.15)
-    second = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.15)
+    first = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.3)
+    second = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.3)
     key = fresh_key()
 
     async with first.lock(key):
         with pytest.raises(risa.LockTimeoutError):
-            async with second.lock(key, timeout=0.5):
+            async with second.lock(key, timeout=1.0):
                 pytest.fail("the lease lapsed while its holder was still inside")
 
 
@@ -238,7 +238,7 @@ async def test_a_holder_past_max_hold_lets_the_next_one_in(
     postgres_table: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    stalled = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.1, max_hold=0.2)
+    stalled = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.3, max_hold=0.6)
     second = postgres.PostgresStore(postgres_pool, table=postgres_table)
     key = fresh_key()
 

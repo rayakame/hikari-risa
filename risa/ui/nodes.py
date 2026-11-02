@@ -17,6 +17,15 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The components a view's layout is built from, Discord's Components V2.
+
+A layout is one top-level component or a sequence of them. Interactive components
+take the handler a click routes to, bare as `self.save` or with wire arguments as
+`risa.bind(self.vote, 2)`. risa checks only what Discord cannot: that each
+`custom_id` fits, and that each handler belongs to the view. Discord's own limits,
+such as five buttons to a row, are left to Discord.
+"""
+
 from __future__ import annotations
 
 import abc
@@ -82,17 +91,32 @@ def _or_undefined[T](value: T | None) -> T | hikari.UndefinedType:
 
 
 class Component(abc.ABC):
+    """Base class of every component a layout can hold."""
+
     __slots__ = ()
 
     @abc.abstractmethod
-    def build(self, ctx: BuildContext, path: str, /) -> special_endpoints.ComponentBuilder: ...
+    def build(self, ctx: BuildContext, path: str, /) -> special_endpoints.ComponentBuilder:
+        """Turn the component into hikari's builder for it.
+
+        risa calls this while building a view; `path` names the component's place in the
+        tree for error messages.
+
+        Returns
+        -------
+        ComponentBuilder
+            hikari's builder for the component.
+        """
 
     @property
     def name(self) -> str:
+        """The component's type name, used in tree paths."""
         return type(self).__name__
 
 
 class Interactive(Component):
+    """Base class of the components a click routes from to a handler."""
+
     __slots__ = ("_binding",)
 
     def __init__(self, handler: binding_.Handlerish) -> None:
@@ -100,10 +124,13 @@ class Interactive(Component):
 
     @property
     def binding(self) -> binding_.Binding:
+        """The handler a click routes to, with its wire arguments."""
         return self._binding
 
 
 class TextDisplay(Component):
+    """Markdown text."""
+
     __slots__ = ("_content",)
 
     def __init__(self, content: str) -> None:
@@ -111,6 +138,7 @@ class TextDisplay(Component):
 
     @property
     def content(self) -> str:
+        """The text, in Discord's markdown."""
         return self._content
 
     @typing.override
@@ -119,6 +147,16 @@ class TextDisplay(Component):
 
 
 class Separator(Component):
+    """Space between components, with or without a dividing line.
+
+    Parameters
+    ----------
+    divider
+        Draw a line.
+    spacing
+        How much space to leave.
+    """
+
     __slots__ = ("_divider", "_spacing")
 
     def __init__(
@@ -132,10 +170,12 @@ class Separator(Component):
 
     @property
     def divider(self) -> bool:
+        """Whether a line is drawn."""
         return self._divider
 
     @property
     def spacing(self) -> hikari.SpacingType:
+        """How much space is left."""
         return self._spacing
 
     @typing.override
@@ -144,6 +184,18 @@ class Separator(Component):
 
 
 class Thumbnail(Component):
+    """A small image, as the accessory of a `Section`.
+
+    Parameters
+    ----------
+    media
+        The image: a URL, a file, or anything else hikari accepts as a resource.
+    description
+        Alternative text for the image.
+    spoiler
+        Blur the image until it is clicked.
+    """
+
     __slots__ = ("_description", "_media", "_spoiler")
 
     def __init__(
@@ -159,14 +211,17 @@ class Thumbnail(Component):
 
     @property
     def media(self) -> files.Resourceish:
+        """The image."""
         return self._media
 
     @property
     def description(self) -> str | None:
+        """The alternative text, if any."""
         return self._description
 
     @property
     def spoiler(self) -> bool:
+        """Whether the image is blurred until clicked."""
         return self._spoiler
 
     @typing.override
@@ -179,6 +234,18 @@ class Thumbnail(Component):
 
 
 class MediaGalleryItem:
+    """One image or video of a `MediaGallery`.
+
+    Parameters
+    ----------
+    media
+        The image or video: a URL, a file, or anything else hikari accepts as a resource.
+    description
+        Alternative text for it.
+    spoiler
+        Blur it until it is clicked.
+    """
+
     __slots__ = ("_description", "_media", "_spoiler")
 
     def __init__(
@@ -194,17 +261,21 @@ class MediaGalleryItem:
 
     @property
     def media(self) -> files.Resourceish:
+        """The image or video."""
         return self._media
 
     @property
     def description(self) -> str | None:
+        """The alternative text, if any."""
         return self._description
 
     @property
     def spoiler(self) -> bool:
+        """Whether it is blurred until clicked."""
         return self._spoiler
 
     def build(self) -> special_endpoints.MediaGalleryItemBuilder:
+        """Return hikari's builder for the item."""
         return impl.MediaGalleryItemBuilder(
             media=self._media,
             description=_or_undefined(self._description),
@@ -213,6 +284,8 @@ class MediaGalleryItem:
 
 
 class MediaGallery(Component):
+    """A grid of images and videos."""
+
     __slots__ = ("_items",)
 
     def __init__(self, *items: MediaGalleryItem) -> None:
@@ -220,6 +293,7 @@ class MediaGallery(Component):
 
     @property
     def items(self) -> collections.abc.Sequence[MediaGalleryItem]:
+        """The images and videos, in order."""
         return self._items
 
     @typing.override
@@ -228,6 +302,16 @@ class MediaGallery(Component):
 
 
 class File(Component):
+    """An attached file, shown as a download.
+
+    Parameters
+    ----------
+    file
+        The file: a path, bytes, or anything else hikari accepts as a resource.
+    spoiler
+        Hide it behind a spoiler.
+    """
+
     __slots__ = ("_file", "_spoiler")
 
     def __init__(self, file: files.Resourceish, *, spoiler: bool = False) -> None:
@@ -236,10 +320,12 @@ class File(Component):
 
     @property
     def file(self) -> files.Resourceish:
+        """The file."""
         return self._file
 
     @property
     def spoiler(self) -> bool:
+        """Whether it is hidden behind a spoiler."""
         return self._spoiler
 
     @typing.override
@@ -248,6 +334,8 @@ class File(Component):
 
 
 class Row(Component):
+    """A row of buttons, or a single select menu."""
+
     __slots__ = ("_components",)
 
     def __init__(self, *components: RowChild) -> None:
@@ -255,6 +343,7 @@ class Row(Component):
 
     @property
     def components(self) -> collections.abc.Sequence[RowChild]:
+        """The components in the row."""
         return self._components
 
     @typing.override
@@ -266,6 +355,16 @@ class Row(Component):
 
 
 class Section(Component):
+    """Text with a button or a thumbnail beside it.
+
+    Parameters
+    ----------
+    *text_displays
+        The text, as one or more `TextDisplay`s.
+    accessory
+        The button or thumbnail beside the text.
+    """
+
     __slots__ = ("_accessory", "_text_displays")
 
     def __init__(self, *text_displays: TextDisplay, accessory: SectionAccessory) -> None:
@@ -274,10 +373,12 @@ class Section(Component):
 
     @property
     def text_displays(self) -> collections.abc.Sequence[TextDisplay]:
+        """The text displays."""
         return self._text_displays
 
     @property
     def accessory(self) -> SectionAccessory:
+        """The button or thumbnail beside the text."""
         return self._accessory
 
     @typing.override
@@ -292,6 +393,18 @@ class Section(Component):
 
 
 class Container(Component):
+    """A box around components, like an embed, with an optional accent color.
+
+    Parameters
+    ----------
+    *children
+        The components inside.
+    accent_color
+        The color of the stripe down the left side.
+    spoiler
+        Hide the contents behind a spoiler.
+    """
+
     __slots__ = ("_accent_color", "_children", "_spoiler")
 
     def __init__(
@@ -306,14 +419,17 @@ class Container(Component):
 
     @property
     def children(self) -> collections.abc.Sequence[ContainerChild]:
+        """The components inside."""
         return self._children
 
     @property
     def accent_color(self) -> colors.Colorish | None:
+        """The color of the stripe down the left side, if any."""
         return self._accent_color
 
     @property
     def spoiler(self) -> bool:
+        """Whether the contents are hidden behind a spoiler."""
         return self._spoiler
 
     @typing.override
@@ -329,6 +445,22 @@ class Container(Component):
 
 
 class Button(Interactive):
+    """A button whose clicks route to a handler.
+
+    Parameters
+    ----------
+    handler
+        The handler a click routes to, bare or through `risa.bind`.
+    label
+        The text on the button.
+    emoji
+        An emoji on the button.
+    style
+        The button's color.
+    disabled
+        Grey the button out, so it cannot be clicked.
+    """
+
     __slots__ = ("_disabled", "_emoji", "_label", "_style")
 
     def __init__(
@@ -348,18 +480,22 @@ class Button(Interactive):
 
     @property
     def label(self) -> str | None:
+        """The text on the button, if any."""
         return self._label
 
     @property
     def emoji(self) -> snowflakes.Snowflakeish | emojis.Emoji | str | None:
+        """The emoji on the button, if any."""
         return self._emoji
 
     @property
     def style(self) -> hikari.ButtonStyle:
+        """The button's color."""
         return self._style
 
     @property
     def disabled(self) -> bool:
+        """Whether the button is greyed out."""
         return self._disabled
 
     @typing.override
@@ -374,6 +510,20 @@ class Button(Interactive):
 
 
 class LinkButton(Component):
+    """A button that opens a URL. Clicks on it never reach the bot.
+
+    Parameters
+    ----------
+    url
+        The URL to open.
+    label
+        The text on the button.
+    emoji
+        An emoji on the button.
+    disabled
+        Grey the button out.
+    """
+
     __slots__ = ("_disabled", "_emoji", "_label", "_url")
 
     def __init__(
@@ -391,18 +541,22 @@ class LinkButton(Component):
 
     @property
     def url(self) -> str:
+        """The URL the button opens."""
         return self._url
 
     @property
     def label(self) -> str | None:
+        """The text on the button, if any."""
         return self._label
 
     @property
     def emoji(self) -> snowflakes.Snowflakeish | emojis.Emoji | str | None:
+        """The emoji on the button, if any."""
         return self._emoji
 
     @property
     def disabled(self) -> bool:
+        """Whether the button is greyed out."""
         return self._disabled
 
     @typing.override
@@ -416,6 +570,16 @@ class LinkButton(Component):
 
 
 class PremiumButton(Component):
+    """A button that offers one of the app's SKUs for purchase.
+
+    Parameters
+    ----------
+    sku_id
+        The SKU to offer.
+    disabled
+        Grey the button out.
+    """
+
     __slots__ = ("_disabled", "_sku_id")
 
     def __init__(self, sku_id: snowflakes.Snowflakeish, *, disabled: bool = False) -> None:
@@ -424,10 +588,12 @@ class PremiumButton(Component):
 
     @property
     def sku_id(self) -> snowflakes.Snowflakeish:
+        """The SKU the button offers."""
         return self._sku_id
 
     @property
     def disabled(self) -> bool:
+        """Whether the button is greyed out."""
         return self._disabled
 
     @typing.override
@@ -436,6 +602,22 @@ class PremiumButton(Component):
 
 
 class SelectOption:
+    """One option of a `TextSelect`.
+
+    Parameters
+    ----------
+    label
+        The text the user sees.
+    value
+        What the handler receives in `ctx.values` when it is picked; the label by default.
+    description
+        A line of text under the label.
+    emoji
+        An emoji beside the label.
+    default
+        Pick it in advance.
+    """
+
     __slots__ = ("_default", "_description", "_emoji", "_label", "_value")
 
     def __init__(
@@ -455,25 +637,31 @@ class SelectOption:
 
     @property
     def label(self) -> str:
+        """The text the user sees."""
         return self._label
 
     @property
     def value(self) -> str:
+        """What the handler receives when the option is picked."""
         return self._value
 
     @property
     def description(self) -> str | None:
+        """The line under the label, if any."""
         return self._description
 
     @property
     def emoji(self) -> snowflakes.Snowflakeish | emojis.Emoji | str | None:
+        """The emoji beside the label, if any."""
         return self._emoji
 
     @property
     def default(self) -> bool:
+        """Whether the option is picked in advance."""
         return self._default
 
     def build(self) -> special_endpoints.SelectOptionBuilder:
+        """Return hikari's builder for the option."""
         return impl.SelectOptionBuilder(
             label=self._label,
             value=self._value,
@@ -484,6 +672,22 @@ class SelectOption:
 
 
 class Select(Interactive):
+    """Base class of the select menus. The handler reads the picks from `ctx.values`.
+
+    Parameters
+    ----------
+    handler
+        The handler a pick routes to, bare or through `risa.bind`.
+    placeholder
+        The text shown while nothing is picked.
+    min_values
+        The fewest options the user must pick.
+    max_values
+        The most options the user may pick.
+    disabled
+        Grey the menu out.
+    """
+
     __slots__ = ("_disabled", "_max_values", "_min_values", "_placeholder")
 
     def __init__(
@@ -503,22 +707,28 @@ class Select(Interactive):
 
     @property
     def placeholder(self) -> str | None:
+        """The text shown while nothing is picked, if any."""
         return self._placeholder
 
     @property
     def min_values(self) -> int:
+        """The fewest options the user must pick."""
         return self._min_values
 
     @property
     def max_values(self) -> int:
+        """The most options the user may pick."""
         return self._max_values
 
     @property
     def disabled(self) -> bool:
+        """Whether the menu is greyed out."""
         return self._disabled
 
 
 class TextSelect(Select):
+    """A select menu of the options the bot lists, as `SelectOption`s."""
+
     __slots__ = ("_options",)
 
     def __init__(
@@ -538,6 +748,7 @@ class TextSelect(Select):
 
     @property
     def options(self) -> collections.abc.Sequence[SelectOption]:
+        """The options, in order."""
         return self._options
 
     @typing.override
@@ -570,24 +781,38 @@ class _EntitySelect(Select):
 
 
 class UserSelect(_EntitySelect):
+    """A select menu of users. The handler finds them in `ctx.resolved`."""
+
     __slots__ = ()
 
     _MENU_TYPE: typing.ClassVar[hikari.ComponentType] = hikari.ComponentType.USER_SELECT_MENU
 
 
 class RoleSelect(_EntitySelect):
+    """A select menu of roles. The handler finds them in `ctx.resolved`."""
+
     __slots__ = ()
 
     _MENU_TYPE: typing.ClassVar[hikari.ComponentType] = hikari.ComponentType.ROLE_SELECT_MENU
 
 
 class MentionableSelect(_EntitySelect):
+    """A select menu of users and roles. The handler finds them in `ctx.resolved`."""
+
     __slots__ = ()
 
     _MENU_TYPE: typing.ClassVar[hikari.ComponentType] = hikari.ComponentType.MENTIONABLE_SELECT_MENU
 
 
 class ChannelSelect(Select):
+    """A select menu of channels. The handler finds them in `ctx.resolved`.
+
+    Parameters
+    ----------
+    channel_types
+        The kinds of channel to offer; every kind by default.
+    """
+
     __slots__ = ("_channel_types",)
 
     def __init__(
@@ -607,6 +832,7 @@ class ChannelSelect(Select):
 
     @property
     def channel_types(self) -> collections.abc.Sequence[hikari.ChannelType]:
+        """The kinds of channel offered; empty for every kind."""
         return self._channel_types
 
     @typing.override
