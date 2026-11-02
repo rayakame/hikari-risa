@@ -72,7 +72,7 @@ class Demo(risa.View):
   async def ping(self, ctx: risa.ComponentContext) -> None:
       await ctx.respond("pong", ephemeral=True)
 
-  @risa.handler()
+  @risa.handler(defer=risa.AutoDefer.UPDATE)
   async def slow(self, ctx: risa.ComponentContext) -> None:
       await asyncio.sleep(20)
       await ctx.respond("that took a while - the watchdog answered for me", ephemeral=True)
