@@ -109,8 +109,8 @@ conversation: a store check for `use_global` views at construction (§7.1), one 
 and docstrings (the no-docstrings rule). **Step 3 is complete. Next: step 4**, below.
 
 **Where the code stands.** Steps 1–3 are on `main` as `a5c8485` (PR #39, squash-merged;
-the branch was merged with `main`'s 16 Renovate updates, hikari 2.6.0 among them, first).
-Step 4 is on `session-dispatch` (above). The #39 commits, kept for reference:
+the branch was merged with `main`'s 16 Renovate updates, hikari 2.6.0 among them, first),
+and step 4 as `7ad1903` (PR #40). The #39 commits, kept for reference:
 `57e52f2` (schema, placements, `load()`, store package, serde, backend skeleton — the August
 work), `3a9ad47` (anchor moved to `state/` and rebuilt on bytes, the codec character in the
 header, `risa.codecs`, the `hikari-risa[radixly]` extra), `fc29e35` (lockfile refresh,
@@ -187,11 +187,14 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
 
 ## Branch situation
 
-- **`main`** carries six merged milestones: the foundation (#13), typed wire args and
-  the dispatch surface (#15), `on_outdated` (#17), the structural cleanup (#18),
-  slotscheck (#19), and the CI checkout hardening (#20, #21).
-- **`anchor-codec`** was squash-merged as **PR #39** (steps 1–3) and deleted.
-  **`session-dispatch`**, branched from `main` after it, carries step 4.
+- **`main`** carries the foundation (#13), typed wire args and the dispatch surface (#15),
+  `on_outdated` (#17), the structural cleanup (#18), slotscheck (#19), the CI checkout
+  hardening (#20, #21), the state pivot's steps 1–3 (#39) and step 4 (#40), the shared
+  REST listener slot (#44) and `RedisStore` with `verify_store` (#47).
+- **`modals`** carries the step 5 design, parked until hikari parses the new modal
+  components: one commit on top of `main`, rebased whenever `main` moves.
+- **`anchor-codec`** (steps 1–3) and **`session-dispatch`** (step 4) were squash-merged and
+  deleted.
 - Branches are squash-merged, so a merged branch is never an ancestor of `main`: delete
   local copies with `git branch -D`, never `-d`, and never branch from a merged one.
 
@@ -225,9 +228,10 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
 - Everything runs through uv/nox: `uv run --group nox nox` (all six sessions) or
   `-s ruff pyright pytest` while iterating; `uv run --group pytest pytest -q` for the
   fast loop. pyright strict is the gate.
-- Commits are authored solely by the repository owner and carry no attribution of any
-  kind, in a commit message, a PR body or the code. Never commit, stage or push without
-  being asked.
+- Commits are authored solely by the repository owner: no co-author trailers and no
+  third-party attribution in a commit message, a PR body or the code. The MIT header is
+  the license, not attribution, and stays in every `.py` file. Never commit, stage or push
+  without being asked.
 - Tests mirror the package. Helpers worth knowing: `engine(handler)` in
   `test_view.py`/`test_nodes.py` (isinstance-narrows past the typing fiction to reach
   `HandlerBinder`), `component_ctx(...)` in `test_context.py`, `custom_id_of(cls, button)`

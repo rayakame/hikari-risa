@@ -8,8 +8,11 @@ DEBUG.
 
 1. Create an application in the [Discord developer portal](https://discord.com/developers/applications),
    add a bot user and copy its token.
-2. Invite the bot to a test server with the `bot` and `applications.commands` scopes.
-3. Put the token in `testbot/.env`, which git ignores:
+2. On the bot's page, turn on the three privileged gateway intents: Presence, Server
+   Members and Message Content. The bot asks for `hikari.Intents.ALL`, and without them
+   Discord closes the gateway connection with code 4014 before the bot starts.
+3. Invite the bot to a test server with the `bot` and `applications.commands` scopes.
+4. Put the token in `testbot/.env`, which git ignores:
 
    ```sh
    TOKEN=your-bot-token
@@ -23,8 +26,10 @@ From the repository root:
 uv run --group bot python testbot/bot.py
 ```
 
-The `bot` dependency group brings lightbulb and python-dotenv. Slash commands are registered
-on startup; a new command can take a moment to show up in the client.
+The `bot` dependency group brings lightbulb and python-dotenv. The slash commands are
+registered globally on startup, and Discord can take a while to show a new global command
+in a server. If `/test` or `/poll` is missing on a first run, give it time and reload the
+client.
 
 ## Commands
 
