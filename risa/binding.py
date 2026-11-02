@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Putting handlers on components, with or without wire arguments."""
+
 from __future__ import annotations
 
 import functools
@@ -51,14 +53,53 @@ type Handlerish = (
 )
 
 bind: typing.Final = functools.partial
+"""Put a handler on a component together with its wire arguments.
+
+`ui.Button(risa.bind(self.vote, 2))` routes a click on that button to
+`vote(ctx, 2)`. It is `functools.partial`, so arguments go by position or by name,
+and nested `bind` calls merge as partials do: a keyword given twice takes the outer
+value.
+"""
 
 
 class Frame(msgspec.Struct, frozen=True):
+    """One wire argument of a `Binding`, encoded.
+
+    Attributes
+    ----------
+    name
+        The parameter it fills.
+    data
+        The encoded value.
+    """
+
     name: str
     data: bytes
 
 
 class Binding(msgspec.Struct, frozen=True):
+    """A handler resolved for one component: where a click routes, and what it carries.
+
+    Components resolve the handler they are given into one; it is rarely built by hand.
+
+    Attributes
+    ----------
+    handler_id
+        The id of the handler.
+    version
+        The version of the handler.
+    token
+        The routing token of the handler.
+    fingerprint
+        The hash of the handler's wire signature, empty without wire arguments.
+    frames
+        The encoded wire arguments.
+    func_name
+        The handler's qualified name, for messages.
+    owner
+        The view class the handler is defined on.
+    """
+
     handler_id: str
     version: int
     token: str
@@ -69,6 +110,12 @@ class Binding(msgspec.Struct, frozen=True):
 
 
 class HandlerBinder:
+    """A handler accessed on a view instance, as `self.vote`.
+
+    Put it on a component bare, or with wire arguments through `risa.bind`. Calling it
+    raises `HandlerNotCallableError`, since only risa dispatches handlers.
+    """
+
     __slots__ = ("_func_name", "_handler_id", "_owner", "_signature", "_token", "_version")
 
     def __init__(
@@ -89,9 +136,25 @@ class HandlerBinder:
         self._owner = owner
 
     def __call__(self, *_args: object, **_kwargs: object) -> typing.NoReturn:
+        """Raise `HandlerNotCallableError`, since only risa dispatches handlers."""
         raise errors.HandlerNotCallableError(self._func_name)
 
     def bind(self, *args: object, **kwargs: object) -> Binding:
+        """Resolve this handler and its wire arguments into a `Binding`.
+
+        `risa.bind(self.vote, 2)` ends up here when the component is built.
+
+        Returns
+        -------
+        Binding
+            The handler's identity and its encoded arguments.
+
+        Raises
+        ------
+        ArgBindError
+            If an argument names no wire parameter, is given twice, is missing, or holds a
+            value its parameter cannot carry.
+        """
         names = list(self._signature.converters)
         if len(args) > len(names):
             raise errors.ArgBindError(
@@ -144,6 +207,20 @@ class HandlerBinder:
 
 
 def resolve(handler: Handlerish) -> Binding:
+    """Return the `Binding` that `handler` routes to.
+
+    Returns
+    -------
+    Binding
+        The handler's identity and its encoded arguments.
+
+    Raises
+    ------
+    NotAHandlerError
+        If `handler` is not a handler accessed on a view instance, bare or bound.
+    ArgBindError
+        If its wire arguments do not fit the handler.
+    """
     if isinstance(handler, Binding):
         return handler
     if isinstance(handler, functools.partial):

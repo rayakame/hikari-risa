@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The contexts handlers and hooks answer interactions through."""
+
 from __future__ import annotations
 
 import asyncio
@@ -56,6 +58,12 @@ class _InitialResponse(enum.StrEnum):
 
 
 class ResponseGate(msgspec.Struct):
+    """Whether an interaction has been answered, shared by everything that answers it.
+
+    risa makes one per interaction, so a handler and the auto-defer watchdog never both
+    send the initial response.
+    """
+
     lock: asyncio.Lock = msgspec.field(default_factory=asyncio.Lock)
     acknowledged: asyncio.Event = msgspec.field(default_factory=asyncio.Event)
     response: _InitialResponse = msgspec.field(default=_InitialResponse.NONE)
@@ -63,6 +71,7 @@ class ResponseGate(msgspec.Struct):
 
     @property
     def responded(self) -> bool:
+        """Whether the interaction has its initial response."""
         return self.response is not _InitialResponse.NONE
 
 
@@ -72,6 +81,8 @@ class ViewSlot(msgspec.Struct):
 
 
 class Response:
+    """A message sent with `respond()`, to fetch, edit or delete later."""
+
     __slots__ = ("_interaction", "_message", "_rest")
 
     def __init__(
@@ -85,6 +96,7 @@ class Response:
         self._message = message
 
     async def fetch(self) -> hikari.Message:
+        """Fetch the message as it is now."""
         if self._message is not None:
             return await self._rest.fetch_webhook_message(
                 self._interaction.application_id,
@@ -94,6 +106,7 @@ class Response:
         return await self._rest.fetch_interaction_response(self._interaction.application_id, self._interaction.token)
 
     async def delete(self) -> None:
+        """Delete the message."""
         if self._message is not None:
             await self._rest.delete_webhook_message(
                 self._interaction.application_id,
@@ -119,6 +132,7 @@ class Response:
         user_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialUser] | bool] = hikari.UNDEFINED,
         role_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialRole] | bool] = hikari.UNDEFINED,
     ) -> hikari.Message:
+        """Edit the message. The parameters are those of hikari's message edits."""
         if self._message is not None:
             return await self._rest.edit_webhook_message(
                 self._interaction.application_id,
@@ -152,6 +166,8 @@ class Response:
 
 
 class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
+    """What a handler or hook gets for the interaction it answers."""
+
     __slots__ = ("_gate", "_interaction", "_rest")
 
     def __init__(self, interaction: T, *, rest: hikari.api.RESTClient, gate: ResponseGate | None = None) -> None:
@@ -161,41 +177,68 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
 
     @property
     def responded(self) -> bool:
+        """Whether the interaction has its initial response."""
         return self._gate.responded
 
     @property
     def rest(self) -> hikari.api.RESTClient:
+        """The REST client risa answers through."""
         return self._rest
 
     @property
     def interaction(self) -> T:
+        """The interaction being answered."""
         return self._interaction
 
     @property
     def custom_id(self) -> str:
+        """The `custom_id` of the component that was used."""
         return self._interaction.custom_id
 
     @property
     def user(self) -> hikari.User:
+        """The user who used the component."""
         return self._interaction.user
 
     @property
     def member(self) -> hikari.InteractionMember | None:
+        """The member who used the component, or `None` outside a guild."""
         return self._interaction.member
 
     @property
     def channel_id(self) -> hikari.Snowflake:
+        """The id of the channel the interaction happened in."""
         return self._interaction.channel_id
 
     @property
     def guild_id(self) -> hikari.Snowflake | None:
+        """The id of the guild the interaction happened in, or `None` outside a guild."""
         return self._interaction.guild_id
 
     @property
     def message(self) -> hikari.Message | None:
+        """The message the component is on, if any."""
         return self._interaction.message
 
     async def defer(self, *, thinking: bool = False, ephemeral: bool = False) -> None:
+        """Acknowledge the interaction now and answer it later.
+
+        By default the acknowledgement is silent, and the answer is a `rerender()` or an
+        `edit()` of the message. With `thinking=True`, Discord shows a "thinking..." message
+        that the next `respond()` takes the place of.
+
+        Parameters
+        ----------
+        thinking
+            Show a "thinking..." message.
+        ephemeral
+            Show that message only to the user who clicked.
+
+        Raises
+        ------
+        AlreadyRespondedError
+            If the interaction already has its initial response.
+        """
         async with self._gate.lock:
             if self._gate.response is not _InitialResponse.NONE:
                 attempted = "defer"
@@ -211,6 +254,11 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
             self._record_initial(_InitialResponse.DEFERRED_THINKING if thinking else _InitialResponse.DEFERRED_UPDATE)
 
     async def acknowledge(self, *, thinking: bool = False, ephemeral: bool = False) -> None:
+        """Acknowledge the interaction like `defer`, unless it already has its initial response.
+
+        Where `defer` raises, this does nothing, so it is safe to call whatever happened
+        before.
+        """
         async with self._gate.lock:
             if self._gate.response is not _InitialResponse.NONE:
                 return
@@ -240,6 +288,21 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
         user_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialUser] | bool] = hikari.UNDEFINED,
         role_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialRole] | bool] = hikari.UNDEFINED,
     ) -> Response:
+        """Send a message in answer to the interaction.
+
+        The first response answers the interaction itself; every later one is a follow-up
+        message. Apart from `ephemeral`, the parameters are hikari's.
+
+        Parameters
+        ----------
+        ephemeral
+            Show the message only to the user who clicked.
+
+        Returns
+        -------
+        Response
+            The message, to fetch, edit or delete later.
+        """
         flags = hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED
 
         async with self._gate.lock:
@@ -288,6 +351,13 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
 
 
 class ComponentContext(Context[hikari.ComponentInteraction]):
+    """The context of a click on one of a view's components.
+
+    A handler answers through it: `rerender()` redraws the message from the view's
+    state, `edit(...)` replaces it with another layout, and `respond(...)` sends a new
+    message.
+    """
+
     __slots__ = ("_meta", "_slot")
 
     def __init__(
@@ -310,13 +380,33 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
 
     @property
     def values(self) -> collections.abc.Sequence[str]:
+        """The values picked in a select menu; empty for a button."""
         return self._interaction.values
 
     @property
     def resolved(self) -> hikari.ResolvedOptionData | None:
+        """The users, members, roles and channels picked in an entity select menu, or `None`."""
         return self._interaction.resolved
 
     async def edit(self, layout: ui.Layout, /) -> None:
+        """Replace the message with `layout`, keeping the view's state on it.
+
+        For a screen the view's `render` does not draw, such as a confirmation or a closing
+        message. A layout without interactive components ends the view, since nothing on it
+        can be clicked any more. Like `rerender()`, it saves the view's state.
+
+        Raises
+        ------
+        NoViewError
+            If the layout has interactive components but this context has no view state, as
+            in `on_outdated` and `on_state_missing`.
+        EphemeralOriginError
+            If the message is ephemeral and the interaction was answered with a new message.
+        StateOverflowError
+            If an `InMessage` view's state does not fit the layout's components.
+        StateConflictError
+            If another process saved the view's state first. The view then holds that state.
+        """
         plan = build_.plan(layout, self._meta)
         view, session = self._slot.view, self._slot.session
         if view is not None and session is not None:
@@ -327,6 +417,27 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         await self._update_origin(plan.emit(b""))
 
     async def rerender(self) -> None:
+        """Redraw the message from the view's current state, and save that state.
+
+        Every rerender is a commit. `InMessage` state is written into the message itself;
+        `InStore` state goes to the store first, then the message is edited. A handler that
+        changes the state and does not rerender still saves it when it returns.
+
+        Raises
+        ------
+        NoViewError
+            If the view has durable fields but this context has no view state, as in
+            `on_outdated` and `on_state_missing`.
+        EphemeralOriginError
+            If the message is ephemeral and the interaction was answered with a new message.
+        StateOverflowError
+            If an `InMessage` view's state no longer fits its components.
+        StateConflictError
+            If another process saved the view's state first. The view then holds that state,
+            and the handler can apply its change again and rerender.
+        StateNotFoundError
+            If an `InStore` view's record disappeared while the handler ran.
+        """
         view, session = self._slot.view, self._slot.session
         if view is not None and session is not None:
             await self._commit(view, session, build_.plan(view.render(), self._meta))

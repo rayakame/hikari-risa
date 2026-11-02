@@ -73,10 +73,16 @@ time rather than after the lint output.
   file. This includes test files, `test_bots/` and `__init__.py`.
 - **`from __future__ import annotations` is a required import** in every module.
 - **One import per line.** `force-single-line = true`: no `from x import a, b`.
-- **No docstrings and no comments yet.** Documentation is a dedicated pass once the API has
-  settled, so the comment and docstring lint families (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`)
-  are disabled in `ruff.toml`. The license header and linter directives are not comments and
-  stay. Review bots ask for docstrings on every pull request; decline them with this rule.
+- **Docstrings for the public API, kept short.** numpy style, saying what a caller needs to
+  know rather than how it works inside. ruff's `D` and `DOC` rules enforce them in every
+  public module; `risa/internal/`, `dispatch.py` and the session machinery in `state/` are
+  exempt, as are tests and the noxfile. A one-line docstring needs no `Returns` or `Raises`
+  section. A longer one has both, and lists what a callee raises too, which is why
+  `DOC502` is off. Review bots that ask for docstrings on internal code are declined with
+  this rule.
+- **Comments only for a why the code cannot show**: a workaround, a constraint that is not
+  obvious, a link to an issue. One line, never what the code does or what changed. The
+  license header and linter directives are not comments and stay.
 - **`__all__` is a tuple, sorted alphabetically**, declared right after the imports.
 - **`collections.abc.Sequence`, never `tuple`, in annotations.** Public signatures promise a
   sequence; storing a tuple internally is fine.
@@ -179,8 +185,8 @@ with id/version/defer, zero-argument and argument-carrying `bind()`), `@register
 handler census, the complete V2 node layer with the build pass, the response surface
 (`respond`/`defer`/`acknowledge`, `rerender()`/`edit(layout)`, the auto-defer watchdog), and
 the dual-placement state architecture: `InMessage` and `InStore` views, their sessions,
-`on_outdated` and `on_state_missing`, `MemoryStore`, `RedisStore`, `PostgresStore` and the
-`verify_store` conformance kit. On a REST bot, risa shares hikari's single component-listener
+`on_outdated` and `on_state_missing`, `MemoryStore`, `RedisStore`, `PostgresStore`, the
+`verify_store` conformance kit, and docstrings for the whole public API. On a REST bot, risa shares hikari's single component-listener
 slot with whatever listener held it before. Modals are designed (DESIGN §9 and the spec it
 points to) and wait for hikari to parse Discord's new modal components. DESIGN §15 holds the
 build order and the 1.0 roadmap.

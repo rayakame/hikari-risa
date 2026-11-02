@@ -13,7 +13,19 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
-**2026-11-02, `PostgresStore` (branch `postgres-store`):**
+**2026-11-02, docs pass, part 1: API docstrings (branch `docs-api`):** ruff's docstring
+and comment rules are back on (`D`, `DOC`, `ERA`, `FIX`, `TD`, `CPY`). `D1` is waived for
+`internal/`, `dispatch.py` and the session modules of `state/`, `D105` everywhere, and
+`DOC502` is off so that docstrings list what a callee raises. Every public module, class,
+function, method and property has a short numpy-style docstring. `MemoryStore`,
+`RedisStore` and `PostgresStore` subclass `Store` explicitly with `@typing.override`, so
+pyright checks them against the protocol where they are defined and they inherit its
+docstrings; `Store` gained `__slots__ = ()`. `SchemaMismatchError` is gone: nothing could
+raise it, because the cookie hashes the schema version (DESIGN §13). Part 2 is the docs
+site: the README (empty so far), the guides, the placement 2×2, the tutorial, and the
+API reference generated from these docstrings. 907 tests.
+
+**2026-11-02, `PostgresStore` (merged as PR #49, `f732465`):**
 `risa.store.postgres.PostgresStore(pool, *, table="risa_state", lease=5.0, max_hold=60.0)`
 on asyncpg, the `[postgres]` extra, with `asyncpg-stubs` for pyright. An entry is a row
 (key, data, version, `expires_at`), the CAS is one `UPDATE … WHERE version = $expected`, and
@@ -203,9 +215,9 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
 - **`main`** carries the foundation (#13), typed wire args and the dispatch surface (#15),
   `on_outdated` (#17), the structural cleanup (#18), slotscheck (#19), the CI checkout
   hardening (#20, #21), the state pivot's steps 1–3 (#39) and step 4 (#40), the shared
-  REST listener slot (#44), `RedisStore` with `verify_store` (#47) and the contributor
-  guide (#48).
-- **`postgres-store`** carries `PostgresStore` and the shared lease lock.
+  REST listener slot (#44), `RedisStore` with `verify_store` (#47), the contributor guide
+  (#48) and `PostgresStore` (#49).
+- **`docs-api`** carries the API docstrings, part 1 of the docs pass.
 - **`modals`** carries the step 5 design, parked until hikari parses the new modal
   components: one commit on top of `main`, rebased whenever `main` moves.
 - **`anchor-codec`** (steps 1–3) and **`session-dispatch`** (step 4) were squash-merged and
@@ -233,11 +245,10 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
   step first, let the maintainer choose, then implement, run nox and explain the result
   at concept level — what a thing *is* and why, with the snippet a bot author would
   write.
-- **No docstrings, no comments** until a dedicated final pass. The comment lint families
-  (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml`. The 19-line MIT
-  header is not a comment and not optional: every `.py` file carries it, including tests,
-  `test_bots/` and empty `__init__.py` files. Automated reviewers ask for docstrings
-  every single round — decline with this rule, every time.
+- **Docstrings for the public API only, kept short; comments only for a why the code
+  cannot show.** `CONTRIBUTING.md` has the rules, and ruff enforces the docstring half.
+  The 19-line MIT header is not a comment and not optional: every `.py` file carries it,
+  including tests, `test_bots/` and empty `__init__.py` files.
 - **Never `tuple` in annotations.** Public signatures promise
   `collections.abc.Sequence`; storing a tuple internally is fine.
 - Everything runs through uv/nox: `uv run --group nox nox` (all six sessions) or
@@ -640,8 +651,9 @@ multipart render; a nox session that pyrights an out-of-tree consumer against a 
 `detect-unused-slots` is deliberately **off**: it cannot see that msgspec `Struct`s use the
 slots msgspec generates for them, so every Struct in the package reports a false positive.
 
-**The docs pass**, when it comes, starts by re-enabling `D` / `DOC` in `ruff.toml` so the
-linter drives it. Things decided along the way that must be written down there:
+**The docs pass** began on 2026-11-02 with the API docstrings, which now carry each of
+the notes below (`View.on_outdated`, `risa.handler`, `risa.bind`, `Rendered.respond_to`,
+`AutoDefer`, `InMessage`). The guides still have to tell them as stories:
 
 - The **rejection handler** as the precise alternative to `on_outdated` (§6.4): keep the
   retired handler at the same id, version and wire signature with a body that says "this is

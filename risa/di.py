@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Dependency injection for handlers, through linkd."""
+
 from __future__ import annotations
 
 import typing
@@ -29,16 +31,36 @@ __all__ = ("INJECTED", "ComponentContainer", "Contexts", "ModalContainer")
 
 @typing.final
 class ComponentContainer(linkd.Container):
+    """The linkd container risa opens for each component interaction it dispatches."""
+
     __slots__ = ()
 
 
 @typing.final
 class ModalContainer(linkd.Container):
+    """The linkd container reserved for modal submissions, which risa does not dispatch yet."""
+
     __slots__ = ()
 
 
 @typing.final
 class Contexts:
+    """The linkd contexts risa dispatches in.
+
+    A handler runs inside `DEFAULT` with `COMPONENT` entered on top, so it can be
+    injected with anything registered in either. risa adds the `ComponentContext` and the
+    `hikari.ComponentInteraction` to `COMPONENT` for every click.
+
+    Attributes
+    ----------
+    DEFAULT
+        linkd's root context, the one a lightbulb client shares.
+    COMPONENT
+        Entered for every component interaction.
+    MODAL
+        Reserved for modal submissions.
+    """
+
     __slots__ = ()
 
     DEFAULT: typing.Final = linkd.Contexts.ROOT

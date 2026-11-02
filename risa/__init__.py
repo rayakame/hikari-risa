@@ -17,6 +17,14 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""A component handler for hikari, built on Discord's Components V2.
+
+A view is a class whose fields are its state, whose `render` returns its layout, and
+whose handlers answer the clicks on it. The state travels inside the message by
+default, so views survive restarts with no infrastructure, or lives in a store for
+views that outgrow it.
+"""
+
 from __future__ import annotations
 
 from risa import codecs as codecs

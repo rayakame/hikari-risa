@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""`MemoryStore`, the store that keeps state in this process."""
+
 from __future__ import annotations
 
 import collections.abc
@@ -48,7 +50,21 @@ class _Entry(msgspec.Struct):
     expires_at: float | None
 
 
-class MemoryStore:
+class MemoryStore(protocol.Store):
+    """A store that keeps state in this process's memory.
+
+    Meant for development and tests: the state is lost on every restart, and other
+    processes cannot see it, so the client warns when an `InStore` view uses one. Past
+    `max_entries`, each new entry pushes out the least recently used one.
+
+    Parameters
+    ----------
+    max_entries
+        How many entries to keep.
+    clock
+        The monotonic clock, in seconds, that expiry is measured on.
+    """
+
     __slots__ = ("_capacity_warned", "_clock", "_entries", "_locks", "_max_entries")
 
     def __init__(
@@ -63,18 +79,22 @@ class MemoryStore:
         self._clock = clock
         self._capacity_warned = False
 
+    @typing.override
     async def get(self, key: str) -> bytes | None:
         entry = self._live(key)
         return None if entry is None else entry.data
 
+    @typing.override
     async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
         entry = self._live(key)
         return None if entry is None else protocol.VersionedEntry(data=entry.data, version=entry.version)
 
+    @typing.override
     async def put(self, key: str, value: bytes, *, ttl: float | None) -> None:
         existing = self._live(key)
         self._write(key, value, version=1 if existing is None else existing.version + 1, ttl=ttl)
 
+    @typing.override
     async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
         existing = self._live(key)
         if existing is None or existing.version != expected:
@@ -82,9 +102,11 @@ class MemoryStore:
         self._write(key, value, version=existing.version + 1, ttl=ttl)
         return existing.version + 1
 
+    @typing.override
     async def delete(self, key: str) -> None:
         self._entries.pop(key, None)
 
+    @typing.override
     async def touch(self, key: str, *, ttl: float) -> None:
         entry = self._live(key)
         if entry is None:
@@ -92,6 +114,7 @@ class MemoryStore:
             return
         entry.expires_at = self._deadline(ttl)
 
+    @typing.override
     def lock(
         self,
         key: str,

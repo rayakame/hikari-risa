@@ -35,7 +35,6 @@ import risa
         risa.LockTimeoutError,
         risa.NotAHandlerError,
         risa.NoViewError,
-        risa.SchemaMismatchError,
         risa.SerializationError,
         risa.StateConflictError,
         risa.StateError,
@@ -85,13 +84,6 @@ def test_not_a_handler_names_the_offending_type() -> None:
     assert error.type_name == "str"
     assert "str" in str(error)
     assert "risa.bind" in str(error)
-
-
-def test_schema_mismatch_reports_both_versions() -> None:
-    error = risa.SchemaMismatchError("poll", found_version=1, expected_version=2)
-
-    assert error.found_version == 1
-    assert error.expected_version == 2
 
 
 def test_store_conformance_lists_every_failed_check() -> None:

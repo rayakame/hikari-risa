@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""`PostgresStore`, a store on PostgreSQL. Install it with the `[postgres]` extra."""
+
 from __future__ import annotations
 
 import asyncio
@@ -141,7 +143,36 @@ class _Sql(msgspec.Struct, frozen=True):
     release: str
 
 
-class PostgresStore:
+class PostgresStore(protocol.Store):
+    """A store on PostgreSQL, through an asyncpg pool.
+
+    An entry is a row of `table`. `lock()` takes a lease on a row of `{table}_lease` and
+    renews it while held, so clicks on one view queue up across every process that shares
+    the database. The store creates both tables on first use if they are missing, and
+    deletes expired rows itself: on its first write, then on every hundredth.
+
+    Parameters
+    ----------
+    pool
+        The pool the bot owns. The store borrows a connection for each statement and never
+        opens or closes the pool.
+    table
+        The name of the state table: a lowercase identifier of at most 52 characters. The
+        lease table is named after it.
+    lease
+        Seconds a lock's lease lasts. It is renewed every third of that while held, and a
+        crashed holder blocks its view for at most this long.
+    max_hold
+        Seconds after which a held lock is no longer renewed, so a stuck handler cannot
+        block its view for good.
+
+    Raises
+    ------
+    ValueError
+        If `table` is not a plain lowercase identifier, `lease` is not positive, or
+        `max_hold` is shorter than `lease`.
+    """
+
     __slots__ = ("_locks", "_pool", "_prepared", "_preparing", "_sql", "_table", "_writes_until_sweep")
 
     def __init__(
@@ -171,11 +202,13 @@ class PostgresStore:
             max_hold=max_hold,
         )
 
+    @typing.override
     async def get(self, key: str) -> bytes | None:
         await self._prepare()
         data = await self._pool.fetchval(self._sql.get, key)
         return None if data is None else _expect(data, bytes)
 
+    @typing.override
     async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
         await self._prepare()
         row = await self._pool.fetchrow(self._sql.get_versioned, key)
@@ -183,27 +216,32 @@ class PostgresStore:
             return None
         return protocol.VersionedEntry(data=_expect(row["data"], bytes), version=_expect(row["version"], int))
 
+    @typing.override
     async def put(self, key: str, value: bytes, *, ttl: float | None) -> None:
         await self._prepare()
         await self._pool.execute(self._sql.put, key, value, ttl)
         await self._sweep_if_due()
 
+    @typing.override
     async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
         await self._prepare()
         written = await self._pool.fetchval(self._sql.put_if_version, key, value, expected, ttl)
         await self._sweep_if_due()
         return None if written is None else _expect(written, int)
 
+    @typing.override
     async def delete(self, key: str) -> None:
         await self._prepare()
         await self._pool.execute(self._sql.delete, key)
 
+    @typing.override
     async def touch(self, key: str, *, ttl: float) -> None:
         await self._prepare()
         if await self._pool.fetchval(self._sql.touch, key, ttl) is None:
             _LOGGER.debug("state key %r is gone; nothing to keep alive", key)
         await self._sweep_if_due()
 
+    @typing.override
     def lock(
         self,
         key: str,

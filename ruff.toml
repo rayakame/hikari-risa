@@ -11,16 +11,9 @@ line-ending = "lf"
 preview = true
 select = ["ALL"]
 ignore = [
-    # Comment and docstring rules are disabled while the library is being
-    # (re)written; comments and docs are a dedicated pass at the end.
-    "CPY", # copyright header
-    "D",   # pydocstyle
-    "DOC", # pydoclint
-    "ERA", # commented-out code
-    "FIX", # fixme comments
-    "TD",  # todo comments
-
     "COM812", # missing trailing comma; conflicts with the formatter, which owns trailing commas
+    "D105",   # magic methods document themselves
+    "DOC502", # a callee's exceptions reach the caller too, so they are documented where it can see them
 ]
 
 [lint.per-file-ignores]
@@ -28,7 +21,19 @@ ignore = [
     "F401", # imported but unused
     "F403", # unable to detect undefined names
 ]
+# Docstrings are for the public API; these modules are risa's own machinery.
+"risa/internal/**" = ["D1"]
+"risa/dispatch.py" = ["D1"]
+"risa/state/anchor.py" = ["D1"]
+"risa/state/backend.py" = ["D1"]
+"risa/state/message.py" = ["D1"]
+"risa/state/serde.py" = ["D1"]
+"risa/state/stateless.py" = ["D1"]
+"risa/state/stored.py" = ["D1"]
+"noxfile.py" = ["D", "DOC"]
 "tests/**" = [
+    "D",       # tests are not public API
+    "DOC",
     "S101",    # use of assert
     "PLR2004", # magic value comparison
 ]
@@ -46,3 +51,6 @@ force-single-line = true
 
 [lint.pydocstyle]
 convention = "numpy"
+
+[lint.pydoclint]
+ignore-one-line-docstrings = true

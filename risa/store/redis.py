@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""`RedisStore`, a store on Redis. Install it with the `[redis]` extra."""
+
 from __future__ import annotations
 
 import logging
@@ -87,7 +89,33 @@ return 0
 """
 
 
-class RedisStore:
+class RedisStore(protocol.Store):
+    """A store on Redis, through redis-py's asyncio client.
+
+    An entry is the hash `{key}:s`. `lock()` takes a lease on `{key}:l` and renews it
+    while held, so clicks on one view queue up across every process that shares the
+    Redis. Run Redis with `maxmemory-policy noeviction`; on first use the store warns
+    about any policy that may evict state before it expires.
+
+    Parameters
+    ----------
+    client
+        The client the bot owns. The store never opens or closes it, and it must not
+        decode responses.
+    lease
+        Seconds a lock's lease lasts. It is renewed every third of that while held, and a
+        crashed holder blocks its view for at most this long.
+    max_hold
+        Seconds after which a held lock is no longer renewed, so a stuck handler cannot
+        block its view for good.
+
+    Raises
+    ------
+    ValueError
+        If the client decodes responses, `lease` is not positive, or `max_hold` is shorter
+        than `lease`.
+    """
+
     __slots__ = (
         "_cas_script",
         "_client",
@@ -124,10 +152,12 @@ class RedisStore:
             max_hold=max_hold,
         )
 
+    @typing.override
     async def get(self, key: str) -> bytes | None:
         await self._inspect()
         return _bytes_or_none(await self._client.hget(_state_key(key), "d"))
 
+    @typing.override
     async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
         await self._inspect()
         data, version = await self._client.hmget(_state_key(key), ["d", "v"])
@@ -137,24 +167,29 @@ class RedisStore:
             return None
         return protocol.VersionedEntry(data=data, version=int(version))
 
+    @typing.override
     async def put(self, key: str, value: bytes, *, ttl: float | None) -> None:
         await self._inspect()
         await self._put_script(keys=[_state_key(key)], args=[value, _ttl_argument(ttl)])
 
+    @typing.override
     async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
         await self._inspect()
         written = await self._cas_script(keys=[_state_key(key)], args=[value, expected, _ttl_argument(ttl)])
         return None if written is None else int(written)
 
+    @typing.override
     async def delete(self, key: str) -> None:
         await self._inspect()
         await self._client.delete(_state_key(key))
 
+    @typing.override
     async def touch(self, key: str, *, ttl: float) -> None:
         await self._inspect()
         if not await self._client.pexpire(_state_key(key), _milliseconds(ttl)):
             _LOGGER.debug("state key %r is gone; nothing to keep alive", key)
 
+    @typing.override
     def lock(
         self,
         key: str,
