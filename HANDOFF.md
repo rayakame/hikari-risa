@@ -15,10 +15,11 @@ DESIGN disagree, DESIGN and this block win, and the two contracts they describe 
 step 3 replaced are marked *superseded* in place.
 
 **2026-11-01, `RedisStore` and `verify_store` (branch `redis-store`):** the 1.0 store
-item from DESIGN §15 is built. `risa.store.testing.verify_store(store)` runs sixteen
+item from DESIGN §15 is built. `risa.store.testing.verify_store(store)` runs seventeen
 conformance checks concurrently on random keys, deletes what it writes, and raises one
-`StoreConformanceError(failures)`; `MemoryStore` passes it, and five deliberately broken
-stores in the tests prove it catches what it claims. `risa.store.redis.RedisStore(client,
+`StoreConformanceError(failures)`, which also covers a store that raises. `MemoryStore`
+passes it, and so does a correct store with 60 ms latency per call. Seven deliberately
+broken stores in the tests prove it catches what it claims. `risa.store.redis.RedisStore(client,
 *, lease=5.0, max_hold=60.0)` keeps an entry as the hash `{K}:s` (data and version,
 written by Lua scripts) and locks with a renewed lease on `{K}:l`, so clicks on one view
 queue across processes instead of losing the CAS. That revises DESIGN's "Lock tiering"

@@ -300,4 +300,5 @@ class StoreConformanceError(RisaError):
     def __init__(self, failures: collections.abc.Sequence[str]) -> None:
         self.failures = failures
         listed = "".join(f"\n- {failure}" for failure in failures)
-        super().__init__(f"the store failed {len(failures)} conformance checks:{listed}")
+        checks = "check" if len(failures) == 1 else "checks"
+        super().__init__(f"the store failed {len(failures)} conformance {checks}:{listed}")

@@ -734,13 +734,16 @@ Changes from the original protocol, all verdicts of the lock investigation:
   development store, wired explicitly (`store=risa.MemoryStore()`) and never auto-created
   **[decided — revised]** — see §7.1.
 - **`risa.store.testing.verify_store(store)`** **[built 2026-11-01]** is the conformance kit:
-  sixteen checks (byte-exact round trips, versions that change on every write, CAS that
+  seventeen checks (byte-exact round trips, versions that change on every write, CAS that
   wins on the current version and refuses a stale one or a missing key, exactly one winner
-  among racing CAS writes, expiry, `ttl=None` clearing an earlier expiry, `touch` keeping
-  data and version and creating nothing, lock exclusion, timeout, independence and release
-  on error). They run concurrently on their own random keys, delete what they write, and
-  every failure is collected into one `StoreConformanceError(failures)`. The kit is plain
-  async, with no pytest dependency.
+  among racing CAS writes, expiry, `ttl=None` on `put` and on `put_if_version` clearing an
+  earlier expiry, `touch` keeping data and version and creating nothing, lock exclusion,
+  timeout, independence and release on error). They run concurrently on their own random
+  keys and delete what they write. Every failure is collected into one
+  `StoreConformanceError(failures)`, and that includes an exception the store raises during
+  a check or its cleanup. A check whose entry must outlive further store calls gives it
+  half a second, so a conforming store across a network passes. The kit is plain async,
+  with no pytest dependency.
 - **`RedisStore(client, *, lease=5.0, max_hold=60.0)`** **[built 2026-11-01]**, from
   `risa.store.redis` with the `[redis]` extra (redis-py 8). It takes a
   `redis.asyncio.Redis` the bot owns and never opens or closes connections, and it refuses

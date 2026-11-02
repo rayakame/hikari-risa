@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import typing
 
@@ -31,6 +32,8 @@ from risa.store import testing
 
 if typing.TYPE_CHECKING:
     import collections.abc
+
+LATENCY = 0.06
 
 
 class IgnoresExpectedVersion(memory.MemoryStore):
@@ -70,6 +73,58 @@ class TrimsTrailingZeros(memory.MemoryStore):
     @typing.override
     async def put(self, key: str, value: bytes, *, ttl: float | None) -> None:
         await super().put(key, value.rstrip(b"\x00"), ttl=ttl)
+
+
+class Distant(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def get(self, key: str) -> bytes | None:
+        await asyncio.sleep(LATENCY)
+        return await super().get(key)
+
+    @typing.override
+    async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
+        await asyncio.sleep(LATENCY)
+        return await super().get_versioned(key)
+
+    @typing.override
+    async def put(self, key: str, value: bytes, *, ttl: float | None) -> None:
+        await asyncio.sleep(LATENCY)
+        await super().put(key, value, ttl=ttl)
+
+    @typing.override
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        await asyncio.sleep(LATENCY)
+        return await super().put_if_version(key, value, expected=expected, ttl=ttl)
+
+    @typing.override
+    async def delete(self, key: str) -> None:
+        await asyncio.sleep(LATENCY)
+        await super().delete(key)
+
+    @typing.override
+    async def touch(self, key: str, *, ttl: float) -> None:
+        await asyncio.sleep(LATENCY)
+        await super().touch(key, ttl=ttl)
+
+
+class TouchRaises(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def touch(self, key: str, *, ttl: float) -> None:
+        msg = "touch is broken"
+        raise RuntimeError(msg)
+
+
+class DeleteRaises(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def delete(self, key: str) -> None:
+        msg = "delete is broken"
+        raise RuntimeError(msg)
 
 
 class LocksNothing(memory.MemoryStore):
@@ -121,6 +176,10 @@ async def test_the_memory_store_conforms() -> None:
     await testing.verify_store(memory.MemoryStore())
 
 
+async def test_a_conforming_store_across_a_network_passes() -> None:
+    await testing.verify_store(Distant())
+
+
 async def test_a_cas_that_ignores_the_expected_version_is_caught() -> None:
     failures = await failures_of(IgnoresExpectedVersion())
 
@@ -157,6 +216,29 @@ async def test_every_check_runs_even_after_one_fails() -> None:
     failures = await failures_of(IgnoresExpectedVersion())
 
     assert len(failures) == 2
+
+
+async def test_a_store_that_raises_is_reported_rather_than_crashing_the_kit() -> None:
+    failures = await failures_of(TouchRaises())
+
+    assert sorted(failure.split(":")[0] for failure in failures) == [
+        "touch_keeps_an_entry_alive",
+        "touching_a_missing_key_creates_nothing",
+    ]
+    assert all("raised RuntimeError: touch is broken" in failure for failure in failures)
+
+
+async def test_a_cleanup_that_raises_is_reported_for_every_check() -> None:
+    failures = await failures_of(DeleteRaises())
+
+    assert len(failures) == 17
+    assert all("delete is broken" in failure for failure in failures)
+
+
+def test_one_failed_check_reads_in_the_singular() -> None:
+    error = risa.StoreConformanceError(["a_stale_cas_is_refused: accepted a stale version"])
+
+    assert "failed 1 conformance check:" in str(error)
 
 
 async def test_the_kit_leaves_nothing_behind() -> None:

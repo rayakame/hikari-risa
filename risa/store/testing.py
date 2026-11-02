@@ -34,6 +34,8 @@ __all__ = ("verify_store",)
 
 _SHORT_TTL: typing.Final[float] = 0.05
 _LAPSE: typing.Final[float] = 0.15
+_GRACE_TTL: typing.Final[float] = 0.5
+_GRACE_LAPSE: typing.Final[float] = 0.75
 _LONG_TTL: typing.Final[float] = 5.0
 _PATIENCE: typing.Final[float] = 2.0
 _SAMPLES: typing.Final[collections.abc.Sequence[bytes]] = (b"", b"\x00", b"\xff\xfe\x00 mixed", bytes(range(256)))
@@ -160,31 +162,35 @@ async def _an_entry_expires_after_its_ttl(store: protocol.Store, key: str) -> st
     return None
 
 
-async def _a_write_without_ttl_clears_the_expiry(store: protocol.Store, key: str) -> str | None:
+async def _a_put_without_ttl_clears_the_expiry(store: protocol.Store, key: str) -> str | None:
     await store.put(key, b"one", ttl=_SHORT_TTL)
     await store.put(key, b"two", ttl=None)
     await asyncio.sleep(_LAPSE)
     if await store.get(key) != b"two":
         return "put with ttl=None kept the expiry of the write before it"
-    await store.put(key, b"three", ttl=_SHORT_TTL)
+    return None
+
+
+async def _a_cas_without_ttl_clears_the_expiry(store: protocol.Store, key: str) -> str | None:
+    await store.put(key, b"one", ttl=_GRACE_TTL)
     current = await store.get_versioned(key)
     if current is None:
         return "an entry written with put could not be read back with get_versioned"
-    await store.put_if_version(key, b"four", expected=current.version, ttl=None)
-    await asyncio.sleep(_LAPSE)
-    if await store.get(key) != b"four":
+    await store.put_if_version(key, b"two", expected=current.version, ttl=None)
+    await asyncio.sleep(_GRACE_LAPSE)
+    if await store.get(key) != b"two":
         return "put_if_version with ttl=None kept the expiry of the write before it"
     return None
 
 
 async def _touch_keeps_an_entry_alive(store: protocol.Store, key: str) -> str | None:
-    await store.put(key, b"one", ttl=_SHORT_TTL)
+    await store.put(key, b"one", ttl=_GRACE_TTL)
     before = await store.get_versioned(key)
     await store.touch(key, ttl=_LONG_TTL)
-    await asyncio.sleep(_LAPSE)
+    await asyncio.sleep(_GRACE_LAPSE)
     after = await store.get_versioned(key)
     if after is None:
-        return f"an entry touched with ttl={_LONG_TTL} still expired on its original ttl={_SHORT_TTL}"
+        return f"an entry touched with ttl={_LONG_TTL} still expired on its original ttl={_GRACE_TTL}"
     if before is None or after.data != before.data or after.version != before.version:
         return f"touch changed the entry from {before!r} to {after!r}"
     return None
@@ -263,7 +269,8 @@ _CHECKS: typing.Final[collections.abc.Mapping[str, _Check]] = {
     "racing_cas_writes_have_one_winner": _racing_cas_writes_have_one_winner,
     "delete_removes_the_entry": _delete_removes_the_entry,
     "an_entry_expires_after_its_ttl": _an_entry_expires_after_its_ttl,
-    "a_write_without_ttl_clears_the_expiry": _a_write_without_ttl_clears_the_expiry,
+    "a_put_without_ttl_clears_the_expiry": _a_put_without_ttl_clears_the_expiry,
+    "a_cas_without_ttl_clears_the_expiry": _a_cas_without_ttl_clears_the_expiry,
     "touch_keeps_an_entry_alive": _touch_keeps_an_entry_alive,
     "touching_a_missing_key_creates_nothing": _touching_a_missing_key_creates_nothing,
     "the_lock_excludes_a_second_holder": _the_lock_excludes_a_second_holder,
@@ -275,10 +282,16 @@ _CHECKS: typing.Final[collections.abc.Mapping[str, _Check]] = {
 
 async def _isolated(store: protocol.Store, check: _Check, key: str) -> str | None:
     try:
-        return await check(store, key)
-    finally:
+        problem = await check(store, key)
+    except Exception as exc:  # ruff:ignore[blind-except]
+        problem = f"raised {type(exc).__name__}: {exc}"
+    try:
         await store.delete(key)
         await store.delete(_other(key))
+    except Exception as exc:  # ruff:ignore[blind-except]
+        cleanup = f"cleaning up raised {type(exc).__name__}: {exc}"
+        problem = cleanup if problem is None else f"{problem}; {cleanup}"
+    return problem
 
 
 async def verify_store(store: protocol.Store) -> None:
