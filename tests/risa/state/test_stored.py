@@ -39,11 +39,14 @@ from risa.state import backend
 from risa.state import serde
 from risa.state import stored
 from risa.store import memory
+from risa.store import postgres
 from risa.store import protocol
 from risa.store import redis as redis_store
 
 if typing.TYPE_CHECKING:
     import contextlib
+
+    import asyncpg
 
 APP_ID = hikari.Snowflake(4242)
 TTL = 60.0
@@ -309,11 +312,9 @@ async def test_a_lost_race_adopts_the_winner_and_raises() -> None:
     assert todo.items == ["theirs"]
 
 
-async def test_two_processes_on_one_redis_queue_their_clicks_instead_of_racing() -> None:
-    server = fakeredis.FakeServer()
-    first_store = redis_store.RedisStore(fakeredis.FakeAsyncRedis(server=server))
+async def two_processes_add_at_once(first_store: protocol.Store, second_store: protocol.Store) -> list[str]:
     first = backend_for(first_store)
-    second = backend_for(redis_store.RedisStore(fakeredis.FakeAsyncRedis(server=server)))
+    second = backend_for(second_store)
     raw = await sent(first, TodoList())
 
     async def add(owner: stored.StoredBackend, item: str) -> None:
@@ -324,8 +325,25 @@ async def test_two_processes_on_one_redis_queue_their_clicks_instead_of_racing()
         await session.close()
 
     await asyncio.gather(add(first, "milk"), add(second, "eggs"))
+    return sorted(await items_in(first_store, raw) or [])
 
-    assert sorted(await items_in(first_store, raw) or []) == ["eggs", "milk"]
+
+async def test_two_processes_on_one_redis_queue_their_clicks_instead_of_racing() -> None:
+    server = fakeredis.FakeServer()
+    first = redis_store.RedisStore(fakeredis.FakeAsyncRedis(server=server))
+    second = redis_store.RedisStore(fakeredis.FakeAsyncRedis(server=server))
+
+    assert await two_processes_add_at_once(first, second) == ["eggs", "milk"]
+
+
+async def test_two_processes_on_one_postgres_queue_their_clicks_instead_of_racing(
+    postgres_pool: asyncpg.Pool,
+    postgres_table: str,
+) -> None:
+    first = postgres.PostgresStore(postgres_pool, table=postgres_table)
+    second = postgres.PostgresStore(postgres_pool, table=postgres_table)
+
+    assert await two_processes_add_at_once(first, second) == ["eggs", "milk"]
 
 
 async def test_after_a_lost_race_the_handler_can_commit_on_top_of_the_winner() -> None:

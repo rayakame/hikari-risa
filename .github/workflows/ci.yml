@@ -99,7 +99,7 @@ jobs:
   test:
     name: test (${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    # The store tests run against fakeredis everywhere; this server adds a real Redis run.
+    # The Redis tests also run on fakeredis; the Postgres tests run only against this server.
     services:
       redis:
         image: redis:8-alpine
@@ -110,8 +110,20 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 15
+      postgres:
+        image: postgres:18-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
     env:
       RISA_TEST_REDIS_URL: redis://localhost:6379/0
+      RISA_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
     strategy:
       fail-fast: false
       matrix:

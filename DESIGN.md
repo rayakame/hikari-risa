@@ -74,7 +74,7 @@ durable state. The anchor comes in two dialects, chosen per view at registration
   restart-proof by construction, capacity-bounded (~85 chars per interactive component);
   state lives exactly as long as the message. This is flare's idea scaled ~40× by V2.
 - **`InStore`**: a random 96-bit key, with the state living as one record in a pluggable,
-  developer-chosen `Store` (memory, Redis, their own). Unbounded size, expirable, and with
+  developer-chosen `Store` (memory, Redis, Postgres, their own). Unbounded size, expirable, and with
   a distributed store multi-process-correct — miru's ergonomics made durable.
 
 Both are "state reachable from the message" — one embeds the value, the other a pointer —
@@ -167,7 +167,8 @@ risa/
     constants.py    Discord limits, stamped attribute names    [exists]
     registry.py     ViewMeta, cookie -> view registries        [exists]
     reader.py       message-component walk for chunk reassembly [exists]
-    locks.py        KeyedLocks, shared by MessageBackend and MemoryStore [exists]
+    locks.py        KeyedLocks, shared by MessageBackend, MemoryStore, LeaseLocks [exists]
+    leases.py       LeaseLocks, the lease lock of RedisStore and PostgresStore [exists]
   ui/
     nodes.py        the V2 node set                            [exists]
     build.py        two-phase build: plan (measure) + emit, Rendered [exists]
@@ -185,6 +186,7 @@ risa/
     protocol.py     Store, VersionedEntry, DEFAULT_LOCK_TIMEOUT [exists]
     memory.py       MemoryStore                                [exists]
     redis.py        RedisStore                                 [exists; extra: redis]
+    postgres.py     PostgresStore                              [exists; extra: postgres]
     testing.py      verify_store conformance kit               [exists]
 ```
 
@@ -762,6 +764,29 @@ Changes from the original protocol, all verdicts of the lock investigation:
   bound as a crashed holder. A lapsed lease is logged and left to the CAS. On first use
   the store reads `maxmemory-policy` and warns for any policy but `noeviction`; a server
   that hides its config or leaves the policy out of its reply is noted at DEBUG.
+- **`PostgresStore(pool, *, table="risa_state", lease=5.0, max_hold=60.0)`**
+  **[built 2026-11-02]**, from `risa.store.postgres` with the `[postgres]` extra (asyncpg
+  0.32). It takes an `asyncpg.Pool` the bot owns and runs every statement through it, so no
+  connection stays checked out between statements. An entry is one row of `table` (key,
+  data, version, `expires_at`); `put` is an upsert and `put_if_version` one `UPDATE … WHERE
+  version = $expected`, so the compare and the write are one statement. Versions keep
+  counting across an expiry instead of restarting. Every time comes from the database's
+  clock, so processes whose clocks disagree still agree on expiry and leases. **Expiry
+  [decided 2026-11-02]:** Postgres expires nothing itself, so every read treats a row past
+  `expires_at` as absent and the store deletes expired rows on its own: on its first write,
+  then every hundredth, at most 500 rows at a time, through an index on `expires_at` and
+  with `SKIP LOCKED` so processes never wait on each other's sweep. A write creates at most
+  one row, so that pace always keeps up, and it needs no background task or cron job. A
+  sweep that fails is logged and leaves the write it followed standing. **`lock()`** is the
+  lease of `RedisStore`, run by the same internal `LeaseLocks`, over a row of
+  `{table}_lease`: claiming inserts the row or takes over a lapsed one, renewing and
+  releasing match the token. Advisory locks were rejected, since each one pins a pool
+  connection for as long as the handler runs. **Tables:** on first use the store creates
+  both tables and the index if they are missing, serialized across processes by an
+  advisory transaction lock, and logs it at INFO. Tables that already exist are used as
+  they are, so a role without `CREATE` works once a migration has made them. `table` must
+  be a lowercase identifier of at most 52 characters, which leaves room for the names
+  derived from it.
 
 ### 7.6 Anchors, keys, and schema evolution **[decided]**
 
@@ -1013,6 +1038,20 @@ default.
 - **Namespace with the application ID** — `risa:{app_id}:`, the default; `key_prefix=`
   on the client replaces it (§7.5).
 
+### Postgres notes **[decided 2026-11-02]**
+
+- **Every click writes.** A click that changes nothing still refreshes `expires_at`, so a
+  `PostgresStore` takes one `UPDATE` per click and autovacuum clears the dead rows. Skipping
+  a refresh that lands moments after the previous one would save most of them; not worth
+  doing until a bot needs it.
+- **Ordinary tables, not `UNLOGGED`.** An unlogged table writes faster but is emptied by
+  crash recovery and never reaches a replica, which gives up the restart-proofness that is
+  half the reason to use `InStore`.
+- **Poolers.** asyncpg prepares every statement, so pgbouncer in transaction mode needs its
+  `max_prepared_statements` (1.21+) or `statement_cache_size=0` on the pool. That is the
+  bot's pool configuration; risa does not touch it.
+- **Read from the primary**, for the same reason as Redis.
+
 ### Lock tiering **[resolved by §7.3]**
 
 The old open question ("skip the distributed lock on gateway bots?") dissolved into the
@@ -1024,8 +1063,8 @@ distributed lock off the default path entirely. That loses work on multi-process
 clicks on one view land on two processes, both read the same version, and the later commit
 loses the CAS. A handler that relied on the end-of-dispatch commit has no one to raise to,
 so its mutation is discarded with a WARNING (§7.3). `RedisStore.lock()` therefore takes a
-renewed lease (§7.5), and those clicks queue as they do within one process. Its costs are
-two Redis round trips for a click that meets no contention and finishes within `lease/3`,
+renewed lease (§7.5), and so does `PostgresStore.lock()`, and those clicks queue as they do
+within one process. Its costs are two round trips to the store for a click that meets no contention and finishes within `lease/3`,
 plus a poll every few milliseconds while it waits for the lock and a renewal every
 `lease/3` while it holds it. After a crash, the view is blocked for at most `lease`. The
 lease is still not the correctness story: a stalled holder can lose it, and the CAS
@@ -1262,6 +1301,8 @@ old branch proved steps 1-4 once; they are to be rebuilt against this design, no
 
 - ~~**`RedisStore`** (`[redis]` extra) + **`risa.store.testing.verify_store`** conformance
   kit~~ — built 2026-11-01 (§7.5).
+- ~~**`PostgresStore`** (`[postgres]` extra)~~ — built 2026-11-02 (§7.5, Postgres notes in
+  §10).
 - Docs: the placement 2×2 (§10), the capacity/introspection story, the world-readable
   warning, a first stateful tutorial example whose state *grows*.
 

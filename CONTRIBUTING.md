@@ -33,6 +33,15 @@ on transitive dependencies.
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.
 
+The Postgres tests need a real server and are skipped without `RISA_TEST_POSTGRES_URL`.
+Each test works in tables of its own and drops them afterwards, so any database you can
+create tables in will do:
+
+```sh
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:18-alpine
+RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv run --group nox nox
+```
+
 ## Branches and pull requests
 
 - Work on a branch; `main` only moves through pull requests.
@@ -129,7 +138,8 @@ risa/
     constants.py    Discord limits and the attribute names risa stamps
     registry.py     ViewMeta, HandlerRecord, the cookie -> view registries
     reader.py       the message-component walk that reassembles chunked state
-    locks.py        KeyedLocks, shared by MessageBackend, MemoryStore and RedisStore
+    locks.py        KeyedLocks, shared by MessageBackend, MemoryStore and LeaseLocks
+    leases.py       LeaseLocks, the cross-process lease lock behind RedisStore and PostgresStore
   state/            risa's own state machinery; users never implement against it
     schema.py       StateSchema: durable fields, packing, prefix fingerprints
     anchor.py       anchor dialects, splitting and rejoining across components
@@ -144,6 +154,7 @@ risa/
     protocol.py     Store, VersionedEntry, DEFAULT_LOCK_TIMEOUT
     memory.py       MemoryStore
     redis.py        RedisStore (the [redis] extra)
+    postgres.py     PostgresStore (the [postgres] extra)
     testing.py      verify_store, the conformance kit for Store implementations
   ui/
     build.py        two-phase build: plan (measure) + emit, and Rendered (the send kwargs)
@@ -168,11 +179,11 @@ with id/version/defer, zero-argument and argument-carrying `bind()`), `@register
 handler census, the complete V2 node layer with the build pass, the response surface
 (`respond`/`defer`/`acknowledge`, `rerender()`/`edit(layout)`, the auto-defer watchdog), and
 the dual-placement state architecture: `InMessage` and `InStore` views, their sessions,
-`on_outdated` and `on_state_missing`, `MemoryStore`, `RedisStore` and the `verify_store`
-conformance kit. On a REST bot, risa shares hikari's single component-listener slot with
-whatever listener held it before. Modals are designed (DESIGN §9 and the spec it points to)
-and wait for hikari to parse Discord's new modal components. DESIGN §15 holds the build
-order and the 1.0 roadmap.
+`on_outdated` and `on_state_missing`, `MemoryStore`, `RedisStore`, `PostgresStore` and the
+`verify_store` conformance kit. On a REST bot, risa shares hikari's single component-listener
+slot with whatever listener held it before. Modals are designed (DESIGN §9 and the spec it
+points to) and wait for hikari to parse Discord's new modal components. DESIGN §15 holds the
+build order and the 1.0 roadmap.
 
 - **Components V2 is the model; V1 falls out of it.** V1 is just a tree whose top level
   contains only action rows. There is one tree type and one layout pass. Do not hard-wire the
