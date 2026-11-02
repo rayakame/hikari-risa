@@ -229,7 +229,8 @@ class Client(abc.ABC):
 
         It runs the view's `load`, renders it, and writes an `InStore` view's first record.
         The result spreads into any hikari or lightbulb call that takes `components=`. If
-        that send fails, the record stays behind until its TTL reaps it.
+        that send fails, the record stays behind until its TTL reaps it, or for good under
+        `InStore(ttl=None)`.
 
         Returns
         -------

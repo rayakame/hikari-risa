@@ -270,10 +270,13 @@ class View(msgspec.Struct):
             await ctx.rerender()
     ```
 
-    Each click runs its handler as a transaction on the latest saved state of its view:
-    clicks on one view queue up within a process, and across processes the first write
-    wins. A handler that changes the state and does not rerender still saves it when it
-    returns; one that raises saves nothing.
+    Each click runs its handler on the latest saved state of its view, and clicks on one
+    view queue up within a process. Across processes, an `InStore` view on a shared store
+    lets the first write win, while for an `InMessage` view the last edit of the message
+    wins. A change made without `ctx.rerender()` is saved when the handler returns, but
+    that save can only log a failure, so a handler that must know calls `ctx.rerender()`
+    itself, before any `ctx.respond()`. A handler that raises keeps what it saved through
+    `rerender()` or `edit()` before, and loses the rest.
     """
 
     def render(self) -> ui.Layout:

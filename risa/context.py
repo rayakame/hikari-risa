@@ -420,8 +420,9 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         """Redraw the message from the view's current state, and save that state.
 
         Every rerender is a commit. `InMessage` state is written into the message itself;
-        `InStore` state goes to the store first, then the message is edited. A handler that
-        changes the state and does not rerender still saves it when it returns.
+        `InStore` state goes to the store first, then the message is edited. A change made
+        without calling it is saved when the handler returns, but that save can only log a
+        failure; call it yourself, before any `respond()`, where a failure must be handled.
 
         Raises
         ------

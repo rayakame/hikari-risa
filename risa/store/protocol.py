@@ -57,8 +57,9 @@ class Store(typing.Protocol):
 
     Implement it to keep state somewhere risa ships no store for, and check the
     implementation with `risa.store.testing.verify_store`. A missing or expired entry is
-    never an error: it reads as `None`. Any exception a method raises means the backend
-    could not be reached, and risa reports it as `StoreUnavailableError`.
+    never an error: it reads as `None`. Apart from `LockTimeoutError` from `lock`, any
+    exception a method raises means the backend could not be reached, and risa reports it
+    as `StoreUnavailableError`.
     """
 
     __slots__ = ()

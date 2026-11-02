@@ -110,9 +110,10 @@ class ArgBindError(RisaError):
 
 
 class SignatureMismatchError(RisaError):
-    """Raised when a click carries wire arguments for a different handler signature.
+    """Logged, not raised, when a click carries wire arguments for another handler signature.
 
-    The handler's wire parameters changed without a version bump. Bump the version in
+    The handler's wire parameters changed without a version bump. risa logs this error
+    and routes the click to `View.on_outdated`. Bump the version in
     `@risa.handler(version=...)` so the old components are retired instead.
 
     Attributes

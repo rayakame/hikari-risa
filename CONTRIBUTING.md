@@ -77,8 +77,8 @@ time rather than after the lint output.
   know rather than how it works inside. ruff's `D` and `DOC` rules enforce them in every
   public module; `risa/internal/`, `dispatch.py` and the session machinery in `state/` are
   exempt, as are tests and the noxfile. A one-line docstring needs no `Returns` or `Raises`
-  section. A longer one has both, and lists what a callee raises too, which is why
-  `DOC502` is off. Review bots that ask for docstrings on internal code are declined with
+  section. A longer one documents what it returns, if anything, and what it raises,
+  including what a callee raises, which is why `DOC502` is off. Review bots that ask for docstrings on internal code are declined with
   this rule.
 - **Comments only for a why the code cannot show**: a workaround, a constraint that is not
   obvious, a link to an issue. One line, never what the code does or what changed. The
