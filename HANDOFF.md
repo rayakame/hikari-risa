@@ -1,8 +1,7 @@
 # Handoff — continuing the state pivot on `anchor-codec`
 
-State as of 2026-08-17 (reconstructed 2026-10-25 — the Claude session transcripts for
-2026-08-16/17 were lost to transcript cleanup, so this file is the *only* record of that
-evening's decisions). `DESIGN.md` is the authority on the target; this file is only
+State as of 2026-08-17 (reconstructed 2026-10-25 — the working notes for 2026-08-16/17
+were lost, so this file is the *only* record of that evening's decisions). `DESIGN.md` is the authority on the target; this file is only
 "where we are and what to do next". The old near-complete implementation lives on the
 `start-implementation` branch as a DX reference — read it for ideas, error wording and
 test cases; its internals are not a blueprint.
@@ -14,7 +13,13 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
-**2026-11-01, `RedisStore` and `verify_store` (branch `redis-store`):** the 1.0 store
+**2026-11-02, housekeeping (branch `housekeeping`):** `CONTRIBUTING.md` is the contributor
+guide (commands, toolchain, code style, placement and ordering, layout, design direction,
+gotchas); its docstring rule now matches `ruff.toml` and the working rules below.
+`testbot/README.md` explains how to run the test bot and what each command exercises. The
+merged `session-dispatch` branch is gone.
+
+**2026-11-01, `RedisStore` and `verify_store` (merged as PR #47, `d58099f`):** the 1.0 store
 item from DESIGN §15 is built. `risa.store.testing.verify_store(store)` runs seventeen
 conformance checks concurrently on random keys, deletes what it writes, and raises one
 `StoreConformanceError(failures)`, which also covers a store that raises. `MemoryStore`
@@ -25,8 +30,7 @@ written by Lua scripts) and locks with a renewed lease on `{K}:l`, so clicks on 
 queue across processes instead of losing the CAS. That revises DESIGN's "Lock tiering"
 (§10), with the reasons there and in §7.5. Tests run on fakeredis with Lua everywhere, and
 against a real Redis when `RISA_TEST_REDIS_URL` is set, which the CI test job now does
-with a `redis:8-alpine` service. 853 tests, nox green locally; the real-Redis run is
-CI's.
+with a `redis:8-alpine` service. 865 tests.
 
 **2026-11-01, REST listener slot (merged as PR #44, `6f61c38`):** `client_from_lightbulb`
 on a REST bot no longer raises `TypeError` at startup. risa takes hikari's single
@@ -113,15 +117,15 @@ header, `risa.codecs`, the `hikari-risa[radixly]` extra), `fc29e35` (lockfile re
 `Literal` values in the schema fingerprint), `136830f` (step 3, the sessions), `2207f1b`
 (the merge of `main`).
 
-**How we work.** Claude writes the code; the maintainer decides design and DX and wants to
-understand every piece. Before building a step: present the design and the snippet a bot
+**How we work.** The maintainer decides design and DX and wants to understand every piece
+of code that lands. Before building a step: present the design and the snippet a bot
 author would write, let the maintainer choose, then implement, run `uv run --group nox nox`,
 and explain the result at concept level. No docstrings or comments until the final pass.
 `collections.abc.Sequence`, never `tuple`, in annotations. Never commit, stage or push
 without being asked; commits carry no attribution of any kind.
 
 **The three explainer pages of 2026-10-25** (Lagebild, custom_id anatomy, step 3) were
-private claude.ai artifacts bound to an account the maintainer is leaving; do not rely on
+private pages bound to an account the maintainer is leaving; do not rely on
 their links. Everything load-bearing from them lives here and in DESIGN. The one piece
 that did not, the step-3 verb table, is below.
 
@@ -179,8 +183,7 @@ default, `Annotated[..., risa.TextInput(...)]` only for constraints, a `risa.Par
 alias for the multi-line case) — agreed on 2026-10-25, not yet written down there.
 
 **New machine checklist, in addition to the section below:** `ssh-add ~/.ssh/github` before
-the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"` high in
-`~/.claude/settings.json` — the default of 30 days is what deleted the August transcripts.
+the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
 
 ## Branch situation
 
@@ -208,11 +211,10 @@ the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"`
 
 ## Working rules for this rewrite
 
-- **Since 2026-10-25 Claude writes the code; the maintainer decides.** Present the design
-  and the downstream DX of a step first, let the maintainer choose, then implement, run
-  nox and explain the result at concept level — what a thing *is* and why, with the
-  snippet a bot author would write. (Until 2026-08-17 the split was the other way
-  round: the maintainer typed, Claude guided.)
+- **The maintainer decides design and DX.** Present the design and the downstream DX of a
+  step first, let the maintainer choose, then implement, run nox and explain the result
+  at concept level — what a thing *is* and why, with the snippet a bot author would
+  write.
 - **No docstrings, no comments** until a dedicated final pass. The comment lint families
   (`CPY`, `D`, `DOC`, `ERA`, `FIX`, `TD`) are disabled in `ruff.toml`. The 19-line MIT
   header is not a comment and not optional: every `.py` file carries it, including tests,
@@ -222,12 +224,10 @@ the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"`
   `collections.abc.Sequence`; storing a tuple internally is fine.
 - Everything runs through uv/nox: `uv run --group nox nox` (all six sessions) or
   `-s ruff pyright pytest` while iterating; `uv run --group pytest pytest -q` for the
-  fast loop. pyright strict is the gate. **688 tests pass** in the working tree, all nox
-  sessions are green (405 tests at the branch head commit; everything from step 2 onward
-  is not yet committed — `git status` shows the full extent).
-- Commits are authored solely by the repository owner: no co-author trailers, no
-  generated-with footers, and no mention of Claude or Anthropic anywhere in a commit
-  message, PR body or code comment. Never commit, stage or push without being asked.
+  fast loop. pyright strict is the gate.
+- Commits are authored solely by the repository owner and carry no attribution of any
+  kind, in a commit message, a PR body or the code. Never commit, stage or push without
+  being asked.
 - Tests mirror the package. Helpers worth knowing: `engine(handler)` in
   `test_view.py`/`test_nodes.py` (isinstance-narrows past the typing fiction to reach
   `HandlerBinder`), `component_ctx(...)` in `test_context.py`, `custom_id_of(cls, button)`
@@ -257,7 +257,7 @@ the first commit; `testbot/.env` with `TOKEN=...`; and set `"cleanupPeriodDays"`
   installed source or live Discord; do not answer from memory. Everything under
   "verified facts" below was settled that way, and several entries overturned a
   confident wrong answer.
-- **Placement and ordering are written into CLAUDE.md**: a helper lives with the concept
+- **Placement and ordering are written into CONTRIBUTING.md**: a helper lives with the concept
   it serves, each file reads in bands ending with its entry point, private module
   functions follow the class band. New modules should land already ordered.
 
