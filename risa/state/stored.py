@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The `InStore` placement: state in a store, behind a key the message carries."""
+
 from __future__ import annotations
 
 import asyncio
@@ -61,6 +63,14 @@ class _Target(msgspec.Struct, frozen=True):
 
 
 class KeyNamespace:
+    """Turns a store anchor's key into the full store key.
+
+    Keys are `{prefix}:1:{hex key}`, the `1` being the key layout. The prefix is the
+    client's `key_prefix`, or `risa:{application id}`. The application id comes from the
+    click itself, and before the first click from one `fetch_application()` call, never
+    from the bot token.
+    """
+
     __slots__ = ("_application_id", "_fetching", "_key_prefix", "_rest")
 
     def __init__(self, rest: hikari.api.RESTClient, *, key_prefix: str | None = None) -> None:
@@ -70,12 +80,14 @@ class KeyNamespace:
         self._fetching = asyncio.Lock()
 
     def for_click(self, token: str, interaction: hikari.ComponentInteraction) -> str:
+        """Return the store key for a click's anchor token."""
         if self._key_prefix is not None:
             return _compose(self._key_prefix, token)
         self._application_id = interaction.application_id
         return _compose(f"risa:{interaction.application_id}", token)
 
     async def for_build(self, token: str) -> str:
+        """Return the store key for a newly built view's anchor token."""
         if self._key_prefix is not None:
             return _compose(self._key_prefix, token)
         return _compose(f"risa:{await self._application()}", token)
@@ -90,6 +102,17 @@ class KeyNamespace:
 
 
 class StoredSession(backend.StateSession):
+    """One click on an `InStore` view.
+
+    `open` locates the key in the clicked component and takes the store's lock.
+    `restore` reads the record and remembers its version. `stage` writes only when the
+    durable fields changed, with a compare-and-set on that version, and merely touches the
+    record otherwise. A lost compare-and-set adopts the state that won and raises
+    `StateConflictError`; a record gone meanwhile raises `StateNotFoundError`. Either
+    detaches the session, so nothing more commits against a dead baseline. `close`
+    touches the record if nothing has refreshed its TTL yet, then releases the lock.
+    """
+
     __slots__ = (
         "_backend",
         "_baseline",
@@ -301,6 +324,18 @@ class StoredSession(backend.StateSession):
 
 
 class StoredBackend(backend.StateBackend):
+    """The `InStore` placement for one store of the client.
+
+    Parameters
+    ----------
+    store
+        The store.
+    namespace
+        How the client's store keys are composed.
+    lock_timeout
+        Seconds a click waits for the store's lock.
+    """
+
     __slots__ = ("_lock_timeout", "_namespace", "_store")
 
     def __init__(
@@ -316,14 +351,17 @@ class StoredBackend(backend.StateBackend):
 
     @property
     def store(self) -> protocol.Store:
+        """The store state is kept in."""
         return self._store
 
     @property
     def namespace(self) -> KeyNamespace:
+        """How store keys are composed."""
         return self._namespace
 
     @property
     def lock_timeout(self) -> float:
+        """Seconds a click waits for the store's lock."""
         return self._lock_timeout
 
     @typing.override
@@ -364,10 +402,37 @@ def _placement_of(meta: registry.ViewMeta) -> placement_.InStore:
 
 
 def _entry(meta: registry.ViewMeta, packed: bytes) -> bytes:
+    """Wrap packed state in the envelope a store entry is written in.
+
+    The envelope names the view and its version next to the field fingerprint, so a
+    forged or foreign key cannot be read into the wrong view.
+
+    Returns
+    -------
+    bytes
+        The entry, ready for the store.
+    """
     return serde.pack_entry(serde.Envelope(v=meta.version, n=meta.name, f=meta.schema.fingerprint, d=packed))
 
 
 async def _guarded[T](key: str, call: collections.abc.Callable[[], collections.abc.Awaitable[T]]) -> T:
+    """Run a store call, turning any failure into `StoreUnavailableError`.
+
+    `LockTimeoutError` and `StoreUnavailableError` pass through as they are, so a
+    timeout is never reported as an outage.
+
+    Returns
+    -------
+    T
+        What the call returned.
+
+    Raises
+    ------
+    LockTimeoutError
+        If the call timed out waiting for a lock.
+    StoreUnavailableError
+        If the call failed in any other way.
+    """
     try:
         return await call()
     except (errors.LockTimeoutError, errors.StoreUnavailableError):

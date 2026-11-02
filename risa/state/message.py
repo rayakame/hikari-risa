@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The `InMessage` placement: state read from the clicked message, written by editing it."""
+
 from __future__ import annotations
 
 import collections.abc
@@ -51,6 +53,14 @@ _SEQ_SPACE: typing.Final[int] = anchor.MAX_SEQ + 1
 
 
 class MessageSession(backend.StateSession):
+    """One click on an `InMessage` view.
+
+    The state comes from `interaction.message`, the message as Discord delivered it with
+    the click. When two clicks land close together, the second can arrive with the
+    message from before the first one's edit. The backend therefore remembers the last
+    commit per message, and the anchor whose `seq` is newer wins.
+    """
+
     __slots__ = ("_backend", "_baseline", "_cookie", "_held", "_interaction", "_meta", "_seq", "_staged")
 
     def __init__(
@@ -181,6 +191,16 @@ class MessageSession(backend.StateSession):
 
 
 class MessageBackend(backend.StateBackend):
+    """The `InMessage` placement, with one lock per message and the cache of recent commits.
+
+    Parameters
+    ----------
+    max_cached
+        How many messages' last commits to remember, least recently used first out.
+    lock_timeout
+        Seconds a click waits for the message's lock.
+    """
+
     __slots__ = ("_cache", "_lock_timeout", "_locks", "_max_cached")
 
     def __init__(
@@ -215,15 +235,18 @@ class MessageBackend(backend.StateBackend):
         pass
 
     def hold(self, message_id: hikari.Snowflake) -> contextlib.AbstractAsyncContextManager[None]:
+        """Hold the lock of one message, so clicks on it run one at a time."""
         return self._locks.hold(str(message_id), timeout=self._lock_timeout)
 
     def cached(self, message_id: hikari.Snowflake, cookie: str) -> anchor.MessageAnchor | None:
+        """Return the last commit remembered for the view `cookie` on a message, or `None`."""
         committed = self._cache.get((message_id, cookie))
         if committed is not None:
             self._cache.move_to_end((message_id, cookie))
         return committed
 
     def remember(self, message_id: hikari.Snowflake, cookie: str, committed: anchor.MessageAnchor) -> None:
+        """Remember a commit as the latest for the view `cookie` on a message."""
         self._cache[message_id, cookie] = committed
         self._cache.move_to_end((message_id, cookie))
         while len(self._cache) > self._max_cached:
@@ -231,8 +254,19 @@ class MessageBackend(backend.StateBackend):
 
 
 def _unwritten(found: collections.abc.Mapping[int, bytes]) -> bool:
+    """Whether every fragment is present and empty, as for a view sent before it had state."""
     return bool(found) and not any(found.values()) and sorted(found) == list(range(len(found)))
 
 
 def _newer(candidate: int, than: int) -> bool:
+    """Whether sequence number `candidate` is newer than `than`.
+
+    The counter wraps, so this is serial number arithmetic: a number up to half the
+    sequence space ahead counts as newer.
+
+    Returns
+    -------
+    bool
+        Whether `candidate` is the newer of the two.
+    """
     return 0 < (candidate - than) % _SEQ_SPACE < _SEQ_SPACE // 2

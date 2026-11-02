@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""What risa knows about each registered view, and the lookup from cookie to view."""
+
 from __future__ import annotations
 
 import logging
@@ -67,6 +69,22 @@ type LoadCallback = collections.abc.Callable[
 
 
 class HandlerRecord(msgspec.Struct, frozen=True):
+    """A handler as dispatch calls it.
+
+    Attributes
+    ----------
+    callback
+        The handler function, wrapped by `linkd.inject`.
+    handler_id
+        The id it routes under.
+    version
+        Its version.
+    defer
+        Its own `AutoDefer`, already resolved against the view's.
+    signature
+        Its wire parameters.
+    """
+
     callback: DispatchCallback
     handler_id: str
     version: int
@@ -75,6 +93,13 @@ class HandlerRecord(msgspec.Struct, frozen=True):
 
 
 class ViewMeta(msgspec.Struct, frozen=True):
+    """Everything `@risa.register` resolved about a view, stamped on the class.
+
+    `handlers` maps routing tokens to handlers. `outdated`, `state_missing` and `loader`
+    are `None` when the view does not override them; an overridden `on_outdated` or
+    `on_state_missing` also quiets the warning the click that reaches it would log.
+    """
+
     cls: type[View]
     name: str
     version: int
@@ -95,6 +120,7 @@ class ViewMeta(msgspec.Struct, frozen=True):
 
     @property
     def cookie(self) -> str:
+        """The cookie the view routes under, from its name and schema version."""
         return codec.make_cookie(self.name, self.version)
 
     @property
@@ -103,12 +129,25 @@ class ViewMeta(msgspec.Struct, frozen=True):
 
 
 class Registry:
+    """Registered views by cookie.
+
+    `@risa.register` adds to the global one; each client keeps its own for the views
+    passed to `add_view`.
+    """
+
     __slots__ = ("_views",)
 
     def __init__(self) -> None:
         self._views: dict[str, ViewMeta] = {}
 
     def register(self, meta: ViewMeta) -> None:
+        """Add `meta` under its cookie. Registering the same class again replaces it.
+
+        Raises
+        ------
+        DuplicateViewError
+            If a different class already routes under that cookie.
+        """
         existing = self._views.get(meta.cookie)
         if existing is not None and existing.cls is not meta.cls:
             raise errors.DuplicateViewError(meta.name, existing.name, meta.cookie)
@@ -130,15 +169,38 @@ def global_registry() -> Registry:
 
 
 def stamp(cls: type[View], meta: ViewMeta) -> None:
+    """Attach `meta` to `cls`, where `meta_of` finds it."""
     setattr(cls, constants.VIEW_META, meta)
 
 
 def meta_of(cls: type[View]) -> ViewMeta | None:
+    """Return the meta stamped on `cls` itself, or `None`.
+
+    It reads the class's own `__dict__`, so a subclass of a registered view is not taken
+    for that view until it is registered itself.
+
+    Returns
+    -------
+    ViewMeta | None
+        The meta, or `None` for a class that was never registered.
+    """
     meta = cls.__dict__.get(constants.VIEW_META)
     return meta if isinstance(meta, ViewMeta) else None
 
 
 def require_meta(obj: type[View] | View) -> ViewMeta:
+    """Return the meta of a view class or instance.
+
+    Returns
+    -------
+    ViewMeta
+        The meta `@risa.register` stamped on the class.
+
+    Raises
+    ------
+    NotAViewError
+        If the class was never registered.
+    """
     cls = obj if isinstance(obj, type) else type(obj)
     meta = meta_of(cls)
     if meta is None:

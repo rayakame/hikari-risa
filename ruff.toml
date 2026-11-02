@@ -21,15 +21,16 @@ ignore = [
     "F401", # imported but unused
     "F403", # unable to detect undefined names
 ]
-# Docstrings are for the public API; these modules are risa's own machinery.
-"risa/internal/**" = ["D1"]
-"risa/dispatch.py" = ["D1"]
-"risa/state/anchor.py" = ["D1"]
-"risa/state/backend.py" = ["D1"]
-"risa/state/message.py" = ["D1"]
-"risa/state/serde.py" = ["D1"]
-"risa/state/stateless.py" = ["D1"]
-"risa/state/stored.py" = ["D1"]
+# Every module says what it is for; the classes and functions of risa's own machinery
+# carry docstrings only where they are hard to follow.
+"risa/internal/**" = ["D101", "D102", "D103"]
+"risa/dispatch.py" = ["D101", "D102", "D103"]
+"risa/state/anchor.py" = ["D101", "D102", "D103"]
+"risa/state/backend.py" = ["D101", "D102", "D103"]
+"risa/state/message.py" = ["D101", "D102", "D103"]
+"risa/state/serde.py" = ["D101", "D102", "D103"]
+"risa/state/stateless.py" = ["D101", "D102", "D103"]
+"risa/state/stored.py" = ["D101", "D102", "D103"]
 "noxfile.py" = ["D", "DOC"]
 "tests/**" = [
     "D",       # tests are not public API

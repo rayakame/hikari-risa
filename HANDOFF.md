@@ -21,7 +21,11 @@ function, method and property has a short numpy-style docstring. `MemoryStore`,
 `RedisStore` and `PostgresStore` subclass `Store` explicitly with `@typing.override`, so
 pyright checks them against the protocol where they are defined and they inherit its
 docstrings; `Store` gained `__slots__ = ()`. `SchemaMismatchError` is gone: nothing could
-raise it, because the cookie hashes the schema version (DESIGN §13). Part 2 is the docs
+raise it, because the cookie hashes the schema version (DESIGN §13). Every module,
+internal ones included, has a module docstring, and the internal code has docstrings where
+it is hard to follow: the `custom_id` layout, the anchor and its parking, the session
+lifecycle, the version cache and its serial-number compare, the dispatch path, the lease
+lock. ruff waives only `D101`–`D103` for internal code. Part 2 is the docs
 site: the README (empty so far), the guides, the placement 2×2, the tutorial, and the
 API reference generated from these docstrings. 907 tests.
 

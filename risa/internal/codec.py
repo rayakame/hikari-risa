@@ -17,6 +17,22 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""The `custom_id` layout, and the converters wire arguments travel through.
+
+Every interactive component risa renders carries one `custom_id` of at most 100
+characters, laid out as (DESIGN §6.1):
+
+```text
+ver:1  codec:1  cookie:6  handler:2  idx:1  frag_len:1  fragment  [fingerprint:2 frames]
+```
+
+`ver` is the layout version and `codec` the tag of the codec the byte fields are
+written in. `cookie` and `handler` route the click. `idx` and `frag_len` frame the
+component's slice of the view's anchor (`risa.state.anchor`). What remains is the
+handler's wire arguments: a signature fingerprint, then one length-prefixed frame per
+argument, or nothing for a handler without wire parameters.
+"""
+
 from __future__ import annotations
 
 import abc
@@ -85,14 +101,52 @@ FINGERPRINT_LENGTH: typing.Final[int] = 2
 
 
 def make_cookie(name: str, version: int) -> str:
+    """Return the cookie a view routes under, a digest of its name and schema version.
+
+    Hashing the version in makes a schema bump retire every component sent before it:
+    their cookie no longer matches any view.
+
+    Returns
+    -------
+    str
+        The six-character cookie.
+    """
     return wire.pack_digest(f"{name}:{version}", chars=COOKIE_LENGTH)
 
 
 def make_handler_token(handler_id: str, version: int) -> str:
+    """Return the token a handler routes under, a digest of its id and version.
+
+    It depends on nothing about the handler's siblings, so adding, removing or reordering
+    other handlers never moves it.
+
+    Returns
+    -------
+    str
+        The two-character token.
+    """
     return wire.pack_digest(f"{handler_id}:{version}", chars=HANDLER_LENGTH)
 
 
 class CustomID(msgspec.Struct, frozen=True):
+    """One component's `custom_id`, split into its fields.
+
+    Attributes
+    ----------
+    cookie
+        The view's cookie.
+    handler
+        The handler's token.
+    fragment_index
+        Which slice of the anchor `fragment` is.
+    fragment
+        The component's slice of the anchor, encoded with `codec`.
+    tail
+        The wire arguments: the signature fingerprint and the frames, or empty.
+    codec
+        The codec the fragment and the frames are written in.
+    """
+
     cookie: str
     handler: str
     fragment_index: int
@@ -101,6 +155,20 @@ class CustomID(msgspec.Struct, frozen=True):
     codec: codecs.Codec = codecs.BASE85
 
     def encode(self) -> str:
+        """Write the fields out as one `custom_id`.
+
+        Returns
+        -------
+        str
+            The `custom_id`.
+
+        Raises
+        ------
+        ValueError
+            If the cookie or the handler token has the wrong length.
+        CustomIdOverflowError
+            If it would exceed Discord's 100 characters.
+        """
         if len(self.cookie) != COOKIE_LENGTH:
             msg = f"cookie must be exactly {COOKIE_LENGTH} characters, got {len(self.cookie)}"
             raise ValueError(msg)
@@ -127,6 +195,17 @@ class CustomID(msgspec.Struct, frozen=True):
 
 
 def parse_custom_id(raw: str) -> CustomID | None:
+    """Split `raw` into its fields, or return `None` if risa did not write it.
+
+    `None` covers every `custom_id` of another layout, an unknown codec tag, or a frame
+    that does not fit; dispatch ignores those, so risa can share a bot with other
+    component handlers.
+
+    Returns
+    -------
+    CustomID | None
+        The fields, or `None` for a `custom_id` that is not risa's.
+    """
     if not (HEADER_LENGTH <= len(raw) <= constants.MAX_CUSTOM_ID_LENGTH) or raw[0] != VERSION:
         return None
     wire_codec = codecs.by_tag(raw[len(VERSION)])
@@ -155,6 +234,15 @@ def parse_custom_id(raw: str) -> CustomID | None:
 
 
 def decode_text(text: str, wire_codec: codecs.Codec) -> bytes | errors.CodecUnavailableError | None:
+    """Decode a fragment or frame with `wire_codec`.
+
+    Returns
+    -------
+    bytes | CodecUnavailableError | None
+        The bytes; the error, unraised, when the codec's extra is missing, so the caller
+        can tell an unreadable host from forged text; or `None` for text the codec cannot
+        read.
+    """
     try:
         return wire_codec.decode(text)
     except errors.CodecUnavailableError as exc:
@@ -164,17 +252,27 @@ def decode_text(text: str, wire_codec: codecs.Codec) -> bytes | errors.CodecUnav
 
 
 class ArgConverter(abc.ABC):
+    """How one wire parameter's values are written into a frame and read back.
+
+    `type_id` names the converter in the signature fingerprint. It names the type's
+    shape, never the parameter, so renaming a parameter or switching `int` to
+    `hikari.Snowflake` leaves live components routable.
+    """
+
     __slots__ = ()
 
     @property
     @abc.abstractmethod
-    def type_id(self) -> str: ...
+    def type_id(self) -> str:
+        """The converter's part of the signature fingerprint."""
 
     @abc.abstractmethod
-    def encode(self, value: object) -> bytes: ...
+    def encode(self, value: object) -> bytes:
+        """Write `value` as bytes, raising `TypeError` for a value of the wrong type."""
 
     @abc.abstractmethod
-    def decode(self, data: bytes) -> object | None: ...
+    def decode(self, data: bytes) -> object | None:
+        """Read `data` back into a value, or return `None` if it is not one of this converter's."""
 
 
 class IntConverter(ArgConverter):
@@ -289,6 +387,19 @@ def _enum_converter(enum_cls: type[enum.Enum]) -> EnumConverter:
 
 
 def resolve_converter(annotation: object) -> ArgConverter | None:
+    """Return the converter for a wire parameter annotated `annotation`.
+
+    Returns
+    -------
+    ArgConverter | None
+        The converter, or `None` for a type that is not a wire type and is therefore
+        injected.
+
+    Raises
+    ------
+    ValueError
+        If `annotation` is an enum whose values are not all `int` or all `str`.
+    """
     if annotation is bool:
         return BoolConverter()
     if annotation is int:
@@ -303,10 +414,12 @@ def resolve_converter(annotation: object) -> ArgConverter | None:
 
 
 def pack_frames(parts: collections.abc.Sequence[str]) -> str:
+    """Join encoded arguments, each led by its length in one base-92 digit."""
     return "".join(wire.pack_uint(len(part), FRAME_LEN_WIDTH) + part for part in parts)
 
 
 def unpack_frames(raw: str) -> list[str] | None:
+    """Split joined frames back apart, or return `None` if their lengths do not add up."""
     parts: list[str] = []
     position = 0
     while position < len(raw):
@@ -323,6 +436,19 @@ def unpack_frames(raw: str) -> list[str] | None:
 
 
 class HandlerSignature(msgspec.Struct, frozen=True):
+    """A handler's wire parameters, resolved once at registration.
+
+    Attributes
+    ----------
+    converters
+        One converter per wire parameter, in order.
+    required
+        How many of them have no default.
+    fingerprint
+        The digest of the converters' type ids, which every component with wire arguments
+        carries.
+    """
+
     converters: collections.abc.Mapping[str, ArgConverter]
     required: int
     fingerprint: str
@@ -357,6 +483,24 @@ def _resolve_hints(func: collections.abc.Callable[..., object]) -> dict[str, obj
 
 
 def resolve_signature(func: collections.abc.Callable[..., object]) -> HandlerSignature:
+    """Split a handler's parameters after `self` and `ctx` into wire and injected ones.
+
+    Wire parameters are the leading positional parameters with a wire type. The first
+    parameter that is keyword-only, unannotated, defaulted to `linkd.INJECTED` or of
+    another type starts the injected section, and nothing after it may be a wire type
+    again.
+
+    Returns
+    -------
+    HandlerSignature
+        The converters, the count of required ones, and their fingerprint.
+
+    Raises
+    ------
+    HandlerSignatureError
+        If a wire-typed parameter follows the injected section, or an enum cannot be a
+        wire type.
+    """
     hints = _resolve_hints(func)
     params = list(inspect.signature(func).parameters.values())[2:]
     converters: dict[str, ArgConverter] = {}

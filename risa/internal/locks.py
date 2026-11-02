@@ -17,6 +17,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+"""Per-key asyncio locks, shared by `MessageBackend`, `MemoryStore` and `LeaseLocks`."""
+
 from __future__ import annotations
 
 import asyncio
@@ -39,6 +41,12 @@ class _KeyLock(msgspec.Struct):
 
 
 class KeyedLocks:
+    """One asyncio lock per key, created on first use.
+
+    A key's lock is dropped as soon as nobody holds or waits for it, so locking every
+    message a bot ever sees does not grow memory.
+    """
+
     __slots__ = ("_locks",)
 
     def __init__(self) -> None:
@@ -54,6 +62,13 @@ class KeyedLocks:
         *,
         timeout: float,  # ruff:ignore[async-function-with-timeout]
     ) -> collections.abc.AsyncGenerator[None]:
+        """Hold the lock on `key` while the returned context manager is entered.
+
+        Raises
+        ------
+        LockTimeoutError
+            If the lock is not granted within `timeout` seconds.
+        """
         entry = self._locks.setdefault(key, _KeyLock(lock=asyncio.Lock()))
         entry.waiters += 1
         try:
