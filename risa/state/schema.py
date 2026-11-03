@@ -236,6 +236,13 @@ class StateSchema:
         except msgspec.DecodeError:
             return None
 
+    def field_sizes(self, packed: bytes) -> collections.abc.Mapping[str, int]:
+        """Return the bytes each durable field takes in state this schema packed, by name."""
+        if not self._fields:
+            return {}
+        values = msgspec.msgpack.decode(packed, type=list[msgspec.Raw])
+        return {name: len(value) for name, value in zip(self._names, values, strict=True)}
+
 
 def _is_prop(annotation: object) -> bool:
     return getattr(annotation, "__origin__", None) is Prop

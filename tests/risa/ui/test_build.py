@@ -201,6 +201,25 @@ def test_state_too_large_for_the_tree_overflows_when_emitted() -> None:
         plan.emit(state_of(poll))
 
 
+def test_an_overflow_says_how_many_bytes_each_durable_field_takes() -> None:
+    poll = Poll(votes={f"option {i}": i for i in range(40)})
+    raw = state_of(poll)
+    plan = build_.plan(ui.Row(ui.Button(poll.close)), POLL)
+
+    with pytest.raises(risa.StateOverflowError) as exc_info:
+        plan.emit(raw)
+
+    overflow = exc_info.value
+    assert overflow.fields == {
+        "question": len(msgspec.msgpack.encode(poll.question)),
+        "votes": len(msgspec.msgpack.encode(poll.votes)),
+    }
+    assert overflow.needed == len(raw)
+    assert "votes" in str(overflow).splitlines()[1]
+    assert overflow.__cause__ is None
+    assert overflow.__suppress_context__
+
+
 def test_a_leaf_too_full_for_the_store_key_fails_at_planning_time() -> None:
     ledger = Ledger()
 
