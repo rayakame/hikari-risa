@@ -202,21 +202,46 @@ class StateOverflowError(RisaError):
         The number of interactive components.
     codec_name
         The codec the state was written with.
+    fields
+        The bytes each durable field takes, by name, in declaration order. What they leave
+        of `needed` is risa's own framing.
     """
 
-    def __init__(self, view_name: str, *, needed: int, available: int, slots: int, codec_name: str) -> None:
+    def __init__(
+        self,
+        view_name: str,
+        *,
+        needed: int,
+        available: int,
+        slots: int,
+        codec_name: str,
+        fields: collections.abc.Mapping[str, int] | None = None,
+    ) -> None:
         self.view_name = view_name
         self.needed = needed
         self.available = available
         self.slots = slots
         self.codec_name = codec_name
-        super().__init__(
-            f"view {view_name!r} needs {needed} bytes of durable state, but with codec {codec_name!r} its"
-            f" {slots} interactive component(s) can only carry {available}; add components, shorten the"
-            " fields, mark per-dispatch fields risa.Prop[...], pick a denser codec"
-            " (state=risa.InMessage(codec=risa.codecs.BASE32768) with hikari-risa[radixly]), or give the"
-            " view state=risa.InStore(...)",
+        self.fields: collections.abc.Mapping[str, int] = dict(fields or {})
+        components = "component carries" if slots == 1 else "components carry"
+        head = (
+            f"view {view_name!r} needs {needed} bytes of durable state, but its {slots} interactive"
+            f" {components} only {available} with codec {codec_name!r}"
         )
+        remedy = (
+            "Make room by marking per-dispatch fields risa.Prop[...], adding components, shortening"
+            " fields, using a denser codec (state=risa.InMessage(codec=risa.codecs.BASE32768) with"
+            " hikari-risa[radixly]), or moving the view to state=risa.InStore(...)."
+        )
+        if not self.fields:
+            super().__init__(f"{head}.\n{remedy}")
+            return
+        rows = sorted(self.fields.items(), key=lambda row: -row[1])
+        rows.append(("framing", needed - sum(self.fields.values())))
+        name_width = max(len(name) for name, _ in rows)
+        size_width = max(len(str(size)) for _, size in rows)
+        breakdown = "\n".join(f"    {name:<{name_width}}  {size:>{size_width}} bytes" for name, size in rows)
+        super().__init__(f"{head}:\n{breakdown}\n{remedy}")
 
 
 class CodecUnavailableError(RisaError):

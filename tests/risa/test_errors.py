@@ -78,6 +78,52 @@ def test_custom_id_overflow_reports_the_offending_length() -> None:
     assert "137" in str(error)
 
 
+def test_state_overflow_lists_each_field_largest_first_then_the_framing() -> None:
+    error = risa.StateOverflowError(
+        "poll",
+        needed=200,
+        available=198,
+        slots=3,
+        codec_name="base85",
+        fields={"question": 12, "counts": 4, "voters": 174},
+    )
+
+    lines = str(error).splitlines()
+    assert lines[0] == (
+        "view 'poll' needs 200 bytes of durable state, but its 3 interactive components"
+        " carry only 198 with codec 'base85':"
+    )
+    assert lines[1:5] == [
+        "    voters    174 bytes",
+        "    question   12 bytes",
+        "    counts      4 bytes",
+        "    framing    10 bytes",
+    ]
+    assert lines[5].startswith("Make room by marking per-dispatch fields risa.Prop[...]")
+    assert "risa.InStore" in lines[5]
+    assert len(lines) == 6
+    assert list(error.fields) == ["question", "counts", "voters"]
+
+
+def test_state_overflow_on_one_component_reads_in_the_singular() -> None:
+    error = risa.StateOverflowError("poll", needed=90, available=70, slots=1, codec_name="base85", fields={"a": 80})
+
+    assert "its 1 interactive component carries only 70" in str(error)
+
+
+def test_state_overflow_without_a_breakdown_is_one_sentence_and_its_remedy() -> None:
+    error = risa.StateOverflowError("poll", needed=200, available=198, slots=3, codec_name="base85")
+
+    lines = str(error).splitlines()
+    assert error.fields == {}
+    assert lines[0] == (
+        "view 'poll' needs 200 bytes of durable state, but its 3 interactive components"
+        " carry only 198 with codec 'base85'."
+    )
+    assert lines[1].startswith("Make room by")
+    assert len(lines) == 2
+
+
 def test_not_a_handler_names_the_offending_type() -> None:
     error = risa.NotAHandlerError("str")
 

@@ -6,14 +6,22 @@ were lost, so this file is the *only* record of that evening's decisions). `DESI
 `start-implementation` branch as a DX reference — read it for ideas, error wording and
 test cases; its internals are not a blueprint.
 
-## Resume here (written 2026-10-25, updated 2026-11-02)
+## Resume here (written 2026-10-25, updated 2026-11-03)
 
 This block is current; it is the short path back in. Below it, the "Next, in order"
 notes for steps 1 and 2 are the August record and are kept as history: where they and
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
-**2026-11-02, docs pass, part 1: API docstrings (branch `docs-api`):** ruff's docstring
+**2026-11-03, the overflow breakdown (branch `overflow-breakdown`):** `StateOverflowError`
+now says how many bytes each durable field takes, largest first, with risa's own framing
+as the last line, and keeps the numbers in a new `fields` attribute (name to bytes, in
+declaration order). The build plan measures them with `StateSchema.field_sizes` when
+`anchor.carve` overflows and raises the enriched error in place of carve's. This is what
+DESIGN §13 promised, and chapter 07 of the planned docs site builds its story on it.
+A public way to ask how full a view is before it overflows is still open (DESIGN §15).
+
+**2026-11-02, docs pass, part 1: API docstrings (merged as PR #50, `a9fe286`):** ruff's docstring
 and comment rules are back on (`D`, `DOC`, `ERA`, `FIX`, `TD`, `CPY`). `D1` is waived for
 `internal/`, `dispatch.py` and the session modules of `state/`, `D105` everywhere, and
 `DOC502` is off so that docstrings list what a callee raises. Every public module, class,
@@ -220,8 +228,9 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
   `on_outdated` (#17), the structural cleanup (#18), slotscheck (#19), the CI checkout
   hardening (#20, #21), the state pivot's steps 1–3 (#39) and step 4 (#40), the shared
   REST listener slot (#44), `RedisStore` with `verify_store` (#47), the contributor guide
-  (#48) and `PostgresStore` (#49).
-- **`docs-api`** carries the API docstrings, part 1 of the docs pass.
+  (#48), `PostgresStore` (#49) and the API docstrings (#50).
+- **`overflow-breakdown`** carries the per-field breakdown in `StateOverflowError`.
+- **`docs-api`** was squash-merged as #50 and deleted.
 - **`modals`** carries the step 5 design, parked until hikari parses the new modal
   components: one commit on top of `main`, rebased whenever `main` moves.
 - **`anchor-codec`** (steps 1–3) and **`session-dispatch`** (step 4) were squash-merged and

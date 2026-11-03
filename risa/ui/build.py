@@ -186,7 +186,18 @@ class Plan:
         wire_codec = self._meta.state.codec
         if isinstance(self._meta.state, placement.InStore):
             return [anchor.Slot(index=0, fragment=wire_codec.encode(state))] * len(self._capacities)
-        fragments = anchor.carve(state, _parked(self._capacities), wire_codec=wire_codec, view_name=self._meta.name)
+        try:
+            fragments = anchor.carve(state, _parked(self._capacities), wire_codec=wire_codec, view_name=self._meta.name)
+        except errors.StateOverflowError as exc:
+            message = anchor.MessageAnchor.parse(state)
+            raise errors.StateOverflowError(
+                exc.view_name,
+                needed=exc.needed,
+                available=exc.available,
+                slots=exc.slots,
+                codec_name=exc.codec_name,
+                fields=self._meta.schema.field_sizes(message.payload) if message is not None else None,
+            ) from None
         return anchor.distribute(fragments)
 
 

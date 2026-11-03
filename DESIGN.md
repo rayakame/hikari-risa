@@ -1188,7 +1188,7 @@ new types ad hoc:
 |---|---|
 | tree breaks an invariant risa owns | `LayoutError` (path-qualified) |
 | encoded custom_id > 100 chars | `CustomIdOverflowError` |
-| durable state exceeds the tree's chunk capacity | `StateOverflowError` (at build/rerender; per-field size breakdown, suggests `Prop`/`InStore`) |
+| durable state exceeds the tree's chunk capacity | `StateOverflowError` (at build/rerender; per-field size breakdown **[built 2026-11-03]**, suggests `Prop`/`InStore`) |
 | stored state predates a schema bump | nothing raised: the cookie hashes the schema version, so an old component no longer routes to the view at all (§6.1); `SchemaMismatchError` was removed 2026-11-02, since nothing could reach it |
 | store entry gone before the handler (expired/evicted) | routed to `on_state_missing` |
 | store entry gone while the handler runs | `StateNotFoundError` from `rerender()`, session detached (§7.3) |
@@ -1306,7 +1306,9 @@ old branch proved steps 1-4 once; they are to be rebuilt against this design, no
 - Docs: the placement 2×2 (§10), the capacity/introspection story, the world-readable
   warning, a first stateful tutorial example whose state *grows*. The first half, numpy
   docstrings for the whole public API with ruff's `D`/`DOC` rules enforcing them, was
-  built 2026-11-02; the site and its guides remain.
+  built 2026-11-02; the site and its guides remain. Of the capacity story, the per-field
+  breakdown in `StateOverflowError` was built 2026-11-03; a way to ask how full a view is
+  before it overflows remains.
 
 ### Deferred, deliberately (revisit post-1.0 — the maintainer wants these re-discussed)
 

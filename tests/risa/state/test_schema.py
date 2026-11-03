@@ -333,6 +333,15 @@ def test_every_supported_field_type_survives_the_round_trip() -> None:
     assert list(schema.unpack(schema.fingerprint, schema.pack(values)) or []) == values
 
 
+def test_the_size_of_each_field_is_read_back_from_packed_state() -> None:
+    schema = schema_of(Pair)
+
+    sizes = schema.field_sizes(schema.pack(["Ship it?", "ray"]))
+
+    assert sizes == {"question": len(msgspec.msgpack.encode("Ship it?")), "author": len(msgspec.msgpack.encode("ray"))}
+    assert list(sizes) == ["question", "author"]
+
+
 def test_a_snowflake_field_comes_back_as_a_snowflake() -> None:
     schema = schema_of(Snowy)
     guild = hikari.Snowflake(1364800923047857855)
