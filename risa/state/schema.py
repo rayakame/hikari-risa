@@ -46,6 +46,7 @@ __all__ = (
 )
 
 type Prop[T] = typing.Annotated[T, _PropMarker]
+"""Marks a view field as a per-dispatch prop: refilled in `load()` and never written to state."""
 
 type _PrefixDecoder = msgspec.msgpack.Decoder[tuple[object, ...]]
 

@@ -35,6 +35,7 @@ __all__ = (
 )
 
 DEFAULT_LOCK_TIMEOUT: typing.Final[float] = 10.0
+"""Seconds `Store.lock()` waits for a key before it raises `LockTimeoutError`."""
 
 
 class VersionedEntry(msgspec.Struct, frozen=True):

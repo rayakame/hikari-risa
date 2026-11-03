@@ -36,8 +36,10 @@ __all__ = (
 )
 
 DEFAULT_STORE: typing.Final[str] = "default"
+"""The name of the client's `store=`, for `InStore(store=...)`."""
 
 type StatePlacement = InMessage | InStore
+"""Either placement a view can declare as its `state=`."""
 
 
 class InMessage(msgspec.Struct, frozen=True):
@@ -53,7 +55,7 @@ class InMessage(msgspec.Struct, frozen=True):
     Never keep secrets in durable fields, and never base an authorization decision on
     one alone.
 
-    Parameters
+    Attributes
     ----------
     codec
         How the state is written into `custom_id`s. `risa.codecs.BASE85` by default;
@@ -70,7 +72,7 @@ class InStore(msgspec.Struct, frozen=True):
     store of the name `store`. It has no size bound, every process of a bot shares it
     through a distributed store, and it expires.
 
-    Parameters
+    Attributes
     ----------
     ttl
         Seconds an untouched record lives. Every click restarts the clock, so only
@@ -92,3 +94,4 @@ class InStore(msgspec.Struct, frozen=True):
 
 
 DEFAULT_PLACEMENT: typing.Final[InMessage] = InMessage()
+"""The placement of a view that declares none: `InMessage` with the default codec."""

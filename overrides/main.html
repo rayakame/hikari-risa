@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  <link rel="icon" href="{{ 'assets/images/logo-light.svg' | url }}" media="(prefers-color-scheme: dark)" type="image/svg+xml">
+{% endblock %}
+
+{% block site_nav %}
+  {% if nav %}
+    {% if page.meta and page.meta.hide %}
+      {% set hidden = "hidden" if "navigation" in page.meta.hide %}
+    {% endif %}
+    <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" {{ hidden }}>
+      <div class="md-sidebar__scrollwrap">
+        <div class="md-sidebar__inner">
+          <a href="{{ config.extra.homepage | d(nav.homepage.url, true) | url }}" class="risa-brand" title="{{ config.site_name | e }}">
+            <img class="risa-brand__night" src="{{ 'assets/images/logo-mascot-light.webp' | url }}" alt="{{ config.site_name }}" width="480" height="480">
+            <img class="risa-brand__banner" src="{{ 'assets/images/logo-mascot.webp' | url }}" alt="{{ config.site_name }}" width="480" height="480">
+          </a>
+          {% include "partials/nav.html" %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+  {% if "toc.integrate" not in features %}
+    {% if page.meta and page.meta.hide %}
+      {% set hidden = "hidden" if "toc" in page.meta.hide %}
+    {% endif %}
+    <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" {{ hidden }}>
+      <div class="md-sidebar__scrollwrap">
+        {% if config.theme.variant != "classic" %}
+          {% set toc = page.toc %}
+          {% set first = toc | first %}
+          {% if first and first.level == 1 %}
+            {% set toc = first.children %}
+          {% endif %}
+          {% if toc %}
+            <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+            <div class="md-sidebar-button__wrapper">
+              <label class="md-sidebar-button" for="__toc"></label>
+            </div>
+          {% endif %}
+        {% endif %}
+        <div class="md-sidebar__inner">
+          {% include "partials/toc.html" %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

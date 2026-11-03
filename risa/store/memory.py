@@ -42,6 +42,7 @@ __all__ = (
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.store.memory")
 
 DEFAULT_MAX_ENTRIES: typing.Final[int] = 10_000
+"""How many entries a `MemoryStore` keeps before it evicts the least recently used."""
 
 
 class _Entry(msgspec.Struct):

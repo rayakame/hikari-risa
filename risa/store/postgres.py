@@ -45,8 +45,11 @@ __all__ = (
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.store.postgres")
 
 DEFAULT_LEASE: typing.Final[float] = leases.DEFAULT_LEASE
+"""Seconds a lock's lease lasts before it needs renewing."""
 DEFAULT_MAX_HOLD: typing.Final[float] = leases.DEFAULT_MAX_HOLD
+"""Seconds a lock may be held in total, however often it is renewed."""
 DEFAULT_TABLE: typing.Final[str] = "risa_state"
+"""The name of the state table when none is given."""
 
 _TABLE_NAME: typing.Final[re.Pattern[str]] = re.compile(r"[a-z_][a-z0-9_]{0,51}")
 _SWEEP_EVERY: typing.Final[int] = 100

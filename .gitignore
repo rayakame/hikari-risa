@@ -20,3 +20,8 @@ wheels/
 
 # Secrets
 .env
+
+# Documentation site
+site/
+docs/assets/images/
+docs/generated/

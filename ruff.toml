@@ -22,8 +22,9 @@ ignore = [
     "F403", # unable to detect undefined names
 ]
 # Every module says what it is for; the classes and functions of risa's own machinery
-# carry docstrings only where they are hard to follow.
+# and of the build tooling carry docstrings only where they are hard to follow.
 "risa/internal/**" = ["D101", "D102", "D103"]
+"tools/**" = ["D101", "D102", "D103"]
 "risa/dispatch.py" = ["D101", "D102", "D103"]
 "risa/state/anchor.py" = ["D101", "D102", "D103"]
 "risa/state/backend.py" = ["D101", "D102", "D103"]

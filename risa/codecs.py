@@ -51,6 +51,7 @@ __all__ = (
 )
 
 RADIXLY_EXTRA: typing.Final[str] = "radixly"
+"""The name of the extra (`hikari-risa[radixly]`) that `BASE32768` and `URO14` need."""
 
 
 class _RadixlyModule(typing.Protocol):
@@ -141,8 +142,11 @@ def _radixly(tag: str, name: str) -> Codec:
 BASE85: typing.Final[Codec] = Codec(
     tag="a", name="base85", encode=_b85_encode, decode=_b85_decode, max_bytes=_b85_max_bytes
 )
+"""The default codec: printable ASCII, built in, needs no extra."""
 BASE32768: typing.Final[Codec] = _radixly("w", "base32768")
+"""15 bits per character, the densest codec; needs the `[radixly]` extra."""
 URO14: typing.Final[Codec] = _radixly("u", "uro14")
+"""14 bits per CJK character behind a length prefix; needs the `[radixly]` extra."""
 
 _REGISTRY: typing.Final[dict[str, Codec]] = {c.tag: c for c in (BASE85, BASE32768, URO14)}
 
