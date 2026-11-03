@@ -47,7 +47,7 @@ _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.store.postgres")
 DEFAULT_LEASE: typing.Final[float] = leases.DEFAULT_LEASE
 """Seconds a lock's lease lasts before it needs renewing."""
 DEFAULT_MAX_HOLD: typing.Final[float] = leases.DEFAULT_MAX_HOLD
-"""Seconds a lock may be held in total, however often it is renewed."""
+"""Seconds after which a held lock is no longer renewed; its last lease then runs out."""
 DEFAULT_TABLE: typing.Final[str] = "risa_state"
 """The name of the state table when none is given."""
 

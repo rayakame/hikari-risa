@@ -55,6 +55,7 @@ bot = [
     "python-dotenv>=1.2.2",
 ]
 docs = [
+    "griffe-inherited-docstrings==1.1.4",
     "mkdocstrings-python==2.0.10",
     "zensical==0.0.74",
 ]

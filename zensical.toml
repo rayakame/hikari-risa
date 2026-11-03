@@ -89,6 +89,7 @@ inventories = [
 [project.plugins.mkdocstrings.handlers.python.options]
 docstring_style = "numpy"
 docstring_section_style = "list"
+extensions = ["griffe_inherited_docstrings"]
 show_source = false
 signature_crossrefs = true
 separate_signature = true
