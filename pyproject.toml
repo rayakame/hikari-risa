@@ -54,8 +54,16 @@ bot = [
     "hikari-lightbulb==3.2.6",
     "python-dotenv>=1.2.2",
 ]
+docs = [
+    "griffe-inherited-docstrings==1.1.4",
+    "mkdocstrings-python==2.0.10",
+    "zensical==0.0.74",
+]
 nox = [
     "nox[uv]==2026.10.20",
+]
+images = [
+    "pillow==13.0.0",
 ]
 pyright = [
     "asyncpg-stubs==0.32.0",
@@ -71,6 +79,7 @@ slotscheck = [
     "slotscheck==0.21.0",
 ]
 pytest = [
+    {include-group = "images"},
     "asyncpg~=0.32",
     "fakeredis[lua]==2.40.0",
     "pytest==9.2.0",
@@ -86,7 +95,7 @@ strict-imports = true
 # generates for them, so every Struct in the package reports a false positive.
 
 [tool.pyright]
-include = ["risa", "tests", "testbot"]
+include = ["risa", "tests", "testbot", "tools"]
 exclude = [
     "**/__init__.py"
 ]
@@ -97,6 +106,7 @@ reportUnnecessaryTypeIgnoreComment = "error"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 xfail_strict = true

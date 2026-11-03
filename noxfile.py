@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import os
 import typing
 
 import nox
@@ -27,11 +28,11 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 
-nox.options.sessions = ["reformat", "ruff", "slotscheck", "pyright", "pytest", "audit"]
+nox.options.sessions = ["reformat", "ruff", "slotscheck", "pyright", "pytest", "audit", "docs"]
 nox.options.default_venv_backend = "uv"
 
 
-PYTHON_PATHS = ["noxfile.py", "risa/", "tests/"]
+PYTHON_PATHS = ["noxfile.py", "risa/", "tests/", "tools/"]
 
 
 @nox.session(reuse_venv=True)
@@ -87,6 +88,16 @@ def audit(session: nox.Session) -> None:
     # Scans uv.lock against the advisory databases. Requires uv >= 0.9; the
     # subcommand is still behind a preview flag.
     session.run("uv", "audit", "--preview-features", "audit-command", *session.posargs, external=True)
+
+
+@nox.session(reuse_venv=True)
+def docs(session: nox.Session) -> None:
+    sync(session, groups=["docs"], self=True)
+
+    session.run("python", "-m", "tools.docs.prepare")
+    session.run("zensical", "build", "--strict", "--clean")
+    flags = ["--require-inventory-links"] if os.environ.get("CI") else []
+    session.run("python", "-m", "tools.docs.check_site", "site", *flags)
 
 
 # uv_sync taken from: https://github.com/hikari-py/hikari/blob/master/pipelines/nox.py#L46

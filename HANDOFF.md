@@ -13,6 +13,27 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
+**2026-11-03, docs site, milestone 1 (branch `docs-site`; design in
+`docs/specs/2026-11-03-docs-site.md`, which milestone 2 continues from):** the site is built with Zensical
+(`zensical.toml`, theme overrides in `overrides/`, styles and fonts under `docs/`). It has the
+artwork web copies (`tools/optimize_images.py` into `assets/web/`), the dark and light palettes, a
+placeholder landing page and the ten API reference pages generated from the docstrings. The nox
+session `docs` (prepare, `zensical build --strict`, `tools/docs/check_site.py`) is part of the
+default run and of CI. `.github/workflows/docs.yml` deploys to GitHub Pages, and only when a
+release is published (or by hand with `workflow_dispatch`, which deploys from `main` only). The
+README now has the banner, the counter, the install line and the link to the site. The favicon
+is the dark-violet logo, swapped for the light logo on dark tab strips through a `media` link in
+`overrides/main.html`. Next is milestone 2: the examples, the Discord previews, the landing page
+and "Get started".
+
+Before the first release, in the repository settings:
+
+1. Pages, source: "GitHub Actions".
+2. Environments, github-pages, Deployment branches and tags: add a tag rule for the release
+   tags (for example `v*`); the environment only lets the default branch deploy, and a release
+   run's ref is a tag.
+3. General, Social preview: upload `assets/web/banner-social.jpg`.
+
 **2026-11-03, the overflow breakdown (branch `overflow-breakdown`):** `StateOverflowError`
 now says how many bytes each durable field takes, largest first, with risa's own framing
 as the last line, and keeps the numbers in a new `fields` attribute (name to bytes, in
@@ -229,7 +250,8 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
   hardening (#20, #21), the state pivot's steps 1–3 (#39) and step 4 (#40), the shared
   REST listener slot (#44), `RedisStore` with `verify_store` (#47), the contributor guide
   (#48), `PostgresStore` (#49) and the API docstrings (#50).
-- **`overflow-breakdown`** carries the per-field breakdown in `StateOverflowError`.
+- **`docs-site`** carries milestone 1 of the documentation site, on top of `main`.
+- **`overflow-breakdown`** was squash-merged as #51 and deleted.
 - **`docs-api`** was squash-merged as #50 and deleted.
 - **`modals`** carries the step 5 design, parked until hikari parses the new modal
   components: one commit on top of `main`, rebased whenever `main` moves.

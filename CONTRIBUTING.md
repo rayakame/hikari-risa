@@ -1,7 +1,7 @@
 # Contributing to hikari-risa
 
 `hikari-risa` is a component handler for [hikari](https://github.com/hikari-py/hikari), built
-Components V2 first. It is published to PyPI and ships `py.typed`. This is a **library**, not
+Components V2 first. It will be published to PyPI and ships `py.typed`. This is a **library**, not
 an application: the public API surface and its type annotations are the product.
 
 `DESIGN.md` is the authority on where the library is going and why. `HANDOFF.md` records
@@ -12,7 +12,7 @@ where the work stands right now.
 Everything runs through `uv` and `nox`. Do not `pip install` anything.
 
 ```sh
-uv run --group nox nox            # reformat, ruff, slotscheck, pyright, pytest, audit
+uv run --group nox nox            # reformat, ruff, slotscheck, pyright, pytest, audit, docs
 uv run --group nox nox -s ruff    # a single session
 uv run --group pytest pytest -q   # fast inner loop while iterating
 uv lock                           # after ANY dependency change
@@ -29,6 +29,19 @@ with `unrecognized subcommand`, the fix is `uv lock --upgrade`, not `uv self upd
 Plain `uv lock` is conservative: it resolves only what changed and leaves existing pins alone.
 Without a periodic `uv lock --upgrade`, the lockfile silently rots and `audit` starts failing
 on transitive dependencies.
+
+The `docs` session builds the documentation site (`zensical build --strict`) and checks its
+invariants. To preview it locally:
+
+```sh
+uv run --group nox nox -s docs
+uv run --group docs zensical serve
+```
+
+The artwork in `assets/web/` is generated from the originals in `assets/`. Run
+`uv run --group images python -m tools.optimize_images` only when the artwork changes.
+
+The site deploys from `.github/workflows/docs.yml` when a release is published.
 
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.
@@ -75,8 +88,8 @@ time rather than after the lint output.
 - **One import per line.** `force-single-line = true`: no `from x import a, b`.
 - **Every module has a docstring, and so does all of the public API, kept short.** numpy
   style, saying what a caller needs to know rather than how it works inside; ruff's `D` and
-  `DOC` rules enforce it. In `risa/internal/`, `dispatch.py` and the session machinery in
-  `state/`, classes and functions carry one only where they are hard to follow without it:
+  `DOC` rules enforce it. In `risa/internal/`, `dispatch.py`, the session machinery in
+  `state/` and `tools/`, classes and functions carry one only where they are hard to follow without it:
   a layout, a lifecycle, an invariant. Tests and the noxfile need none. A one-line
   docstring needs no `Returns` or `Raises` section. A longer one documents what it returns,
   if anything, and what it raises, including what a callee raises, which is why `DOC502`
@@ -168,10 +181,15 @@ risa/
     build.py        two-phase build: plan (measure) + emit, and Rendered (the send kwargs)
     nodes.py        the V2 node set
   py.typed
+docs/               site pages, stylesheets, fonts, api/ (the reference pages)
+overrides/          theme template overrides for the site
+assets/             the artwork; web/ holds the optimized copies the site and README use
+tools/              optimize_images, docs/prepare (stage artwork), docs/check_site (site invariants)
+zensical.toml       the docs site configuration
 tests/              mirrors the package layout
 testbot/            manual test bot against a real Discord app (see testbot/README.md)
 test_bots/          one-off probe scripts against the live API
-noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / audit
+noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / audit / docs
 ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
 

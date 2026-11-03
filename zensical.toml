@@ -1,0 +1,98 @@
+[project]
+site_name = "hikari-risa"
+site_url = "https://rayakame.github.io/hikari-risa/"
+repo_url = "https://github.com/rayakame/hikari-risa"
+docs_dir = "docs"
+exclude_docs = "specs/\nexamples/\ngenerated/"
+nav = [
+  { "Home" = "index.md" },
+  { "API" = [
+    { "risa" = "api/risa.md" },
+    { "risa.ui" = "api/ui.md" },
+    { "risa.state" = "api/state.md" },
+    { "risa.store" = "api/store.md" },
+    { "risa.store.redis" = "api/store-redis.md" },
+    { "risa.store.postgres" = "api/store-postgres.md" },
+    { "risa.store.testing" = "api/store-testing.md" },
+    { "risa.codecs" = "api/codecs.md" },
+    { "risa.errors" = "api/errors.md" },
+    { "risa.di" = "api/di.md" },
+  ] },
+]
+extra_css = ["stylesheets/risa.css"]
+
+[project.theme]
+custom_dir = "overrides"
+language = "en"
+font = false
+favicon = "assets/images/favicon.svg"
+features = [
+  "content.code.annotate",
+  "content.code.copy",
+  "content.tabs.link",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "risa-night"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+scheme = "risa-banner"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.betterem = {}
+pymdownx.caret = {}
+pymdownx.details = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.snippets.base_path = ["docs/examples", "docs/generated"]
+pymdownx.snippets.check_paths = true
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true
+pymdownx.tasklist.custom_checkbox = true
+pymdownx.tilde = {}
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["."]
+inventories = [
+  "https://docs.python.org/3/objects.inv",
+  "https://docs.hikari-py.dev/en/stable/objects.inv",
+]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "numpy"
+docstring_section_style = "list"
+extensions = ["griffe_inherited_docstrings"]
+show_source = false
+signature_crossrefs = true
+separate_signature = true
+show_root_heading = true
+members_order = "source"
+filters = ["!^_"]

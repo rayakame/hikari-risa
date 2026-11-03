@@ -43,7 +43,9 @@ __all__ = (
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.store.redis")
 
 DEFAULT_LEASE: typing.Final[float] = leases.DEFAULT_LEASE
+"""Seconds a lock's lease lasts before it needs renewing."""
 DEFAULT_MAX_HOLD: typing.Final[float] = leases.DEFAULT_MAX_HOLD
+"""Seconds after which a held lock is no longer renewed; its last lease then runs out."""
 
 _SAFE_POLICY: typing.Final[str] = "noeviction"
 _NO_TTL: typing.Final[str] = ""
