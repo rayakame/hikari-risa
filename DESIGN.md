@@ -792,8 +792,8 @@ Changes from the original protocol, all verdicts of the lock investigation:
 
 - `InStore` keys: 96 random bits, minted at build, **replicated into every component**
   (not chunked — every custom_id stays self-sufficient, and stored views do not need the
-  capacity). Custom_ids are therefore *stable across rerenders* — an in-flight click is
-  never invalidated. A failed send leaks one entry; TTL reaps it; no two-phase commit.
+  capacity). Custom_ids are therefore *stable across rerenders* unless a bound argument
+  changes — an in-flight click is otherwise never invalidated. A failed send leaks one entry; TTL reaps it; no two-phase commit.
   `client.build` cannot do better, since a bot may spread the result into a send risa never
   sees. With `InStore(ttl=None)` that leaked entry is permanent — the price of opting out of
   expiry, worth stating where `ttl=None` is documented.
@@ -833,8 +833,8 @@ Changes from the original protocol, all verdicts of the lock investigation:
   soft, since nothing promises the check will stay.
 - The same check has a cost for `InMessage`. A rerender that changes the state changes the
   `custom_id` of the components that carry it, so a click from a client still showing the
-  old component fails in Discord and never reaches the bot. `InStore` ids survive a rerender,
-  so a view many people click at once fits it better.
+  old component fails in Discord and never reaches the bot. `InStore` ids change only when a
+  bound argument does, so a view many people click at once fits it better.
 
 ---
 

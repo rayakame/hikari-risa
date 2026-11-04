@@ -32,7 +32,7 @@ Components V2 views for hikari, with state that survives restarts.
 
 <div class="risa-why" markdown>
 
-**Survives restarts.** The state travels inside the message. You need Redis or Postgres only when it outgrows the message.
+**Survives restarts.** The state travels inside the message. Add Redis or Postgres when it outgrows the message or many people click at once.
 
 **Components V2 first.** Build with containers, sections and galleries. A row of buttons is the simple case.
 

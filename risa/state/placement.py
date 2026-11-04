@@ -55,10 +55,12 @@ class InMessage(msgspec.Struct, frozen=True):
     durable fields. A click cannot change it: risa reads it from the message Discord
     delivers with the click.
 
-    Discord refuses a click on a `custom_id` the message no longer has, and a rerender
-    that changes the state changes the `custom_id` of the buttons that carry it. Someone
-    whose client still shows the old button gets a failed click and can click again. A
-    view many people click at once fits `InStore` better, whose `custom_id`s stay the same.
+    A rerender that changes the state changes the `custom_id` of the buttons that carry
+    it. In tests Discord refused a click on a `custom_id` the message no longer has, so
+    someone whose client still shows the old button gets a failed click and can click
+    again. Discord does not document this and risa does not check it, so do not rely on
+    the refusal. A view many people click at once fits `InStore` better: its `custom_id`s
+    hold a key instead of the state, so they change only when a bound argument does.
 
     Attributes
     ----------

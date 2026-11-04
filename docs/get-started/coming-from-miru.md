@@ -126,7 +126,7 @@ This has costs:
   default codec. Anyone who can see the message can read it.
 - A rerender that changes state in the message changes the id of the button that holds it, and Discord refuses a click
   on the old id. If two people click at nearly the same moment, the second can fail and click again. A view in a store
-  keeps its ids.
+  keeps its ids unless a bound argument changes.
 - A view in a `MemoryStore` does not survive a restart. Use `RedisStore` or `PostgresStore` for that.
 
 ## Timeouts

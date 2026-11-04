@@ -75,7 +75,8 @@ _ICON_EYE: typing.Final = (
 _SLOT: typing.Final = re.compile(r"\ue000(\d+)\ue001")
 _CODE_SPAN: typing.Final = re.compile(r"(`+)(.+?)\1", re.DOTALL)
 _ESCAPED: typing.Final = re.compile(r"\\([\\`*_~#\[\]()>\-])")
-_LINK: typing.Final = re.compile(r"\[([^\]]+)\]\((https?://[^\s)]+)\)")
+# A slot in a URL would come back unescaped inside the href.
+_LINK: typing.Final = re.compile(r"\[([^\]]+)\]\((https?://[^\s)\ue000]+)\)")
 _MARKERS: typing.Final = (
     ("***", "<strong><em>", "</em></strong>"),
     ("___", "<u><em>", "</em></u>"),
@@ -227,12 +228,15 @@ def _inline(text: str) -> str:
         slots.append(markup)
         return f"\ue000{len(slots) - 1}\ue001"
 
+    def restore(markup: str) -> str:
+        return _SLOT.sub(lambda m: restore(slots[int(m.group(1))]), markup)
+
     text = text.replace("\ue000", "\ufffd").replace("\ue001", "\ufffd")
     text = _CODE_SPAN.sub(lambda m: stash(f"<code>{html.escape(m.group(2).strip(), quote=False)}</code>"), text)
     text = _ESCAPED.sub(lambda m: stash(html.escape(m.group(1), quote=False)), text)
     text = html.escape(text, quote=False)
     text = _LINK.sub(lambda m: stash(_link(m.group(1), m.group(2))), text)
-    return _SLOT.sub(lambda m: slots[int(m.group(1))], _format(text))
+    return restore(_format(text))
 
 
 def _link(label: str, url: str) -> str:

@@ -290,6 +290,19 @@ def test_a_link_label_keeps_its_inline_markup() -> None:
     assert '<a class="dc-link" href="https://x.y">a <strong>b</strong></a>' in html
 
 
+def test_a_link_label_keeps_its_code_span() -> None:
+    html = discord_html.render_markdown("[`c`](https://x.y)")
+
+    assert '<a class="dc-link" href="https://x.y"><code>c</code></a>' in html
+
+
+def test_a_code_span_in_a_link_url_stays_out_of_the_href() -> None:
+    html = discord_html.render_markdown('[x](https://a.com/`"onmouseover=alert(1)`)')
+
+    assert "href=" not in html
+    assert '<code>"onmouseover=alert(1)</code>' in html
+
+
 def test_a_custom_emoji_is_drawn_by_name() -> None:
     assert ">:party: Go<" in _message(_button(label="Go", emoji={"id": "1", "name": "party"}))
 

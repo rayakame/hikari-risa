@@ -218,7 +218,8 @@ def handler(
     values `risa.bind` put on the component. Every parameter after them without a default
     is injected through linkd, so a hikari enum such as `hikari.ChannelType`, which is not
     an `enum.Enum`, is injected too; to carry one on the wire, bind its value as an `int`.
-    A handler returns `None`.
+    To inject an `int` or another of those types, default it to `risa.di.INJECTED`. A
+    handler returns `None`.
 
     Parameters
     ----------

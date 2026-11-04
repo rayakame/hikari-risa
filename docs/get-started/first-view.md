@@ -127,8 +127,8 @@ default codec. A view that needs more can move to a store with [`risa.InStore`](
 handlers stay the same, but the move means raising its `version`, which retires the buttons already sent.
 
 A click changes the id of the button that holds the count, and Discord refuses a click on an id the message no longer
-has. If two people click at nearly the same moment, the second can fail in Discord and click again. A store keeps the ids
-the same, which suits a view many people click at once.
+has. If two people click at nearly the same moment, the second can fail in Discord and click again. In a store the ids
+hold a key instead of the count, so clicks leave them as they are, which suits a view many people click at once.
 
 !!! miru "In miru."
     A view stops answering after a restart unless you make it persistent. [Coming from miru](coming-from-miru.md) has

@@ -39,8 +39,8 @@ uv run --group nox nox -s docs
 uv run --group docs zensical serve
 ```
 
-A page's code comes from a real file in `docs/examples/`, which starts with the license header and which ruff and
-pyright check. Mark a section with `# --8<-- [start:name]` and `# --8<-- [end:name]`, show it on the page with
+A page's risa code comes from a real file in `docs/examples/`, which starts with the license header and which ruff and
+pyright check; another library's code, such as miru's on the comparison page, stays inline. Mark a section with `# --8<-- [start:name]` and `# --8<-- [end:name]`, show it on the page with
 `--8<-- "file.py:name"` inside a fence, and show the whole file with `--8<-- "file.py:20:"` in a collapsed
 `??? example "Full file"` block. For its preview, add an entry to `docs/examples/previews.toml` and put one top-level line,
 `--8<-- "previews/<id>.html"`, directly after the code block, never inside a `div markdown`.
