@@ -296,6 +296,12 @@ def test_a_link_label_keeps_its_code_span() -> None:
     assert '<a class="dc-link" href="https://x.y"><code>c</code></a>' in html
 
 
+def test_an_escaped_character_in_a_link_url_is_restored() -> None:
+    html = discord_html.render_markdown(r"[read](https://example.com/a\_\(b\))")
+
+    assert '<a class="dc-link" href="https://example.com/a_(b)">read</a>' in html
+
+
 def test_a_code_span_in_a_link_url_stays_out_of_the_href() -> None:
     html = discord_html.render_markdown('[x](https://a.com/`"onmouseover=alert(1)`)')
 
