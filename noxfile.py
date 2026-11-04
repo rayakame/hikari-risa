@@ -94,6 +94,7 @@ def audit(session: nox.Session) -> None:
 def docs(session: nox.Session) -> None:
     sync(session, groups=["docs"], self=True)
 
+    session.run("python", "-m", "tools.docs.check_api")
     session.run("python", "-m", "tools.docs.prepare")
     session.run("zensical", "build", "--strict", "--clean")
     flags = ["--require-inventory-links"] if os.environ.get("CI") else []

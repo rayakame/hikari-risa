@@ -320,6 +320,11 @@ async def verify_store(store: protocol.Store) -> None:
     `risa:conformance:`, and each deletes what it wrote. Run it against a real instance
     of the backend, from a test or a script; it needs no test framework.
 
+    Parameters
+    ----------
+    store
+        The store to check, connected to a real instance of its backend.
+
     Raises
     ------
     StoreConformanceError

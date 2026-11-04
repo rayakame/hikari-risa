@@ -29,12 +29,12 @@ import typing
 
 import hikari
 import linkd
+import linkd.solver
 
 from risa import context
 from risa import di as di_
 from risa import dispatch as dispatch_
 from risa import errors
-from risa import ui
 from risa import view as view_
 from risa.internal import constants
 from risa.internal import registry
@@ -90,7 +90,7 @@ class LightbulbClient(typing.Protocol):
         ...
 
     @property
-    def di(self) -> linkd.DependencyInjectionManager:
+    def di(self) -> linkd.solver.DependencyInjectionManager:
         """The lightbulb client's dependency manager."""
         ...
 
@@ -105,7 +105,7 @@ class _LightbulbOptions(typing.TypedDict, total=False):
 
 
 class _ClientOptions(_LightbulbOptions, total=False):
-    di: linkd.DependencyInjectionManager | None
+    di: linkd.solver.DependencyInjectionManager | None
 
 
 class Client(abc.ABC):
@@ -117,6 +117,8 @@ class Client(abc.ABC):
 
     Parameters
     ----------
+    rest
+        The REST client risa answers interactions through.
     use_global
         Also route views registered with `@risa.register` but never added to this client.
     di
@@ -162,7 +164,7 @@ class Client(abc.ABC):
         rest: hikari.api.RESTClient,
         *,
         use_global: bool = False,
-        di: linkd.DependencyInjectionManager | None = None,
+        di: linkd.solver.DependencyInjectionManager | None = None,
         register_app_dependencies: bool = True,
         auto_defer: view_.AutoDefer = view_.AutoDefer.OFF,
         auto_defer_delay: float = constants.AUTO_DEFER_DELAY,
@@ -211,7 +213,7 @@ class Client(abc.ABC):
         """The hikari app the client receives interactions from."""
 
     @property
-    def di(self) -> linkd.DependencyInjectionManager:
+    def di(self) -> linkd.solver.DependencyInjectionManager:
         """The dependency manager handlers are injected from."""
         return self._di
 
@@ -220,7 +222,7 @@ class Client(abc.ABC):
         """The REST client risa answers interactions through."""
         return self._rest
 
-    async def build(self, view: view_.View) -> ui.Rendered:
+    async def build(self, view: view_.View) -> build_.Rendered:
         """Render `view` into the components of a new message, ready to send.
 
         ```python
@@ -232,9 +234,14 @@ class Client(abc.ABC):
         that send fails, the record stays behind until its TTL reaps it, or for good under
         `InStore(ttl=None)`.
 
+        Parameters
+        ----------
+        view
+            The view to render, an instance of a registered class.
+
         Returns
         -------
-        Rendered
+        :
             The components, as a mapping that spreads into a send.
 
         Raises
@@ -252,19 +259,24 @@ class Client(abc.ABC):
                 await meta.loader(view)
         plan = build_.plan(view.render(), meta)
         if not plan.interactive:
-            return ui.Rendered(plan.emit(b""))
+            return build_.Rendered(plan.emit(b""))
         state = self._require_backend(meta)
         anchor = state.first_anchor(meta=meta, view=view)
         builders = plan.emit(anchor)
         await state.commit_first(meta=meta, view=view, anchor=anchor)
-        return ui.Rendered(builders)
+        return build_.Rendered(builders)
 
     def add_view[T: view_.View](self, cls: type[T]) -> type[T]:
         """Route clicks on the components of `cls` through this client.
 
+        Parameters
+        ----------
+        cls
+            The view class, already registered with `@risa.register`.
+
         Returns
         -------
-        type[T]
+        :
             The class, so that this also works as a decorator below `@risa.register`.
 
         Raises
@@ -337,7 +349,7 @@ class Client(abc.ABC):
 
 
 class GatewayEnabledClient(Client):
-    """A client that receives clicks as gateway events."""
+    """A client that receives clicks as gateway events. `client_from_app` or `client_from_lightbulb` makes one."""
 
     __slots__ = ("_app",)
 
@@ -374,6 +386,7 @@ class RestEnabledClient(Client):
     The interaction server has a single component listener. The client takes it over and
     passes every interaction it does not handle on to the listener it replaced, and it
     logs a warning naming that listener unless `warn_shared_listener=False`.
+    `client_from_app` or `client_from_lightbulb` makes one.
     """
 
     __slots__ = ("_app", "_replaced")
@@ -489,7 +502,7 @@ def client_from_app(
 
     Returns
     -------
-    Client
+    :
         A `GatewayEnabledClient` or a `RestEnabledClient`, depending on the app.
     """
     if isinstance(app, GatewayClientAppT):
@@ -519,7 +532,7 @@ def client_from_lightbulb(
 
     Returns
     -------
-    Client
+    :
         A `GatewayEnabledClient` or a `RestEnabledClient`, depending on the app.
 
     Raises

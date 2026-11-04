@@ -154,6 +154,11 @@ _REGISTRY: typing.Final[dict[str, Codec]] = {c.tag: c for c in (BASE85, BASE3276
 def register(codec: Codec) -> None:
     """Make `codec` known under its tag, so state written with it can be read back.
 
+    Parameters
+    ----------
+    codec
+        The codec to register, under its one-character `tag`.
+
     Raises
     ------
     ValueError
@@ -168,10 +173,32 @@ def register(codec: Codec) -> None:
 
 
 def by_tag(tag: str) -> Codec | None:
-    """Return the codec registered under `tag`, or `None`."""
+    """Return the codec registered under `tag`, or `None`.
+
+    Parameters
+    ----------
+    tag
+        The one-character tag a codec writes ahead of its state.
+
+    Returns
+    -------
+    :
+        The codec, or `None` if no codec has the tag.
+    """
     return _REGISTRY.get(tag)
 
 
 def ensure_available(codec: Codec) -> None:
-    """Raise `CodecUnavailableError` if `codec` needs an extra that is not installed."""
+    """Raise `CodecUnavailableError` if `codec` needs an extra that is not installed.
+
+    Parameters
+    ----------
+    codec
+        The codec to check. `BASE85` always passes.
+
+    Raises
+    ------
+    CodecUnavailableError
+        If the codec needs the `[radixly]` extra and it is not installed.
+    """
     codec.max_bytes(1)

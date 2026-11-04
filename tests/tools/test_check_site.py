@@ -191,7 +191,7 @@ _EXTERNAL_LINKS = (
 
 def test_missing_inventory_links_are_reported_when_required(tmp_path: pathlib.Path) -> None:
     site = _site(tmp_path)
-    _page(site, "api/risa/index.html", extra='<a href="https://docs.python.org/3/library/typing.html">typing</a>')
+    _page(site, "api/client/index.html", extra='<a href="https://docs.python.org/3/library/typing.html">typing</a>')
 
     problems = check_site.check_site(site, require_inventory_links=True)
 
@@ -201,7 +201,7 @@ def test_missing_inventory_links_are_reported_when_required(tmp_path: pathlib.Pa
 
 def test_present_inventory_links_are_clean_when_required(tmp_path: pathlib.Path) -> None:
     site = _site(tmp_path)
-    _page(site, "api/risa/index.html", extra=_EXTERNAL_LINKS)
+    _page(site, "api/client/index.html", extra=_EXTERNAL_LINKS)
 
     assert check_site.check_site(site, require_inventory_links=True) == []
 

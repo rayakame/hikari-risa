@@ -1,9 +1,6 @@
 # risa.di
 
 ::: risa.di
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
 
 ## INJECTED { #risa.di.INJECTED }
 

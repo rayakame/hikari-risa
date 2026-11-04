@@ -30,8 +30,9 @@ Plain `uv lock` is conservative: it resolves only what changed and leaves existi
 Without a periodic `uv lock --upgrade`, the lockfile silently rots and `audit` starts failing
 on transitive dependencies.
 
-The `docs` session builds the documentation site (`zensical build --strict`) and checks its
-invariants. To preview it locally:
+The `docs` session checks the API reference against the code (every public name on one page,
+everything public annotated), builds the documentation site (`zensical build --strict`) and
+checks its invariants. To preview it locally:
 
 ```sh
 uv run --group nox nox -s docs
@@ -92,13 +93,19 @@ time rather than after the lint output.
 - **One import per line.** `force-single-line = true`: no `from x import a, b`.
 - **Every module has a docstring, and so does all of the public API, kept short.** numpy
   style, saying what a caller needs to know rather than how it works inside; ruff's `D` and
-  `DOC` rules enforce it. In `risa/internal/`, `dispatch.py`, the session machinery in
+  `DOC` rules enforce it, and every public parameter has an entry in `Parameters` (in `Attributes`
+  for a constructor's, as for a Struct), except those of constructors only risa calls
+  (`_RISA_ONLY_CONSTRUCTORS` in `tools/docs/check_api.py`). In `risa/internal/`, `dispatch.py`, the session machinery in
   `state/` and `tools/`, classes and functions carry one only where they are hard to follow without it:
   a layout, a lifecycle, an invariant. Tests and the noxfile need none. A one-line
   docstring needs no `Returns` or `Raises` section. A longer one documents what it returns,
   if anything, and what it raises, including what a callee raises, which is why `DOC502`
   is off. Review bots that ask for a docstring on every internal function are declined
   with this rule.
+- **Docstrings of the public API name no types.** The reference takes them from the code, so
+  `self.needed: int = needed` carries its annotation even where pyright would infer it,
+  a public `typing.Final` is subscripted, and a `Returns` or `Yields` section opens with a lone `:`
+  line, since numpy style would read its first line as a type.
 - **Comments only for a why the code cannot show**: a workaround, a constraint that is not
   obvious, a link to an issue. One line, never what the code does or what changed. The
   license header and linter directives are not comments and stay.
@@ -188,7 +195,7 @@ risa/
 docs/               site pages, stylesheets, fonts, api/ (the reference pages)
 overrides/          theme template overrides for the site
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
-tools/              optimize_images, docs/prepare (stage artwork), docs/check_site (site invariants), docs/publish (place a version in gh-pages)
+tools/              optimize_images, docs/prepare (stage artwork), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
 testbot/            manual test bot against a real Discord app (see testbot/README.md)

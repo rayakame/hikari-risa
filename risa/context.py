@@ -62,6 +62,18 @@ class ResponseGate(msgspec.Struct):
 
     risa makes one per interaction, so a handler and the auto-defer watchdog never both
     send the initial response.
+
+    Attributes
+    ----------
+    lock
+        Held while the initial response is decided and sent.
+    acknowledged
+        Set once nothing more is owed to the REST listener: the initial response went out,
+        or risa has finished with the interaction.
+    response
+        Which initial response the interaction got.
+    adopted
+        Whether the click routed to a view, rather than being left to another listener.
     """
 
     lock: asyncio.Lock = msgspec.field(default_factory=asyncio.Lock)
@@ -132,7 +144,42 @@ class Response:
         user_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialUser] | bool] = hikari.UNDEFINED,
         role_mentions: hikari.UndefinedOr[hikari.SnowflakeishSequence[hikari.PartialRole] | bool] = hikari.UNDEFINED,
     ) -> hikari.Message:
-        """Edit the message. The parameters are those of hikari's message edits."""
+        """Edit the message.
+
+        The parameters are those of hikari's
+        [`edit_interaction_response`][hikari.api.rest.RESTClient.edit_interaction_response], which
+        describes them in full. Every edit sends the mention settings, so one left out switches
+        that mention parsing off.
+
+        Parameters
+        ----------
+        content
+            The new text. `None` removes it.
+        attachment
+            One file. Not together with `attachments`.
+        attachments
+            The files to keep or add. `None` removes them all.
+        component
+            One builder, sent as it is: risa adds no routing or state. Not together with
+            `components`.
+        components
+            The builders, sent as they are. `None` or an empty sequence removes them.
+        embed
+            One embed. Not together with `embeds`.
+        embeds
+            The embeds. `None` or an empty sequence removes them.
+        mentions_everyone
+            Whether `@everyone` and `@here` are parsed.
+        user_mentions
+            `True` for every user, or the users to parse.
+        role_mentions
+            `True` for every role, or the roles to parse.
+
+        Returns
+        -------
+        :
+            The message as it is now.
+        """
         if self._message is not None:
             return await self._rest.edit_webhook_message(
                 self._interaction.application_id,
@@ -258,6 +305,13 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
 
         Where `defer` raises, this does nothing, so it is safe to call whatever happened
         before.
+
+        Parameters
+        ----------
+        thinking
+            Show a "thinking..." message.
+        ephemeral
+            Show that message only to the user who clicked.
         """
         async with self._gate.lock:
             if self._gate.response is not _InitialResponse.NONE:
@@ -291,16 +345,42 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
         """Send a message in answer to the interaction.
 
         The first response answers the interaction itself; every later one is a follow-up
-        message. Apart from `ephemeral`, the parameters are hikari's.
+        message. Apart from `ephemeral`, the parameters are those of hikari's
+        [`create_interaction_response`][hikari.api.rest.RESTClient.create_interaction_response]
+        and [`execute_webhook`][hikari.api.rest.RESTClient.execute_webhook], which describe them
+        in full.
 
         Parameters
         ----------
+        content
+            The message text.
         ephemeral
             Show the message only to the user who clicked.
+        tts
+            Have Discord read the message aloud.
+        attachment
+            One file. Not together with `attachments`.
+        attachments
+            The files to attach.
+        component
+            One builder, sent as it is: risa adds no routing or state. To send a view, spread
+            `await client.build(view)`. Not together with `components`.
+        components
+            The builders, sent as they are.
+        embed
+            One embed. Not together with `embeds`.
+        embeds
+            The embeds.
+        mentions_everyone
+            Whether `@everyone` and `@here` are parsed.
+        user_mentions
+            `True` for every user, or the users to parse.
+        role_mentions
+            `True` for every role, or the roles to parse.
 
         Returns
         -------
-        Response
+        :
             The message, to fetch, edit or delete later.
         """
         flags = hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED
@@ -355,7 +435,7 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
 
     A handler answers through it: `rerender()` redraws the message from the view's
     state, `edit(...)` replaces it with another layout, and `respond(...)` sends a new
-    message.
+    message. risa makes one per click.
     """
 
     __slots__ = ("_meta", "_slot")
@@ -395,11 +475,16 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         message. A layout without interactive components ends the view, since nothing on it
         can be clicked any more. Like `rerender()`, it saves the view's state.
 
+        Parameters
+        ----------
+        layout
+            The new layout: one top-level component, or several in order.
+
         Raises
         ------
         NoViewError
-            If the layout has interactive components but this context has no view state, as
-            in `on_outdated` and `on_state_missing`.
+            If the layout has interactive components and the view has durable fields, but this
+            context has no view state, as in `on_outdated` and `on_state_missing`.
         EphemeralOriginError
             If the message is ephemeral and the interaction was answered with a new message.
         StateOverflowError
