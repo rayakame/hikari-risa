@@ -215,9 +215,9 @@ def handler(
 
     Wire parameters come first, are positional, and are annotated `bool`, `int`, `str`,
     `hikari.Snowflake` or an `enum.Enum` of `int` or `str` values. They receive the
-    values `risa.bind` put on the component. Every parameter after them is injected
-    through linkd, so a hikari enum such as `hikari.ChannelType`, which is not an
-    `enum.Enum`, is injected too; to carry one on the wire, bind its value as an `int`.
+    values `risa.bind` put on the component. Every parameter after them without a default
+    is injected through linkd, so a hikari enum such as `hikari.ChannelType`, which is not
+    an `enum.Enum`, is injected too; to carry one on the wire, bind its value as an `int`.
     A handler returns `None`.
 
     Parameters
@@ -261,7 +261,7 @@ class View(msgspec.Struct):
         count: int = 0
 
         def render(self) -> ui.Layout:
-            return ui.Row(ui.Button(self.add, label=f"Clicked {self.count} times"))
+            return ui.Row(ui.Button(self.add, label=f"Clicks: {self.count}"))
 
         @risa.handler
         async def add(self, ctx: risa.ComponentContext) -> None:

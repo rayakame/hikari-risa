@@ -551,6 +551,7 @@ docs = [
     { name = "griffe-inherited-docstrings" },
     { name = "griffelib" },
     { name = "mkdocstrings-python" },
+    { name = "pygments" },
     { name = "ruff" },
     { name = "zensical" },
 ]
@@ -572,6 +573,7 @@ pytest = [
     { name = "griffe-inherited-docstrings" },
     { name = "griffelib" },
     { name = "pillow" },
+    { name = "pygments" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "radixly" },
@@ -606,6 +608,7 @@ docs = [
     { name = "griffe-inherited-docstrings", specifier = "==1.1.4" },
     { name = "griffelib", specifier = "==2.4.1" },
     { name = "mkdocstrings-python", specifier = "==2.0.10" },
+    { name = "pygments", specifier = "==2.21.0" },
     { name = "ruff", specifier = "==0.17.3" },
     { name = "zensical", specifier = "==0.0.74" },
 ]
@@ -623,6 +626,7 @@ pytest = [
     { name = "griffe-inherited-docstrings", specifier = "==1.1.4" },
     { name = "griffelib", specifier = "==2.4.1" },
     { name = "pillow", specifier = "==13.0.0" },
+    { name = "pygments", specifier = "==2.21.0" },
     { name = "pytest", specifier = "==9.2.0" },
     { name = "pytest-asyncio", specifier = "==1.4.1.post1" },
     { name = "radixly", specifier = "~=1.0" },

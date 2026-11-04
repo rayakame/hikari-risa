@@ -51,9 +51,14 @@ class InMessage(msgspec.Struct, frozen=True):
     It is bounded by what the components can carry: up to about 70 bytes per interactive
     component with the default codec.
 
-    The state is readable by anyone who can see the message, and a client can forge it.
-    Never keep secrets in durable fields, and never base an authorization decision on
-    one alone.
+    The state is readable by anyone who can see the message, so never keep secrets in
+    durable fields. A click cannot change it: risa reads it from the message Discord
+    delivers with the click.
+
+    Discord refuses a click on a `custom_id` the message no longer has, and a rerender
+    that changes the state changes the `custom_id` of the buttons that carry it. Someone
+    whose client still shows the old button gets a failed click and can click again. A
+    view many people click at once fits `InStore` better, whose `custom_id`s stay the same.
 
     Attributes
     ----------

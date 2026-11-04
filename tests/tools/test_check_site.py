@@ -42,6 +42,11 @@ _PAGE = """<!doctype html>
 """
 
 
+_LANDING = (
+    "<template data-live-frame></template><template data-live-frame></template>"
+    '<script src="javascripts/live-preview.js"></script>'
+)
+
 _PALETTE = (
     '<input data-md-color-media="{media}" data-md-color-scheme="{first}" type="radio" name="__palette">'
     '<input data-md-color-media="none" data-md-color-scheme="risa-banner" type="radio" name="__palette">'
@@ -56,12 +61,14 @@ def _page(
     extra: str = "",
     first: str = "risa-night",
     media: str = "none",
+    landing: str = _LANDING,
 ) -> None:
     path = site / name
     path.parent.mkdir(parents=True, exist_ok=True)
     up = "../" * (len(path.relative_to(site).parts) - 1)
     palette = _PALETTE.format(media=media, first=first)
-    path.write_text(_PAGE.format(up=up, scheme=scheme, extra=extra, palette=palette), encoding="utf-8")
+    body = extra + landing if name == "index.html" else extra
+    path.write_text(_PAGE.format(up=up, scheme=scheme, extra=body, palette=palette), encoding="utf-8")
 
 
 def _site(tmp_path: pathlib.Path) -> pathlib.Path:
@@ -70,6 +77,8 @@ def _site(tmp_path: pathlib.Path) -> pathlib.Path:
     (site / "assets" / "images" / "logo.svg").write_text("<svg/>", encoding="utf-8")
     (site / "assets" / "stylesheets").mkdir(parents=True)
     (site / "assets" / "stylesheets" / "risa.css").write_text("body { color: red; }", encoding="utf-8")
+    (site / "javascripts").mkdir()
+    (site / "javascripts" / "live-preview.js").write_text("", encoding="utf-8")
     _page(site, "index.html")
     _page(site, "get-started/index.html")
     return site
@@ -215,5 +224,113 @@ def test_inventory_links_outside_the_api_pages_do_not_count(tmp_path: pathlib.Pa
 
 def test_missing_inventory_links_are_ignored_by_default(tmp_path: pathlib.Path) -> None:
     site = _site(tmp_path)
+
+    assert check_site.check_site(site) == []
+
+
+def test_the_site_check_refuses_a_preview_inside_a_paragraph(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "bad.html", extra='<p><div class="dc"><span>x</span></div></p>')
+
+    problems = check_site.check_site(site)
+
+    assert any("bad.html" in problem and "paragraph" in problem for problem in problems)
+
+
+def test_a_preview_beside_a_paragraph_is_fine(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "ok.html", extra='<p>text</p><div class="risa-result"><p>label</p><div class="dc">x</div></div>')
+
+    assert check_site.check_site(site) == []
+
+
+@pytest.mark.parametrize(
+    "landing",
+    [
+        '<script src="javascripts/live-preview.js"></script>',
+        '<template data-live-frame></template><script src="javascripts/live-preview.js"></script>',
+    ],
+)
+def test_the_site_check_needs_the_landing_frames(tmp_path: pathlib.Path, landing: str) -> None:
+    site = _site(tmp_path)
+    _page(site, "index.html", landing=landing)
+
+    problems = check_site.check_site(site)
+
+    assert len(problems) == 1
+    assert "index.html" in problems[0]
+    assert "frames" in problems[0]
+
+
+@pytest.mark.parametrize(
+    "script",
+    ["", '<script src="javascripts/gone.js"></script>', '<script src="javascripts/other/live-preview.js"></script>'],
+)
+def test_the_site_check_needs_the_script_of_the_landing_frames(tmp_path: pathlib.Path, script: str) -> None:
+    site = _site(tmp_path)
+    frames = "<template data-live-frame></template>" * 2
+    _page(site, "index.html", landing=frames + script)
+
+    problems = check_site.check_site(site)
+
+    assert len(problems) == 1
+    assert "live-preview.js" in problems[0]
+
+
+def test_only_the_landing_page_needs_the_frames(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+
+    _page(site, "api/index.html")
+
+    assert check_site.check_site(site) == []
+
+
+@pytest.mark.parametrize("title", ["Try it", "Try it  ", "Try <code>load</code>", "Try it,", "Try it;"])
+def test_a_run_in_title_without_closing_punctuation_is_reported(tmp_path: pathlib.Path, title: str) -> None:
+    site = _site(tmp_path)
+    _page(
+        site,
+        "get-started/index.html",
+        extra=f'<div class="admonition tip"><p class="admonition-title">{title}</p><p>Text.</p></div>',
+    )
+
+    problems = check_site.check_site(site)
+
+    assert len(problems) == 1
+    assert "get-started/index.html" in problems[0]
+    assert "closing punctuation" in problems[0]
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Try it.",
+        "Why not?",
+        "Stop!",
+        "In miru …",
+        "In miru:",
+        "Try <code>load()</code>",
+        "Try <code>load()</code>.",
+        "Wait: <em>really?</em>",
+        'She said "go"',
+        "She said 'go'",
+        "She said “go”",
+        "She said \u2018go\u2019",
+    ],
+)
+def test_a_run_in_title_with_closing_punctuation_passes(tmp_path: pathlib.Path, title: str) -> None:
+    site = _site(tmp_path)
+    _page(
+        site,
+        "get-started/index.html",
+        extra=f'<div class="admonition tip"><p class="admonition-title">{title}</p><p>Text.</p></div>',
+    )
+
+    assert check_site.check_site(site) == []
+
+
+def test_the_title_of_a_collapsed_block_needs_no_closing_punctuation(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "get-started/index.html", extra='<details class="example"><summary>Full file</summary></details>')
 
     assert check_site.check_site(site) == []

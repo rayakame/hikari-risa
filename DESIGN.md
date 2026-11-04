@@ -823,8 +823,18 @@ Changes from the original protocol, all verdicts of the lock investigation:
   to `on_outdated`). An `InMessage` view may still define it without error, so a project's
   shared base view can carry both hooks; there it simply never fires **[decided
   2026-10-26]**.
-- Durable state is **world-readable and client-forgeable** — never secrets, never the sole
-  basis of an authorization decision. Documented at the point of use, not in an appendix.
+- Durable state is **world-readable** — never secrets. Documented at the point of use, not
+  in an appendix. A click cannot change it: `InMessage` state is read from the message
+  Discord delivers with the click, and the `custom_id` a click carries, which holds the
+  handler, its bound arguments and an `InStore` key, must be on the message. Discord answers
+  anything else with `COMPONENT_VALIDATION_FAILED`. Discord does not document this; it was
+  tested by hand on 2026-11-04 with an invented id and with an id from before a rerender,
+  and an id from another message was not tried separately. Click-time input still fails
+  soft, since nothing promises the check will stay.
+- The same check has a cost for `InMessage`. A rerender that changes the state changes the
+  `custom_id` of the components that carry it, so a click from a client still showing the
+  old component fails in Discord and never reaches the bot. `InStore` ids survive a rerender,
+  so a view many people click at once fits it better.
 
 ---
 

@@ -39,6 +39,12 @@ uv run --group nox nox -s docs
 uv run --group docs zensical serve
 ```
 
+A page's code comes from a real file in `docs/examples/`, which starts with the license header and which ruff and
+pyright check. Mark a section with `# --8<-- [start:name]` and `# --8<-- [end:name]`, show it on the page with
+`--8<-- "file.py:name"` inside a fence, and show the whole file with `--8<-- "file.py:20:"` in a collapsed
+`??? example "Full file"` block. For its preview, add an entry to `docs/examples/previews.toml` and put one top-level line,
+`--8<-- "previews/<id>.html"`, directly after the code block, never inside a `div markdown`.
+
 The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
 
@@ -192,10 +198,14 @@ risa/
     build.py        two-phase build: plan (measure) + emit, and Rendered (the send kwargs)
     nodes.py        the V2 node set
   py.typed
-docs/               site pages, stylesheets, fonts, api/ (the reference pages)
+docs/               site pages, stylesheets, fonts
+  api/              the reference pages
+  get-started/      installation, the first view, coming from miru
+  examples/         the example files the pages show, and previews.toml, the list of their previews
+  javascripts/      the script that swaps the frames of the landing page's counter
 overrides/          theme template overrides for the site
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
-tools/              optimize_images, docs/prepare (stage artwork), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version in gh-pages)
+tools/              optimize_images, docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
 testbot/            manual test bot against a real Discord app (see testbot/README.md)

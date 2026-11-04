@@ -21,10 +21,15 @@
 
 from __future__ import annotations
 
+import collections
 import logging
 import pathlib
 import shutil
 import typing
+
+from tools.docs import discord_html
+from tools.docs import manifest
+from tools.docs import render_example
 
 __all__ = ("prepare",)
 
@@ -32,7 +37,11 @@ _LOGGER: typing.Final[logging.Logger] = logging.getLogger("tools.docs.prepare")
 
 
 def prepare(root: pathlib.Path) -> None:
-    """Copy the web artwork, the small logos and the favicon into ``docs/assets/images/``.
+    """Stage the artwork in ``docs/assets/images/`` and draw the previews into ``docs/generated/previews/``.
+
+    The artwork is the web artwork, the small logos and the favicon. Every preview of
+    ``docs/examples/previews.toml`` becomes one HTML file; files of previews that left
+    the manifest are removed.
 
     Parameters
     ----------
@@ -52,6 +61,41 @@ def prepare(root: pathlib.Path) -> None:
         _LOGGER.info("copied %s", name)
 
     shutil.copyfile(root / "assets" / "logo.svg", images / "favicon.svg")
+
+    _write_previews(root)
+
+
+def _write_previews(root: pathlib.Path) -> None:
+    examples = root / "docs" / "examples"
+    previews = manifest.load_manifest(examples / "previews.toml")
+
+    drawn: dict[str, str] = {}
+    by_example: dict[str, list[manifest.Preview]] = collections.defaultdict(list)
+    for preview in previews:
+        if isinstance(preview, manifest.ReplyPreview):
+            drawn[preview.id] = discord_html.wrap_result(
+                discord_html.render_reply(preview.text, ephemeral=preview.ephemeral),
+                preview.label,
+            )
+        elif isinstance(preview, manifest.ThinkingPreview):
+            drawn[preview.id] = discord_html.wrap_result(
+                discord_html.render_thinking(ephemeral=preview.ephemeral),
+                preview.label,
+            )
+        else:
+            by_example[preview.example].append(preview)
+    for example, group in by_example.items():
+        drawn.update(render_example.render_previews(examples / f"{example}.py", group))
+
+    target = root / "docs" / "generated" / "previews"
+    target.mkdir(parents=True, exist_ok=True)
+    for stale in target.glob("*.html"):
+        if stale.name.removesuffix(".html") not in drawn:
+            stale.unlink()
+            _LOGGER.info("removed %s", stale.name)
+    for preview_id, markup in drawn.items():
+        (target / f"{preview_id}.html").write_text(markup + "\n")
+        _LOGGER.info("drew %s", preview_id)
 
 
 if __name__ == "__main__":

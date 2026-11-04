@@ -8,6 +8,11 @@ docs_dir = "docs"
 exclude_docs = "specs/\nexamples/\ngenerated/"
 nav = [
   { "Home" = "index.md" },
+  { "Get started" = [
+    "get-started/installation.md",
+    "get-started/first-view.md",
+    "get-started/coming-from-miru.md",
+  ] },
   { "API" = [
     "api/index.md",
     { "risa.state" = [
@@ -37,7 +42,8 @@ nav = [
     { "risa.view" = "api/view.md" },
   ] },
 ]
-extra_css = ["stylesheets/risa.css"]
+extra_css = ["stylesheets/risa.css", "stylesheets/discord.css"]
+extra_javascript = ["javascripts/live-preview.js"]
 
 [project.extra]
 scope = "/hikari-risa/"
@@ -97,6 +103,7 @@ pymdownx.mark = {}
 pymdownx.smartsymbols = {}
 pymdownx.snippets.base_path = ["docs/examples", "docs/generated"]
 pymdownx.snippets.check_paths = true
+pymdownx.snippets.dedent_subsections = true
 pymdownx.superfences = {}
 pymdownx.tabbed.alternate_style = true
 pymdownx.tabbed.combine_header_slug = true

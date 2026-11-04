@@ -16,10 +16,10 @@ hide:
 Components V2 views for hikari, with state that survives restarts.
 {: .risa-hero__tagline }
 
-[Get started](api/index.md){ .risa-hero__start } [Learn by example](api/index.md){ .risa-hero__example }
+[Get started](get-started/installation.md){ .risa-hero__start } [Learn by example](get-started/first-view.md){ .risa-hero__example }
 {: .risa-hero__actions }
 
-`uv add git+https://github.com/rayakame/hikari-risa`
+`uv add hikari-risa`
 {: .risa-hero__install }
 
 </div>
@@ -32,10 +32,15 @@ Components V2 views for hikari, with state that survives restarts.
 
 <div class="risa-why" markdown>
 
-**Survives restarts.** The state travels inside the message. Redis or Postgres only when it outgrows it.
+**Survives restarts.** The state travels inside the message. You need Redis or Postgres only when it outgrows the message.
 
-**Components V2 first.** Containers, sections, galleries. Rows of buttons are just the simple case.
+**Components V2 first.** Build with containers, sections and galleries. A row of buttons is the simple case.
 
-**Typed all the way.** pyright strict on every line, so your editor knows every field.
+**Typed all the way.** risa passes pyright strict, so your editor knows every field.
 
 </div>
+
+Coming from miru? [See what changes.](get-started/coming-from-miru.md){ .risa-miru__link }
+{: .risa-miru }
+
+--8<-- "previews/counter-live.html"

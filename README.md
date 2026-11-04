@@ -19,7 +19,7 @@ class Counter(risa.View):
 
     def render(self) -> ui.Layout:
         return ui.Container(
-            ui.TextDisplay(f"Clicked **{self.count}** times"),
+            ui.TextDisplay(f"Clicks: **{self.count}**"),
             ui.Row(ui.Button(self.click, label="+1")),
         )
 

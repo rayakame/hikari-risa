@@ -59,6 +59,7 @@ docs = [
     "griffe-inherited-docstrings==1.1.4",
     "griffelib==2.4.1",
     "mkdocstrings-python==2.0.10",
+    "pygments==2.21.0",
     "zensical==0.0.74",
 ]
 nox = [
@@ -86,6 +87,7 @@ pytest = [
     "fakeredis[lua]==2.40.0",
     "griffe-inherited-docstrings==1.1.4",
     "griffelib==2.4.1",
+    "pygments==2.21.0",
     "pytest==9.2.0",
     "pytest-asyncio==1.4.1.post1",
     "radixly~=1.0",
@@ -99,7 +101,7 @@ strict-imports = true
 # generates for them, so every Struct in the package reports a false positive.
 
 [tool.pyright]
-include = ["risa", "tests", "testbot", "tools"]
+include = ["risa", "tests", "testbot", "tools", "docs/examples"]
 exclude = [
     "**/__init__.py"
 ]
