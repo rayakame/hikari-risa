@@ -41,7 +41,11 @@ uv run --group docs zensical serve
 The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
 
-The site deploys from `.github/workflows/docs.yml` when a release is published.
+The site is versioned and published to the `gh-pages` branch by `.github/workflows/docs.yml`. A push to
+main replaces `main/`; a published release replaces its minor folder (`0.1/`), and `stable/` when it is the
+newest release. Release tags are `vX.Y.Z` with no suffix, and GitHub pre-releases are not published. Until the first
+release, `main` carries the `stable` alias in `versions.json`, so no page shows the outdated banner.
+`tools/docs/publish.py` places a built version and keeps `versions.json` and the root redirect.
 
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.
@@ -184,7 +188,7 @@ risa/
 docs/               site pages, stylesheets, fonts, api/ (the reference pages)
 overrides/          theme template overrides for the site
 assets/             the artwork; web/ holds the optimized copies the site and README use
-tools/              optimize_images, docs/prepare (stage artwork), docs/check_site (site invariants)
+tools/              optimize_images, docs/prepare (stage artwork), docs/check_site (site invariants), docs/publish (place a version in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
 testbot/            manual test bot against a real Discord app (see testbot/README.md)
