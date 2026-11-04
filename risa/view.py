@@ -55,6 +55,7 @@ type HandlerFunction[V: View, **P] = collections.abc.Callable[
     typing.Concatenate[V, context.ComponentContext, P],
     collections.abc.Awaitable[None],
 ]
+"""A method `@risa.handler` can wrap: it takes the view, a `ComponentContext` and its own parameters."""
 
 
 class AutoDefer(enum.StrEnum):
@@ -202,8 +203,8 @@ def handler(
 ) -> object:
     """Make a view method a handler that components can route to.
 
-    Use it bare or with options. A handler takes the view and a `ComponentContext`, then
-    its wire parameters, then anything to inject:
+    Used bare it returns the handler, and with options a decorator that makes one. A handler
+    takes the view and a `ComponentContext`, then its wire parameters, then anything to inject:
 
     ```python
     @risa.handler(defer=risa.AutoDefer.UPDATE)
@@ -221,6 +222,9 @@ def handler(
 
     Parameters
     ----------
+    func
+        The view method to make a handler. Left out, the call takes options and returns
+        the decorator.
     handler_id
         The id the handler routes under, the method's name by default. Pin it before
         renaming the method, so components already sent keep working.
@@ -230,12 +234,7 @@ def handler(
         `View.on_outdated`.
     defer
         The handler's `AutoDefer`, overriding the view's.
-
-    Returns
-    -------
-    HandlerMethod | Callable[[HandlerFunction], HandlerMethod]
-        The handler, or a decorator that makes one when options are given.
-    """
+    """  # ruff:ignore[docstring-missing-returns]
 
     def decorate(f: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> HandlerMethod[View, ...]:
         return HandlerMethod(
@@ -310,6 +309,11 @@ class View(msgspec.Struct):
         To answer clicks on one retired handler differently, keep a method with its id,
         version and wire parameters whose body says the component is outdated. It routes
         like any handler, and nothing is logged.
+
+        Parameters
+        ----------
+        ctx
+            The context of the click, which has no view state.
         """
 
     @classmethod
@@ -320,6 +324,11 @@ class View(msgspec.Struct):
         the user's side, and risa logs a warning. Override it to answer the user, or to
         replace the message with `ctx.edit(...)`. Its parameters are injected, as a
         handler's are, and `ctx` has no view state.
+
+        Parameters
+        ----------
+        ctx
+            The context of the click, which has no view state.
         """
 
 
@@ -392,7 +401,7 @@ def register[T: View](
 
     Returns
     -------
-    Callable[[type[T]], type[T]]
+    :
         The decorator. It returns the class unchanged.
     """
 

@@ -110,9 +110,16 @@ class StateSchema:
     def of(cls, view_cls: type[msgspec.Struct], *, view_name: str) -> StateSchema:
         """Read the schema of a view class from its fields.
 
+        Parameters
+        ----------
+        view_cls
+            The view class, a `msgspec.Struct`, whose annotated fields are read.
+        view_name
+            The view's name, for error messages.
+
         Returns
         -------
-        StateSchema
+        :
             The schema of the class's durable fields.
 
         Raises
@@ -176,25 +183,60 @@ class StateSchema:
         return self._empty_fingerprint
 
     def accepts(self, fingerprint: str) -> bool:
-        """Whether state tagged `fingerprint` can be read into this schema."""
+        """Whether state tagged `fingerprint` can be read into this schema.
+
+        Parameters
+        ----------
+        fingerprint
+            The fingerprint the state was tagged with when it was saved.
+
+        Returns
+        -------
+        :
+            Whether this schema can read that state.
+        """
         prefix = self._prefixes.get(fingerprint)
         return prefix is not None and prefix.tail_is_defaulted
 
     def values(self, view: msgspec.Struct) -> collections.abc.Sequence[object]:
-        """Return the values of `view`'s durable fields, in order."""
+        """Return the values of `view`'s durable fields, in order.
+
+        Parameters
+        ----------
+        view
+            The view to read, an instance of the class this schema was read from.
+
+        Returns
+        -------
+        :
+            The values, one per durable field.
+        """
         return [getattr(view, f.name) for f in self._fields]
 
     def adopt(self, view: msgspec.Struct, source: msgspec.Struct) -> None:
-        """Copy the durable fields of `source` onto `view`."""
+        """Copy the durable fields of `source` onto `view`.
+
+        Parameters
+        ----------
+        view
+            The view that takes the values; it is changed in place.
+        source
+            The view the values come from; it needs the same durable fields.
+        """
         for field in self._fields:
             setattr(view, field.name, getattr(source, field.name))
 
     def pack(self, values: collections.abc.Sequence[object]) -> bytes:
         """Pack the values of the durable fields, in order, into state.
 
+        Parameters
+        ----------
+        values
+            The value of each durable field, in field order.
+
         Returns
         -------
-        bytes
+        :
             The packed state, empty for a view without durable fields.
 
         Raises
@@ -210,7 +252,23 @@ class StateSchema:
             raise self._encode_error(values, exc) from exc
 
     def pack_view(self, view: msgspec.Struct) -> bytes:
-        """Pack the durable fields of `view` into state."""
+        """Pack the durable fields of `view` into state.
+
+        Parameters
+        ----------
+        view
+            The view whose durable fields are packed.
+
+        Returns
+        -------
+        :
+            The packed state.
+
+        Raises
+        ------
+        StateEncodeError
+            If a value cannot be serialized.
+        """
         return self.pack(self.values(view))
 
     def _encode_error(
@@ -226,7 +284,22 @@ class StateSchema:
         return errors.StateEncodeError(self._view_name, "?", str(fallback))
 
     def unpack(self, fingerprint: str, raw: bytes) -> collections.abc.Sequence[object] | None:
-        """Unpack state tagged `fingerprint`, or return `None` if this schema cannot read it."""
+        """Unpack state tagged `fingerprint`, or return `None` if this schema cannot read it.
+
+        Parameters
+        ----------
+        fingerprint
+            The fingerprint the state was tagged with when it was saved.
+        raw
+            The packed bytes saved under that fingerprint.
+
+        Returns
+        -------
+        :
+            The values of the durable fields, or `None` if this schema cannot read the state.
+            State saved before a field was added holds only the fields it had, so the sequence
+            stops short of those added since.
+        """
         prefix = self._prefixes.get(fingerprint)
         if prefix is None or not prefix.tail_is_defaulted:
             return None
@@ -238,7 +311,18 @@ class StateSchema:
             return None
 
     def field_sizes(self, packed: bytes) -> collections.abc.Mapping[str, int]:
-        """Return the bytes each durable field takes in state this schema packed, by name."""
+        """Return the bytes each durable field takes in state this schema packed, by name.
+
+        Parameters
+        ----------
+        packed
+            State this schema packed, as `pack` returned it.
+
+        Returns
+        -------
+        :
+            The bytes taken by each field's value, keyed by field name.
+        """
         if not self._fields:
             return {}
         values = msgspec.msgpack.decode(packed, type=list[msgspec.Raw])
@@ -311,9 +395,14 @@ def _members(info: msgspec.inspect.EnumType | msgspec.inspect.LiteralType) -> co
 def structural_type_id(annotation: object) -> str:
     """Describe a field type by its structure, for the schema fingerprint.
 
+    Parameters
+    ----------
+    annotation
+        The field's type annotation.
+
     Returns
     -------
-    str
+    :
         The same text for types of the same structure, whatever they are named.
 
     Raises

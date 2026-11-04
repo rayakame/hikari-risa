@@ -24,6 +24,7 @@ from __future__ import annotations
 import typing
 
 import linkd
+import linkd.context
 from linkd import INJECTED
 
 __all__ = ("INJECTED", "ComponentContainer", "Contexts", "ModalContainer")
@@ -63,12 +64,12 @@ class Contexts:
 
     __slots__ = ()
 
-    DEFAULT: typing.Final = linkd.Contexts.ROOT
-    COMPONENT: typing.Final = linkd.global_context_registry.register(
+    DEFAULT: typing.Final[linkd.context.Context] = linkd.Contexts.ROOT
+    COMPONENT: typing.Final[linkd.context.Context] = linkd.global_context_registry.register(
         "risa.contexts.component",
         ComponentContainer,
     )
-    MODAL: typing.Final = linkd.global_context_registry.register(
+    MODAL: typing.Final[linkd.context.Context] = linkd.global_context_registry.register(
         "risa.contexts.modal",
         ModalContainer,
     )

@@ -2,9 +2,10 @@
 
 State as of 2026-08-17 (reconstructed 2026-10-25 — the working notes for 2026-08-16/17
 were lost, so this file is the *only* record of that evening's decisions). `DESIGN.md` is the authority on the target; this file is only
-"where we are and what to do next". The old near-complete implementation lives on the
-`start-implementation` branch as a DX reference — read it for ideas, error wording and
-test cases; its internals are not a blueprint.
+"where we are and what to do next". The old near-complete implementation lived on the
+`start-implementation` branch as a DX reference for ideas, error wording and test cases;
+its internals were never a blueprint. The branch was deleted from GitHub on 2026-11-04
+and survives only as a local copy on the maintainer's machine.
 
 ## Resume here (written 2026-10-25, updated 2026-11-04)
 
@@ -13,26 +14,57 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
-**2026-11-03, docs site, milestone 1 (branch `docs-site`; design in
+**2026-11-04, docs site, milestone 1c (branch `docs-redesign`):** the first live site was
+rejected as looking like a template, so the frame was rebuilt in the language of the social
+preview: flat Night `#200836` and Banner tone `#F3EAF8`, ruled tokens in place of boxes, no
+glow, no gradient, the pink halftone as the only ornament. The header carries the small
+logo, the wordmark (which links home), the version tag, search and the mode switch.
+Headings are Zen Kaku Gothic New, text Inter, code JetBrains Mono. Tips are a 3px pink rule,
+the active nav item a pink bar. The landing page has the head (logo, name, tagline, two
+calls to action, install line, Risa as `assets/web/mascot-sticker.webp` generated from
+`mascot.png` by `tools/optimize_images.py`) and three plain statements. Left for the landing
+page: the counter with its generated Discord preview, and a text line for "Coming from miru"
+under the statements once that page exists. `docs/specs/2026-11-03-docs-site.md` §4.4 and
+§7 describe the frame as built.
+
+The API reference was restructured on the maintainer's request to read like
+hikari-lightbulb's (spec §4.5): `api/index.md` lists the subpackages `risa.state`,
+`risa.store` and `risa.ui`, each a folder with its modules, then the modules; there is no
+`risa` page. Types come from the code: every documented instance attribute carries an
+annotation, `Returns` sections open with a lone `:` so griffe fills them from the signature,
+and the eight public type aliases gained the docstrings without which the pages left them
+out. `risa.bind` stays `functools.partial` at runtime; it is now annotated
+`Final[type[functools.partial[Awaitable[None]]]]`, and `tests/risa/typing_guard.py` passes
+unchanged, so fiction 1 holds. `handler`'s overloads carry its types, so the implementation
+stays `-> object` and its docstring says in prose what each form returns. griffe cannot see the
+constructor msgspec writes for a Struct, so `tools/docs/griffe_structs.py`, registered in
+`zensical.toml`, synthesizes it for the docs. `tools/docs/check_api.py` runs first in the `docs`
+session and keeps the pages and the annotations honest; it loads `risa` statically with griffe
+and the extensions of `zensical.toml`, so it sees what the build renders and the extras need
+not be installed. Symbol words and labels are a small muted italic word, and a property's word
+is `property`. Every public parameter has an entry in `Parameters` (`Attributes` for a
+constructor's), which `check_api.py` also enforces, except those of constructors only risa calls.
+
+**2026-11-03, docs site, milestone 1 (merged as #52; design in
 `docs/specs/2026-11-03-docs-site.md`, which milestone 2 continues from):** the site is built with Zensical
 (`zensical.toml`, theme overrides in `overrides/`, styles and fonts under `docs/`). It has the
 artwork web copies (`tools/optimize_images.py` into `assets/web/`), the dark and light palettes, a
-placeholder landing page and the ten API reference pages generated from the docstrings. The nox
+first landing page and the ten API reference pages generated from the docstrings. The nox
 session `docs` (prepare, `zensical build --strict`, `tools/docs/check_site.py`) is part of the
 default run and of CI. `.github/workflows/docs.yml` publishes to the `gh-pages` branch on a push to main, when a
 release is published, and by hand from `main` (milestone 1b below). The
 README now has the banner, the counter, the install line and the link to the site. The favicon
 is the dark-violet logo, swapped for the light logo on dark tab strips through a `media` link in
-`overrides/main.html`. Next is milestone 2: the examples, the Discord previews, the landing page
-and "Get started".
+`overrides/main.html`. Next is milestone 2: the examples, the Discord previews, the landing
+page's counter and "Get started".
 
-**2026-11-04, social preview (branch `social-preview`):** `assets/social-preview.png`, a
+**2026-11-04, social preview (merged as #54):** `assets/social-preview.png`, a
 1280×640 image of Risa as a sticker beside the logo and tagline, built from the new
 `assets/mascot.png` (Risa without background). `tools/optimize_images.py` writes its web
 copy, `prepare` publishes it with the site, and `overrides/main.html` adds `og:` and
 `twitter:` meta tags so links to any docs page show it. `banner-social.jpg` is gone.
 
-**2026-11-03, docs site, milestone 1b (branch `docs-versions`, stacked on `docs-site`, PR #52, and rebased onto `main` once #52 merges):**
+**2026-11-03, docs site, milestone 1b (merged as #53):**
 the docs are versioned: `main/`, one folder per minor release, `stable/` and a version selector,
 published into `gh-pages` by `tools/docs/publish.py` from `docs.yml`.
 
@@ -257,8 +289,9 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
   hardening (#20, #21), the state pivot's steps 1–3 (#39) and step 4 (#40), the shared
   REST listener slot (#44), `RedisStore` with `verify_store` (#47), the contributor guide
   (#48), `PostgresStore` (#49) and the API docstrings (#50).
-- **`docs-site`** carries milestone 1 of the documentation site, on top of `main`.
-- **`docs-versions`** carries milestone 1b (versioned docs), on top of `docs-site`.
+- **`docs-redesign`** carries milestone 1c (the redesigned frame), on top of `main`.
+- **`docs-site`**, **`docs-versions`** and **`social-preview`** were squash-merged as #52,
+  #53 and #54 and deleted.
 - **`overflow-breakdown`** was squash-merged as #51 and deleted.
 - **`docs-api`** was squash-merged as #50 and deleted.
 - **`modals`** carries the step 5 design, parked until hikari parses the new modal
@@ -270,8 +303,8 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
 
 ## Setting up on a new machine
 
-1. **Fresh clone strongly preferred**; `git checkout anchor-codec`. The histories of
-   `main` and `start-implementation` were rewritten on 2026-08-13 (attribution scrub) —
+1. **Fresh clone strongly preferred**; `git checkout anchor-codec`. The history of
+   `main` was rewritten on 2026-08-13 (attribution scrub) —
    an older clone must `git fetch origin` and `git reset --hard origin/<branch>` on
    every branch it touches (stash or back up local work first; the reset discards it);
    never `git pull`.
@@ -336,7 +369,7 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
 
 ## The deliberate typing fictions (do not "fix" these)
 
-1. **`risa.bind` IS `functools.partial`**, a bare alias, living with the rest of the
+1. **`risa.bind` IS `functools.partial`**, an alias with no wrapper around it, living with the rest of the
    mechanism in `risa/binding.py` (`Binding`, `HandlerBinder`, `resolve`, `BindTarget`,
    `Handlerish`). Wrapping it in a risa function kills the checker special-casing that
    statically validates every bind site. DESIGN §6.3 `[decided — revised]`.

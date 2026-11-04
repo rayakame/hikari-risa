@@ -396,7 +396,7 @@ async def toggle(self, ctx: risa.Context, role_id: int) -> None: ...
 
 **Binding is `functools.partial`, statically checked through the checker's `partial`
 special-casing. [decided — revised after the typing investigation]** `risa.bind` *is*
-`functools.partial` (a bare alias; wrapping it would kill the special-casing), and instance
+`functools.partial` (an alias with no wrapper around it; wrapping it would kill the special-casing), and instance
 access on a handler is deliberately typed as a bare
 `Callable[P, Awaitable[None]]` — a fiction over the runtime `BoundHandlerMethod`, cast in
 `HandlerMethod.__get__`. Pyright (and mypy, via its `functools` plugin) hand-validate

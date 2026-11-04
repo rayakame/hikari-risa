@@ -3,21 +3,38 @@ site_name = "hikari-risa"
 site_url = "https://rayakame.github.io/hikari-risa/"
 site_description = "Components V2 views for hikari, with state that survives restarts."
 repo_url = "https://github.com/rayakame/hikari-risa"
+copyright = "MIT licensed"
 docs_dir = "docs"
 exclude_docs = "specs/\nexamples/\ngenerated/"
 nav = [
   { "Home" = "index.md" },
   { "API" = [
-    { "risa" = "api/risa.md" },
-    { "risa.ui" = "api/ui.md" },
-    { "risa.state" = "api/state.md" },
-    { "risa.store" = "api/store.md" },
-    { "risa.store.redis" = "api/store-redis.md" },
-    { "risa.store.postgres" = "api/store-postgres.md" },
-    { "risa.store.testing" = "api/store-testing.md" },
+    "api/index.md",
+    { "risa.state" = [
+      "api/state/index.md",
+      { "risa.state.placement" = "api/state/placement.md" },
+      { "risa.state.schema" = "api/state/schema.md" },
+    ] },
+    { "risa.store" = [
+      "api/store/index.md",
+      { "risa.store.memory" = "api/store/memory.md" },
+      { "risa.store.postgres" = "api/store/postgres.md" },
+      { "risa.store.protocol" = "api/store/protocol.md" },
+      { "risa.store.redis" = "api/store/redis.md" },
+      { "risa.store.testing" = "api/store/testing.md" },
+    ] },
+    { "risa.ui" = [
+      "api/ui/index.md",
+      { "risa.ui.build" = "api/ui/build.md" },
+      { "risa.ui.nodes" = "api/ui/nodes.md" },
+    ] },
+    { "risa.binding" = "api/binding.md" },
+    { "risa.client" = "api/client.md" },
     { "risa.codecs" = "api/codecs.md" },
-    { "risa.errors" = "api/errors.md" },
+    { "risa.context" = "api/context.md" },
     { "risa.di" = "api/di.md" },
+    { "risa.errors" = "api/errors.md" },
+    { "risa.view" = "api/view.md" },
   ] },
 ]
 extra_css = ["stylesheets/risa.css"]
@@ -39,7 +56,6 @@ features = [
   "content.code.annotate",
   "content.code.copy",
   "content.tabs.link",
-  "navigation.footer",
   "navigation.indexes",
   "navigation.instant",
   "navigation.path",
@@ -72,7 +88,6 @@ pymdownx.caret = {}
 pymdownx.details = {}
 pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
 pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
-pymdownx.highlight.anchor_linenums = true
 pymdownx.highlight.line_spans = "__span"
 pymdownx.highlight.pygments_lang_class = true
 pymdownx.inlinehilite = {}
@@ -93,15 +108,22 @@ paths = ["."]
 inventories = [
   "https://docs.python.org/3/objects.inv",
   "https://docs.hikari-py.dev/en/stable/objects.inv",
+  "https://linkd.readthedocs.io/en/latest/objects.inv",
 ]
 
 [project.plugins.mkdocstrings.handlers.python.options]
 docstring_style = "numpy"
 docstring_section_style = "list"
-extensions = ["griffe_inherited_docstrings"]
+extensions = ["griffe_inherited_docstrings", "tools/docs/griffe_structs.py"]
 show_source = false
+show_signature_annotations = true
 signature_crossrefs = true
 separate_signature = true
-show_root_heading = true
-members_order = "source"
+line_length = 80
+show_root_heading = false
+show_root_toc_entry = false
+show_symbol_type_heading = true
+merge_init_into_class = true
+overloads_only = true
+members_order = "alphabetical"
 filters = ["!^_"]

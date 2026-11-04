@@ -80,10 +80,19 @@ __all__ = (
 type RowChild = (
     Button | ChannelSelect | LinkButton | MentionableSelect | PremiumButton | RoleSelect | TextSelect | UserSelect
 )
+"""A component that fits in a `Row`."""
+
 type SectionAccessory = Button | LinkButton | PremiumButton | Thumbnail
+"""A component that fits beside the text of a `Section`."""
+
 type ContainerChild = File | MediaGallery | Row | Section | Separator | TextDisplay
+"""A component that fits in a `Container`."""
+
 type TopLevelComponent = Container | ContainerChild
+"""A component that can stand at the top of a message."""
+
 type Layout = TopLevelComponent | collections.abc.Sequence[TopLevelComponent]
+"""What `View.render` returns: one top-level component, or several in order."""
 
 
 def _or_undefined[T](value: T | None) -> T | hikari.UndefinedType:
@@ -99,13 +108,15 @@ class Component(abc.ABC):
     def build(self, ctx: BuildContext, path: str, /) -> special_endpoints.ComponentBuilder:
         """Turn the component into hikari's builder for it.
 
-        risa calls this while building a view; `path` names the component's place in the
-        tree for error messages.
+        risa calls this while building a view, once to measure the layout and once to emit
+        it; `path` names the component's place in the tree for error messages.
 
-        Returns
-        -------
-        ComponentBuilder
-            hikari's builder for the component.
+        Parameters
+        ----------
+        ctx
+            The build in progress, which hands out the `custom_id` of an interactive component.
+        path
+            Where the component stands in the tree, for example `Row[0] > Button[1]`.
         """
 
     @property
@@ -115,7 +126,13 @@ class Component(abc.ABC):
 
 
 class Interactive(Component):
-    """Base class of the components a click routes from to a handler."""
+    """Base class of the components a click routes from to a handler.
+
+    Parameters
+    ----------
+    handler
+        The handler a click routes to, bare or through `risa.bind`.
+    """
 
     __slots__ = ("_binding",)
 
@@ -129,7 +146,13 @@ class Interactive(Component):
 
 
 class TextDisplay(Component):
-    """Markdown text."""
+    """Markdown text.
+
+    Parameters
+    ----------
+    content
+        The text, in Discord's markdown.
+    """
 
     __slots__ = ("_content",)
 
@@ -142,7 +165,7 @@ class TextDisplay(Component):
         return self._content
 
     @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.TextDisplayComponentBuilder:
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.TextDisplayComponentBuilder:
         return impl.TextDisplayComponentBuilder(content=self._content)
 
 
@@ -179,7 +202,7 @@ class Separator(Component):
         return self._spacing
 
     @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.SeparatorComponentBuilder:
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.SeparatorComponentBuilder:
         return impl.SeparatorComponentBuilder(divider=self._divider, spacing=self._spacing)
 
 
@@ -225,7 +248,7 @@ class Thumbnail(Component):
         return self._spoiler
 
     @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.ThumbnailComponentBuilder:
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.ThumbnailComponentBuilder:
         return impl.ThumbnailComponentBuilder(
             media=self._media,
             description=_or_undefined(self._description),
@@ -284,7 +307,13 @@ class MediaGalleryItem:
 
 
 class MediaGallery(Component):
-    """A grid of images and videos."""
+    """A grid of images and videos.
+
+    Parameters
+    ----------
+    *items
+        The images and videos, in order.
+    """
 
     __slots__ = ("_items",)
 
@@ -297,7 +326,7 @@ class MediaGallery(Component):
         return self._items
 
     @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.MediaGalleryComponentBuilder:
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.MediaGalleryComponentBuilder:
         return impl.MediaGalleryComponentBuilder(items=[item.build() for item in self._items])
 
 
@@ -329,12 +358,18 @@ class File(Component):
         return self._spoiler
 
     @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.FileComponentBuilder:
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.FileComponentBuilder:
         return impl.FileComponentBuilder(file=self._file, spoiler=self._spoiler)
 
 
 class Row(Component):
-    """A row of buttons, or a single select menu."""
+    """A row of buttons, or a single select menu.
+
+    Parameters
+    ----------
+    *components
+        The buttons or the select menu, in order.
+    """
 
     __slots__ = ("_components",)
 
@@ -560,7 +595,7 @@ class LinkButton(Component):
         return self._disabled
 
     @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.LinkButtonBuilder:
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.LinkButtonBuilder:
         return impl.LinkButtonBuilder(
             url=self._url,
             label=_or_undefined(self._label),
@@ -597,7 +632,7 @@ class PremiumButton(Component):
         return self._disabled
 
     @typing.override
-    def build(self, _ctx: BuildContext, _path: str) -> special_endpoints.PremiumButtonBuilder:
+    def build(self, ctx: BuildContext, path: str) -> special_endpoints.PremiumButtonBuilder:
         return impl.PremiumButtonBuilder(sku_id=int(self._sku_id), is_disabled=self._disabled)
 
 
@@ -681,9 +716,9 @@ class Select(Interactive):
     placeholder
         The text shown while nothing is picked.
     min_values
-        The fewest options the user must pick.
+        The fewest picks the user must make.
     max_values
-        The most options the user may pick.
+        The most picks the user may make.
     disabled
         Grey the menu out.
     """
@@ -727,7 +762,23 @@ class Select(Interactive):
 
 
 class TextSelect(Select):
-    """A select menu of the options the bot lists, as `SelectOption`s."""
+    """A select menu of the options the bot lists, as `SelectOption`s.
+
+    Parameters
+    ----------
+    handler
+        The handler a pick routes to, bare or through `risa.bind`.
+    *options
+        The options, in order.
+    placeholder
+        The text shown while nothing is picked.
+    min_values
+        The fewest options the user must pick.
+    max_values
+        The most options the user may pick.
+    disabled
+        Grey the menu out.
+    """
 
     __slots__ = ("_options",)
 
@@ -781,7 +832,10 @@ class _EntitySelect(Select):
 
 
 class UserSelect(_EntitySelect):
-    """A select menu of users. The handler finds them in `ctx.resolved`."""
+    """A select menu of users. The handler finds them in `ctx.resolved`.
+
+    It takes the parameters of `Select`.
+    """
 
     __slots__ = ()
 
@@ -789,7 +843,10 @@ class UserSelect(_EntitySelect):
 
 
 class RoleSelect(_EntitySelect):
-    """A select menu of roles. The handler finds them in `ctx.resolved`."""
+    """A select menu of roles. The handler finds them in `ctx.resolved`.
+
+    It takes the parameters of `Select`.
+    """
 
     __slots__ = ()
 
@@ -797,7 +854,10 @@ class RoleSelect(_EntitySelect):
 
 
 class MentionableSelect(_EntitySelect):
-    """A select menu of users and roles. The handler finds them in `ctx.resolved`."""
+    """A select menu of users and roles. The handler finds them in `ctx.resolved`.
+
+    It takes the parameters of `Select`.
+    """
 
     __slots__ = ()
 
@@ -809,8 +869,18 @@ class ChannelSelect(Select):
 
     Parameters
     ----------
+    handler
+        The handler a pick routes to, bare or through `risa.bind`.
     channel_types
         The kinds of channel to offer; every kind by default.
+    placeholder
+        The text shown while nothing is picked.
+    min_values
+        The fewest channels the user must pick.
+    max_values
+        The most channels the user may pick.
+    disabled
+        Grey the menu out.
     """
 
     __slots__ = ("_channel_types",)

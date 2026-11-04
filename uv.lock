@@ -549,7 +549,9 @@ bot = [
 ]
 docs = [
     { name = "griffe-inherited-docstrings" },
+    { name = "griffelib" },
     { name = "mkdocstrings-python" },
+    { name = "ruff" },
     { name = "zensical" },
 ]
 images = [
@@ -567,6 +569,8 @@ pyright = [
 pytest = [
     { name = "asyncpg" },
     { name = "fakeredis", extra = ["lua"] },
+    { name = "griffe-inherited-docstrings" },
+    { name = "griffelib" },
     { name = "pillow" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -600,7 +604,9 @@ bot = [
 ]
 docs = [
     { name = "griffe-inherited-docstrings", specifier = "==1.1.4" },
+    { name = "griffelib", specifier = "==2.4.1" },
     { name = "mkdocstrings-python", specifier = "==2.0.10" },
+    { name = "ruff", specifier = "==0.17.3" },
     { name = "zensical", specifier = "==0.0.74" },
 ]
 images = [{ name = "pillow", specifier = "==13.0.0" }]
@@ -614,6 +620,8 @@ pyright = [
 pytest = [
     { name = "asyncpg", specifier = "~=0.32" },
     { name = "fakeredis", extras = ["lua"], specifier = "==2.40.0" },
+    { name = "griffe-inherited-docstrings", specifier = "==1.1.4" },
+    { name = "griffelib", specifier = "==2.4.1" },
     { name = "pillow", specifier = "==13.0.0" },
     { name = "pytest", specifier = "==9.2.0" },
     { name = "pytest-asyncio", specifier = "==1.4.1.post1" },

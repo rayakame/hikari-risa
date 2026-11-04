@@ -45,14 +45,16 @@ __all__ = (
 )
 
 type BindTarget[**P] = collections.abc.Callable[P, collections.abc.Awaitable[None]]
+"""A handler accessed on a view, as a type checker sees it: a callable of its wire parameters."""
 
 type Handlerish = (
     collections.abc.Callable[..., collections.abc.Awaitable[None]]
     | Binding
     | functools.partial[collections.abc.Awaitable[None]]
 )
+"""What a component takes as its handler: `self.vote`, or `risa.bind(self.vote, 2)`."""
 
-bind: typing.Final = functools.partial
+bind: typing.Final[type[functools.partial[collections.abc.Awaitable[None]]]] = functools.partial
 """Put a handler on a component together with its wire arguments.
 
 `ui.Button(risa.bind(self.vote, 2))` routes a click on that button to
@@ -144,9 +146,18 @@ class HandlerBinder:
 
         `risa.bind(self.vote, 2)` ends up here when the component is built.
 
+        Parameters
+        ----------
+        *args
+            The wire arguments, in the order of the handler's wire parameters.
+        **kwargs
+            Wire arguments by parameter name. An argument may be left out only if its
+            parameter has a default and every later one is left out too; this holds for
+            positional arguments as well.
+
         Returns
         -------
-        Binding
+        :
             The handler's identity and its encoded arguments.
 
         Raises
@@ -209,9 +220,15 @@ class HandlerBinder:
 def resolve(handler: Handlerish) -> Binding:
     """Return the `Binding` that `handler` routes to.
 
+    Parameters
+    ----------
+    handler
+        A handler accessed on a view instance, as `self.vote`, bare or through `risa.bind`.
+        A `Binding` is accepted and returned as it is.
+
     Returns
     -------
-    Binding
+    :
         The handler's identity and its encoded arguments.
 
     Raises

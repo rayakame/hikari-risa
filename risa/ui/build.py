@@ -53,6 +53,9 @@ __all__ = (
 class BuildContext:
     """What a component gets while a view is built: the view's routing identity and codec.
 
+    risa makes one for each pass over a layout: one to measure it and one for each time it
+    emits, so a component's `build` runs at least twice per `client.build`.
+
     Attributes
     ----------
     cookie
@@ -77,10 +80,10 @@ class BuildContext:
         slots: collections.abc.Sequence[anchor.Slot] | None = None,
         reserve: int = 0,
     ) -> None:
-        self.cookie = cookie
-        self.tokens = tokens
-        self.cls = cls
-        self.codec = wire_codec
+        self.cookie: str = cookie
+        self.tokens: collections.abc.Set[str] = tokens
+        self.cls: type[view_.View] = cls
+        self.codec: codecs.Codec = wire_codec
         self._slots = slots
         self._reserve = reserve
         self._capacities: list[int] = []
@@ -94,9 +97,16 @@ class BuildContext:
     def routing_id(self, binding: binding_.Binding, path: str) -> str:
         """Return the `custom_id` for an interactive component bound to `binding`.
 
+        Parameters
+        ----------
+        binding
+            The handler the component routes to, with its wire arguments.
+        path
+            Where the component stands in the tree, for error messages.
+
         Returns
         -------
-        str
+        :
             The `custom_id`, carrying the route, the wire arguments and the component's share
             of the state.
 
@@ -206,7 +216,7 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
 
     It is a mapping, so it spreads into any call that takes `components=`:
     `await ctx.respond(**rendered)`. A Components V2 message carries nothing but its
-    components, so there is nothing else to spread.
+    components, so there is nothing else to spread. `Client.build` returns one.
     """
 
     __slots__ = ("_components",)
@@ -241,9 +251,18 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
     ) -> hikari.Message:
         """Send the view as a new message in `channel`.
 
+        Parameters
+        ----------
+        rest
+            The REST client to send through.
+        channel
+            The channel, or its id, to send to.
+        **forbidden
+            Nothing: a V2 view renders the whole message, so any keyword raises `TypeError`.
+
         Returns
         -------
-        hikari.Message
+        :
             The message sent.
         """
         _reject_forbidden(forbidden)
@@ -265,8 +284,14 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
 
         Parameters
         ----------
+        rest
+            The REST client to answer through.
+        interaction
+            The interaction to answer, which must not have an initial response yet.
         ephemeral
             Show the message only to the user who used the command.
+        **forbidden
+            Nothing: a V2 view renders the whole message, so any keyword raises `TypeError`.
         """
         _reject_forbidden(forbidden)
         await rest.create_interaction_response(
