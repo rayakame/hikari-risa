@@ -21,8 +21,8 @@
 
 A view is a class whose fields are its state, whose `render` returns its layout, and
 whose handlers answer the clicks on it. The state travels inside the message by
-default, so views survive restarts with no infrastructure, or lives in a store for
-views that outgrow it.
+default, so views survive restarts with no infrastructure. A view that outgrows the
+message can keep its state in a store.
 """
 
 from __future__ import annotations

@@ -659,6 +659,12 @@ html .md-header__option:has(.md-option:focus-visible) label:not([hidden]) {
   padding-top: 0.6rem;
 }
 
+.md-typeset .risa-lead {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+}
+
 .md-typeset h1,
 .md-typeset h2,
 .md-typeset h3,
@@ -882,6 +888,16 @@ html .md-typeset details > :last-child {
   color: var(--md-default-fg-color--light);
 }
 
+.md-typeset .tabbed-labels > label {
+  font-family: var(--risa-display-font);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.js .md-typeset .tabbed-labels::before {
+  background: var(--risa-pink);
+}
+
 .md-top,
 .md-sidebar--secondary .md-sidebar-button {
   background-color: var(--md-default-bg-color);
@@ -1050,10 +1066,11 @@ html .md-footer-meta.md-typeset a:not(:focus, :hover) {
   background-color: var(--risa-heading-color);
 }
 
-.md-typeset .risa-hero__example {
+.md-typeset :is(.risa-hero__example, .risa-miru__link) {
   padding-bottom: 0.1rem;
   font-weight: 500;
   color: var(--risa-heading-color);
+  text-decoration: none;
   border-bottom: 0.1rem solid var(--risa-pink);
 }
 
@@ -1126,6 +1143,13 @@ html .md-footer-meta.md-typeset a:not(:focus, :hover) {
   color: var(--risa-heading-color);
 }
 
+.md-typeset .risa-miru {
+  padding: 0 var(--risa-home-gutter) 1.7rem;
+  margin: 0;
+  font-size: 0.725rem;
+  color: var(--md-default-fg-color--light);
+}
+
 @media screen and (max-width: 59.984375em) {
   .md-content__inner:has(.risa-hero) {
     --risa-home-gutter: 0.8rem;
@@ -1179,5 +1203,240 @@ html .md-footer-meta.md-typeset a:not(:focus, :hover) {
   .risa-why {
     grid-template-columns: minmax(0, 1fr);
     gap: 1.2rem;
+  }
+}
+
+.risa-live {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1.4rem;
+  align-items: start;
+  padding-block: 0.3rem 3rem;
+  padding-inline: var(--risa-home-gutter);
+}
+
+.md-typeset .risa-live > .highlight,
+.md-typeset .risa-live > .highlight pre {
+  margin: 0;
+}
+
+/* The theme's own padding of a code block, so that the tint reaches both of its edges. */
+.risa-live__tint {
+  margin-inline: -1.25em;
+  padding-inline: 1.25em;
+  animation: risa-live-tint 0.9s ease-out;
+}
+
+@keyframes risa-live-tint {
+  from,
+  35% {
+    background-color: var(--md-code-hl-color--light);
+  }
+
+  to {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .risa-live__tint {
+    animation: none;
+    background-color: var(--md-code-hl-color--light);
+  }
+}
+
+.risa-live__value {
+  user-select: none;
+}
+
+/* The theme reads a block's innerText for its copy button, and the value is not part of the source. */
+[data-md-copying] .risa-live__value {
+  display: none;
+}
+
+.risa-live__side {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.md-typeset .risa-live__id {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  font-family: var(--md-code-font-family);
+  font-size: 0.6rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.risa-live__id-label {
+  margin-right: 0.3rem;
+  color: var(--md-default-fg-color--lighter);
+}
+
+/* The link colour, because the pink of Banner tone is never used as text. */
+.risa-live__changed {
+  color: var(--md-typeset-a-color);
+}
+
+.md-typeset .risa-live__note {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.725rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.no-js .risa-live__note {
+  display: none;
+}
+
+@media screen and (max-width: 59.984375em) {
+  .risa-live {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The "In Discord" block is the lower half of the code block above it. */
+.md-typeset .highlight:has(+ .risa-result) {
+  margin-bottom: 0;
+}
+
+.md-typeset .highlight:has(+ .risa-result) pre {
+  margin-bottom: 0;
+}
+
+.md-typeset .highlight:has(+ .risa-result) pre > code {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.md-typeset .risa-result {
+  --md-default-fg-color--light: #b7a3cc;
+  --md-typeset-a-color: #f680a1;
+
+  margin: 0 0 1em;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px dashed rgba(233, 218, 249, 0.14);
+  border-radius: 0 0 0.3rem 0.3rem;
+  color: var(--md-code-fg-color);
+  background: var(--md-code-bg-color);
+}
+
+.md-typeset .highlight + .risa-result {
+  margin-top: 0;
+}
+
+.md-typeset .risa-result:has(+ .risa-result) {
+  border-radius: 0;
+}
+
+.md-typeset .risa-result + .risa-result {
+  margin-top: -1em;
+}
+
+.md-typeset .risa-result > .risa-result__label {
+  margin: 0 0 0.5rem;
+  color: #f680a1;
+  font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* On a phone the theme runs a top-level code block to both screen edges, and its lower half has to follow. */
+@media screen and (max-width: 44.984375em) {
+  .md-content__inner > .risa-result {
+    margin-inline: -0.8rem;
+    border-radius: 0;
+  }
+}
+
+.md-typeset .risa-error {
+  margin: 0;
+}
+
+.md-typeset .risa-error code {
+  padding: 0;
+  color: #ff8fb5;
+  background: none;
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.md-typeset ol.risa-click {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+  margin: 1.2rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-typeset .risa-click__step {
+  --risa-inline-code-color: #ffd479;
+  --risa-inline-code-bg: transparent;
+
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--risa-rule-color);
+  border-radius: 0.3rem;
+  color: #b7a3cc;
+  background: #150524;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.md-typeset .risa-click__step:not(:last-child, :nth-child(3n))::after {
+  position: absolute;
+  top: 50%;
+  right: -0.95rem;
+  color: #f680a1;
+  content: "\2192";
+  transform: translateY(-50%);
+}
+
+.risa-click__n {
+  color: #f680a1;
+  font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.md-typeset .risa-click__step strong {
+  color: #ece2f6;
+  font-size: 0.8rem;
+}
+
+.md-typeset .risa-click__step code {
+  padding: 0;
+  color: #ffd479;
+  background: none;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.risa-id-fragment {
+  color: #f680a1;
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-typeset ol.risa-click {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .md-typeset .risa-click__step:not(:last-child)::after {
+    top: auto;
+    right: auto;
+    bottom: -1.05rem;
+    left: 1rem;
+    content: "\2193";
+    transform: none;
   }
 }

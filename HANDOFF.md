@@ -14,6 +14,47 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
+**2026-11-04, forged `custom_id`s: settled, no check in risa.** Discord answers a click whose
+`custom_id` is not on the message with HTTP 400 and `COMPONENT_VALIDATION_FAILED`, so it never
+reaches the bot. The maintainer tested it by hand in the browser with an invented id and with an
+id from before a rerender (a request needs a new `nonce` or it is dropped). An id from another
+message was not tried separately. Discord does not document this, so click-time input keeps failing
+soft. `InMessage` state is read from the delivered message anyway. The cost: a rerender that changes
+the state changes the id of the components that carry it, so a click from a client still showing the
+old one fails in Discord, while `InStore` ids change only with a bound argument. `DESIGN.md` §7, the
+`InMessage` docstring and the pages say so.
+
+**2026-11-04, docs site, "Get started" (branch `docs-get-started`):** three pages under
+`docs/get-started/`: `installation.md` gives the PyPI commands, because the site is written as
+of the first stable release with no pre-release caveats, although the package is not on PyPI
+yet and the README still installs from GitHub. `first-view.md` walks the counter from the view
+through a tab each for lightbulb and gateway to a restart, with one sentence for REST bots, and
+`coming-from-miru.md` says hikari-risa is not a direct successor to miru, maps miru 4.3.1 onto
+risa and says what risa does not have. Every claim about miru was read from
+miru's documentation and its 4.3.1 source, so a new miru release means reading them again. The
+hero's calls to action point there, with "Learn by example" on `first-view.md` until the chapters
+exist, and the landing page has its "Coming from miru" line. Code on the pages comes from
+`docs/examples/` through snippets, with `dedent_subsections` on for sections inside `main()`; the
+one exception is miru's half of each pair on the miru page, which no example can hold because
+miru is not a dependency. `docs/examples/coming_from_miru.py` holds the `InStore` example. A page's
+first paragraph takes `{: .risa-lead }`, tabs carry the pink bar, and `check_site` fails an
+admonition title without closing punctuation, since it runs into its text. The `counter` previews
+now show 0 and 1, which agree with `count: int = 0` above them. What is left of the docs site is
+"By example" (spec §4.3).
+
+**2026-11-04, docs site, the counter on the landing page (branch `docs-get-started`):**
+under the three statements a reader now clicks a real-looking Discord button, and the number
+goes up in the message and, as a muted `# now 1` after `count: int = 0`, in the code beside
+it, with the button's real `custom_id` under the preview. The manifest kind `live`
+(`tools/docs/manifest.py`) builds `client.build(Counter(count=n))` for every n up to `stop`, and
+`tools/docs/render_example.py` writes the highlighted snippet section and one `<template>` per
+value into `docs/generated/previews/counter-live.html`, which `docs/index.md` includes with
+one `--8<--` line. `docs/javascripts/live-preview.js` only swaps those frames, through the theme's
+`document$`, so nothing runs the dispatcher. Without JavaScript the first frame is an ordinary
+static preview. Frames and every preview's wrapper carry `data-search-exclude`, or their text lands in
+the search index. Spec §4.4 item 4 and §6 describe it. `check_site` fails a landing page without frames or without
+the script.
+
 **2026-11-04, docs site, milestone 1c (branch `docs-redesign`):** the first live site was
 rejected as looking like a template, so the frame was rebuilt in the language of the social
 preview: flat Night `#200836` and Banner tone `#F3EAF8`, ruled tokens in place of boxes, no
@@ -22,10 +63,8 @@ logo, the wordmark (which links home), the version tag, search and the mode swit
 Headings are Zen Kaku Gothic New, text Inter, code JetBrains Mono. Tips are a 3px pink rule,
 the active nav item a pink bar. The landing page has the head (logo, name, tagline, two
 calls to action, install line, Risa as `assets/web/mascot-sticker.webp` generated from
-`mascot.png` by `tools/optimize_images.py`) and three plain statements. Left for the landing
-page: the counter with its generated Discord preview, and a text line for "Coming from miru"
-under the statements once that page exists. `docs/specs/2026-11-03-docs-site.md` §4.4 and
-§7 describe the frame as built.
+`mascot.png` by `tools/optimize_images.py`) and three plain statements.
+`docs/specs/2026-11-03-docs-site.md` §4.4 and §7 describe the frame as built.
 
 The API reference was restructured on the maintainer's request to read like
 hikari-lightbulb's (spec §4.5): `api/index.md` lists the subpackages `risa.state`,
@@ -55,8 +94,8 @@ default run and of CI. `.github/workflows/docs.yml` publishes to the `gh-pages` 
 release is published, and by hand from `main` (milestone 1b below). The
 README now has the banner, the counter, the install line and the link to the site. The favicon
 is the dark-violet logo, swapped for the light logo on dark tab strips through a `media` link in
-`overrides/main.html`. Next is milestone 2: the examples, the Discord previews, the landing
-page's counter and "Get started".
+`overrides/main.html`. Milestone 2 added the examples, the Discord previews, the landing page's
+counter and "Get started", described above.
 
 **2026-11-04, social preview (merged as #54):** `assets/social-preview.png`, a
 1280×640 image of Risa as a sticker beside the logo and tagline, built from the new
@@ -749,9 +788,8 @@ the notes below (`View.on_outdated`, `risa.handler`, `risa.bind`, `Rendered.resp
   annotation fails registration by design rather than being special-cased.
 - Pair the defer modes with the response verbs: THINKING ↔ `respond()`, UPDATE/OFF ↔
   `rerender()`.
-- The durable-state warning from §7.6: an InMessage anchor is world-readable and
-  client-forgeable. Never put secrets in durable fields, and never make one the sole basis
-  of an authorization decision.
+- The durable-state warning from §7.6: an InMessage anchor is world-readable, so never put
+  secrets in durable fields.
 
 **Explicitly rejected by the structure audit**, with reasons: splitting `codec.py` (DESIGN
 §4 scopes it as one unit), reordering `errors.py` by phase (§13's table already provides

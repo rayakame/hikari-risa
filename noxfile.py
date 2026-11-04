@@ -32,7 +32,7 @@ nox.options.sessions = ["reformat", "ruff", "slotscheck", "pyright", "pytest", "
 nox.options.default_venv_backend = "uv"
 
 
-PYTHON_PATHS = ["noxfile.py", "risa/", "tests/", "tools/"]
+PYTHON_PATHS = ["noxfile.py", "risa/", "tests/", "tools/", "docs/examples/"]
 
 
 @nox.session(reuse_venv=True)

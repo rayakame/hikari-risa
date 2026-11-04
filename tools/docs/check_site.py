@@ -41,6 +41,10 @@ _GOOGLE_FONTS_HOSTS: typing.Final = ("fonts.googleapis.com", "fonts.gstatic.com"
 _NO_MEDIA: typing.Final = "none"
 _UNPUBLISHED_FOLDERS: typing.Final = ("specs", "examples", "generated")
 _INVENTORY_HOSTS: typing.Final = ("https://docs.python.org/3/", "https://docs.hikari-py.dev/")
+_LANDING_PAGE: typing.Final = "index.html"
+_LIVE_SCRIPT: typing.Final = "javascripts/live-preview.js"
+_MIN_LIVE_FRAMES: typing.Final = 2
+_TITLE_ENDINGS: typing.Final = (".", "?", "!", "…", ":", ")", '"', "'", "”", "\u2019")
 
 
 class _PageParser(html.parser.HTMLParser):
@@ -49,11 +53,36 @@ class _PageParser(html.parser.HTMLParser):
         self.body_scheme: str | None = None
         self.image_sources: list[str] = []
         self.links: list[str] = []
+        self.live_frames = 0
         self.palette: list[tuple[str | None, str | None]] = []
+        self.script_sources: list[str] = []
+        self.preview_in_paragraph = False
+        self.run_in_titles: list[str] = []
+        self._in_paragraph = False
+        self._title: list[str] | None = None
+
+    @typing.override
+    def handle_data(self, data: str) -> None:
+        if self._title is not None:
+            self._title.append(data)
+
+    @typing.override
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "p":
+            self._in_paragraph = False
+            if self._title is not None:
+                self.run_in_titles.append("".join(self._title).strip())
+                self._title = None
 
     @typing.override
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
+        if tag == "p":
+            self._in_paragraph = True
+            if "admonition-title" in (values.get("class") or "").split():
+                self._title = []
+        elif self._in_paragraph and "dc" in (values.get("class") or "").split():
+            self.preview_in_paragraph = True
         if tag == "body":
             self.body_scheme = values.get("data-md-color-scheme")
         elif tag == "img" and (src := values.get("src")) is not None:
@@ -62,6 +91,10 @@ class _PageParser(html.parser.HTMLParser):
             self.links.append(href)
         elif tag == "input" and values.get("name") == "__palette":
             self.palette.append((values.get("data-md-color-scheme"), values.get("data-md-color-media")))
+        elif tag == "script" and (src := values.get("src")) is not None:
+            self.script_sources.append(src)
+        elif tag == "template" and "data-live-frame" in values:
+            self.live_frames += 1
 
 
 def check_site(site: pathlib.Path, *, require_inventory_links: bool = False) -> collections.abc.Sequence[str]:
@@ -69,7 +102,9 @@ def check_site(site: pathlib.Path, *, require_inventory_links: bool = False) -> 
 
     The site must default to the ``risa-night`` scheme on every page, in the body and in the
     first palette entry with no media query anywhere, load nothing from Google Fonts, leave
-    the design folders unpublished and resolve every relative image.
+    the design folders unpublished and resolve every relative image. An admonition's title
+    runs into its text, so it must end like a sentence. The landing page must also carry the
+    frames of its live preview and load the script that swaps them.
 
     Parameters
     ----------
@@ -99,6 +134,8 @@ def check_site(site: pathlib.Path, *, require_inventory_links: bool = False) -> 
         if path.suffix == ".html":
             parser = _parse(text)
             problems.extend(_check_page(parser, path, site))
+            if _relative(path, site) == _LANDING_PAGE:
+                problems.extend(_check_landing(parser, path, site))
             if _relative(path, site).startswith("api/"):
                 api_links.extend(parser.links)
     if require_inventory_links:
@@ -125,6 +162,13 @@ def _check_page(parser: _PageParser, path: pathlib.Path, site: pathlib.Path) -> 
     if not parser.palette or parser.palette[0][0] != _DEFAULT_SCHEME:
         first = parser.palette[0][0] if parser.palette else None
         problems.append(f"{name}: the first palette entry is scheme {first!r}, not {_DEFAULT_SCHEME!r}")
+    if parser.preview_in_paragraph:
+        problems.append(f"{name}: a Discord preview sits inside a paragraph, so the page's Markdown rewrote it")
+    problems.extend(
+        f"{name}: the admonition title {title!r} runs into its text, so it needs closing punctuation"
+        for title in parser.run_in_titles
+        if not title.endswith(_TITLE_ENDINGS)
+    )
     problems.extend(
         f"{name}: palette entry {scheme!r} has media query {media!r}, so a light OS would start in it"
         for scheme, media in parser.palette
@@ -135,6 +179,18 @@ def _check_page(parser: _PageParser, path: pathlib.Path, site: pathlib.Path) -> 
         for src in parser.image_sources
         if _is_broken(src, path, site)
     )
+    return problems
+
+
+def _check_landing(parser: _PageParser, path: pathlib.Path, site: pathlib.Path) -> collections.abc.Sequence[str]:
+    problems: list[str] = []
+    if parser.live_frames < _MIN_LIVE_FRAMES:
+        problems.append(f"{_LANDING_PAGE}: it has {parser.live_frames} frames of the live preview, so nothing can swap")
+    if not any(
+        urllib.parse.urlsplit(src).path.removeprefix("./") == _LIVE_SCRIPT and not _is_broken(src, path, site)
+        for src in parser.script_sources
+    ):
+        problems.append(f"{_LANDING_PAGE}: it does not load {_LIVE_SCRIPT}, so the button does nothing")
     return problems
 
 

@@ -1,0 +1,48 @@
+[[preview]]
+kind = "view"
+id = "counter"
+example = "first_view_gateway"
+view = "Counter"
+fields = { count = 0 }
+
+[[preview]]
+kind = "view"
+id = "counter-after-click"
+label = "After a click"
+example = "first_view_gateway"
+view = "Counter"
+fields = { count = 1 }
+
+[[preview]]
+kind = "click"
+id = "counter-click"
+label = "The path of a click"
+example = "first_view_gateway"
+view = "Counter"
+before = { count = 3 }
+after = { count = 4 }
+handler = "click"
+
+[[preview]]
+kind = "live"
+id = "counter-live"
+example = "first_view_gateway"
+view = "Counter"
+section = "view"
+field = "count"
+stop = 99
+note = "Click it. In a real bot the count survives a restart, because it lives in the button itself."
+
+[[preview]]
+kind = "view"
+id = "question"
+example = "coming_from_miru"
+view = "Question"
+fields = { text = "Ship it?" }
+
+[[preview]]
+kind = "reply"
+id = "question-expired"
+label = "A click after the record expired"
+text = "This question has expired."
+ephemeral = true
