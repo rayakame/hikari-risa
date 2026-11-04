@@ -1,6 +1,7 @@
 [project]
 site_name = "hikari-risa"
 site_url = "https://rayakame.github.io/hikari-risa/"
+site_description = "Components V2 views for hikari, with state that survives restarts."
 repo_url = "https://github.com/rayakame/hikari-risa"
 docs_dir = "docs"
 exclude_docs = "specs/\nexamples/\ngenerated/"

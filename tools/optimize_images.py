@@ -47,7 +47,8 @@ def optimize(source: pathlib.Path, target: pathlib.Path) -> collections.abc.Sequ
     Parameters
     ----------
     source
-        The directory holding ``banner.png``, ``avatar.png`` and the two mascot PNGs.
+        The directory holding ``banner.png``, ``social-preview.png``, ``avatar.png`` and the
+        two logo PNGs.
     target
         The directory to write into; created when missing.
 
@@ -62,8 +63,11 @@ def optimize(source: pathlib.Path, target: pathlib.Path) -> collections.abc.Sequ
     with Image.open(source / "banner.png") as banner:
         banner.load()
         written.append(_save_webp(banner, target / "banner.webp", quality=85))
-        social = target / "banner-social.jpg"
-        banner.convert("RGB").save(social, format="JPEG", quality=88, exif=b"", icc_profile=None)
+
+    with Image.open(source / "social-preview.png") as preview:
+        preview.load()
+        social = target / "social-preview.png"
+        preview.convert("RGB").save(social, format="PNG", optimize=True)
         written.append(social)
 
     written.extend(

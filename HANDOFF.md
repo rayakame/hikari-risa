@@ -6,7 +6,7 @@ were lost, so this file is the *only* record of that evening's decisions). `DESI
 `start-implementation` branch as a DX reference — read it for ideas, error wording and
 test cases; its internals are not a blueprint.
 
-## Resume here (written 2026-10-25, updated 2026-11-03)
+## Resume here (written 2026-10-25, updated 2026-11-04)
 
 This block is current; it is the short path back in. Below it, the "Next, in order"
 notes for steps 1 and 2 are the August record and are kept as history: where they and
@@ -26,6 +26,12 @@ is the dark-violet logo, swapped for the light logo on dark tab strips through a
 `overrides/main.html`. Next is milestone 2: the examples, the Discord previews, the landing page
 and "Get started".
 
+**2026-11-04, social preview (branch `social-preview`):** `assets/social-preview.png`, a
+1280×640 image of Risa as a sticker beside the logo and tagline, built from the new
+`assets/mascot.png` (Risa without background). `tools/optimize_images.py` writes its web
+copy, `prepare` publishes it with the site, and `overrides/main.html` adds `og:` and
+`twitter:` meta tags so links to any docs page show it. `banner-social.jpg` is gone.
+
 **2026-11-03, docs site, milestone 1b (branch `docs-versions`, stacked on `docs-site`, PR #52, and rebased onto `main` once #52 merges):**
 the docs are versioned: `main/`, one folder per minor release, `stable/` and a version selector,
 published into `gh-pages` by `tools/docs/publish.py` from `docs.yml`.
@@ -33,7 +39,7 @@ published into `gh-pages` by `tools/docs/publish.py` from `docs.yml`.
 After the first push to main, in the repository settings:
 
 1. Pages, source: "Deploy from a branch", branch `gh-pages`, folder `/ (root)`.
-2. General, Social preview: upload `assets/web/banner-social.jpg`.
+2. General, Social preview: upload `assets/web/social-preview.png`.
 
 **2026-11-03, the overflow breakdown (branch `overflow-breakdown`):** `StateOverflowError`
 now says how many bytes each durable field takes, largest first, with risa's own framing

@@ -187,7 +187,7 @@ risa/
   py.typed
 docs/               site pages, stylesheets, fonts, api/ (the reference pages)
 overrides/          theme template overrides for the site
-assets/             the artwork; web/ holds the optimized copies the site and README use
+assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
 tools/              optimize_images, docs/prepare (stage artwork), docs/check_site (site invariants), docs/publish (place a version in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout

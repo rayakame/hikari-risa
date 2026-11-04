@@ -33,12 +33,12 @@ SOURCE = pathlib.Path(__file__).resolve().parents[2] / "assets"
 
 EXPECTED: dict[str, tuple[tuple[int, int], str]] = {
     "banner.webp": ((2064, 512), "WEBP"),
-    "banner-social.jpg": ((2064, 512), "JPEG"),
+    "social-preview.png": ((1280, 640), "PNG"),
     "logo-mascot.webp": ((480, 480), "WEBP"),
     "logo-mascot-light.webp": ((480, 480), "WEBP"),
     "avatar.webp": ((128, 128), "WEBP"),
 }
-ORIGINALS = ("banner.png", "logo-mascot.png", "logo-mascot-light.png", "avatar.png")
+ORIGINALS = ("banner.png", "social-preview.png", "logo-mascot.png", "logo-mascot-light.png", "avatar.png")
 
 
 @pytest.fixture
@@ -71,10 +71,17 @@ def test_the_mascots_keep_their_alpha_channel(assets: pathlib.Path) -> None:
             assert "A" in image.getbands()
 
 
-def test_the_social_banner_stays_under_a_megabyte(assets: pathlib.Path) -> None:
+def test_the_social_preview_stays_under_githubs_megabyte(assets: pathlib.Path) -> None:
     optimize_images.optimize(assets, assets / "web")
 
-    assert (assets / "web" / "banner-social.jpg").stat().st_size < 1_000_000
+    assert (assets / "web" / "social-preview.png").stat().st_size < 1_000_000
+
+
+def test_the_social_preview_carries_no_metadata(assets: pathlib.Path) -> None:
+    optimize_images.optimize(assets, assets / "web")
+
+    with Image.open(assets / "web" / "social-preview.png") as image:
+        assert not image.info.keys() - {"dpi"}
 
 
 def test_the_originals_are_left_byte_for_byte(assets: pathlib.Path) -> None:
