@@ -4,7 +4,19 @@
         <loc>https://rayakame.github.io/hikari-risa/main/</loc>
       </url>
       <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/binding/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/client/</loc>
+      </url>
+      <url>
         <loc>https://rayakame.github.io/hikari-risa/main/api/codecs/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/context/</loc>
       </url>
       <url>
         <loc>https://rayakame.github.io/hikari-risa/main/api/di/</loc>
@@ -13,24 +25,42 @@
         <loc>https://rayakame.github.io/hikari-risa/main/api/errors/</loc>
       </url>
       <url>
-        <loc>https://rayakame.github.io/hikari-risa/main/api/risa/</loc>
-      </url>
-      <url>
         <loc>https://rayakame.github.io/hikari-risa/main/api/state/</loc>
       </url>
       <url>
-        <loc>https://rayakame.github.io/hikari-risa/main/api/store-postgres/</loc>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/state/placement/</loc>
       </url>
       <url>
-        <loc>https://rayakame.github.io/hikari-risa/main/api/store-redis/</loc>
-      </url>
-      <url>
-        <loc>https://rayakame.github.io/hikari-risa/main/api/store-testing/</loc>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/state/schema/</loc>
       </url>
       <url>
         <loc>https://rayakame.github.io/hikari-risa/main/api/store/</loc>
       </url>
       <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store/memory/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store/postgres/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store/protocol/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store/redis/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store/testing/</loc>
+      </url>
+      <url>
         <loc>https://rayakame.github.io/hikari-risa/main/api/ui/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/ui/build/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/ui/nodes/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/view/</loc>
       </url>
 </urlset>

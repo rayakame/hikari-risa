@@ -15,7 +15,7 @@
       
       
       
-        <link rel="next" href="./api/risa/">
+        <link rel="next" href="./api/">
       
       
         
@@ -138,9 +138,9 @@
     <div class="md-header__title" data-md-component="header-title">
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
-          <span class="md-ellipsis">
+          <a href="" class="md-ellipsis risa-wordmark" tabindex="-1" aria-hidden="true">
             hikari-risa
-          </span>
+          </a>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
@@ -226,7 +226,9 @@
           
   
     
-    <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+      
+    
+    <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" hidden>
       <div class="md-sidebar__scrollwrap">
         <div class="md-sidebar__inner">
           <a href="" class="risa-brand" title="hikari-risa">
@@ -306,6 +308,10 @@
     
       
         
+          
+        
+      
+        
       
         
       
@@ -341,8 +347,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="./api/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -355,8 +362,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         
           <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
@@ -370,31 +383,6 @@
             <ul class="md-nav__list" data-md-scrollfix>
               
                 
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./api/risa/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  risa
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
               
                 
                   
@@ -402,36 +390,33 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="./api/ui/" class="md-nav__link">
+    
+    
+      
         
-  
-  
-  <span class="md-ellipsis">
+          
+        
+      
+        
+      
+        
+      
     
-  
-  risa.ui
-
     
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./api/state/" class="md-nav__link ">
               
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./api/state/" class="md-nav__link">
-        
   
   
   <span class="md-ellipsis">
@@ -444,6 +429,49 @@
   
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  risa.state
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/state/placement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.state.placement
+
+    
+  </span>
+  
+  
+
       </a>
     </li>
   
@@ -457,8 +485,74 @@
   
   
     <li class="md-nav__item">
-      <a href="./api/store/" class="md-nav__link">
+      <a href="./api/state/schema/" class="md-nav__link">
         
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.state.schema
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./api/store/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -471,10 +565,26 @@
   
   
 
-      </a>
-    </li>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
   
+  risa.store
 
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
                 
               
                 
@@ -484,14 +594,14 @@
   
   
     <li class="md-nav__item">
-      <a href="./api/store-redis/" class="md-nav__link">
+      <a href="./api/store/memory/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  risa.store.redis
+  risa.store.memory
 
     
   </span>
@@ -511,7 +621,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./api/store-postgres/" class="md-nav__link">
+      <a href="./api/store/postgres/" class="md-nav__link">
         
   
   
@@ -538,7 +648,61 @@
   
   
     <li class="md-nav__item">
-      <a href="./api/store-testing/" class="md-nav__link">
+      <a href="./api/store/protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/store/redis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.redis
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/store/testing/" class="md-nav__link">
         
   
   
@@ -546,6 +710,199 @@
     
   
   risa.store.testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./api/ui/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.ui
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  risa.ui
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/ui/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.ui.build
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/ui/nodes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.ui.nodes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/binding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.binding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.client
 
     
   </span>
@@ -592,14 +949,14 @@
   
   
     <li class="md-nav__item">
-      <a href="./api/errors/" class="md-nav__link">
+      <a href="./api/context/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  risa.errors
+  risa.context
 
     
   </span>
@@ -639,6 +996,60 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./api/view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.view
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -655,7 +1066,9 @@
   
   
     
-    <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+      
+    
+    <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" hidden>
       <div class="md-sidebar__scrollwrap">
         
           
@@ -687,6 +1100,8 @@
               
                 
 
+  
+
 
 
   
@@ -702,8 +1117,26 @@
   
 
 
+<div class="risa-hero">
+<div class="risa-hero__copy">
+<p class="risa-hero__logo"><img alt="" class="risa-brand__night" height="1024" src="assets/images/logo-light.svg" width="1024" />
+<img alt="" class="risa-brand__banner" height="1024" src="assets/images/logo.svg" width="1024" /></p>
 <h1 id="hikari-risa">hikari-risa<a class="headerlink" href="#hikari-risa" title="Permanent link">&para;</a></h1>
-<p>Components V2 views for hikari, with state that survives restarts.</p>
+<p class="risa-hero__tagline">Components V2 views for hikari, with state that survives restarts.</p>
+<p class="risa-hero__actions"><a class="risa-hero__start" href="api/">Get started</a> <a class="risa-hero__example" href="api/">Learn by example</a></p>
+<p class="risa-hero__install"><code>uv add git+https://github.com/rayakame/hikari-risa</code></p>
+</div>
+<div class="risa-hero__art">
+<p><img alt="Risa, the mascot of hikari-risa" height="1600" src="assets/images/mascot-sticker.webp" width="1216" /></p>
+</div>
+</div>
+<div class="risa-why">
+<p><strong>Survives restarts.</strong> The state travels inside the message. Redis or Postgres only when it outgrows it.</p>
+<p><strong>Components V2 first.</strong> Containers, sections, galleries. Rows of buttons are just the simple case.</p>
+<p><strong>Typed all the way.</strong> pyright strict on every line, so your editor knows every field.</p>
+</div>
+
+  
 
 
 
@@ -713,8 +1146,13 @@
 
 
 
+  
+  
 
 
+
+
+  
 
 
 
@@ -738,39 +1176,14 @@
       
         <footer class="md-footer">
   
-    
-      
-      <nav class="md-footer__inner md-grid" aria-label="Footer" >
-        
-        
-          
-          <a href="./api/risa/" class="md-footer__link md-footer__link--next" aria-label="Next: risa">
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              <div class="md-ellipsis">
-                risa
-              </div>
-            </div>
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </div>
-          </a>
-        
-      </nav>
-    
-  
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
   
+    <span>MIT licensed</span>
   
-    Made with
-    <a href="https://zensical.org/" target="_blank" rel="noopener">
-      Zensical
-    </a>
+  
+    <span>Made with <a href="https://zensical.org/" target="_blank" rel="noopener">Zensical</a></span>
   
 </div>
       
@@ -791,7 +1204,7 @@
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":".","features":["content.code.annotate","content.code.copy","content.tabs.link","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"./assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"stable","provider":"mike"}}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":".","features":["content.code.annotate","content.code.copy","content.tabs.link","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"./assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"stable","provider":"mike"}}</script>
     
     
       <script src="./assets/javascripts/bundle.d31f0ffa.min.js"></script>
