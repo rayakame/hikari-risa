@@ -1,4 +1,4 @@
-# Handoff — continuing the state pivot on `anchor-codec`
+# Handoff
 
 State as of 2026-08-17 (reconstructed 2026-10-25 — the working notes for 2026-08-16/17
 were lost, so this file is the *only* record of that evening's decisions). `DESIGN.md` is the authority on the target; this file is only
@@ -303,7 +303,7 @@ the first commit; `testbot/.env` with `TOKEN=...` (see `testbot/README.md`).
 
 ## Setting up on a new machine
 
-1. **Fresh clone strongly preferred**; `git checkout anchor-codec`. The history of
+1. **Fresh clone strongly preferred**; `git checkout main`. The history of
    `main` was rewritten on 2026-08-13 (attribution scrub) —
    an older clone must `git fetch origin` and `git reset --hard origin/<branch>` on
    every branch it touches (stash or back up local work first; the reset discards it);
