@@ -22,7 +22,7 @@ message was not tried separately. Discord does not document this, so click-time 
 soft. `InMessage` state is read from the delivered message anyway. The cost: a rerender that changes
 the state changes the id of the components that carry it, so a click from a client still showing the
 old one fails in Discord, while `InStore` ids stay. `DESIGN.md` §7, the `InMessage` docstring and
-the pages say so. `test_bots/interaction_probe.py` prints what arrives.
+the pages say so.
 
 **2026-11-04, docs site, "Get started" (branch `docs-get-started`):** three pages under
 `docs/get-started/`: `installation.md` gives the PyPI commands, because the site is written as
