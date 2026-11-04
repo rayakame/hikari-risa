@@ -21,6 +21,14 @@ nav = [
 ]
 extra_css = ["stylesheets/risa.css"]
 
+[project.extra]
+scope = "/hikari-risa/"
+
+[project.extra.version]
+provider = "mike"
+default = "stable"
+alias = true
+
 [project.theme]
 custom_dir = "overrides"
 language = "en"

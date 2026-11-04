@@ -43,7 +43,7 @@ From the first release on, it is `uv add hikari-risa` or `pip install hikari-ris
 
 ## Documentation
 
-<https://rayakame.github.io/hikari-risa/>, online from the first release.
+<https://rayakame.github.io/hikari-risa/>. Until the first release it shows the docs of `main`.
 
 ## License
 

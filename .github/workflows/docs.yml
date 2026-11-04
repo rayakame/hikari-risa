@@ -1,6 +1,8 @@
 name: Docs
 
 on:
+  push:
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -12,21 +14,16 @@ env:
   FORCE_COLOR: "1"
 
 jobs:
-  deploy:
-    name: deploy
-    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+  publish:
+    name: publish
+    if: (github.event_name == 'release' && !github.event.release.prerelease) || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pages: write
-      id-token: write
-    # Two deploys must not race for the Pages environment.
+      contents: write
+    # A release gets a group of its own so a later push to main cannot replace it while it waits.
     concurrency:
-      group: pages
+      group: gh-pages-${{ github.event_name == 'release' && github.event.release.tag_name || 'main' }}
       cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,17 +31,55 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          # This job can write to Pages, so it never restores a cache other runs wrote.
+          # This job can write to gh-pages, so it never restores a cache other runs wrote.
           enable-cache: false
           python-version: "3.12"
 
+      - name: Resolve the version
+        env:
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ "$EVENT" = release ]; then
+            folder=$(python3 -c 'import sys; from tools.docs.publish import release_folder; print(release_folder(sys.argv[1]))' "$TAG")
+            echo "VERSION=$TAG" >> "$GITHUB_ENV"
+            echo "MIKE_DOCS_VERSION=$folder" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=main" >> "$GITHUB_ENV"
+            echo "MIKE_DOCS_VERSION=main" >> "$GITHUB_ENV"
+          fi
+
       - run: uv run --group nox nox -s docs
 
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: site
-
-      - id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          remote="https://github.com/$REPOSITORY.git"
+          for attempt in 1 2 3 4 5; do
+            pages="$RUNNER_TEMP/gh-pages-$attempt"
+            if git ls-remote --exit-code --heads "$remote" gh-pages > /dev/null; then
+              git clone --branch gh-pages --depth 1 "$remote" "$pages"
+            else
+              git init --initial-branch gh-pages "$pages"
+            fi
+            python3 -m tools.docs.publish --site site --target "$pages" --version "$VERSION"
+            cd "$pages"
+            git add --all
+            if git diff --cached --quiet; then
+              echo "Nothing changed."
+              exit 0
+            fi
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --message "Publish $VERSION from ${SHA::7}"
+            if git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git" HEAD:gh-pages; then
+              exit 0
+            fi
+            cd "$GITHUB_WORKSPACE"
+            echo "Push rejected (attempt $attempt), retrying from a fresh clone."
+            sleep $((attempt * 3))
+          done
+          echo "Could not push gh-pages after 5 attempts." >&2
+          exit 1

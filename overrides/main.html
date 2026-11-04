@@ -4,6 +4,13 @@
   <link rel="icon" href="{{ 'assets/images/logo-light.svg' | url }}" media="(prefers-color-scheme: dark)" type="image/svg+xml">
 {% endblock %}
 
+{% block outdated %}
+  You're reading the docs for a version other than the latest release.
+  <a href="{{ '../stable/' | url }}">
+    <strong>Go to the latest release.</strong>
+  </a>
+{% endblock %}
+
 {% block site_nav %}
   {% if nav %}
     {% if page.meta and page.meta.hide %}
