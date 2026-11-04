@@ -34,8 +34,9 @@ __all__ = ("publish", "release_folder")
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("tools.docs.publish")
 _MAIN: typing.Final = "main"
 _STABLE: typing.Final = "stable"
-_TAG: typing.Final = re.compile(r"v(\d+)\.(\d+)\.\d+")
+_TAG: typing.Final = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
 _FOLDER: typing.Final = re.compile(r"(\d+)\.(\d+)")
+_RELEASE_TAG: typing.Final = ".release-tag"
 _REDIRECT: typing.Final = """<!doctype html>
 <html lang="en">
 <head>
@@ -64,15 +65,14 @@ def release_folder(tag: str) -> str:
     ValueError
         If the tag is not of the form ``v<major>.<minor>.<patch>``.
     """
-    match = _TAG.fullmatch(tag)
-    if match is None:
-        message = f"not a release tag of the form v<major>.<minor>.<patch>: {tag!r}"
-        raise ValueError(message)
-    return f"{match[1]}.{match[2]}"
+    major, minor, _ = _release_key(tag)
+    return f"{major}.{minor}"
 
 
 def publish(site: pathlib.Path, target: pathlib.Path, *, version: str) -> None:
     """Place a built site into a gh-pages checkout and refresh its index files.
+
+    A release older than the patch its minor's folder already holds changes nothing.
 
     Parameters
     ----------
@@ -94,8 +94,14 @@ def publish(site: pathlib.Path, target: pathlib.Path, *, version: str) -> None:
     if not site.is_dir():
         message = f"site is not a directory: {site}"
         raise NotADirectoryError(message)
+    recorded = _recorded_tag(target / folder)
+    if recorded is not None and _release_key(recorded) > _release_key(version):
+        _LOGGER.warning("kept %s in %s, since %s is older", recorded, folder, version)
+        return
     target.mkdir(parents=True, exist_ok=True)
     _replace(site, target / folder)
+    if folder != _MAIN:
+        (target / folder / _RELEASE_TAG).write_text(version + "\n", encoding="utf-8")
 
     releases = sorted(
         (path.name for path in target.iterdir() if path.is_dir() and _FOLDER.fullmatch(path.name)),
@@ -134,6 +140,19 @@ def _replace(site: pathlib.Path, destination: pathlib.Path) -> None:
     finally:
         if staging.exists():
             shutil.rmtree(staging)
+
+
+def _recorded_tag(folder: pathlib.Path) -> str | None:
+    marker = folder / _RELEASE_TAG
+    return marker.read_text(encoding="utf-8").strip() if marker.is_file() else None
+
+
+def _release_key(tag: str) -> tuple[int, int, int]:
+    match = _TAG.fullmatch(tag)
+    if match is None:
+        message = f"not a release tag of the form v<major>.<minor>.<patch>: {tag!r}"
+        raise ValueError(message)
+    return int(match[1]), int(match[2]), int(match[3])
 
 
 def _minor_key(folder: str) -> tuple[int, int]:

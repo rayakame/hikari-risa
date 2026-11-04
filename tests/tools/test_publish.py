@@ -108,6 +108,30 @@ def test_a_patch_release_replaces_its_minor_folder(tmp_path: pathlib.Path) -> No
     assert not (target / "stable" / "stale.html").exists()
 
 
+def test_an_older_patch_published_after_a_newer_one_changes_nothing(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish(_site(tmp_path, "newer"), target, version="v0.2.3")
+    before = {path: path.read_bytes() for path in target.rglob("*") if path.is_file()}
+
+    publish.publish(_site(tmp_path, "older"), target, version="v0.2.1")
+
+    assert {path: path.read_bytes() for path in target.rglob("*") if path.is_file()} == before
+    assert (target / "0.2" / "index.html").read_text() == "newer"
+    assert (target / "stable" / "index.html").read_text() == "newer"
+
+
+def test_republishing_the_same_patch_replaces_its_folder(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish(_site(tmp_path, "first"), target, version="v0.2.3")
+
+    publish.publish(_site(tmp_path, "again"), target, version="v0.2.3")
+
+    assert (target / "0.2" / "index.html").read_text() == "again"
+    assert (target / "stable" / "index.html").read_text() == "again"
+
+
 def test_an_older_release_published_later_does_not_take_stable(tmp_path: pathlib.Path) -> None:
     target = tmp_path / "pages"
     target.mkdir()
