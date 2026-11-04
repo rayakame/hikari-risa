@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/codecs/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/di/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/errors/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/risa/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/state/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store-postgres/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store-redis/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store-testing/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/store/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/api/ui/</loc>
+      </url>
+</urlset>

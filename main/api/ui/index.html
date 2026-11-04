@@ -1,0 +1,5808 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://rayakame.github.io/hikari-risa/main/api/ui/">
+      
+      
+      
+        <link rel="prev" href="../risa/">
+      
+      
+        <link rel="next" href="../state/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.svg">
+      <meta name="generator" content="zensical-0.0.74">
+    
+    
+      
+        <title>risa.ui - hikari-risa</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.4ab2de0c.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/risa.css">
+    
+    <script>__md_scope=new URL("/hikari-risa/",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <link rel="icon" href="../../assets/images/logo-light.svg" media="(prefers-color-scheme: dark)" type="image/svg+xml">
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="risa-night" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You're reading the docs for a version other than the latest release.
+  <a href="../../../stable/">
+    <strong>Go to the latest release.</strong>
+  </a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../..",location),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hikari-risa" class="md-header__button md-logo" aria-label="hikari-risa" data-md-component="logo">
+      <img class="risa-logo__night" src="../../assets/images/logo-light.svg" alt="hikari-risa">
+<img class="risa-logo__banner" src="../../assets/images/logo.svg" alt="hikari-risa">
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hikari-risa
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              risa.ui
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="risa-night" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="risa-banner" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/rayakame/hikari-risa" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+  
+    
+    <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+      <div class="md-sidebar__scrollwrap">
+        <div class="md-sidebar__inner">
+          <a href="../.." class="risa-brand" title="hikari-risa">
+            <img class="risa-brand__night" src="../../assets/images/logo-mascot-light.webp" alt="hikari-risa" width="480" height="480">
+            <img class="risa-brand__banner" src="../../assets/images/logo-mascot.webp" alt="hikari-risa" width="480" height="480">
+          </a>
+          
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hikari-risa" class="md-nav__button md-logo" aria-label="hikari-risa" data-md-component="logo">
+      <img class="risa-logo__night" src="../../assets/images/logo-light.svg" alt="hikari-risa">
+<img class="risa-logo__banner" src="../../assets/images/logo.svg" alt="hikari-risa">
+    </a>
+    hikari-risa
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rayakame/hikari-risa" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  API
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../risa/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.ui
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.ui
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Component" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Component
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Component">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Component.name" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        name
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Component.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Interactive" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interactive
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interactive">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Interactive.binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        binding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.TextDisplay" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        TextDisplay
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TextDisplay">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.TextDisplay.content" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        content
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.TextDisplay.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Separator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Separator
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Separator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Separator.divider" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        divider
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Separator.spacing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spacing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Separator.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Thumbnail
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Thumbnail">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail.media" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        media
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail.description" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        description
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail.spoiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spoiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MediaGalleryItem
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MediaGalleryItem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem.media" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        media
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem.description" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        description
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem.spoiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spoiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.MediaGallery" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MediaGallery
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MediaGallery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGallery.items" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        items
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGallery.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.File" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        File
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.File.file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        file
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.File.spoiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spoiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.File.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Row" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Row
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Row">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Row.components" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        components
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Row.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Section" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Section
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Section.text_displays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        text_displays
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Section.accessory" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        accessory
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Section.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Container" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Container
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Container">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Container.children" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        children
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Container.accent_color" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        accent_color
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Container.spoiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spoiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Container.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Button" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Button
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Button">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.label" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        label
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.emoji" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        emoji
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.style" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        style
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        disabled
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        LinkButton
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LinkButton">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.url" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        url
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.label" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        label
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.emoji" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        emoji
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        disabled
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.PremiumButton" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        PremiumButton
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PremiumButton">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.PremiumButton.sku_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        sku_id
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.PremiumButton.disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        disabled
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.PremiumButton.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SelectOption
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SelectOption">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.label" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        label
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.value" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        value
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.description" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        description
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.emoji" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        emoji
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.default" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        default
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Select" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Select
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Select">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Select.placeholder" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        placeholder
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Select.min_values" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        min_values
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Select.max_values" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        max_values
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Select.disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        disabled
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.TextSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        TextSelect
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TextSelect">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.TextSelect.options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.TextSelect.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.UserSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        UserSelect
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.RoleSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        RoleSelect
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.MentionableSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MentionableSelect
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.ChannelSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ChannelSelect
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ChannelSelect">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.ChannelSelect.channel_types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        channel_types
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.ChannelSelect.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.state
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../store-redis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.redis
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../store-postgres/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.postgres
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../store-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../codecs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.codecs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../di/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.di
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+        </div>
+      </div>
+    </div>
+  
+  
+    
+    <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+      <div class="md-sidebar__scrollwrap">
+        
+          
+          
+          
+            
+          
+          
+            <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+            <div class="md-sidebar-button__wrapper">
+              <label class="md-sidebar-button" for="__toc"></label>
+            </div>
+          
+        
+        <div class="md-sidebar__inner">
+          
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Component" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Component
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Component">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Component.name" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        name
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Component.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Interactive" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interactive
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interactive">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Interactive.binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        binding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.TextDisplay" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        TextDisplay
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TextDisplay">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.TextDisplay.content" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        content
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.TextDisplay.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Separator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Separator
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Separator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Separator.divider" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        divider
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Separator.spacing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spacing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Separator.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Thumbnail
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Thumbnail">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail.media" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        media
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail.description" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        description
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail.spoiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spoiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Thumbnail.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MediaGalleryItem
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MediaGalleryItem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem.media" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        media
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem.description" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        description
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem.spoiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spoiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGalleryItem.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.MediaGallery" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MediaGallery
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MediaGallery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGallery.items" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        items
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.MediaGallery.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.File" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        File
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.File.file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        file
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.File.spoiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spoiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.File.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Row" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Row
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Row">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Row.components" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        components
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Row.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Section" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Section
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Section">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Section.text_displays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        text_displays
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Section.accessory" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        accessory
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Section.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Container" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Container
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Container">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Container.children" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        children
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Container.accent_color" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        accent_color
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Container.spoiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        spoiler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Container.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Button" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Button
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Button">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.label" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        label
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.emoji" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        emoji
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.style" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        style
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        disabled
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Button.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        LinkButton
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LinkButton">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.url" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        url
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.label" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        label
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.emoji" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        emoji
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        disabled
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.LinkButton.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.PremiumButton" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        PremiumButton
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PremiumButton">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.PremiumButton.sku_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        sku_id
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.PremiumButton.disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        disabled
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.PremiumButton.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SelectOption
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SelectOption">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.label" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        label
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.value" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        value
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.description" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        description
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.emoji" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        emoji
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.default" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        default
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.SelectOption.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.Select" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Select
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Select">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Select.placeholder" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        placeholder
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Select.min_values" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        min_values
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Select.max_values" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        max_values
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.Select.disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        disabled
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.TextSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        TextSelect
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TextSelect">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.TextSelect.options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.TextSelect.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.UserSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        UserSelect
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.RoleSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        RoleSelect
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.MentionableSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MentionableSelect
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.ui.ChannelSelect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ChannelSelect
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ChannelSelect">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.ChannelSelect.channel_types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        channel_types
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.ui.ChannelSelect.build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+        </div>
+      </div>
+    </div>
+  
+
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../risa/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    API
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+  
+
+
+<h1 id="risaui">risa.ui<a class="headerlink" href="#risaui" title="Permanent link">&para;</a></h1>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+
+    <div class="doc doc-contents first">
+
+        <p>The components a view's layout is built from, and <code>Rendered</code>, a built view.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Component" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Component</span>
+
+
+<a href="#risa.ui.Component" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-external" title="abc.ABC" href="https://docs.python.org/3/library/abc.html#abc.ABC">ABC</a></code></p>
+
+
+
+        <p>Base class of every component a layout can hold.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Component.name" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">name</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Component.name" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">name</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The component's type name, used in tree paths.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.Component.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#risa.ui.Component.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Interactive" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Interactive</span>
+
+
+<a href="#risa.ui.Interactive" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>Base class of the components a click routes from to a handler.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Interactive.binding" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">binding</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Interactive.binding" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">binding</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The handler a click routes to, with its wire arguments.</p>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.TextDisplay" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">TextDisplay</span>
+
+
+<a href="#risa.ui.TextDisplay" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>Markdown text.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.TextDisplay.content" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">content</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.TextDisplay.content" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">content</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The text, in Discord's markdown.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.TextDisplay.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.TextDisplay.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">_ctx</span><span class="p">,</span> <span class="n">_path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Separator" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Separator</span>
+
+
+<a href="#risa.ui.Separator" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>Space between components, with or without a dividing line.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>divider</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>True</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Draw a line.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>spacing</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.SpacingType" href="https://docs.hikari-py.dev/en/stable/reference/hikari/components/#hikari.components.SpacingType">SpacingType</a></code>, default:
+                  <code><span title="hikari.SpacingType.SMALL">SMALL</span></code>
+)
+          –
+          <div class="doc-md-description">
+            <p>How much space to leave.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Separator.divider" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">divider</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Separator.divider" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">divider</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether a line is drawn.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Separator.spacing" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">spacing</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Separator.spacing" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">spacing</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>How much space is left.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.Separator.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.Separator.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">_ctx</span><span class="p">,</span> <span class="n">_path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Thumbnail" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Thumbnail</span>
+
+
+<a href="#risa.ui.Thumbnail" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>A small image, as the accessory of a <code>Section</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>media</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.files.Resourceish" href="https://docs.hikari-py.dev/en/stable/reference/hikari/files/#hikari.files.Resourceish">Resourceish</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The image: a URL, a file, or anything else hikari accepts as a resource.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>description</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Alternative text for the image.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>spoiler</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Blur the image until it is clicked.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Thumbnail.media" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">media</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Thumbnail.media" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">media</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The image.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Thumbnail.description" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">description</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Thumbnail.description" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">description</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The alternative text, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Thumbnail.spoiler" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">spoiler</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Thumbnail.spoiler" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">spoiler</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the image is blurred until clicked.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.Thumbnail.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.Thumbnail.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">_ctx</span><span class="p">,</span> <span class="n">_path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.MediaGalleryItem" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">MediaGalleryItem</span>
+
+
+<a href="#risa.ui.MediaGalleryItem" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>One image or video of a <code>MediaGallery</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>media</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.files.Resourceish" href="https://docs.hikari-py.dev/en/stable/reference/hikari/files/#hikari.files.Resourceish">Resourceish</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The image or video: a URL, a file, or anything else hikari accepts as a resource.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>description</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Alternative text for it.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>spoiler</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Blur it until it is clicked.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.MediaGalleryItem.media" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">media</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.MediaGalleryItem.media" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">media</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The image or video.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.MediaGalleryItem.description" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">description</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.MediaGalleryItem.description" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">description</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The alternative text, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.MediaGalleryItem.spoiler" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">spoiler</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.MediaGalleryItem.spoiler" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">spoiler</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether it is blurred until clicked.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.MediaGalleryItem.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.MediaGalleryItem.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">()</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return hikari's builder for the item.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.MediaGallery" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">MediaGallery</span>
+
+
+<a href="#risa.ui.MediaGallery" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>A grid of images and videos.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.MediaGallery.items" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">items</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.MediaGallery.items" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">items</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The images and videos, in order.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.MediaGallery.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.MediaGallery.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">_ctx</span><span class="p">,</span> <span class="n">_path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.File" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">File</span>
+
+
+<a href="#risa.ui.File" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>An attached file, shown as a download.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>file</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.files.Resourceish" href="https://docs.hikari-py.dev/en/stable/reference/hikari/files/#hikari.files.Resourceish">Resourceish</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The file: a path, bytes, or anything else hikari accepts as a resource.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>spoiler</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Hide it behind a spoiler.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.File.file" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">file</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.File.file" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">file</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The file.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.File.spoiler" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">spoiler</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.File.spoiler" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">spoiler</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether it is hidden behind a spoiler.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.File.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.File.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">_ctx</span><span class="p">,</span> <span class="n">_path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Row" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Row</span>
+
+
+<a href="#risa.ui.Row" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>A row of buttons, or a single select menu.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Row.components" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">components</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Row.components" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">components</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The components in the row.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.Row.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.Row.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Section" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Section</span>
+
+
+<a href="#risa.ui.Section" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>Text with a button or a thumbnail beside it.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>*text_displays</code></b>
+              (<code><a class="autorefs autorefs-internal" title="TextDisplay (risa.ui.nodes.TextDisplay)" href="./#risa.ui.TextDisplay">TextDisplay</a></code>, default:
+                  <code>()</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The text, as one or more <code>TextDisplay</code>s.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>accessory</code></b>
+              (<code><span title="risa.ui.nodes.SectionAccessory">SectionAccessory</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>The button or thumbnail beside the text.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Section.text_displays" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">text_displays</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Section.text_displays" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">text_displays</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The text displays.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Section.accessory" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">accessory</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Section.accessory" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">accessory</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The button or thumbnail beside the text.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.Section.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.Section.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Container" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Container</span>
+
+
+<a href="#risa.ui.Container" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>A box around components, like an embed, with an optional accent color.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>*children</code></b>
+              (<code><span title="risa.ui.nodes.ContainerChild">ContainerChild</span></code>, default:
+                  <code>()</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The components inside.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>accent_color</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.colors.Colorish" href="https://docs.hikari-py.dev/en/stable/reference/hikari/colors/#hikari.colors.Colorish">Colorish</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The color of the stripe down the left side.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>spoiler</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Hide the contents behind a spoiler.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Container.children" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">children</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Container.children" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">children</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The components inside.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Container.accent_color" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">accent_color</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Container.accent_color" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">accent_color</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The color of the stripe down the left side, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Container.spoiler" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">spoiler</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Container.spoiler" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">spoiler</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the contents are hidden behind a spoiler.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.Container.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.Container.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Button" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Button</span>
+
+
+<a href="#risa.ui.Button" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Interactive (risa.ui.nodes.Interactive)" href="./#risa.ui.Interactive">Interactive</a></code></p>
+
+
+
+        <p>A button whose clicks route to a handler.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>handler</code></b>
+              (<code><a class="autorefs autorefs-internal" title="Handlerish (risa.binding.Handlerish)" href="../risa/#risa.Handlerish">Handlerish</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The handler a click routes to, bare or through <code>risa.bind</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>label</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The text on the button.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>emoji</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.snowflakes.Snowflakeish" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.Snowflakeish">Snowflakeish</a> | <a class="autorefs autorefs-external" title="hikari.emojis.Emoji" href="https://docs.hikari-py.dev/en/stable/reference/hikari/emojis/#hikari.emojis.Emoji">Emoji</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>An emoji on the button.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>style</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.ButtonStyle" href="https://docs.hikari-py.dev/en/stable/reference/hikari/components/#hikari.components.ButtonStyle">ButtonStyle</a></code>, default:
+                  <code><span title="hikari.ButtonStyle.PRIMARY">PRIMARY</span></code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The button's color.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>disabled</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Grey the button out, so it cannot be clicked.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Button.label" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">label</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Button.label" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">label</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The text on the button, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Button.emoji" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">emoji</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Button.emoji" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">emoji</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The emoji on the button, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Button.style" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">style</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Button.style" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">style</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The button's color.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Button.disabled" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">disabled</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Button.disabled" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">disabled</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the button is greyed out.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.Button.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.Button.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.LinkButton" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">LinkButton</span>
+
+
+<a href="#risa.ui.LinkButton" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>A button that opens a URL. Clicks on it never reach the bot.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>url</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The URL to open.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>label</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The text on the button.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>emoji</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.snowflakes.Snowflakeish" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.Snowflakeish">Snowflakeish</a> | <a class="autorefs autorefs-external" title="hikari.emojis.Emoji" href="https://docs.hikari-py.dev/en/stable/reference/hikari/emojis/#hikari.emojis.Emoji">Emoji</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>An emoji on the button.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>disabled</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Grey the button out.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.LinkButton.url" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">url</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.LinkButton.url" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">url</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The URL the button opens.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.LinkButton.label" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">label</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.LinkButton.label" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">label</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The text on the button, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.LinkButton.emoji" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">emoji</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.LinkButton.emoji" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">emoji</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The emoji on the button, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.LinkButton.disabled" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">disabled</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.LinkButton.disabled" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">disabled</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the button is greyed out.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.LinkButton.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.LinkButton.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">_ctx</span><span class="p">,</span> <span class="n">_path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.PremiumButton" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">PremiumButton</span>
+
+
+<a href="#risa.ui.PremiumButton" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Component (risa.ui.nodes.Component)" href="./#risa.ui.Component">Component</a></code></p>
+
+
+
+        <p>A button that offers one of the app's SKUs for purchase.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>sku_id</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.snowflakes.Snowflakeish" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.Snowflakeish">Snowflakeish</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The SKU to offer.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>disabled</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Grey the button out.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.PremiumButton.sku_id" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">sku_id</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.PremiumButton.sku_id" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">sku_id</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The SKU the button offers.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.PremiumButton.disabled" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">disabled</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.PremiumButton.disabled" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">disabled</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the button is greyed out.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.PremiumButton.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.PremiumButton.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">_ctx</span><span class="p">,</span> <span class="n">_path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.SelectOption" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SelectOption</span>
+
+
+<a href="#risa.ui.SelectOption" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>One option of a <code>TextSelect</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>label</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The text the user sees.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>value</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>What the handler receives in <code>ctx.values</code> when it is picked; the label by default.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>description</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>A line of text under the label.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>emoji</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.snowflakes.Snowflakeish" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.Snowflakeish">Snowflakeish</a> | <a class="autorefs autorefs-external" title="hikari.emojis.Emoji" href="https://docs.hikari-py.dev/en/stable/reference/hikari/emojis/#hikari.emojis.Emoji">Emoji</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>An emoji beside the label.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>default</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Pick it in advance.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.SelectOption.label" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">label</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.SelectOption.label" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">label</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The text the user sees.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.SelectOption.value" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">value</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.SelectOption.value" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">value</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>What the handler receives when the option is picked.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.SelectOption.description" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">description</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.SelectOption.description" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">description</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The line under the label, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.SelectOption.emoji" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">emoji</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.SelectOption.emoji" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">emoji</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The emoji beside the label, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.SelectOption.default" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">default</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.SelectOption.default" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">default</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the option is picked in advance.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.SelectOption.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.SelectOption.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">()</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return hikari's builder for the option.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.Select" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Select</span>
+
+
+<a href="#risa.ui.Select" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Interactive (risa.ui.nodes.Interactive)" href="./#risa.ui.Interactive">Interactive</a></code></p>
+
+
+
+        <p>Base class of the select menus. The handler reads the picks from <code>ctx.values</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>handler</code></b>
+              (<code><a class="autorefs autorefs-internal" title="Handlerish (risa.binding.Handlerish)" href="../risa/#risa.Handlerish">Handlerish</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The handler a pick routes to, bare or through <code>risa.bind</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>placeholder</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The text shown while nothing is picked.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>min_values</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>, default:
+                  <code>1</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The fewest options the user must pick.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>max_values</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>, default:
+                  <code>1</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The most options the user may pick.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>disabled</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Grey the menu out.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Select.placeholder" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">placeholder</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Select.placeholder" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">placeholder</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The text shown while nothing is picked, if any.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Select.min_values" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">min_values</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Select.min_values" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">min_values</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The fewest options the user must pick.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Select.max_values" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">max_values</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Select.max_values" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">max_values</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The most options the user may pick.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.Select.disabled" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">disabled</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.Select.disabled" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">disabled</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the menu is greyed out.</p>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.TextSelect" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">TextSelect</span>
+
+
+<a href="#risa.ui.TextSelect" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Select (risa.ui.nodes.Select)" href="./#risa.ui.Select">Select</a></code></p>
+
+
+
+        <p>A select menu of the options the bot lists, as <code>SelectOption</code>s.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.TextSelect.options" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">options</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.TextSelect.options" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">options</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The options, in order.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.TextSelect.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.TextSelect.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.UserSelect" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">UserSelect</span>
+
+
+<a href="#risa.ui.UserSelect" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="risa.ui.nodes._EntitySelect">_EntitySelect</span></code></p>
+
+
+
+        <p>A select menu of users. The handler finds them in <code>ctx.resolved</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.RoleSelect" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">RoleSelect</span>
+
+
+<a href="#risa.ui.RoleSelect" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="risa.ui.nodes._EntitySelect">_EntitySelect</span></code></p>
+
+
+
+        <p>A select menu of roles. The handler finds them in <code>ctx.resolved</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.MentionableSelect" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">MentionableSelect</span>
+
+
+<a href="#risa.ui.MentionableSelect" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="risa.ui.nodes._EntitySelect">_EntitySelect</span></code></p>
+
+
+
+        <p>A select menu of users and roles. The handler finds them in <code>ctx.resolved</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.ui.ChannelSelect" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">ChannelSelect</span>
+
+
+<a href="#risa.ui.ChannelSelect" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Select (risa.ui.nodes.Select)" href="./#risa.ui.Select">Select</a></code></p>
+
+
+
+        <p>A select menu of channels. The handler finds them in <code>ctx.resolved</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>channel_types</code></b>
+              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" title="hikari.ChannelType" href="https://docs.hikari-py.dev/en/stable/reference/hikari/channels/#hikari.channels.ChannelType">ChannelType</a>]</code>, default:
+                  <code>()</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The kinds of channel to offer; every kind by default.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.ui.ChannelSelect.channel_types" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">channel_types</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.ui.ChannelSelect.channel_types" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">channel_types</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The kinds of channel offered; empty for every kind.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.ui.ChannelSelect.build" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build</span>
+
+
+<a href="#risa.ui.ChannelSelect.build" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the component into hikari's builder for it.</p>
+<p>risa calls this while building a view; <code>path</code> names the component's place in the
+tree for error messages.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ComponentBuilder">ComponentBuilder</span></code>
+          –
+          <div class="doc-md-description">
+            <p>hikari's builder for the component.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../risa/" class="md-footer__link md-footer__link--prev" aria-label="Previous: risa">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                risa
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../state/" class="md-footer__link md-footer__link--next" aria-label="Next: risa.state">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                risa.state
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.annotate","content.code.copy","content.tabs.link","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"stable","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d31f0ffa.min.js"></script>
+      
+    
+  </body>
+</html>

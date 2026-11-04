@@ -1,0 +1,532 @@
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/inter/InterVariable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/inter/InterVariable-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/jetbrains-mono/JetBrainsMono-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/jetbrains-mono/JetBrainsMono-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/jetbrains-mono/JetBrainsMono-BoldItalic.woff2") format("woff2");
+}
+
+:root {
+  --md-text-font: "Inter";
+  --md-code-font: "JetBrains Mono";
+}
+
+[data-md-color-scheme="risa-night"] {
+  color-scheme: dark;
+
+  --md-default-bg-color: #110a1d;
+  --md-default-bg-color--light: rgba(17, 10, 29, 0.54);
+  --md-default-bg-color--lighter: rgba(17, 10, 29, 0.26);
+  --md-default-bg-color--lightest: rgba(17, 10, 29, 0.07);
+  --md-default-fg-color: #e7dff2;
+  --md-default-fg-color--light: #b4a6c8;
+  --md-default-fg-color--lighter: #77678f;
+  --md-default-fg-color--lightest: #241539;
+
+  --md-primary-fg-color: #f680a1;
+  --md-primary-fg-color--light: #f9a6be;
+  --md-primary-fg-color--dark: #b64f8c;
+  --md-primary-bg-color: #110a1d;
+  --md-primary-bg-color--light: rgba(17, 10, 29, 0.7);
+  --md-accent-fg-color: #f680a1;
+  --md-accent-fg-color--transparent: rgba(246, 128, 161, 0.11);
+  --md-accent-bg-color: #110a1d;
+  --md-accent-bg-color--light: rgba(17, 10, 29, 0.7);
+
+  --md-typeset-color: #e7dff2;
+  --md-typeset-a-color: #f680a1;
+  --md-typeset-kbd-color: #1d1130;
+  --md-typeset-kbd-accent-color: #2a1a42;
+  --md-typeset-kbd-border-color: #2a1a42;
+  --md-typeset-mark-color: rgba(246, 128, 161, 0.3);
+  --md-typeset-table-color: #241539;
+  --md-typeset-table-color--light: rgba(36, 21, 57, 0.4);
+
+  --md-code-fg-color: #e6dcf2;
+  --md-code-bg-color: #1a0f2c;
+  --md-code-bg-color--light: rgba(26, 15, 44, 0.9);
+  --md-code-bg-color--lighter: rgba(26, 15, 44, 0.54);
+  --risa-code-border-color: #2b1b44;
+
+  --md-admonition-fg-color: #e7dff2;
+  --md-admonition-bg-color: #170d27;
+  --md-footer-bg-color: #170d27;
+  --md-footer-bg-color--dark: #110a1d;
+
+  --md-shadow-z1: 0 0.2rem 0.5rem #0000000d, 0 0 0.05rem #ffffff1a;
+  --md-shadow-z2: 0 0.2rem 0.5rem #00000040, 0 0 0.05rem #ffffff59;
+  --md-shadow-z3: 0 0.5rem 2rem #0006, 0 0 0.05rem #00000059;
+
+  --color-foreground: 231 223 242;
+  --color-background: 17 10 29;
+  --color-background-subtle: 29 17 48;
+  --color-backdrop: 9 5 16;
+
+  --risa-heading-color: #ffffff;
+  --risa-page-background: radial-gradient(48rem 38rem at 12% 6%, rgba(246, 128, 161, 0.13), transparent 70%),
+    radial-gradient(56rem 44rem at 96% 94%, rgba(140, 70, 210, 0.16), transparent 70%), #110a1d;
+  --risa-sidebar-bg-color: #170d27;
+  --risa-sidebar-border-color: #241539;
+  --risa-nav-color: #b4a6c8;
+  --risa-nav-group-color: #77678f;
+  --risa-nav-active-color: #f680a1;
+  --risa-nav-active-bg-color: rgba(246, 128, 161, 0.11);
+  --risa-control-bg-color: #1d1130;
+  --risa-control-border-color: #2a1a42;
+  --risa-control-fg-color: #8576a0;
+  --risa-tip-bg-color: rgba(246, 128, 161, 0.08);
+  --risa-tip-border-color: rgba(246, 128, 161, 0.24);
+  --risa-tip-fg-color: #f0dce6;
+  --risa-warning-fg-color: #f5b74e;
+  --risa-banner-bg-color: #2a1d24;
+  --risa-banner-border-color: rgba(245, 183, 78, 0.35);
+  --risa-banner-fg-color: #f0dce6;
+}
+
+[data-md-color-scheme="risa-banner"] {
+  color-scheme: light;
+
+  --md-default-bg-color: #f7e6f1;
+  --md-default-bg-color--light: rgba(247, 230, 241, 0.7);
+  --md-default-bg-color--lighter: rgba(247, 230, 241, 0.3);
+  --md-default-bg-color--lightest: rgba(247, 230, 241, 0.12);
+  --md-default-fg-color: #2a1238;
+  --md-default-fg-color--light: #4c2e60;
+  --md-default-fg-color--lighter: #9a6fae;
+  --md-default-fg-color--lightest: rgba(63, 8, 97, 0.08);
+
+  --md-primary-fg-color: #b64f8c;
+  --md-primary-fg-color--light: #f680a1;
+  --md-primary-fg-color--dark: #3f0861;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+  --md-accent-fg-color: #b64f8c;
+  --md-accent-fg-color--transparent: rgba(182, 79, 140, 0.1);
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-typeset-color: #2a1238;
+  --md-typeset-a-color: #b64f8c;
+  --md-typeset-kbd-color: rgba(255, 255, 255, 0.6);
+  --md-typeset-kbd-accent-color: #ffffff;
+  --md-typeset-kbd-border-color: rgba(63, 8, 97, 0.2);
+  --md-typeset-mark-color: rgba(246, 128, 161, 0.3);
+  --md-typeset-table-color: rgba(63, 8, 97, 0.12);
+  --md-typeset-table-color--light: rgba(63, 8, 97, 0.035);
+
+  --md-code-fg-color: #eadcf5;
+  --md-code-bg-color: #2a0a40;
+  --md-code-bg-color--light: rgba(42, 10, 64, 0.9);
+  --md-code-bg-color--lighter: rgba(42, 10, 64, 0.54);
+  --risa-code-border-color: #2a0a40;
+
+  --md-admonition-fg-color: #2a1238;
+  --md-admonition-bg-color: rgba(255, 255, 255, 0.55);
+  --md-footer-bg-color: rgba(255, 255, 255, 0.35);
+  --md-footer-bg-color--dark: rgba(255, 255, 255, 0.5);
+
+  --color-foreground: 42 18 56;
+  --color-background: 247 230 241;
+  --color-background-subtle: 241 228 246;
+  --color-backdrop: 241 228 246;
+
+  --risa-heading-color: #3f0861;
+  --risa-page-background: linear-gradient(160deg, #f1e4f6 0%, #f7e6f1 60%, #fbe8ef 100%);
+  --risa-sidebar-bg-color: rgba(255, 255, 255, 0.35);
+  --risa-sidebar-border-color: rgba(63, 8, 97, 0.08);
+  --risa-nav-color: #4c2e60;
+  --risa-nav-group-color: #9a6fae;
+  --risa-nav-active-color: #ffffff;
+  --risa-nav-active-bg-color: #b64f8c;
+  --risa-control-bg-color: rgba(255, 255, 255, 0.6);
+  --risa-control-border-color: rgba(63, 8, 97, 0.08);
+  --risa-control-fg-color: #8d6fa0;
+  --risa-tip-bg-color: rgba(255, 255, 255, 0.55);
+  --risa-tip-border-color: rgba(246, 128, 161, 0.45);
+  --risa-tip-fg-color: #4a2a3a;
+  --risa-warning-fg-color: #8a5a12;
+  --risa-banner-bg-color: #f6e3cf;
+  --risa-banner-border-color: rgba(138, 90, 18, 0.35);
+  --risa-banner-fg-color: #2a1238;
+}
+
+[data-md-color-scheme="risa-night"],
+[data-md-color-scheme="risa-banner"] {
+  --md-code-hl-color: #f680a1;
+  --md-code-hl-color--light: rgba(246, 128, 161, 0.12);
+  --md-code-hl-keyword-color: #ff8fb5;
+  --md-code-hl-function-color: #ffd479;
+  --md-code-hl-string-color: #a8ecc0;
+  --md-code-hl-number-color: #ffb38a;
+  --md-code-hl-comment-color: #6f5d88;
+  --md-code-hl-name-color: var(--md-code-fg-color);
+  --md-code-hl-special-color: #c9a7ff;
+  --md-code-hl-constant-color: var(--md-code-fg-color);
+  --md-code-hl-operator-color: var(--md-code-fg-color);
+  --md-code-hl-punctuation-color: var(--md-code-fg-color);
+  --md-code-hl-generic-color: var(--md-code-fg-color);
+  --md-code-hl-variable-color: var(--md-code-fg-color);
+  --risa-code-decorator-color: #c9a7ff;
+}
+
+/* A fixed layer rather than background-attachment, which iOS Safari ignores. */
+body[data-md-color-scheme]::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background: var(--risa-page-background);
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6 {
+  color: var(--risa-heading-color);
+}
+
+.md-typeset h1 {
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+
+.md-path {
+  color: var(--risa-nav-group-color);
+}
+
+/* The theme's logo rules are more specific than a scheme selector. */
+[data-md-color-scheme="risa-night"] :is(.risa-logo__banner, .risa-brand__banner),
+[data-md-color-scheme="risa-banner"] :is(.risa-logo__night, .risa-brand__night) {
+  display: none !important;
+}
+
+.risa-brand {
+  display: block;
+  margin: -0.6rem 0 0.2rem;
+}
+
+.risa-brand img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.md-header {
+  color: var(--risa-nav-color);
+}
+
+.md-header--shadow {
+  box-shadow: none;
+}
+
+.md-header__button[for="__drawer"] {
+  order: -1;
+}
+
+.md-header__option {
+  order: 1;
+}
+
+.md-header__source {
+  display: none;
+}
+
+.md-header .md-header__option .md-header__button,
+.md-header .md-header__button[for="__search"] {
+  padding: 0.3rem;
+  margin: 0.2rem 0 0.2rem 0.6rem;
+  color: var(--risa-control-fg-color);
+  background-color: var(--risa-control-bg-color);
+  border: 0.05rem solid var(--risa-control-border-color);
+  border-radius: 0.35rem;
+}
+
+.md-header .md-header__option .md-header__button svg,
+.md-header .md-header__button[for="__search"] svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+@media screen and (min-width: 45em) {
+  .md-search__button {
+    width: 10.5rem;
+    height: 1.5rem;
+    color: var(--risa-control-fg-color);
+    background-color: var(--risa-control-bg-color);
+    border: 0.05rem solid var(--risa-control-border-color);
+    border-radius: 0.35rem;
+  }
+
+  .md-search__button:focus,
+  .md-search__button:hover {
+    color: var(--md-default-fg-color);
+    background-color: var(--risa-control-bg-color);
+    border-color: var(--risa-nav-group-color);
+  }
+
+  .md-search__button::before {
+    top: 0.25rem;
+    background-color: var(--risa-control-fg-color);
+  }
+
+  .md-search__button::after {
+    top: 0.25rem;
+    color: var(--risa-control-fg-color);
+    background: transparent;
+  }
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-header__title {
+    visibility: hidden;
+  }
+
+  .md-header__title .md-version {
+    visibility: visible;
+  }
+
+  .md-header__button.md-logo {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 76.234375em) {
+  .md-header__button.md-logo {
+    display: inline-block;
+    padding: 0;
+    margin: 0 0 0 0.2rem;
+  }
+
+  .md-header__button.md-logo img {
+    height: 2.2rem;
+  }
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary .md-sidebar__scrollwrap {
+    background-color: var(--risa-sidebar-bg-color);
+    border: 0.05rem solid var(--risa-sidebar-border-color);
+    border-radius: 0.6rem;
+  }
+
+  .md-sidebar--primary {
+    padding-top: 0;
+  }
+}
+
+@media screen and (max-width: 76.234375em) {
+  .md-sidebar--primary {
+    background-color: var(--md-default-bg-color);
+    border: 0.05rem solid var(--risa-sidebar-border-color);
+  }
+
+  .md-nav--primary > .md-nav__title[for="__drawer"] {
+    display: none;
+  }
+}
+
+.md-nav--primary .md-nav__link {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  color: var(--risa-nav-color);
+}
+
+.md-nav--primary .md-nav__list {
+  gap: 0.1rem;
+}
+
+.md-nav--primary .md-nav__item .md-nav__link--active,
+.md-nav--primary .md-nav__item .md-nav__link--active code {
+  font-weight: 600;
+  color: var(--risa-nav-active-color);
+  background: var(--risa-nav-active-bg-color);
+}
+
+.md-nav--primary .md-nav__item--section > .md-nav__link {
+  font-size: 0.525rem;
+  font-weight: 600;
+  color: var(--risa-nav-group-color);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Code surfaces stay dark in both schemes, so the page's foreground shades are swapped inside them. */
+.md-typeset .highlight {
+  --md-default-fg-color: var(--md-code-fg-color);
+  --md-default-fg-color--light: #b4a6c8;
+  --md-default-fg-color--lighter: #77678f;
+  --md-default-fg-color--lightest: var(--risa-code-border-color);
+
+  color: var(--md-code-fg-color);
+}
+
+.md-typeset pre > code,
+.md-typeset .highlight span.filename,
+.md-typeset .highlighttable {
+  border: 0.05rem solid var(--risa-code-border-color);
+}
+
+.md-typeset .highlight span.filename + pre > code {
+  border-top-width: 0;
+}
+
+.md-typeset .highlighttable {
+  border-radius: 0.4rem;
+}
+
+.md-typeset .highlighttable pre > code {
+  border-width: 0;
+}
+
+.md-typeset .highlighttable span.filename {
+  border-width: 0 0 0.05rem;
+}
+
+.md-typeset .highlight :is(.nd, .nd + .o, .nd + .o + .n) {
+  color: var(--risa-code-decorator-color);
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-content__inner > .highlight :is(pre > code, span.filename, .highlighttable) {
+    border-right-width: 0;
+    border-left-width: 0;
+    border-radius: 0;
+  }
+}
+
+[data-md-color-scheme="risa-banner"] .md-typeset :not(pre) > code:not(.highlight) {
+  color: #3f0861;
+  background-color: rgba(63, 8, 97, 0.07);
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  background-color: var(--md-admonition-bg-color);
+}
+
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  background-color: var(--md-admonition-bg-color);
+  border: 0.05rem solid var(--risa-sidebar-border-color);
+}
+
+.md-typeset .note > .admonition-title::before,
+.md-typeset .note > summary::before {
+  background-color: var(--md-accent-fg-color);
+}
+
+.md-typeset .note > summary::after {
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  color: var(--risa-tip-fg-color);
+  background-color: var(--risa-tip-bg-color);
+  border: 0.05rem solid var(--risa-tip-border-color);
+}
+
+.md-typeset .tip > .admonition-title,
+.md-typeset .tip > summary {
+  padding-left: 0;
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .tip > .admonition-title::before,
+.md-typeset .tip > summary::before {
+  display: none;
+}
+
+.md-typeset .admonition.warning,
+.md-typeset details.warning {
+  background-color: rgba(245, 183, 78, 0.08);
+  border: 0.05rem solid rgba(245, 183, 78, 0.45);
+}
+
+.md-typeset .warning > .admonition-title,
+.md-typeset .warning > summary {
+  color: var(--risa-warning-fg-color);
+}
+
+.md-typeset .warning > .admonition-title::before,
+.md-typeset .warning > summary::before {
+  background-color: #f5b74e;
+}
+
+.md-typeset .warning > summary::after {
+  color: #f5b74e;
+}
+
+.md-typeset .admonition.miru,
+.md-typeset details.miru {
+  font-size: 0.6rem;
+  color: var(--md-default-fg-color--light);
+  background-color: transparent;
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .miru > .admonition-title,
+.md-typeset .miru > summary {
+  padding-left: 0;
+  font-weight: 600;
+  color: var(--md-default-fg-color--lighter);
+}
+
+.md-typeset .miru > .admonition-title::before,
+.md-typeset .miru > summary::before {
+  display: none;
+}
+
+[data-md-component="outdated"] .md-banner--warning {
+  color: var(--risa-banner-fg-color);
+  background-color: var(--risa-banner-bg-color);
+  border-bottom: 0.05rem solid var(--risa-banner-border-color);
+}
+
+[data-md-component="outdated"] .md-banner--warning a {
+  color: var(--risa-warning-fg-color);
+  text-decoration: underline;
+}
