@@ -29,7 +29,6 @@ import typing
 __all__ = ("prepare",)
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("tools.docs.prepare")
-_SOCIAL_PREVIEW: typing.Final = "banner-social.jpg"
 
 
 def prepare(root: pathlib.Path) -> None:
@@ -45,8 +44,6 @@ def prepare(root: pathlib.Path) -> None:
     images.mkdir(parents=True)
 
     for source in sorted((root / "assets" / "web").iterdir()):
-        if source.name == _SOCIAL_PREVIEW:
-            continue
         shutil.copyfile(source, images / source.name)
         _LOGGER.info("copied %s", source.name)
 

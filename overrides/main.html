@@ -2,6 +2,23 @@
 
 {% block extrahead %}
   <link rel="icon" href="{{ 'assets/images/logo-light.svg' | url }}" media="(prefers-color-scheme: dark)" type="image/svg+xml">
+  {# Under a version the site URL loses its trailing slash. #}
+  {% set root = config.site_url if config.site_url[-1:] == "/" else config.site_url ~ "/" %}
+  {% set preview = root ~ "assets/images/social-preview.png" %}
+  {% set title = config.site_name if page.canonical_url == root or not page.title else page.title ~ " - " ~ config.site_name %}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:title" content="{{ title }}">
+  <meta property="og:description" content="{{ config.site_description }}">
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  <meta property="og:image" content="{{ preview }}">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ title }}">
+  <meta name="twitter:description" content="{{ config.site_description }}">
+  <meta name="twitter:image" content="{{ preview }}">
 {% endblock %}
 
 {% block outdated %}

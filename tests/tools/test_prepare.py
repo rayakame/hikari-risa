@@ -75,10 +75,10 @@ def test_prepare_replaces_a_stale_copy(tmp_path: pathlib.Path) -> None:
     assert not (images / "gone.webp").exists()
 
 
-def test_prepare_leaves_the_social_preview_out_of_the_site(tmp_path: pathlib.Path) -> None:
+def test_prepare_publishes_the_social_preview_for_the_pages_link_previews(tmp_path: pathlib.Path) -> None:
     root = _tree(tmp_path)
-    (root / "assets" / "web" / "banner-social.jpg").write_bytes(b"jpeg")
+    (root / "assets" / "web" / "social-preview.png").write_bytes(b"png")
 
     prepare.prepare(root)
 
-    assert not (root / "docs" / "assets" / "images" / "banner-social.jpg").exists()
+    assert (root / "docs" / "assets" / "images" / "social-preview.png").read_bytes() == b"png"
