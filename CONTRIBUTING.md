@@ -59,7 +59,8 @@ A pull request from a branch of this repository also gets a preview. `.github/wo
 when the pull request closes. A preview is missing from `versions.json`, so it shows no version selector and no outdated
 banner, and it asks search engines not to index it, which `check_site` checks in both directions. A fork gets no preview,
 because its code must not run beside a token that can write to `gh-pages`. Neither does a bot's bump, which can change the
-actions of that job, unless it bumps what draws the site, such as Zensical, or only the lockfile.
+actions of that job, unless it bumps what draws the site, such as Zensical, or only the lockfile. The job that publishes
+takes its tools from the default branch, so a change to `tools/docs/publish.py` reaches a preview only after its merge.
 
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.
