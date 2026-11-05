@@ -5,6 +5,9 @@ inputs:
   body:
     description: The text of the comment.
     required: true
+  create:
+    description: Whether to write a new comment if the pull request has none.
+    default: "true"
 
 runs:
   using: composite
@@ -12,6 +15,7 @@ runs:
     - shell: bash
       env:
         BODY: ${{ inputs.body }}
+        CREATE: ${{ inputs.create }}
         GH_TOKEN: ${{ github.token }}
         PULL_REQUEST: ${{ github.event.pull_request.number }}
         REPOSITORY: ${{ github.repository }}
@@ -23,6 +27,6 @@ runs:
         body="$marker"$'\n'"$BODY"
         if [ -n "$id" ]; then
           gh api --silent --method PATCH "repos/$REPOSITORY/issues/comments/$id" --raw-field body="$body"
-        else
+        elif [ "$CREATE" = true ]; then
           gh api --silent "$comments" --raw-field body="$body"
         fi

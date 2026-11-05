@@ -128,42 +128,21 @@ def publish(site: pathlib.Path, target: pathlib.Path, *, version: str) -> None:
 
 
 def publish_preview(site: pathlib.Path, target: pathlib.Path, *, number: int) -> None:
-    """Place the built site of a pull request under ``pr/<number>``.
-
-    Neither ``versions.json`` nor the root redirect names a preview, so a reader only reaches it by its link.
-
-    Parameters
-    ----------
-    site
-        The built site.
-    target
-        A checkout of the gh-pages branch, possibly empty.
-    number
-        The number of the pull request.
-
-    Raises
-    ------
-    NotADirectoryError
-        If the site is not a directory.
-    """
+    """Place the built site of a pull request under ``pr/<number>``, where no version list or redirect names it."""
     _require_directory(site)
     folder = target / _PREVIEWS / str(number)
     folder.parent.mkdir(parents=True, exist_ok=True)
     _replace(site, folder)
     (target / ".nojekyll").touch()
+    # Pages wants an entry file at the root, which the first published version replaces.
+    root = target / "index.html"
+    if not root.exists():
+        root.write_text(_REDIRECT.format(destination=_MAIN), encoding="utf-8")
     _LOGGER.info("published the preview of #%d", number)
 
 
 def remove_preview(target: pathlib.Path, *, number: int) -> None:
-    """Remove the preview of a pull request, if it has one.
-
-    Parameters
-    ----------
-    target
-        A checkout of the gh-pages branch.
-    number
-        The number of the pull request.
-    """
+    """Remove the preview of a pull request, if it has one."""
     folder = target / _PREVIEWS / str(number)
     if folder.is_dir():
         shutil.rmtree(folder)

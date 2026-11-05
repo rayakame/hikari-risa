@@ -1,0 +1,37 @@
+name: Docs preview removal
+
+# pull_request does not run for a pull request with a merge conflict, so closing one would leave its preview behind.
+# pull_request_target does, and it runs from the default branch: nothing of the pull request is checked out here.
+on:
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: docs-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  remove:
+    name: remove preview
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/push-gh-pages
+        with:
+          arguments: --remove-preview ${{ github.event.pull_request.number }}
+          message: Remove the preview of pull request ${{ github.event.pull_request.number }}
+
+      - uses: ./.github/actions/preview-comment
+        with:
+          body: The docs preview of this pull request has been removed.
+          create: false

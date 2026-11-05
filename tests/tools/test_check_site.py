@@ -47,6 +47,8 @@ _LANDING = (
     '<script src="javascripts/live-preview.js"></script>'
 )
 
+_NOINDEX = '<meta name="robots" content="noindex">'
+
 _PALETTE = (
     '<input data-md-color-media="{media}" data-md-color-scheme="{first}" type="radio" name="__palette">'
     '<input data-md-color-media="none" data-md-color-scheme="risa-banner" type="radio" name="__palette">'
@@ -334,3 +336,29 @@ def test_the_title_of_a_collapsed_block_needs_no_closing_punctuation(tmp_path: p
     _page(site, "get-started/index.html", extra='<details class="example"><summary>Full file</summary></details>')
 
     assert check_site.check_site(site) == []
+
+
+def test_a_published_page_that_asks_not_to_be_indexed_is_reported(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "get-started/index.html", extra=_NOINDEX)
+
+    assert check_site.check_site(site) == [
+        "get-started/index.html: it asks search engines not to index it, but it is not a preview of a pull request"
+    ]
+
+
+def test_a_preview_page_that_does_not_ask_not_to_be_indexed_is_reported(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "index.html", extra=_NOINDEX)
+
+    assert check_site.check_site(site, expect_noindex=True) == [
+        "get-started/index.html: it is a preview of a pull request, but search engines may index it"
+    ]
+
+
+def test_a_preview_that_asks_not_to_be_indexed_everywhere_is_clean(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "index.html", extra=_NOINDEX)
+    _page(site, "get-started/index.html", extra=_NOINDEX)
+
+    assert check_site.check_site(site, expect_noindex=True) == []

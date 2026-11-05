@@ -55,10 +55,10 @@ release, `main` carries the `stable` alias in `versions.json`, so no page shows 
 `tools/docs/publish.py` places a built version and keeps `versions.json` and the root redirect.
 
 A pull request from a branch of this repository also gets a preview. `.github/workflows/docs-preview.yml` places it under
-`pr/<number>/` on `gh-pages`, names the link in a comment on the pull request and removes it when the pull request closes.
-A preview is missing from `versions.json`, so it shows no version selector and no outdated banner, and it asks search
-engines not to index it. A fork gets no preview, because its code must not run beside a token that can write to
-`gh-pages`, and neither does a bot's dependency bump.
+`pr/<number>/` on `gh-pages` and names the link in a comment on the pull request, and `docs-preview-remove.yml` removes it
+when the pull request closes. A preview is missing from `versions.json`, so it shows no version selector and no outdated
+banner, and it asks search engines not to index it, which `check_site` checks in both directions. A fork gets no preview,
+because its code must not run beside a token that can write to `gh-pages`.
 
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.

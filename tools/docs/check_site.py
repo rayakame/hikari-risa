@@ -44,6 +44,7 @@ _INVENTORY_HOSTS: typing.Final = ("https://docs.python.org/3/", "https://docs.hi
 _LANDING_PAGE: typing.Final = "index.html"
 _LIVE_SCRIPT: typing.Final = "javascripts/live-preview.js"
 _MIN_LIVE_FRAMES: typing.Final = 2
+_NOINDEX: typing.Final = '<meta name="robots" content="noindex">'
 _TITLE_ENDINGS: typing.Final = (".", "?", "!", "…", ":", ")", '"', "'", "”", "\u2019")
 
 
@@ -97,14 +98,17 @@ class _PageParser(html.parser.HTMLParser):
             self.live_frames += 1
 
 
-def check_site(site: pathlib.Path, *, require_inventory_links: bool = False) -> collections.abc.Sequence[str]:
+def check_site(
+    site: pathlib.Path, *, require_inventory_links: bool = False, expect_noindex: bool = False
+) -> collections.abc.Sequence[str]:
     """Return every problem found in the built site under ``site``.
 
     The site must default to the ``risa-night`` scheme on every page, in the body and in the
     first palette entry with no media query anywhere, load nothing from Google Fonts, leave
     the design folders unpublished and resolve every relative image. An admonition's title
     runs into its text, so it must end like a sentence. The landing page must also carry the
-    frames of its live preview and load the script that swaps them.
+    frames of its live preview and load the script that swaps them. Only a pull request's preview
+    asks search engines not to index its pages, and every page of one does.
 
     Parameters
     ----------
@@ -113,6 +117,8 @@ def check_site(site: pathlib.Path, *, require_inventory_links: bool = False) -> 
     require_inventory_links
         Also require the API pages to link into the Python and hikari documentation, which
         only happens when both object inventories were reachable during the build.
+    expect_noindex
+        The site is the preview of a pull request.
 
     Returns
     -------
@@ -134,6 +140,7 @@ def check_site(site: pathlib.Path, *, require_inventory_links: bool = False) -> 
         if path.suffix == ".html":
             parser = _parse(text)
             problems.extend(_check_page(parser, path, site))
+            problems.extend(_check_indexing(text, path, site, expect_noindex=expect_noindex))
             if _relative(path, site) == _LANDING_PAGE:
                 problems.extend(_check_landing(parser, path, site))
             if _relative(path, site).startswith("api/"):
@@ -182,6 +189,19 @@ def _check_page(parser: _PageParser, path: pathlib.Path, site: pathlib.Path) -> 
     return problems
 
 
+def _check_indexing(
+    text: str, path: pathlib.Path, site: pathlib.Path, *, expect_noindex: bool
+) -> collections.abc.Sequence[str]:
+    if (_NOINDEX in text) == expect_noindex:
+        return []
+    reason = (
+        "it is a preview of a pull request, but search engines may index it"
+        if expect_noindex
+        else "it asks search engines not to index it, but it is not a preview of a pull request"
+    )
+    return [f"{_relative(path, site)}: {reason}"]
+
+
 def _check_landing(parser: _PageParser, path: pathlib.Path, site: pathlib.Path) -> collections.abc.Sequence[str]:
     problems: list[str] = []
     if parser.live_frames < _MIN_LIVE_FRAMES:
@@ -211,8 +231,13 @@ def main() -> None:
     argument_parser = argparse.ArgumentParser(description="Check a built documentation site.")
     argument_parser.add_argument("site", type=pathlib.Path)
     argument_parser.add_argument("--require-inventory-links", action="store_true")
+    argument_parser.add_argument("--expect-noindex", action="store_true")
     arguments = argument_parser.parse_args()
-    problems = check_site(arguments.site, require_inventory_links=arguments.require_inventory_links)
+    problems = check_site(
+        arguments.site,
+        require_inventory_links=arguments.require_inventory_links,
+        expect_noindex=arguments.expect_noindex,
+    )
     for problem in problems:
         _LOGGER.error("%s", problem)
     if problems:

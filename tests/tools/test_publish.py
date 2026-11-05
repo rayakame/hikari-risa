@@ -236,16 +236,18 @@ def test_a_preview_goes_under_pr_and_changes_nothing_else(tmp_path: pathlib.Path
     publish.publish_preview(_site(tmp_path, "p"), target, number=57)
 
     assert (target / "pr" / "57" / "index.html").read_text() == "p"
-    outside = {path: path.read_bytes() for path in target.rglob("*") if path.is_file() and "pr" not in path.parts}
+    previews = target / "pr"
+    outside = {path: path.read_bytes() for path in target.rglob("*") if path.is_file() and previews not in path.parents}
     assert outside == before
 
 
-def test_a_preview_on_an_empty_branch_still_turns_jekyll_off(tmp_path: pathlib.Path) -> None:
+def test_a_preview_on_an_empty_branch_leaves_a_root_that_pages_can_serve(tmp_path: pathlib.Path) -> None:
     target = tmp_path / "pages"
 
     publish.publish_preview(_site(tmp_path, "p"), target, number=57)
 
     assert (target / ".nojekyll").exists()
+    assert 'content="0; url=main/"' in (target / "index.html").read_text()
     assert not (target / "versions.json").exists()
 
 
