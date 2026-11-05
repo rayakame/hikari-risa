@@ -60,6 +60,9 @@ __all__ = ("RenderError", "main", "mark_changes", "render_previews")
 _ROOT: typing.Final = pathlib.Path(__file__).resolve().parents[2]
 _ROW: typing.Final = 1
 _BUTTON: typing.Final = 2
+# Far from any number a view draws by itself, so finding it in the markup finds the field.
+_DRAWN_COUNT: typing.Final = 918273645
+_COUNT_SLOT: typing.Final = "<span data-live-count></span>"
 
 
 class RenderError(Exception):
@@ -416,27 +419,20 @@ async def _live(client: risa.Client, module: object, example: pathlib.Path, prev
         f"__live-{preview.id}",
     )
     cls = _view(client, module, example, preview.view)
-    builds: list[collections.abc.Sequence[collections.abc.Mapping[str, object]]] = []
-    for value in range(preview.stop + 1):
-        with _sequence(value):
-            builds.append(await _payloads(client, cls, {preview.field: value}))
-    identifiers = [_only_custom_id(payloads, example) for payloads in builds]
-    frames = "".join(
-        _live_frame(
-            _spent(payloads) if value == preview.stop else payloads,
-            value,
-            mark_changes(identifier, identifiers[max(value - 1, 0)]),
-        )
-        for value, (payloads, identifier) in enumerate(zip(builds, identifiers, strict=True))
-    )
-    message = discord_html.frame_message(f'<div data-live-slot="message">{discord_html.render_body(builds[0])}</div>')
+    with _sequence(0):
+        first = await _payloads(client, cls, {preview.field: 0})
+        second = await _payloads(client, cls, {preview.field: 1})
+        drawn = await _payloads(client, cls, {preview.field: _DRAWN_COUNT})
+    identifier = _only_custom_id(first, example)
+    attributes = _custom_id_attributes(identifier, _only_custom_id(second, example), example)
+    message = discord_html.frame_message(f'<div data-live-slot="message">{discord_html.render_body(first)}</div>')
     note = f'<p class="risa-live__note">{html.escape(preview.note, quote=False)}</p>' if preview.note else ""
     return (
-        '<div class="risa-live" data-live-preview>'
+        f'<div class="risa-live" data-live-preview {attributes}>'
         f'{marked}<div class="risa-live__side"><div data-search-exclude>{message}</div>'
         '<p class="risa-live__id" data-search-exclude><span class="risa-live__id-label">custom_id</span> '
-        f'<span data-live-slot="id">{html.escape(identifiers[0], quote=False)}</span></p>'
-        f"{note}</div>{frames}</div>"
+        f'<span data-live-slot="id">{html.escape(identifier, quote=False)}</span></p>'
+        f"{note}</div>{_live_frame(drawn, preview.field, example)}</div>"
     )
 
 
@@ -485,35 +481,43 @@ def _only_custom_id(
     return identifiers[0]
 
 
-def _spent(
-    payloads: collections.abc.Sequence[collections.abc.Mapping[str, object]],
-) -> collections.abc.Sequence[collections.abc.Mapping[str, object]]:
-    return [typing.cast("collections.abc.Mapping[str, object]", _disabled(payload)) for payload in payloads]
+def _custom_id_attributes(zero: str, one: str, example: pathlib.Path) -> str:
+    """Write what the page's script needs to work out the `custom_id` of any count, from the ids of 0 and 1."""
+    before, after = _message_anchor(zero, example).payload, _message_anchor(one, example).payload
+    changed = [index for index, (old, new) in enumerate(zip(before, after, strict=True)) if old != new]
+    if len(changed) != 1:
+        raise RenderError(example, "the field of a live preview must change one byte of its view's state")
+    attributes = {
+        "prefix": zero[: codec.HEADER_LENGTH - codec.FRAGMENT_LEN_WIDTH],
+        "fingerprint": _message_anchor(zero, example).schema_fp,
+        "before": before[: changed[0]].hex(),
+        "after": before[changed[0] + 1 :].hex(),
+    }
+    return " ".join(f'data-live-{name}="{html.escape(value)}"' for name, value in attributes.items())
 
 
-def _disabled(value: object) -> object:
-    if isinstance(value, collections.abc.Mapping):
-        pairs = typing.cast("collections.abc.Mapping[object, object]", value)
-        disabled = {key: _disabled(item) for key, item in pairs.items()}
-        if "custom_id" in pairs:
-            disabled["disabled"] = True
-        return disabled
-    if isinstance(value, list):
-        return [_disabled(item) for item in typing.cast("list[object]", value)]
-    return value
+def _message_anchor(raw: str, example: pathlib.Path) -> anchor.MessageAnchor:
+    parsed = codec.parse_custom_id(raw)
+    if parsed is None or parsed.tail or parsed.codec.name != "base85":
+        raise RenderError(example, "a live preview needs a custom_id in base85 without bound arguments")
+    state = anchor.parse(parsed.codec.decode(parsed.fragment))
+    if not isinstance(state, anchor.MessageAnchor):
+        raise RenderError(example, "a live preview needs a view with its state in the message")
+    return state
 
 
 def _live_frame(
     payloads: collections.abc.Sequence[collections.abc.Mapping[str, object]],
-    value: int,
-    identifier: str,
+    field: str,
+    example: pathlib.Path,
 ) -> str:
-    inline = f'<span class="c1">  # now {value}</span>' if value else ""
+    body = discord_html.render_body(payloads, interactive=True)
+    if body.count(str(_DRAWN_COUNT)) != 1:
+        raise RenderError(example, f"a live preview must draw its field {field!r} exactly once")
     return (
         "<template data-live-frame data-search-exclude>"
-        f'<div data-live-part="message">{discord_html.render_body(payloads, interactive=True)}</div>'
-        f'<span data-live-part="value">{inline}</span>'
-        f'<span data-live-part="id">{identifier}</span>'
+        f'<div data-live-part="message">{body.replace(str(_DRAWN_COUNT), _COUNT_SLOT)}</div>'
+        f'<span data-live-part="value"><span class="c1">  # now {_COUNT_SLOT}</span></span>'
         "</template>"
     )
 

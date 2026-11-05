@@ -42,10 +42,7 @@ _PAGE = """<!doctype html>
 """
 
 
-_LANDING = (
-    "<template data-live-frame></template><template data-live-frame></template>"
-    '<script src="javascripts/live-preview.js"></script>'
-)
+_LANDING = '<template data-live-frame></template><script src="javascripts/live-preview.js"></script>'
 
 _NOINDEX = '<meta name="robots" content="noindex">'
 
@@ -246,32 +243,24 @@ def test_a_preview_beside_a_paragraph_is_fine(tmp_path: pathlib.Path) -> None:
     assert check_site.check_site(site) == []
 
 
-@pytest.mark.parametrize(
-    "landing",
-    [
-        '<script src="javascripts/live-preview.js"></script>',
-        '<template data-live-frame></template><script src="javascripts/live-preview.js"></script>',
-    ],
-)
-def test_the_site_check_needs_the_landing_frames(tmp_path: pathlib.Path, landing: str) -> None:
+def test_the_site_check_needs_the_landing_frame(tmp_path: pathlib.Path) -> None:
     site = _site(tmp_path)
-    _page(site, "index.html", landing=landing)
+    _page(site, "index.html", landing='<script src="javascripts/live-preview.js"></script>')
 
     problems = check_site.check_site(site)
 
     assert len(problems) == 1
     assert "index.html" in problems[0]
-    assert "frames" in problems[0]
+    assert "frame" in problems[0]
 
 
 @pytest.mark.parametrize(
     "script",
     ["", '<script src="javascripts/gone.js"></script>', '<script src="javascripts/other/live-preview.js"></script>'],
 )
-def test_the_site_check_needs_the_script_of_the_landing_frames(tmp_path: pathlib.Path, script: str) -> None:
+def test_the_site_check_needs_the_script_of_the_landing_frame(tmp_path: pathlib.Path, script: str) -> None:
     site = _site(tmp_path)
-    frames = "<template data-live-frame></template>" * 2
-    _page(site, "index.html", landing=frames + script)
+    _page(site, "index.html", landing="<template data-live-frame></template>" + script)
 
     problems = check_site.check_site(site)
 
@@ -279,7 +268,7 @@ def test_the_site_check_needs_the_script_of_the_landing_frames(tmp_path: pathlib
     assert "live-preview.js" in problems[0]
 
 
-def test_only_the_landing_page_needs_the_frames(tmp_path: pathlib.Path) -> None:
+def test_only_the_landing_page_needs_the_frame(tmp_path: pathlib.Path) -> None:
     site = _site(tmp_path)
 
     _page(site, "api/index.html")

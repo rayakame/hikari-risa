@@ -46,7 +46,6 @@ _LANDING_PAGE: typing.Final = "index.html"
 _OVERVIEW_SECTIONS: typing.Final = ("get-started", "by-example")
 _OVERVIEW_CLASS: typing.Final = "risa-overview"
 _LIVE_SCRIPT: typing.Final = "javascripts/live-preview.js"
-_MIN_LIVE_FRAMES: typing.Final = 2
 _NOINDEX: typing.Final = '<meta name="robots" content="noindex">'
 _TITLE_ENDINGS: typing.Final = (".", "?", "!", "…", ":", ")", '"', "'", "”", "\u2019")
 
@@ -130,7 +129,7 @@ def check_site(
     first palette entry with no media query anywhere, load nothing from Google Fonts, leave
     the design folders unpublished and resolve every relative image. An admonition's title
     runs into its text, so it must end like a sentence. The landing page must also carry the
-    frames of its live preview and load the script that swaps them. The overview of Get started
+    frame of its live preview and load the script that fills it. The overview of Get started
     and of By example must link every page of its section. Only a pull request's preview asks
     search engines not to index its pages, and every page of one does.
 
@@ -229,8 +228,8 @@ def _check_indexing(
 
 def _check_landing(parser: _PageParser, path: pathlib.Path, site: pathlib.Path) -> collections.abc.Sequence[str]:
     problems: list[str] = []
-    if parser.live_frames < _MIN_LIVE_FRAMES:
-        problems.append(f"{_LANDING_PAGE}: it has {parser.live_frames} frames of the live preview, so nothing can swap")
+    if not parser.live_frames:
+        problems.append(f"{_LANDING_PAGE}: it has no frame of the live preview, so the button does nothing")
     if not any(
         urllib.parse.urlsplit(src).path.removeprefix("./") == _LIVE_SCRIPT and not _is_broken(src, path, site)
         for src in parser.script_sources

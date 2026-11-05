@@ -185,11 +185,11 @@ def test_prepare_draws_a_live_preview_into_one_block(tmp_path: pathlib.Path) -> 
     (root / "docs" / "examples" / "tiny.py").write_text(_TINY)
     (root / "docs" / "examples" / "previews.toml").write_text(
         '[[preview]]\nkind = "live"\nid = "tiny-live"\nexample = "tiny"\nview = "Tiny"\n'
-        'section = "view"\nfield = "count"\nstop = 2\n',
+        'section = "view"\nfield = "count"\n',
     )
 
     prepare.prepare(root)
 
     text = (root / "docs" / "generated" / "previews" / "tiny-live.html").read_text()
-    assert text.count("<template data-live-frame") == 3
+    assert text.count("<template data-live-frame") == 1
     assert "\n\n" not in text

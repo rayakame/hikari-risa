@@ -51,7 +51,8 @@ pyright check; another library's code, such as miru's on the comparison page, st
 `--8<-- "previews/<id>.html"`, directly after the code block, never inside a `div markdown`.
 An example's module-level `add_dependencies(client)` runs once before the first build, the `ids` kind draws the real `custom_id`
 of each component, `content` on a `view` preview draws text above a view made of rows alone, and the `log` kind shows what
-`add_view` warns about.
+`add_view` warns about. The `live` kind draws the landing page's counter, whose script works out each `custom_id` itself;
+a test holds it against `client.build`, which needs `node` and skips without it outside CI.
 
 The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
@@ -219,7 +220,7 @@ docs/               site pages, stylesheets, fonts
   get-started/      an overview, installation, the first view, coming from miru
   by-example/       an overview of the walkthrough and one page per chapter
   examples/         the example files the pages show, and previews.toml, the list of their previews
-  javascripts/      the script that swaps the frames of the landing page's counter
+  javascripts/      the script behind the landing page's counter, which fills its frame and works out each custom_id
   stylesheets/      the theme (risa.css), the Discord frame (discord.css) and the diagrams (diagrams.css)
   specs/            the design of the site
 overrides/          theme template overrides for the site

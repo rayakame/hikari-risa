@@ -121,7 +121,6 @@ class LivePreview(msgspec.Struct, frozen=True, tag_field="kind", tag="live"):
     view: str
     section: str
     field: str
-    stop: int
     note: str = ""
 
 
@@ -149,7 +148,7 @@ def load_manifest(path: pathlib.Path) -> collections.abc.Sequence[Preview]:
     Raises
     ------
     ManifestError
-        If the file is not valid, an id repeats, an example has no file, or a live preview has no positive stop.
+        If the file is not valid, an id repeats, or an example has no file.
     """
     try:
         previews = msgspec.toml.decode(path.read_bytes(), type=_Manifest).preview
@@ -172,6 +171,4 @@ def load_manifest(path: pathlib.Path) -> collections.abc.Sequence[Preview]:
             raise ManifestError(
                 path, f"preview {preview.id!r} names the example {preview.example!r}, which has no file"
             )
-        if isinstance(preview, LivePreview) and preview.stop < 1:
-            raise ManifestError(path, f"the live preview {preview.id!r} needs a positive stop, not {preview.stop}")
     return previews

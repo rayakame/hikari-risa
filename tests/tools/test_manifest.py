@@ -165,7 +165,6 @@ example = "counter"
 view = "Counter"
 section = "view"
 field = "count"
-stop = 99
 note = "Click it."
 """,
     )
@@ -177,30 +176,9 @@ note = "Click it."
             view="Counter",
             section="view",
             field="count",
-            stop=99,
             note="Click it.",
         ),
     ]
-
-
-@pytest.mark.parametrize("stop", [0, -1])
-def test_a_live_preview_needs_a_positive_stop(tmp_path: pathlib.Path, stop: int) -> None:
-    path = _write(
-        tmp_path,
-        f"""
-[[preview]]
-kind = "live"
-id = "counter-live"
-example = "counter"
-view = "Counter"
-section = "view"
-field = "count"
-stop = {stop}
-""",
-    )
-
-    with pytest.raises(manifest.ManifestError, match="positive stop"):
-        manifest.load_manifest(path)
 
 
 def test_a_live_preview_needs_an_example_with_a_file(tmp_path: pathlib.Path) -> None:
@@ -214,7 +192,6 @@ example = "missing"
 view = "Counter"
 section = "view"
 field = "count"
-stop = 1
 """,
     )
 

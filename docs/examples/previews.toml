@@ -20,7 +20,6 @@ example = "first_view_gateway"
 view = "Counter"
 section = "view"
 field = "count"
-stop = 99
 note = "Click it. In a real bot the count survives a restart, because it lives in the button itself."
 
 [[preview]]

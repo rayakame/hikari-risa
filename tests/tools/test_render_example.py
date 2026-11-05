@@ -21,8 +21,12 @@ from __future__ import annotations
 
 import html
 import importlib.util
-import itertools
+import json
+import os
+import pathlib
 import re
+import shutil
+import subprocess  # ruff:ignore[suspicious-subprocess-import]
 import typing
 import unittest.mock
 
@@ -32,11 +36,14 @@ import pytest
 
 import risa
 from risa.internal import codec
+from risa.internal import registry
+from risa.state import anchor
+from risa.state import message
 from tools.docs import manifest
 from tools.docs import render_example
 
 if typing.TYPE_CHECKING:
-    import pathlib
+    import contextlib
 
 _EXAMPLE = """
 import risa
@@ -211,13 +218,20 @@ class Mixed(risa.View):
         await ctx.rerender()
 """
 
-_LIVE = manifest.LivePreview(id="l", example="tiny_example", view="Tiny", section="view", field="count", stop=3)
+_LIVE = manifest.LivePreview(id="l", example="tiny_example", view="Tiny", section="view", field="count")
 
 _FRAME = re.compile(
-    r'<div data-live-part="message">(?P<message>.*)</div>'
-    r'<span data-live-part="value">(?P<value>.*)</span>'
-    r'<span data-live-part="id">(?P<id>.*)</span>',
+    r'<template data-live-frame data-search-exclude><div data-live-part="message">(?P<message>.*)</div>'
+    r'<span data-live-part="value">(?P<value>.*)</span></template>',
 )
+_COUNT_SLOT = "<span data-live-count></span>"
+_SCRIPT = pathlib.Path(__file__).parents[2] / "docs" / "javascripts" / "live-preview.js"
+_RUN_SCRIPT = """
+const [script, data, counts] = process.argv.slice(1);
+globalThis.document$ = { subscribe() {} };
+require("vm").runInThisContext(require("fs").readFileSync(script, "utf8"));
+console.log(JSON.stringify(JSON.parse(counts).map((count) => risaLiveCustomId(JSON.parse(data), count))));
+"""
 
 
 def _example(directory: pathlib.Path, name: str = "tiny_example", source: str = _EXAMPLE) -> pathlib.Path:
@@ -234,9 +248,35 @@ def _live(**changes: str | int) -> manifest.LivePreview:
     return msgspec.structs.replace(_LIVE, **changes)
 
 
-def _frames(markup: str) -> list[dict[str, str]]:
-    frames = re.findall(r"<template data-live-frame data-search-exclude>(.*?)</template>", markup)
-    return [typing.cast("re.Match[str]", _FRAME.fullmatch(frame)).groupdict() for frame in frames]
+def _frame(markup: str) -> dict[str, str]:
+    return typing.cast("re.Match[str]", _FRAME.search(markup)).groupdict()
+
+
+def _at_sequence(number: int) -> contextlib.AbstractContextManager[object]:
+    def first_anchor(_: message.MessageBackend, *, meta: registry.ViewMeta, view: risa.View) -> bytes:
+        return anchor.MessageAnchor(meta.schema.fingerprint, number, meta.schema.pack_view(view)).pack()
+
+    return unittest.mock.patch.object(message.MessageBackend, "first_anchor", first_anchor)
+
+
+def _script_ids(markup: str, counts: list[int]) -> list[str]:
+    node = shutil.which("node")
+    if node is None:
+        if os.environ.get("CI"):
+            pytest.fail("testing the script of the live preview needs node")
+        pytest.skip("node is not installed")
+    opening = typing.cast("re.Match[str]", re.search(r'<div class="risa-live" data-live-preview ([^>]*)>', markup))
+    data = {
+        f"live{name.capitalize()}": html.unescape(value)
+        for name, value in re.findall(r'data-live-(\w+)="([^"]*)"', opening[1])
+    }
+    finished = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]
+        [node, "-e", _RUN_SCRIPT, str(_SCRIPT), json.dumps(data), json.dumps(counts)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(finished.stdout)
 
 
 def _text(markup: str) -> str:
@@ -431,64 +471,50 @@ def test_every_preview_comes_wrapped_with_its_label(tmp_path: pathlib.Path) -> N
     assert result.endswith("</div>")
 
 
-def test_a_live_preview_has_one_frame_per_value(tmp_path: pathlib.Path) -> None:
-    frames = _frames(render_example.render_previews(_example(tmp_path), [_live(stop=3)])["l"])
+def test_a_live_preview_has_one_frame_that_leaves_the_number_open(tmp_path: pathlib.Path) -> None:
+    frame = _frame(render_example.render_previews(_example(tmp_path), [_live()])["l"])
 
-    assert [_text(frame["message"]) for frame in frames] == [f"Count {value}Go" for value in range(4)]
-    assert [_text(frame["value"]) for frame in frames] == ["", "  # now 1", "  # now 2", "  # now 3"]
+    assert frame["message"].count(_COUNT_SLOT) == 1
+    assert _text(frame["message"]) == "Count Go"
+    assert frame["value"].count(_COUNT_SLOT) == 1
+    assert _text(frame["value"]) == "  # now "
 
 
 def test_the_message_frames_and_custom_id_stay_out_of_the_search_index(tmp_path: pathlib.Path) -> None:
-    result = render_example.render_previews(_example(tmp_path), [_live(stop=3)])["l"]
+    result = render_example.render_previews(_example(tmp_path), [_live()])["l"]
 
-    assert result.count("<template") == result.count("<template data-live-frame data-search-exclude>") == 4
+    assert result.count("<template") == result.count("<template data-live-frame data-search-exclude>") == 1
     assert '<p class="risa-live__id" data-search-exclude>' in result
     assert '<div data-search-exclude><div class="dc">' in result
 
 
 def test_the_note_of_a_live_preview_stays_in_the_search_index(tmp_path: pathlib.Path) -> None:
-    result = render_example.render_previews(_example(tmp_path), [_live(stop=3, note="Click it.")])["l"]
+    result = render_example.render_previews(_example(tmp_path), [_live(note="Click it.")])["l"]
 
     assert '<p class="risa-live__note">Click it.</p>' in result
 
 
 def test_a_frame_holds_what_differs_and_not_the_author(tmp_path: pathlib.Path) -> None:
-    result = render_example.render_previews(_example(tmp_path), [_live(stop=3)])["l"]
+    result = render_example.render_previews(_example(tmp_path), [_live()])["l"]
 
     assert result.count('class="dc-name"') == 1
-    assert all("dc-name" not in frame["message"] for frame in _frames(result))
+    assert "dc-name" not in _frame(result)["message"]
 
 
-def test_the_frames_show_the_real_custom_ids(tmp_path: pathlib.Path) -> None:
+def test_a_live_preview_shows_the_real_custom_id_before_the_first_click(tmp_path: pathlib.Path) -> None:
     click = _click(before={"count": 0}, after={"count": 1})
 
     result = render_example.render_previews(_example(tmp_path), [_live(), click])
 
-    parsed = [codec.parse_custom_id(_text(frame["id"])) for frame in _frames(result["l"])]
-    fragments = _spans(result["c"], "state")
-    assert all(
-        identifier is not None
-        and identifier.cookie == codec.make_cookie("tiny", 1)
-        and identifier.handler == codec.make_handler_token("click", 1)
-        for identifier in parsed
-    )
-    assert [typing.cast("codec.CustomID", identifier).fragment for identifier in parsed[:2]] == fragments
+    shown = re.search(r'<span data-live-slot="id">(.*?)</span>', result["l"])
+    identifier = codec.parse_custom_id(_text(typing.cast("re.Match[str]", shown)[1]))
+    assert identifier is not None
+    assert identifier.cookie == codec.make_cookie("tiny", 1)
+    assert identifier.handler == codec.make_handler_token("click", 1)
+    assert identifier.fragment == _spans(result["c"], "state")[0]
 
 
-def test_a_frame_marks_the_characters_that_changed_since_the_previous_one(tmp_path: pathlib.Path) -> None:
-    frames = _frames(render_example.render_previews(_example(tmp_path), [_live()])["l"])
-
-    assert "risa-live__changed" not in frames[0]["id"]
-    for before, after in itertools.pairwise(frames):
-        old, new = _text(before["id"]), _text(after["id"])
-        changed = "".join(
-            html.unescape(run) for run in re.findall(r'<span class="risa-live__changed">(.*?)</span>', after["id"])
-        )
-        assert changed
-        assert changed == "".join(char for index, char in enumerate(new) if old[index : index + 1] != char)
-
-
-def test_a_custom_id_is_escaped_in_a_frame() -> None:
+def test_a_custom_id_is_escaped_when_its_changes_are_marked() -> None:
     assert render_example.mark_changes("a<b", "a<c") == 'a&lt;<span class="risa-live__changed">b</span>'
 
 
@@ -506,7 +532,7 @@ def test_only_a_live_preview_draws_a_real_button(tmp_path: pathlib.Path) -> None
     result = render_example.render_previews(_example(tmp_path), [_live(), _view(count=3)])
 
     assert "<button" not in result["v"]
-    assert all(frame["message"].count("<button") == 1 for frame in _frames(result["l"]))
+    assert _frame(result["l"])["message"].count("<button") == 1
 
 
 def test_a_live_preview_without_javascript_is_a_static_preview_of_the_first_frame(tmp_path: pathlib.Path) -> None:
@@ -518,11 +544,62 @@ def test_a_live_preview_without_javascript_is_a_static_preview_of_the_first_fram
     assert "Count 0" in static
 
 
-def test_only_the_last_frame_disables_the_button(tmp_path: pathlib.Path) -> None:
-    frames = _frames(render_example.render_previews(_example(tmp_path), [_live(stop=2)])["l"])
+def test_the_button_of_a_live_preview_never_runs_out(tmp_path: pathlib.Path) -> None:
+    message = _frame(render_example.render_previews(_example(tmp_path), [_live()])["l"])["message"]
 
-    assert [" disabled>" in frame["message"] for frame in frames] == [False, False, True]
-    assert "dc-disabled" in frames[-1]["message"]
+    assert " disabled" not in message
+    assert "dc-disabled" not in message
+
+
+def test_a_live_preview_that_does_not_draw_its_number_once_fails_the_step(tmp_path: pathlib.Path) -> None:
+    example = tmp_path / "tiny_example.py"
+    example.write_text(_EXAMPLE.replace('f"Count {self.count}"', '"Count"'))
+
+    with pytest.raises(render_example.RenderError, match="exactly once"):
+        render_example.render_previews(example, [_live()])
+
+
+def test_a_live_preview_of_a_view_in_a_store_fails_the_step(tmp_path: pathlib.Path) -> None:
+    example = tmp_path / "tiny_example.py"
+    example.write_text(
+        _EXAMPLE.replace('@risa.register(name="tiny")', '@risa.register(name="tiny", state=risa.InStore(ttl=60))')
+    )
+
+    with pytest.raises(render_example.RenderError, match="in the message"):
+        render_example.render_previews(example, [_live()])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(_EXAMPLE.replace('name="tiny"', 'name="live-two-fields"'), id="a field after the count"),
+        pytest.param(
+            _EXAMPLE.replace('name="tiny"', 'name="live-one-field"').replace('    note: str = ""\n', ""),
+            id="the count alone",
+        ),
+    ],
+)
+async def test_the_script_writes_the_custom_id_that_client_build_writes(tmp_path: pathlib.Path, source: str) -> None:
+    counts = [0, 1, 2, 99, 100, 127, 128, 255, 256, 65535, 65536, 2**24 - 1, 2**24, 2**32 - 1, 2**32, 2**53 - 1]
+    example = _example(tmp_path, source=source)
+    markup = render_example.render_previews(example, [_live()])["l"]
+    spec = importlib.util.spec_from_file_location("live_example", example)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    app = unittest.mock.Mock(spec=hikari.GatewayBot)
+    app.rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+    app.event_manager = unittest.mock.Mock(spec=hikari.api.EventManager)
+    client = risa.client_from_app(app, store=risa.MemoryStore())
+
+    real: list[str] = []
+    for count in counts:
+        with _at_sequence(count % 2**24):
+            payload = (await client.build(module.Tiny(count=count))).components[0].build()[0]
+        real.append(payload["components"][1]["components"][0]["custom_id"])
+
+    assert _script_ids(markup, counts) == real
 
 
 def test_a_live_preview_shows_its_section_highlighted_as_a_fence_is(tmp_path: pathlib.Path) -> None:
@@ -538,7 +615,7 @@ def test_a_live_preview_shows_its_section_highlighted_as_a_fence_is(tmp_path: pa
 def test_a_live_preview_is_one_block_without_a_result_wrapper(tmp_path: pathlib.Path) -> None:
     result = render_example.render_previews(_example(tmp_path), [_live()])["l"]
 
-    assert result.startswith('<div class="risa-live" data-live-preview>')
+    assert result.startswith('<div class="risa-live" data-live-preview data-live-')
     assert result.endswith("</div>")
     assert "risa-result" not in result
     assert "\n\n" not in result
@@ -950,7 +1027,6 @@ async def test_the_diagrams_show_the_ids_a_real_click_leaves(tmp_path: pathlib.P
         view="Clicked",
         section="view",
         field="count",
-        stop=3,
     )
     ids = manifest.IdsDiagram(
         id="i", example="clicked_example", view="Clicked", before={"count": 0}, after={"count": 1}
@@ -962,5 +1038,5 @@ async def test_the_diagrams_show_the_ids_a_real_click_leaves(tmp_path: pathlib.P
     steps = drawn["c"].split('<li class="risa-flow__step">')
     shown = ["".join(_spans(step, "route") + _spans(step, "state")) for step in (steps[1], steps[6])]
     assert shown == real[:2]
-    assert [_text(frame["id"]) for frame in _frames(drawn["l"])] == real
+    assert _script_ids(drawn["l"], [0, 1, 2, 3]) == real
     assert [identifier for _, identifier in _rows(drawn["i"])] == real[:2]

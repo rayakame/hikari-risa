@@ -67,6 +67,8 @@ one `--8<--` line. `docs/javascripts/live-preview.js` only swaps those frames, t
 static preview. Frames and every preview's wrapper carry `data-search-exclude`, or their text lands in
 the search index. Spec §4.4 item 4 and §6 describe it. `check_site` fails a landing page without frames or without
 the script.
+Since 2026-11-05 the count has no cap: the page holds one `<template>` and the script works out each
+`custom_id`, which a test holds against `client.build`.
 
 **2026-11-04, docs site, milestone 1c (branch `docs-redesign`):** the first live site was
 rejected as looking like a template, so the frame was rebuilt in the language of the social
