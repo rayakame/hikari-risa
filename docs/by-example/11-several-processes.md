@@ -54,8 +54,8 @@ give [`RedisStore`](../api/store/redis.md#risa.store.redis.RedisStore) or
 [`PostgresStore`](../api/store/postgres.md#risa.store.postgres.PostgresStore).
 
 A click waits up to 10 seconds, then fails with an `ERROR` in your log. Discord's
-[three seconds](05-answering-in-time.md#the-clock) keep running meanwhile, and
-[auto-defer](05-answering-in-time.md#where-to-set-it) can answer in time.
+[three seconds](05-answering-in-time.md#the-clock) keep running meanwhile, which is why the client above sets
+[auto-defer](05-answering-in-time.md#where-to-set-it): it answers in time.
 
 ## `InMessage` on a REST bot
 

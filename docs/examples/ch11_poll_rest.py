@@ -117,6 +117,7 @@ def main() -> None:
     client = risa.client_from_lightbulb(
         lightbulb_client,
         store=RedisStore(connection),
+        auto_defer=risa.AutoDefer.UPDATE,
     )
     client.add_view(Poll)
     # --8<-- [end:client]

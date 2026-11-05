@@ -244,7 +244,7 @@ def _check_overviews(site: pathlib.Path) -> collections.abc.Iterator[str]:
         parser = _OverviewParser()
         if overview.is_file():
             parser.feed(overview.read_text(encoding="utf-8"))
-        linked = {posixpath.normpath(link) for link in parser.links}
+        linked = {posixpath.normpath(urllib.parse.urlsplit(link).path) for link in parser.links}
         for page in sorted((site / section).glob("*/index.html")):
             if page.parent.name not in linked:
                 yield f"{section}/index.html: its overview does not link to {page.parent.name}/"

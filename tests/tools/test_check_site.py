@@ -337,6 +337,14 @@ def test_a_page_missing_from_the_overview_of_its_section_is_reported(tmp_path: p
     assert check_site.check_site(site) == ["by-example/index.html: its overview does not link to 02-state/"]
 
 
+def test_an_overview_link_into_a_page_counts_for_that_page(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "by-example/index.html", extra='<div class="risa-overview"><a href="01-views/#render">Views</a></div>')
+    _page(site, "by-example/01-views/index.html")
+
+    assert check_site.check_site(site) == []
+
+
 def test_a_section_without_an_overview_page_is_reported(tmp_path: pathlib.Path) -> None:
     site = _site(tmp_path)
     _page(site, "get-started/installation/index.html")

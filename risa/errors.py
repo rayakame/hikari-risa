@@ -506,7 +506,7 @@ class StateConflictError(StateError):
 
     By the time it is raised, the view already holds the state that won, so the handler
     can apply its change again on top of it. The exception is a winning record that cannot
-    be read: risa logs that as an `ERROR` and the view keeps its own state.
+    be read: risa logs that and the view keeps its own state.
 
     Attributes
     ----------

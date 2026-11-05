@@ -87,7 +87,9 @@ You can also acknowledge a click yourself, as `ReportByHand` in the full file do
 --8<-- "ch05_report.py:defer"
 ```
 
-`defer()` raises `AlreadyRespondedError` if the click already has its answer.
+`defer()` raises `AlreadyRespondedError` if the click already has its answer. It also runs only when the handler's turn
+comes, so a click waiting behind a slow handler on the same message can miss the 3 seconds. Auto-defer's timer starts
+before that wait, so use it on a view with slow handlers.
 
 [`ctx.acknowledge()`](../api/context.md#risa.context.Context.acknowledge) takes the same options and does nothing if the
 click already has its answer. It suits a handler with one branch that answers and one that does not.
@@ -113,7 +115,8 @@ The most specific setting wins, so `defer=risa.AutoDefer.OFF` on a handler turns
 | Mode | When the handler returns |
 |---|---|
 | `OFF` | risa sends nothing, so the click fails in Discord. On a gateway bot risa logs nothing either |
-| `UPDATE`, `THINKING`, `THINKING_EPHEMERAL` | risa acknowledges the click silently |
+| `UPDATE` | risa acknowledges the click silently |
+| `THINKING`, `THINKING_EPHEMERAL` | Inside the 2 seconds, risa acknowledges the click silently. After them the thinking message is already up and risa sends nothing more, so answer it with `ctx.respond` |
 
 A handler that changed a field without answering gets a rerender from risa when it returns, in every mode. That saves
 the change, and it answers the click if the 3 seconds have not run out.
