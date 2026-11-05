@@ -15,8 +15,10 @@ This page compares with miru 4.3.1. The main things miru has and risa does not a
 |---|---|
 | `class MyView(miru.View)` | `@risa.register(name="my-view")` above `class MyView(risa.View)` |
 | `self.x = 0` in `__init__` | An annotated field, `x: int = 0` |
+| An attribute set on a view stays until the view stops | A `risa.Prop` starts from its default on every click, and `load()` fills it |
 | `@miru.button(...)` on a callback `(self, ctx, button)` | `@risa.handler` on a method `(self, ctx)`, and `ui.Button(self.method, ...)` in `render()` |
 | `@miru.text_select(...)` and `select.values` | `ui.TextSelect(self.method, ...)` and `ctx.values` |
+| `select.values` on a `miru.RoleSelect` holds the roles | `ctx.values` holds their ids, and `ctx.resolved` the roles |
 | `miru.Button` subclasses that hold a value | One handler with an argument, `ui.Button(risa.bind(self.method, value))` |
 | `view.add_item(...)` and `remove_item(...)` | `if` and `for` in `render()` |
 | `miru.ViewContext` | `risa.ComponentContext` |
@@ -28,7 +30,7 @@ This page compares with miru 4.3.1. The main things miru has and risa does not a
 | `respond("Hi", components=view)` | `respond(**await client.build(MyView()))` |
 | `timeout=`, 120 seconds by default | `InStore(ttl=...)`, and no expiry in the message |
 | `autodefer=True` by default, after 2 seconds | `AutoDefer.OFF` by default; set it on a handler, view or client |
-| alluka, with `@client.inject_dependencies` | linkd, with no decorator; [`risa.handler`](../api/view.md#risa.view.handler) says which parameters are injected |
+| alluka, with `@client.inject_dependencies` | linkd, with no decorator; [Dependency injection](../by-example/10-dependency-injection.md#name-it-as-a-parameter) says which parameters are injected |
 
 ## A view
 
@@ -67,8 +69,8 @@ Three things differ:
   `content`, so the text goes in `ui.TextDisplay`.
 - **There is no `__init__`.** A view is a `msgspec.Struct`, made with `Counter(count=3)`, and its annotated fields are
   saved from click to click. For what should not be saved, such as a database row, mark the field
-  [`risa.Prop[T]`](../api/state/schema.md) and fill it in [`load()`](../api/view.md#risa.view.View.load), which runs
-  before every handler.
+  `risa.Prop[T]` and fill it in `load()`, which runs before every handler, as
+  [Fresh data](../by-example/06-fresh-data.md) shows.
 
 ## Sending
 
@@ -148,7 +150,7 @@ view = TimeoutView(timeout=10.0)
 ```
 
 A risa view in the message has no timeout: it works as long as the message exists. For a lifetime, keep the state in a
-store with [`InStore`](../api/state/placement.md). `ttl` has no default. Like miru's timeout it counts seconds of
+store with [`InStore`](../by-example/08-stores-and-ttl.md#ttl). `ttl` has no default. Like miru's timeout it counts seconds of
 inactivity, and every click restarts it.
 
 ```python title="risa"
@@ -176,7 +178,7 @@ record has expired. Until then the message stays as it is, and risa has no hook 
 moment.
 
 To end a view yourself, where miru has `self.stop()`, replace the message with a layout that has no buttons. `yes` above
-does that with [`ctx.edit`](../api/context.md#risa.context.ComponentContext.edit).
+does that with [`ctx.edit`](../by-example/05-answering-in-time.md#which-message).
 
 ## What risa does not have
 

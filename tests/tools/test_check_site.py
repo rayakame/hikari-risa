@@ -334,3 +334,31 @@ def test_the_title_of_a_collapsed_block_needs_no_closing_punctuation(tmp_path: p
     _page(site, "get-started/index.html", extra='<details class="example"><summary>Full file</summary></details>')
 
     assert check_site.check_site(site) == []
+
+
+def test_a_page_missing_from_the_overview_of_its_section_is_reported(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    nav = '<nav><a href="01-views/">Views</a><a href="02-state/">State</a></nav>'
+    _page(site, "by-example/index.html", extra=f'{nav}<div class="risa-overview"><a href="01-views/">Views</a></div>')
+    _page(site, "by-example/01-views/index.html")
+    _page(site, "by-example/02-state/index.html")
+
+    assert check_site.check_site(site) == ["by-example/index.html: its overview does not link to 02-state/"]
+
+
+def test_a_section_without_an_overview_page_is_reported(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "get-started/installation/index.html")
+    (site / "get-started" / "index.html").unlink()
+
+    assert check_site.check_site(site) == ["get-started/index.html: its overview does not link to installation/"]
+
+
+def test_an_overview_ends_with_its_block(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    overview = '<div class="risa-overview"><div></div><a href="01-views/">Views</a></div><a href="02-state/">State</a>'
+    _page(site, "by-example/index.html", extra=overview)
+    _page(site, "by-example/01-views/index.html")
+    _page(site, "by-example/02-state/index.html")
+
+    assert check_site.check_site(site) == ["by-example/index.html: its overview does not link to 02-state/"]

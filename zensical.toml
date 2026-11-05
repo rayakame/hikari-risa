@@ -9,11 +9,27 @@ exclude_docs = "specs/\nexamples/\ngenerated/"
 nav = [
   { "Home" = "index.md" },
   { "Get started" = [
+    "get-started/index.md",
     "get-started/installation.md",
     "get-started/first-view.md",
     "get-started/coming-from-miru.md",
   ] },
-  { "API" = [
+  { "By example" = [
+    "by-example/index.md",
+    { "01 Views" = "by-example/01-views.md" },
+    { "02 Buttons that remember" = "by-example/02-buttons-that-remember.md" },
+    { "03 Handlers and arguments" = "by-example/03-handlers-and-arguments.md" },
+    { "04 Selects, sections, galleries" = "by-example/04-selects-sections-galleries.md" },
+    { "05 Answering in time" = "by-example/05-answering-in-time.md" },
+    { "06 Fresh data" = "by-example/06-fresh-data.md" },
+    { "07 Where state lives" = "by-example/07-where-state-lives.md" },
+    { "08 Stores and TTL" = "by-example/08-stores-and-ttl.md" },
+    { "09 Changing a view safely" = "by-example/09-changing-a-view-safely.md" },
+    { "10 Dependency injection" = "by-example/10-dependency-injection.md" },
+    { "11 Several processes" = "by-example/11-several-processes.md" },
+    { "12 Writing your own store" = "by-example/12-writing-your-own-store.md" },
+  ] },
+  { "API reference" = [
     "api/index.md",
     { "risa.state" = [
       "api/state/index.md",
@@ -42,7 +58,7 @@ nav = [
     { "risa.view" = "api/view.md" },
   ] },
 ]
-extra_css = ["stylesheets/risa.css", "stylesheets/discord.css"]
+extra_css = ["stylesheets/risa.css", "stylesheets/diagrams.css", "stylesheets/discord.css"]
 extra_javascript = ["javascripts/live-preview.js"]
 
 [project.extra]
@@ -62,6 +78,7 @@ features = [
   "content.code.annotate",
   "content.code.copy",
   "content.tabs.link",
+  "navigation.footer",
   "navigation.indexes",
   "navigation.instant",
   "navigation.path",

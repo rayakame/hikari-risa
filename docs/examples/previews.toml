@@ -14,16 +14,6 @@ view = "Counter"
 fields = { count = 1 }
 
 [[preview]]
-kind = "click"
-id = "counter-click"
-label = "The path of a click"
-example = "first_view_gateway"
-view = "Counter"
-before = { count = 3 }
-after = { count = 4 }
-handler = "click"
-
-[[preview]]
 kind = "live"
 id = "counter-live"
 example = "first_view_gateway"
@@ -45,4 +35,349 @@ kind = "reply"
 id = "question-expired"
 label = "A click after the record expired"
 text = "This question has expired."
+ephemeral = true
+
+[[preview]]
+kind = "view"
+id = "welcome"
+example = "ch01_welcome"
+view = "Welcome"
+fields = {}
+
+[[preview]]
+kind = "reply"
+id = "welcome-rules"
+label = "After a click"
+text = "Be kind, and stay on topic."
+ephemeral = true
+
+[[preview]]
+kind = "view"
+id = "scoreboard"
+example = "ch02_scoreboard"
+view = "Scoreboard"
+fields = { home = 3, away = 1 }
+
+[[preview]]
+kind = "view"
+id = "scoreboard-after"
+label = "After a click on Home +1"
+example = "ch02_scoreboard"
+view = "Scoreboard"
+fields = { home = 4, away = 1 }
+
+[[preview]]
+kind = "click"
+id = "scoreboard-click"
+label = "The path of a click"
+example = "ch02_scoreboard"
+view = "Scoreboard"
+before = { home = 3, away = 1 }
+after = { home = 4, away = 1 }
+handler = "score_home"
+
+[[preview]]
+kind = "ids"
+id = "scoreboard-ids"
+example = "ch02_scoreboard"
+view = "Scoreboard"
+before = { home = 3, away = 1 }
+after = { home = 4, away = 1 }
+
+[[preview]]
+kind = "view"
+id = "ticket"
+example = "ch03_ticket"
+view = "Ticket"
+fields = {}
+
+[[preview]]
+kind = "ids"
+id = "ticket-ids"
+example = "ch03_ticket"
+view = "Ticket"
+before = {}
+
+[[preview]]
+kind = "error"
+id = "channel-kind-wrong"
+label = "What client.build raises"
+example = "ch03_hikari_enum"
+view = "ChannelKindWrong"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "channel-kind"
+example = "ch03_hikari_enum"
+view = "ChannelKind"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "lunch"
+example = "ch04_selects"
+view = "Lunch"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "reviewer"
+label = "After a pick"
+example = "ch04_selects"
+view = "Reviewer"
+fields = { reviewer = "mika" }
+
+[[preview]]
+kind = "view"
+id = "release"
+example = "ch04_sections"
+view = "Release"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "meetup"
+example = "ch04_media"
+view = "Meetup"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "yes-no"
+example = "ch04_rows"
+view = "YesNo"
+fields = {}
+content = "Ship it?"
+
+[[preview]]
+kind = "view"
+id = "report"
+example = "ch05_report"
+view = "Report"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "report-refreshed"
+label = "After a click on Refresh"
+example = "ch05_report"
+view = "Report"
+fields = { rows = 128 }
+
+[[preview]]
+kind = "thinking"
+id = "report-thinking"
+label = "While it works"
+ephemeral = true
+
+[[preview]]
+kind = "reply"
+id = "report-exported"
+label = "The answer takes its place"
+text = "Exported 128 rows."
+ephemeral = true
+
+[[preview]]
+kind = "reply"
+id = "report-closed"
+label = "After a click on Close"
+text = "Closed with 128 rows."
+ephemeral = false
+
+[[preview]]
+kind = "view"
+id = "leaderboard"
+example = "ch06_leaderboard"
+view = "Leaderboard"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "leaderboard-go"
+label = "After a click on Go"
+example = "ch06_leaderboard"
+view = "Leaderboard"
+fields = { game = "go" }
+
+[[preview]]
+kind = "reply"
+id = "poll-already"
+label = "A second vote from the same person"
+text = "You already voted."
+ephemeral = true
+
+[[preview]]
+kind = "view"
+id = "poll-full"
+label = "12 voters"
+example = "ch07_poll"
+view = "Poll"
+
+[preview.fields]
+question = "Pizza on Friday?"
+yes = 7
+no = 5
+voters = [
+  1298471056230400001,
+  1298471056230407920,
+  1298471056230415839,
+  1298471056230423758,
+  1298471056230431677,
+  1298471056230439596,
+  1298471056230447515,
+  1298471056230455434,
+  1298471056230463353,
+  1298471056230471272,
+  1298471056230479191,
+  1298471056230487110,
+]
+
+[[preview]]
+kind = "ids"
+id = "poll-full-ids"
+title = "Twelve voters"
+example = "ch07_poll"
+view = "Poll"
+
+[preview.before]
+question = "Pizza on Friday?"
+yes = 7
+no = 5
+voters = [
+  1298471056230400001,
+  1298471056230407920,
+  1298471056230415839,
+  1298471056230423758,
+  1298471056230431677,
+  1298471056230439596,
+  1298471056230447515,
+  1298471056230455434,
+  1298471056230463353,
+  1298471056230471272,
+  1298471056230479191,
+  1298471056230487110,
+]
+
+[[preview]]
+kind = "error"
+id = "poll-overflow"
+label = "13 voters: what client.build raises"
+example = "ch07_poll"
+view = "Poll"
+
+[preview.fields]
+question = "Pizza on Friday?"
+yes = 8
+no = 5
+voters = [
+  1298471056230400001,
+  1298471056230407920,
+  1298471056230415839,
+  1298471056230423758,
+  1298471056230431677,
+  1298471056230439596,
+  1298471056230447515,
+  1298471056230455434,
+  1298471056230463353,
+  1298471056230471272,
+  1298471056230479191,
+  1298471056230487110,
+  1298471056230495029,
+]
+
+[[preview]]
+kind = "view"
+id = "poll-stored"
+label = "13 voters, in a store"
+example = "ch08_poll_memory"
+view = "Poll"
+
+[preview.fields]
+question = "Pizza on Friday?"
+yes = 8
+no = 5
+voters = [
+  1298471056230400001,
+  1298471056230407920,
+  1298471056230415839,
+  1298471056230423758,
+  1298471056230431677,
+  1298471056230439596,
+  1298471056230447515,
+  1298471056230455434,
+  1298471056230463353,
+  1298471056230471272,
+  1298471056230479191,
+  1298471056230487110,
+  1298471056230495029,
+]
+
+[[preview]]
+kind = "ids"
+id = "poll-stored-ids"
+example = "ch08_poll_memory"
+view = "Poll"
+before = { question = "Pizza on Friday?", yes = 0, no = 0, voters = [] }
+after = { question = "Pizza on Friday?", yes = 1, no = 0, voters = [1298471056230400001] }
+
+[[preview]]
+kind = "log"
+id = "poll-memory-warning"
+label = "In your log at startup"
+example = "ch08_poll_memory"
+view = "Poll"
+
+[[preview]]
+kind = "reply"
+id = "poll-expired"
+label = "A click after the record expired"
+text = "This poll has expired."
+ephemeral = false
+
+[[preview]]
+kind = "view"
+id = "poll-note"
+example = "ch09_poll_free"
+view = "Poll"
+
+[preview.fields]
+question = "Pizza on Friday?"
+yes = 3
+no = 2
+voters = [
+  1298471056230400001,
+  1298471056230407920,
+  1298471056230415839,
+  1298471056230423758,
+  1298471056230431677,
+]
+
+[[preview]]
+kind = "view"
+id = "poll-bumped"
+example = "ch09_poll_bumped"
+view = "Poll"
+
+[preview.fields]
+question = "Pizza on Friday?"
+yes = [
+  1298471056230400001,
+  1298471056230407920,
+  1298471056230415839,
+]
+no = [1298471056230423758, 1298471056230431677]
+
+[[preview]]
+kind = "reply"
+id = "poll-ended"
+label = "After a click on an old poll"
+text = "Pizza on Friday? It ended with 3 yes and 2 no."
+ephemeral = false
+
+[[preview]]
+kind = "reply"
+id = "poll-outdated"
+label = "After a click on a retired button"
+text = "This button no longer works."
 ephemeral = true

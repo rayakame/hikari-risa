@@ -2218,3 +2218,55 @@ async def test_a_stored_view_with_nothing_to_click_builds_without_its_store() ->
     rendered = await built.build(Receipt(total=3))
 
     assert not ids_of(rendered.components)
+
+
+@risa.register(name="client-retired", version=2)
+class RetiredPoll(risa.View):
+    votes: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.vote))
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext) -> None:
+        await ctx.respond(f"ended with {self.votes}")
+
+
+@risa.register(name="client-retired", version=3)
+class CurrentPoll(risa.View):
+    votes: list[int] = msgspec.field(default_factory=list[int])
+    outdated: typing.ClassVar[list[str]] = []
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext) -> None:
+        await ctx.respond(f"version 3 answered with {self.votes}")
+
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        cls.outdated.append("ran")
+
+
+async def test_a_class_kept_at_the_old_version_answers_clicks_on_old_components() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(CurrentPoll)
+    built.add_view(RetiredPoll)
+    view = RetiredPoll(votes=3)
+
+    await built._process_interaction(interaction_on(view, view.render()))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert rest_of(built).create_interaction_response.await_args.args[3] == "ended with 3"
+    assert not CurrentPoll.outdated
+
+
+async def test_without_the_old_class_a_click_reaches_no_view_and_no_hook(caplog: pytest.LogCaptureFixture) -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(CurrentPoll)
+    view = RetiredPoll(votes=3)
+
+    with caplog.at_level(logging.DEBUG, logger="risa.dispatch"):
+        await built._process_interaction(interaction_on(view, view.render()))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    rest_of(built).create_interaction_response.assert_not_awaited()
+    assert not CurrentPoll.outdated
+    assert "this client has no view for it" in caplog.text

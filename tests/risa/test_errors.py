@@ -105,6 +105,15 @@ def test_state_overflow_lists_each_field_largest_first_then_the_framing() -> Non
     assert list(error.fields) == ["question", "counts", "voters"]
 
 
+def test_state_overflow_breakdown_says_byte_for_a_size_of_one() -> None:
+    error = risa.StateOverflowError(
+        "poll", needed=3, available=2, slots=1, codec_name="base85", fields={"yes": 1, "no": 0}
+    )
+
+    assert "    yes      1 byte\n" in str(error)
+    assert "    no       0 bytes\n" in str(error)
+
+
 def test_state_overflow_on_one_component_reads_in_the_singular() -> None:
     error = risa.StateOverflowError("poll", needed=90, available=70, slots=1, codec_name="base85", fields={"a": 80})
 

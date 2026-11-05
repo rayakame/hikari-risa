@@ -38,11 +38,11 @@ Part by part:
 - `count: int = 0` is the state. risa keeps every annotated field from click to click, and the default is where a new
   counter starts.
 - `render()` returns the message's layout, drawn from the fields. `ui.Container` is a box like an embed,
-  `ui.TextDisplay` is text in Discord's markdown, and `ui.Row` holds buttons. [`risa.ui.nodes`](../api/ui/nodes.md)
-  lists everything else you can draw.
+  `ui.TextDisplay` is text in Discord's markdown, and `ui.Row` holds buttons.
+  [Selects, sections, galleries](../by-example/04-selects-sections-galleries.md) shows everything else you can draw.
 - `ui.Button(self.click, label="+1")` draws a button, and `self.click` is the handler its clicks go to.
 - `@risa.handler` makes `click` a handler. When it runs, the view already holds the state from the click, and `ctx` is
-  the [context](../api/context.md) of that click.
+  the [context](../by-example/05-answering-in-time.md) of that click.
 - `await ctx.rerender()` answers the click: it draws the message again from the changed fields and saves them. Discord
   fails a click that gets no answer within three seconds.
 
@@ -64,7 +64,8 @@ The two ways below differ in what makes the bot post. Pick one.
     ```
 
     [`risa.client_from_lightbulb`](../api/client.md#risa.client.client_from_lightbulb) makes a client that shares
-    lightbulb's bot and its dependency manager. `build` returns a mapping, and `**` spreads it into `ctx.respond`.
+    lightbulb's bot and its [dependency manager](../by-example/10-dependency-injection.md#share-one-manager-with-lightbulb).
+    `build` returns a mapping, and `**` spreads it into `ctx.respond`.
     lightbulb registers `/counter` with Discord when the bot starts.
 
     ??? example "Full file"
@@ -123,7 +124,7 @@ where it was, and the next click after the restart works.
     Anyone who can see the message can read what the button holds, so keep secrets somewhere else.
 
 The message also has limited room: about 60 bytes on one button, and about 70 more for each further one, with the
-default codec. A view that needs more can move to a store with [`risa.InStore`](../api/state/placement.md). Its
+default codec. A view that needs more can move to a store with [`risa.InStore`](../by-example/07-where-state-lives.md). Its
 handlers stay the same, but the move means raising its `version`, which retires the buttons already sent.
 
 A click changes the id of the button that holds the count, and Discord refuses a click on an id the message no longer
@@ -140,7 +141,5 @@ hold a key instead of the count, so clicks leave them as they are, which suits a
 
 ## Where to read more
 
-- [`risa.view`](../api/view.md): views, handlers and `register`.
-- [`risa.context`](../api/context.md): `respond`, `defer`, `rerender` and `edit`.
-- [`risa.client`](../api/client.md): the client and its options.
-- [`risa.state.placement`](../api/state/placement.md): `InMessage` and `InStore`.
+[By example](../by-example/index.md) goes through the rest, one chapter at a time. The
+[API reference](../api/index.md) has every class and parameter.

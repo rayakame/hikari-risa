@@ -80,6 +80,10 @@ _MEMBER_ITEM: typing.Final[re.Pattern[str]] = re.compile(r"- (\w+)")
 _MEMBER_INLINE: typing.Final[re.Pattern[str]] = re.compile(r"^\s+members:\s*\[(.*)\]\s*$", re.MULTILINE)
 _NAME: typing.Final[re.Pattern[str]] = re.compile(r"\w+")
 _LINK: typing.Final[re.Pattern[str]] = re.compile(r"\]\(([^)#\s]+\.md)\)")
+_SUMMARY: typing.Final[re.Pattern[str]] = re.compile(
+    r"^- \[`(?P<module>[\w.]+)`\]\([^)]+\)(?:\{[^}]*\})?\n\n[ \t]+(?P<summary>.+)$",
+    re.MULTILINE,
+)
 _TYPED_YIELDS: typing.Final[re.Pattern[str]] = re.compile(r"^Yields\n-+\n(?!:\s*$)\S", re.MULTILINE)
 
 type _Member = griffe.Object | griffe.Alias
@@ -252,6 +256,11 @@ def _check_lists(
             index = "/".join((_PAGES, *module.path.split(".")[1:], "index.md"))
             if module.path not in {block[1] for block in _BLOCK.finditer(f"{pages.get(index, '')}\n")}:
                 yield f"{module.path}: a public package needs the index page {index}"
+    for entry in _SUMMARY.finditer(pages.get(_INDEX, "")):
+        module = modules.get(entry["module"])
+        first_line = module.docstring.value.partition("\n")[0] if module and module.docstring else None
+        if first_line not in {None, entry["summary"]}:
+            yield f"{entry['module']}: {_INDEX} says {entry['summary']!r}, but its docstring starts with {first_line!r}"
 
 
 def _nav_pages(entry: _Nav) -> collections.abc.Iterator[str]:

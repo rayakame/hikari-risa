@@ -490,7 +490,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         StateOverflowError
             If an `InMessage` view's state does not fit the layout's components.
         StateConflictError
-            If another process saved the view's state first. The view then holds that state.
+            If another process saved the view's state first. The view then holds that state,
+            unless that record cannot be read, which risa logs as an `ERROR`.
         """
         plan = build_.plan(layout, self._meta)
         view, session = self._slot.view, self._slot.session
@@ -520,7 +521,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
             If an `InMessage` view's state no longer fits its components.
         StateConflictError
             If another process saved the view's state first. The view then holds that state,
-            and the handler can apply its change again and rerender.
+            unless that record cannot be read, which risa logs as an `ERROR`. Otherwise the
+            handler can apply its change again and rerender.
         StateNotFoundError
             If an `InStore` view's record disappeared while the handler ran.
         """

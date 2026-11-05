@@ -29,6 +29,7 @@ import html
 import importlib.util
 import itertools
 import json
+import logging.handlers
 import pathlib
 import re
 import subprocess  # ruff: ignore[suspicious-subprocess-import]
@@ -50,12 +51,15 @@ from risa import errors
 from risa.internal import codec
 from risa.internal import registry
 from risa.state import anchor
+from risa.state import message
 from tools.docs import discord_html
 from tools.docs import manifest
 
 __all__ = ("RenderError", "main", "mark_changes", "render_previews")
 
 _ROOT: typing.Final = pathlib.Path(__file__).resolve().parents[2]
+_ROW: typing.Final = 1
+_BUTTON: typing.Final = 2
 
 
 class RenderError(Exception):
@@ -148,6 +152,9 @@ async def _render_all(
 
     with mock.patch.object(anchor.secrets, "token_bytes", token_bytes):
         client = _client()
+        add_dependencies = getattr(module, "add_dependencies", None)
+        if add_dependencies is not None:
+            add_dependencies(client)
         rendered: dict[str, str] = {}
         for preview in previews:
             current.append(preview.id)
@@ -166,6 +173,7 @@ def _import(example: pathlib.Path) -> object:
     if spec is None or spec.loader is None:
         raise RenderError(example, "it cannot be imported")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -182,15 +190,37 @@ async def _draw(client: risa.Client, module: object, example: pathlib.Path, prev
         return discord_html.render_reply(preview.text, ephemeral=preview.ephemeral)
     if isinstance(preview, manifest.ThinkingPreview):
         return discord_html.render_thinking(ephemeral=preview.ephemeral)
-    cls = _view(client, module, example, preview.view)
+    return await _draw_view(client, _view(client, module, example, preview.view), example, preview)
+
+
+async def _draw_view(
+    client: risa.Client,
+    cls: type[risa.View],
+    example: pathlib.Path,
+    preview: manifest.ViewPreview
+    | manifest.ErrorPreview
+    | manifest.LogPreview
+    | manifest.ClickPath
+    | manifest.IdsDiagram,
+) -> str:
     if isinstance(preview, manifest.ViewPreview):
-        return discord_html.render_message(await _payloads(client, cls, preview.fields))
+        payloads = await _payloads(client, cls, preview.fields)
+        if preview.content and any(payload.get("type") != _ROW for payload in payloads):
+            raise RenderError(
+                example,
+                f"the view {preview.view!r} is not rows alone, and Discord refuses content beside Components V2",
+            )
+        return discord_html.render_message(payloads, content=preview.content)
     if isinstance(preview, manifest.ErrorPreview):
         try:
             await client.build(cls(**preview.fields))
         except errors.RisaError as error:
             return f'<pre class="risa-error"><code>{html.escape(str(error))}</code></pre>'
         raise RenderError(example, f"the build of preview {preview.id!r} did not raise")
+    if isinstance(preview, manifest.LogPreview):
+        return _startup_warnings(cls, example, preview)
+    if isinstance(preview, manifest.IdsDiagram):
+        return await _ids(client, cls, example, preview)
     return await _click_path(client, cls, example, preview)
 
 
@@ -200,6 +230,21 @@ def _view(client: risa.Client, module: object, example: pathlib.Path, name: str)
         raise RenderError(example, f"it has no view named {name!r}")
     client.add_view(cls)
     return cls
+
+
+def _startup_warnings(cls: type[risa.View], example: pathlib.Path, preview: manifest.LogPreview) -> str:
+    captured = logging.handlers.BufferingHandler(capacity=16)
+    logger = logging.getLogger("risa")
+    logger.addHandler(captured)
+    try:
+        # A client warns once per store, and the shared client may have warned already.
+        _client().add_view(cls)
+    finally:
+        logger.removeHandler(captured)
+    if not captured.buffer:
+        raise RenderError(example, f"adding the view {preview.view!r} logged no warning")
+    text = "\n".join(record.getMessage() for record in captured.buffer)
+    return f'<pre class="risa-error"><code>{html.escape(text)}</code></pre>'
 
 
 async def _payloads(
@@ -221,71 +266,145 @@ async def _click_path(
     token = next((key for key, record in meta.handlers.items() if record.handler_id == preview.handler), None)
     if token is None:
         raise RenderError(example, f"the view {preview.view!r} has no handler {preview.handler!r}")
-    before = _custom_id(await _payloads(client, cls, preview.before), token, example)
-    after = _custom_id(await _payloads(client, cls, preview.after), token, example)
+    if preview.before == preview.after:
+        raise RenderError(example, f"the click path {preview.id!r} must change a field")
+    with _same_keys(preview.id):
+        payloads_before = await _payloads(client, cls, preview.before)
+        with _sequence(1):
+            payloads_after = await _payloads(client, cls, preview.after)
+    raw_before, before = _routed_id(payloads_before, token, example)
+    raw_after, after = _routed_id(payloads_after, token, example)
     if (before.cookie, before.handler) != (after.cookie, after.handler) or before.fragment == after.fragment:
         raise RenderError(example, f"the click path {preview.id!r} must change the fragment and nothing else")
     fields = ", ".join(f"{name} = {value!r}" for name, value in preview.before.items())
     steps = (
-        ("Click", "The button sends its id to the bot.", _show(before)),
-        ("Read the id", "The cookie names the view, the token the handler.", _parts(before)),
-        ("Find the view", f"The cookie routes to {preview.view}.", ""),
-        ("Unpack the state", f"The fragment holds {fields or 'nothing'}.", ""),
+        ("Click", "The button sends its id to the bot.", _id_code(raw_before, raw_before, example)),
+        ("Read the id", "The id names the view and the handler.", ""),
+        ("Find the view", f"risa finds {preview.view}, which add_view gave it.", ""),
+        ("Unpack the state", f"The message holds {fields or 'nothing'}.", ""),
         ("Run the handler", f"{preview.handler} changes the fields.", ""),
-        ("Rerender", "Only the fragment of the new id differs.", _show(after)),
+        ("Rerender", "The button gets a new id, with the new state.", _id_code(raw_after, raw_before, example)),
     )
     return _diagram(steps)
 
 
-def _custom_id(
+def _same_keys(preview_id: str) -> contextlib.AbstractContextManager[object]:
+    """Hand every state anchor of a diagram the same bytes, as the replicated key of a real click is."""
+
+    def token_bytes(length: int) -> bytes:
+        return hashlib.sha256(preview_id.encode()).digest()[:length]
+
+    return mock.patch.object(anchor.secrets, "token_bytes", token_bytes)
+
+
+def _sequence(number: int) -> contextlib.AbstractContextManager[object]:
+    """Build a message-state anchor at sequence number `number`, which `number` clicks leave behind."""
+
+    def first_anchor(_: message.MessageBackend, *, meta: registry.ViewMeta, view: risa.View) -> bytes:
+        return anchor.MessageAnchor(meta.schema.fingerprint, number, meta.schema.pack_view(view)).pack()
+
+    return mock.patch.object(message.MessageBackend, "first_anchor", first_anchor)
+
+
+def _routed_id(
     payloads: collections.abc.Sequence[collections.abc.Mapping[str, object]],
     token: str,
     example: pathlib.Path,
-) -> codec.CustomID:
-    for raw in _custom_ids(payloads):
+) -> tuple[str, codec.CustomID]:
+    for _, raw in _labelled_ids(payloads):
         parsed = codec.parse_custom_id(raw)
         if parsed is not None and parsed.handler == token:
-            return parsed
+            return raw, parsed
     raise RenderError(example, "no component routes to the handler")
 
 
-def _custom_ids(value: object) -> collections.abc.Iterator[str]:
+def _labelled_ids(value: object) -> collections.abc.Iterator[tuple[str, str]]:
     if isinstance(value, collections.abc.Mapping):
-        pairs = typing.cast("collections.abc.Mapping[object, object]", value)
-        for key, item in pairs.items():
-            if key == "custom_id" and isinstance(item, str):
-                yield item
-            else:
-                yield from _custom_ids(item)
+        pairs = typing.cast("collections.abc.Mapping[str, object]", value)
+        raw = pairs.get("custom_id")
+        if isinstance(raw, str):
+            label = pairs.get("label") or pairs.get("placeholder")
+            if not isinstance(label, str):
+                label = "Button" if pairs.get("type") == _BUTTON else "Select"
+            yield label, raw
+        for item in pairs.values():
+            yield from _labelled_ids(item)
     elif isinstance(value, list):
         for item in typing.cast("list[object]", value):
-            yield from _custom_ids(item)
+            yield from _labelled_ids(item)
 
 
-def _show(identifier: codec.CustomID) -> str:
+def _split(raw: str, example: pathlib.Path) -> tuple[str, str, str]:
+    parsed = codec.parse_custom_id(raw)
+    if parsed is None:
+        raise RenderError(example, f"the custom_id {raw!r} is not one risa wrote, so it cannot be split")
+    end = len(raw) - len(parsed.tail)
+    start = end - len(parsed.fragment)
+    return raw[:start], raw[start:end], raw[end:]
+
+
+def _id_code(raw: str, previous: str, example: pathlib.Path) -> str:
+    route, state, tail = _split(raw, example)
+    changed = mark_changes(state, _split(previous, example)[1])
+    argument = f'<span class="risa-id-arg">{html.escape(tail, quote=False)}</span>' if tail else ""
     return (
-        '<code class="risa-id">'
-        f'<span class="risa-id-cookie">{html.escape(identifier.cookie)}</span>'
-        f'<span class="risa-id-handler">{html.escape(identifier.handler)}</span>'
-        f'<span class="risa-id-fragment">{html.escape(identifier.fragment)}</span>'
-        f"</code>"
-    )
-
-
-def _parts(identifier: codec.CustomID) -> str:
-    return (
-        f'<code class="risa-id-plain">cookie {html.escape(identifier.cookie)}'
-        f" &middot; handler {html.escape(identifier.handler)}</code>"
+        f'<code><span class="risa-id-route">{html.escape(route, quote=False)}</span>'
+        f'<span class="risa-id-state">{changed}</span>{argument}</code>'
     )
 
 
 def _diagram(steps: collections.abc.Sequence[tuple[str, str, str]]) -> str:
     cards = "".join(
-        f'<li class="risa-click__step"><span class="risa-click__n">{number}</span>'
+        f'<li class="risa-flow__step"><span class="risa-flow__n">{number}</span>'
         f"<strong>{html.escape(title)}</strong><span>{html.escape(detail)}</span>{extra}</li>"
         for number, (title, detail, extra) in enumerate(steps, start=1)
     )
-    return f'<ol class="risa-click">{cards}</ol>'
+    return f'<ol class="risa-flow">{cards}</ol>'
+
+
+async def _ids(client: risa.Client, cls: type[risa.View], example: pathlib.Path, preview: manifest.IdsDiagram) -> str:
+    with _same_keys(preview.id):
+        before = list(_labelled_ids(await _payloads(client, cls, preview.before)))
+        after = None
+        if preview.after is not None:
+            with _sequence(1):
+                after = list(_labelled_ids(await _payloads(client, cls, preview.after)))
+    groups = [_ids_group(preview.before, before, before, example, title=preview.title)]
+    shown = list(before)
+    if after is not None:
+        if len(after) != len(before):
+            raise RenderError(
+                example,
+                f"the ids diagram {preview.id!r} has {len(before)} components before and {len(after)} after, "
+                "so their ids cannot be compared by position",
+            )
+        groups.append(_ids_group(preview.after or {}, after, before, example))
+        shown += after
+    stored = isinstance(registry.require_meta(cls).state, risa.InStore)
+    legend = [
+        '<span class="risa-id-route">Yellow</span> routes the click to its view and handler.',
+        f'<span class="risa-id-state">Pink</span> is the {"key to the state in the store" if stored else "state"}.',
+    ]
+    if any(_split(raw, example)[2] for _, raw in shown):
+        legend.append('<span class="risa-id-arg">Lavender</span> is the bound argument.')
+    return f'<div class="risa-ids">{"".join(groups)}<p class="risa-ids__legend">{" ".join(legend)}</p></div>'
+
+
+def _ids_group(
+    fields: collections.abc.Mapping[str, object],
+    rows: collections.abc.Sequence[tuple[str, str]],
+    previous: collections.abc.Sequence[tuple[str, str]],
+    example: pathlib.Path,
+    *,
+    title: str = "",
+) -> str:
+    title = title or ", ".join(f"{name} = {value!r}" for name, value in fields.items()) or "The defaults"
+    lines = "".join(
+        f'<div class="risa-ids__row"><span class="risa-ids__name">{html.escape(label)}</span>'
+        f"{_id_code(raw, old, example)}</div>"
+        for (label, raw), (_, old) in zip(rows, previous, strict=True)
+    )
+    return f'<p class="risa-ids__title">{html.escape(title)}</p>{lines}'
 
 
 async def _live(client: risa.Client, module: object, example: pathlib.Path, preview: manifest.LivePreview) -> str:
@@ -297,7 +416,10 @@ async def _live(client: risa.Client, module: object, example: pathlib.Path, prev
         f"__live-{preview.id}",
     )
     cls = _view(client, module, example, preview.view)
-    builds = [await _payloads(client, cls, {preview.field: value}) for value in range(preview.stop + 1)]
+    builds: list[collections.abc.Sequence[collections.abc.Mapping[str, object]]] = []
+    for value in range(preview.stop + 1):
+        with _sequence(value):
+            builds.append(await _payloads(client, cls, {preview.field: value}))
     identifiers = [_only_custom_id(payloads, example) for payloads in builds]
     frames = "".join(
         _live_frame(
@@ -357,7 +479,7 @@ def _only_custom_id(
     payloads: collections.abc.Sequence[collections.abc.Mapping[str, object]],
     example: pathlib.Path,
 ) -> str:
-    identifiers = list(_custom_ids(payloads))
+    identifiers = [raw for _, raw in _labelled_ids(payloads)]
     if len(identifiers) != 1:
         raise RenderError(example, f"a live preview needs exactly one custom_id, its view has {len(identifiers)}")
     return identifiers[0]

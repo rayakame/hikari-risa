@@ -33,7 +33,9 @@ if typing.TYPE_CHECKING:
 __all__ = (
     "ClickPath",
     "ErrorPreview",
+    "IdsDiagram",
     "LivePreview",
+    "LogPreview",
     "ManifestError",
     "Preview",
     "ReplyPreview",
@@ -62,6 +64,7 @@ class ViewPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="view"):
     view: str
     fields: dict[str, object]
     label: str = "In Discord"
+    content: str = ""
 
 
 class ReplyPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="reply"):
@@ -85,6 +88,13 @@ class ErrorPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="error"):
     label: str = "In Discord"
 
 
+class LogPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="log"):
+    id: str
+    example: str
+    view: str
+    label: str = "In your log"
+
+
 class ClickPath(msgspec.Struct, frozen=True, tag_field="kind", tag="click"):
     id: str
     example: str
@@ -93,6 +103,16 @@ class ClickPath(msgspec.Struct, frozen=True, tag_field="kind", tag="click"):
     after: dict[str, object]
     handler: str
     label: str = "In Discord"
+
+
+class IdsDiagram(msgspec.Struct, frozen=True, tag_field="kind", tag="ids"):
+    id: str
+    example: str
+    view: str
+    before: dict[str, object]
+    after: dict[str, object] | None = None
+    label: str = "What the buttons hold"
+    title: str = ""
 
 
 class LivePreview(msgspec.Struct, frozen=True, tag_field="kind", tag="live"):
@@ -105,7 +125,7 @@ class LivePreview(msgspec.Struct, frozen=True, tag_field="kind", tag="live"):
     note: str = ""
 
 
-type StaticPreview = ViewPreview | ReplyPreview | ThinkingPreview | ErrorPreview | ClickPath
+type StaticPreview = ViewPreview | ReplyPreview | ThinkingPreview | ErrorPreview | LogPreview | ClickPath | IdsDiagram
 type Preview = StaticPreview | LivePreview
 
 

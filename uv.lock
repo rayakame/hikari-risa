@@ -552,6 +552,7 @@ docs = [
     { name = "griffelib" },
     { name = "mkdocstrings-python" },
     { name = "pygments" },
+    { name = "redis" },
     { name = "ruff" },
     { name = "zensical" },
 ]
@@ -609,6 +610,7 @@ docs = [
     { name = "griffelib", specifier = "==2.4.1" },
     { name = "mkdocstrings-python", specifier = "==2.0.10" },
     { name = "pygments", specifier = "==2.21.0" },
+    { name = "redis", specifier = "~=8.0" },
     { name = "ruff", specifier = "==0.17.3" },
     { name = "zensical", specifier = "==0.0.74" },
 ]

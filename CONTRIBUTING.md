@@ -39,11 +39,19 @@ uv run --group nox nox -s docs
 uv run --group docs zensical serve
 ```
 
-A page's risa code comes from a real file in `docs/examples/`, which starts with the license header and which ruff and
+Each section of the site opens on an overview, its `index.md`, whose `risa-overview` block lists the section's pages:
+`check_site` fails a guide page that is missing from it, and `check_api` fails a line of the API overview that differs
+from the first line of the module's docstring.
+
+A guide page links a concept to the chapter that explains it, and that chapter links it to the API reference; a concept
+with no chapter yet links to the reference. A page's risa code comes from a real file in `docs/examples/`, which starts with the license header and which ruff and
 pyright check; another library's code, such as miru's on the comparison page, stays inline. Mark a section with `# --8<-- [start:name]` and `# --8<-- [end:name]`, show it on the page with
 `--8<-- "file.py:name"` inside a fence, and show the whole file with `--8<-- "file.py:20:"` in a collapsed
 `??? example "Full file"` block. For its preview, add an entry to `docs/examples/previews.toml` and put one top-level line,
 `--8<-- "previews/<id>.html"`, directly after the code block, never inside a `div markdown`.
+An example's module-level `add_dependencies(client)` runs once before the first build, the `ids` kind draws the real `custom_id`
+of each component, `content` on a `view` preview draws text above a view made of rows alone, and the `log` kind shows what
+`add_view` warns about.
 
 The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
@@ -200,9 +208,12 @@ risa/
   py.typed
 docs/               site pages, stylesheets, fonts
   api/              the reference pages
-  get-started/      installation, the first view, coming from miru
+  get-started/      an overview, installation, the first view, coming from miru
+  by-example/       an overview of the walkthrough and one page per chapter
   examples/         the example files the pages show, and previews.toml, the list of their previews
   javascripts/      the script that swaps the frames of the landing page's counter
+  stylesheets/      the theme (risa.css), the Discord frame (discord.css) and the diagrams (diagrams.css)
+  specs/            the design of the site
 overrides/          theme template overrides for the site
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
 tools/              optimize_images, docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version in gh-pages)

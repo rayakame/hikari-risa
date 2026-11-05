@@ -240,7 +240,9 @@ class StateOverflowError(RisaError):
         rows.append(("framing", needed - sum(self.fields.values())))
         name_width = max(len(name) for name, _ in rows)
         size_width = max(len(str(size)) for _, size in rows)
-        breakdown = "\n".join(f"    {name:<{name_width}}  {size:>{size_width}} bytes" for name, size in rows)
+        breakdown = "\n".join(
+            f"    {name:<{name_width}}  {size:>{size_width}} {'byte' if size == 1 else 'bytes'}" for name, size in rows
+        )
         super().__init__(f"{head}:\n{breakdown}\n{remedy}")
 
 
@@ -503,7 +505,8 @@ class StateConflictError(StateError):
     """Raised when another process wrote a view's state first.
 
     By the time it is raised, the view already holds the state that won, so the handler
-    can apply its change again on top of it.
+    can apply its change again on top of it. The exception is a winning record that cannot
+    be read: risa logs that as an `ERROR` and the view keeps its own state.
 
     Attributes
     ----------

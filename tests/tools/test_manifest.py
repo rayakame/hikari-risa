@@ -220,3 +220,62 @@ stop = 1
 
     with pytest.raises(manifest.ManifestError, match="missing"):
         manifest.load_manifest(path)
+
+
+def test_an_ids_diagram_loads_with_its_defaults(tmp_path: pathlib.Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+[[preview]]
+kind = "ids"
+id = "ids"
+example = "counter"
+view = "Counter"
+before = { count = 3 }
+""",
+    )
+
+    (preview,) = manifest.load_manifest(path)
+
+    assert preview == manifest.IdsDiagram(id="ids", example="counter", view="Counter", before={"count": 3})
+    assert isinstance(preview, manifest.IdsDiagram)
+    assert preview.after is None
+    assert preview.label == "What the buttons hold"
+
+
+def test_an_ids_diagram_is_a_static_preview() -> None:
+    assert manifest.IdsDiagram in typing.get_args(manifest.StaticPreview.__value__)
+
+
+def test_a_view_preview_has_no_content_unless_it_says_so(tmp_path: pathlib.Path) -> None:
+    path = _write(
+        tmp_path,
+        """
+[[preview]]
+kind = "view"
+id = "plain"
+example = "counter"
+view = "Counter"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "with-text"
+example = "counter"
+view = "Counter"
+fields = {}
+content = "Hello"
+""",
+    )
+
+    plain, with_text = manifest.load_manifest(path)
+
+    assert isinstance(plain, manifest.ViewPreview)
+    assert isinstance(with_text, manifest.ViewPreview)
+    assert (plain.content, with_text.content) == ("", "Hello")
+
+
+def test_a_log_preview_names_an_example_and_a_view(tmp_path: pathlib.Path) -> None:
+    path = _write(tmp_path, '[[preview]]\nkind = "log"\nid = "warned"\nexample = "counter"\nview = "Counter"\n')
+
+    assert manifest.load_manifest(path) == [manifest.LogPreview(id="warned", example="counter", view="Counter")]

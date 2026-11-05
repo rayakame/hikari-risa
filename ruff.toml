@@ -40,6 +40,7 @@ ignore = [
     "PLR2004", # magic value comparison
 ]
 "docs/examples/**" = [
+    "ASYNC109", # a store's lock takes `timeout` because the Store protocol names it
     "D",
     "DOC",
     "INP001",  # examples are scripts, not a package

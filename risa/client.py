@@ -277,7 +277,7 @@ class Client(abc.ABC):
         Returns
         -------
         :
-            The class, so that this also works as a decorator below `@risa.register`.
+            The class, so that this also works as a decorator above `@risa.register`.
 
         Raises
         ------
