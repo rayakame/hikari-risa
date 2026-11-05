@@ -1,0 +1,55 @@
+name: Push to gh-pages
+description: Runs tools.docs.publish on a fresh clone of gh-pages and pushes the result, again if another run got there first.
+
+inputs:
+  arguments:
+    description: The arguments for tools.docs.publish, without --target.
+    required: true
+  message:
+    description: The commit message.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        ARGUMENTS: ${{ inputs.arguments }}
+        GITHUB_TOKEN: ${{ github.token }}
+        MESSAGE: ${{ inputs.message }}
+        REPOSITORY: ${{ github.repository }}
+      run: |
+        remote="https://github.com/$REPOSITORY.git"
+        for attempt in 1 2 3 4 5; do
+          pages="$RUNNER_TEMP/gh-pages-$attempt"
+          found=0
+          git ls-remote --exit-code --heads "$remote" gh-pages > /dev/null || found=$?
+          if [ "$found" -eq 0 ]; then
+            git clone --branch gh-pages --depth 1 "$remote" "$pages"
+          # Only 2 means the branch is missing; anything else is a failure that says nothing about it.
+          elif [ "$found" -eq 2 ]; then
+            git init --initial-branch gh-pages "$pages"
+          else
+            echo "Could not look up gh-pages (attempt $attempt), retrying."
+            sleep $((attempt * 3))
+            continue
+          fi
+          # shellcheck disable=SC2086
+          python3 -m tools.docs.publish --target "$pages" $ARGUMENTS
+          cd "$pages"
+          git add --all
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --message "$MESSAGE"
+          if git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git" HEAD:gh-pages; then
+            exit 0
+          fi
+          cd "$GITHUB_WORKSPACE"
+          echo "Push rejected (attempt $attempt), retrying from a fresh clone."
+          sleep $((attempt * 3))
+        done
+        echo "Could not update gh-pages after 5 attempts." >&2
+        exit 1

@@ -105,7 +105,9 @@ copy, `prepare` publishes it with the site, and `overrides/main.html` adds `og:`
 
 **2026-11-03, docs site, milestone 1b (merged as #53):**
 the docs are versioned: `main/`, one folder per minor release, `stable/` and a version selector,
-published into `gh-pages` by `tools/docs/publish.py` from `docs.yml`.
+published into `gh-pages` by `tools/docs/publish.py` from `docs.yml`. Since 2026-11-05 a pull
+request from a branch of this repository also gets a preview under `pr/<number>/`, from
+`docs-preview.yml`.
 
 After the first push to main, in the repository settings:
 
