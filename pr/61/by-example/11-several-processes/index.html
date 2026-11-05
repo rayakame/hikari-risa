@@ -1964,8 +1964,9 @@ on one server for all processes, or <a href="../12-writing-your-own-store/">your
 </span><span id="__span-0-2"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_lightbulb</span><span class="p">(</span>
 </span><span id="__span-0-3">    <span class="n">lightbulb_client</span><span class="p">,</span>
 </span><span id="__span-0-4">    <span class="n">store</span><span class="o">=</span><span class="n">RedisStore</span><span class="p">(</span><span class="n">connection</span><span class="p">),</span>
-</span><span id="__span-0-5"><span class="p">)</span>
-</span><span id="__span-0-6"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
+</span><span id="__span-0-5">    <span class="n">auto_defer</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">AutoDefer</span><span class="o">.</span><span class="n">UPDATE</span><span class="p">,</span>
+</span><span id="__span-0-6"><span class="p">)</span>
+</span><span id="__span-0-7"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="where-a-click-lands">Where a click lands<a class="headerlink" href="#where-a-click-lands" title="Permanent link">&para;</a></h2>
 <table>
@@ -2004,8 +2005,8 @@ message. On a REST bot, two clicks on one message can run at the same moment in 
 give <a href="../../api/store/redis/#risa.store.redis.RedisStore"><code>RedisStore</code></a> or
 <a href="../../api/store/postgres/#risa.store.postgres.PostgresStore"><code>PostgresStore</code></a>.</p>
 <p>A click waits up to 10 seconds, then fails with an <code>ERROR</code> in your log. Discord's
-<a href="../05-answering-in-time/#the-clock">three seconds</a> keep running meanwhile, and
-<a href="../05-answering-in-time/#where-to-set-it">auto-defer</a> can answer in time.</p>
+<a href="../05-answering-in-time/#the-clock">three seconds</a> keep running meanwhile, which is why the client above sets
+<a href="../05-answering-in-time/#where-to-set-it">auto-defer</a>: it answers in time.</p>
 <h2 id="inmessage-on-a-rest-bot"><code>InMessage</code> on a REST bot<a class="headerlink" href="#inmessage-on-a-rest-bot" title="Permanent link">&para;</a></h2>
 <p>An <code>InMessage</code> view has only step 1, so nothing spans the processes. Two clicks at the same moment read the same state:
 both raise a count from 5 to 6, and both edits say 6. The last edit wins, one click is lost, and your log shows nothing. If a
@@ -2131,20 +2132,21 @@ and drops the change.</p>
 </span><span id="__span-2-95">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_lightbulb</span><span class="p">(</span>
 </span><span id="__span-2-96">        <span class="n">lightbulb_client</span><span class="p">,</span>
 </span><span id="__span-2-97">        <span class="n">store</span><span class="o">=</span><span class="n">RedisStore</span><span class="p">(</span><span class="n">connection</span><span class="p">),</span>
-</span><span id="__span-2-98">    <span class="p">)</span>
-</span><span id="__span-2-99">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
-</span><span id="__span-2-100">
-</span><span id="__span-2-101">    <span class="n">lightbulb_client</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PollCommand</span><span class="p">)</span>
-</span><span id="__span-2-102">
-</span><span id="__span-2-103">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_shutdown</span><span class="p">(</span><span class="n">_</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">RESTBot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-2-104">        <span class="k">await</span> <span class="n">connection</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
-</span><span id="__span-2-105">
-</span><span id="__span-2-106">    <span class="n">bot</span><span class="o">.</span><span class="n">add_shutdown_callback</span><span class="p">(</span><span class="n">on_shutdown</span><span class="p">)</span>
-</span><span id="__span-2-107">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"PORT"</span><span class="p">]))</span>
-</span><span id="__span-2-108">
+</span><span id="__span-2-98">        <span class="n">auto_defer</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">AutoDefer</span><span class="o">.</span><span class="n">UPDATE</span><span class="p">,</span>
+</span><span id="__span-2-99">    <span class="p">)</span>
+</span><span id="__span-2-100">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
+</span><span id="__span-2-101">
+</span><span id="__span-2-102">    <span class="n">lightbulb_client</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PollCommand</span><span class="p">)</span>
+</span><span id="__span-2-103">
+</span><span id="__span-2-104">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_shutdown</span><span class="p">(</span><span class="n">_</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">RESTBot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-2-105">        <span class="k">await</span> <span class="n">connection</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
+</span><span id="__span-2-106">
+</span><span id="__span-2-107">    <span class="n">bot</span><span class="o">.</span><span class="n">add_shutdown_callback</span><span class="p">(</span><span class="n">on_shutdown</span><span class="p">)</span>
+</span><span id="__span-2-108">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"PORT"</span><span class="p">]))</span>
 </span><span id="__span-2-109">
-</span><span id="__span-2-110"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
-</span><span id="__span-2-111">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-2-110">
+</span><span id="__span-2-111"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-2-112">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 </details>
 

@@ -2069,7 +2069,9 @@ edit follows when its turn comes.</p>
 </span><span id="__span-4-4">    <span class="bp">self</span><span class="o">.</span><span class="n">rows</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_report</span><span class="p">()</span>
 </span><span id="__span-4-5">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
 </span></code></pre></div>
-<p><code>defer()</code> raises <code>AlreadyRespondedError</code> if the click already has its answer.</p>
+<p><code>defer()</code> raises <code>AlreadyRespondedError</code> if the click already has its answer. It also runs only when the handler's turn
+comes, so a click waiting behind a slow handler on the same message can miss the 3 seconds. Auto-defer's timer starts
+before that wait, so use it on a view with slow handlers.</p>
 <p><a href="../../api/context/#risa.context.Context.acknowledge"><code>ctx.acknowledge()</code></a> takes the same options and does nothing if the
 click already has its answer. It suits a handler with one branch that answers and one that does not.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
@@ -2123,8 +2125,12 @@ click already has its answer. It suits a handler with one branch that answers an
 <td>risa sends nothing, so the click fails in Discord. On a gateway bot risa logs nothing either</td>
 </tr>
 <tr>
-<td><code>UPDATE</code>, <code>THINKING</code>, <code>THINKING_EPHEMERAL</code></td>
+<td><code>UPDATE</code></td>
 <td>risa acknowledges the click silently</td>
+</tr>
+<tr>
+<td><code>THINKING</code>, <code>THINKING_EPHEMERAL</code></td>
+<td>Inside the 2 seconds, risa acknowledges the click silently. After them the thinking message is already up and risa sends nothing more, so answer it with <code>ctx.respond</code></td>
 </tr>
 </tbody>
 </table>

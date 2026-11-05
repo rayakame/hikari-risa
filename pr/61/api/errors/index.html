@@ -3609,7 +3609,7 @@ and routes the click to <code>View.on_outdated</code>. Bump the version in
         <p>Raised when another process wrote a view's state first.</p>
 <p>By the time it is raised, the view already holds the state that won, so the handler
 can apply its change again on top of it. The exception is a winning record that cannot
-be read: risa logs that as an <code>ERROR</code> and the view keeps its own state.</p>
+be read: risa logs that and the view keeps its own state.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
