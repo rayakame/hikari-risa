@@ -32,6 +32,9 @@ import risa
 from risa.store import postgres
 from risa.store import testing
 
+# A renewal survives a stall of two thirds of the lease, and CI runners have stalled for more than 0.2 seconds.
+_LEASE = 1.0
+
 
 def fresh_key() -> str:
     return f"risa:test:{secrets.token_hex(8)}"
@@ -203,13 +206,13 @@ async def test_another_process_enters_once_the_lock_is_released(
 
 
 async def test_a_held_lease_is_renewed_past_its_length(postgres_pool: asyncpg.Pool, postgres_table: str) -> None:
-    first = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.3)
-    second = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.3)
+    first = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=_LEASE)
+    second = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=_LEASE)
     key = fresh_key()
 
     async with first.lock(key):
         with pytest.raises(risa.LockTimeoutError):
-            async with second.lock(key, timeout=1.0):
+            async with second.lock(key, timeout=_LEASE * 1.5):
                 pytest.fail("the lease lapsed while its holder was still inside")
 
 
@@ -238,12 +241,12 @@ async def test_a_holder_past_max_hold_lets_the_next_one_in(
     postgres_table: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    stalled = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=0.3, max_hold=0.6)
+    stalled = postgres.PostgresStore(postgres_pool, table=postgres_table, lease=_LEASE, max_hold=_LEASE)
     second = postgres.PostgresStore(postgres_pool, table=postgres_table)
     key = fresh_key()
 
     with caplog.at_level(logging.WARNING, logger="risa"):
-        async with stalled.lock(key), second.lock(key, timeout=2.0):
+        async with stalled.lock(key), second.lock(key, timeout=_LEASE * 5):
             pass
 
     messages = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
