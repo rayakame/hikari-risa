@@ -2,6 +2,10 @@
 
 {% block extrahead %}
   <link rel="icon" href="{{ 'assets/images/logo-light.svg' | url }}" media="(prefers-color-scheme: dark)" type="image/svg+xml">
+  {# A pull request's preview is built under pr/<number> and disappears with it. #}
+  {% if "/pr/" in config.site_url %}
+    <meta name="robots" content="noindex">
+  {% endif %}
   {# Under a version the site URL loses its trailing slash. #}
   {% set root = config.site_url if config.site_url[-1:] == "/" else config.site_url ~ "/" %}
   {% set preview = root ~ "assets/images/social-preview.png" %}

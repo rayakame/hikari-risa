@@ -54,6 +54,12 @@ newest release. Release tags are `vX.Y.Z` with no suffix, and GitHub pre-release
 release, `main` carries the `stable` alias in `versions.json`, so no page shows the outdated banner.
 `tools/docs/publish.py` places a built version and keeps `versions.json` and the root redirect.
 
+A pull request from a branch of this repository also gets a preview. `.github/workflows/docs-preview.yml` places it under
+`pr/<number>/` on `gh-pages`, names the link in a comment on the pull request and removes it when the pull request closes.
+A preview is missing from `versions.json`, so it shows no version selector and no outdated banner, and it asks search
+engines not to index it. A fork gets no preview, because its code must not run beside a token that can write to
+`gh-pages`, and neither does a bot's dependency bump.
+
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.
 
@@ -205,7 +211,7 @@ docs/               site pages, stylesheets, fonts
   javascripts/      the script that swaps the frames of the landing page's counter
 overrides/          theme template overrides for the site
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
-tools/              optimize_images, docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version in gh-pages)
+tools/              optimize_images, docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
 testbot/            manual test bot against a real Discord app (see testbot/README.md)

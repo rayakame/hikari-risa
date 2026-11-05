@@ -1,0 +1,28 @@
+name: Preview comment
+description: Writes the comment about a pull request's docs preview, or updates it if it is already there.
+
+inputs:
+  body:
+    description: The text of the comment.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        BODY: ${{ inputs.body }}
+        GH_TOKEN: ${{ github.token }}
+        PULL_REQUEST: ${{ github.event.pull_request.number }}
+        REPOSITORY: ${{ github.repository }}
+      run: |
+        marker="<!-- docs-preview -->"
+        comments="repos/$REPOSITORY/issues/$PULL_REQUEST/comments"
+        filter=".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id"
+        id=$(gh api --paginate "$comments" --jq "$filter" | tail -n 1)
+        body="$marker"$'\n'"$BODY"
+        if [ -n "$id" ]; then
+          gh api --silent --method PATCH "repos/$REPOSITORY/issues/comments/$id" --raw-field body="$body"
+        else
+          gh api --silent "$comments" --raw-field body="$body"
+        fi
