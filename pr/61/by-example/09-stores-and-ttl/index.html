@@ -10,14 +10,14 @@
       
       
       
-        <link rel="canonical" href="https://rayakame.github.io/hikari-risa/pr/61/by-example/08-stores-and-ttl/">
+        <link rel="canonical" href="https://rayakame.github.io/hikari-risa/pr/61/by-example/09-stores-and-ttl/">
       
       
       
-        <link rel="prev" href="../07-where-state-lives/">
+        <link rel="prev" href="../08-where-state-lives/">
       
       
-        <link rel="next" href="../09-changing-a-view-safely/">
+        <link rel="next" href="../10-changing-a-view-safely/">
       
       
         
@@ -28,7 +28,7 @@
     
     
       
-        <title>08 Stores and TTL - hikari-risa</title>
+        <title>09 Stores and TTL - hikari-risa</title>
       
     
     
@@ -76,15 +76,15 @@
   
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="hikari-risa">
-  <meta property="og:title" content="08 Stores and TTL - hikari-risa">
+  <meta property="og:title" content="09 Stores and TTL - hikari-risa">
   <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta property="og:url" content="https://rayakame.github.io/hikari-risa/pr/61/by-example/08-stores-and-ttl/">
+  <meta property="og:url" content="https://rayakame.github.io/hikari-risa/pr/61/by-example/09-stores-and-ttl/">
   <meta property="og:image" content="https://rayakame.github.io/hikari-risa/pr/61/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="08 Stores and TTL - hikari-risa">
+  <meta name="twitter:title" content="09 Stores and TTL - hikari-risa">
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:image" content="https://rayakame.github.io/hikari-risa/pr/61/assets/images/social-preview.png">
 
@@ -155,7 +155,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              08 Stores and TTL
+              09 Stores and TTL
             
           </span>
         </div>
@@ -691,14 +691,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../06-fresh-data/" class="md-nav__link">
+      <a href="../06-dependency-injection/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  06 Fresh data
+  06 Dependency injection
 
     
   </span>
@@ -718,14 +718,41 @@
   
   
     <li class="md-nav__item">
-      <a href="../07-where-state-lives/" class="md-nav__link">
+      <a href="../07-fresh-data/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  07 Where state lives
+  07 Fresh data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../08-where-state-lives/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  08 Where state lives
 
     
   </span>
@@ -761,7 +788,7 @@
   <span class="md-ellipsis">
     
   
-  08 Stores and TTL
+  09 Stores and TTL
 
     
   </span>
@@ -778,7 +805,7 @@
   <span class="md-ellipsis">
     
   
-  08 Stores and TTL
+  09 Stores and TTL
 
     
   </span>
@@ -863,41 +890,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../09-changing-a-view-safely/" class="md-nav__link">
+      <a href="../10-changing-a-view-safely/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  09 Changing a view safely
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../10-dependency-injection/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  10 Dependency injection
+  10 Changing a view safely
 
     
   </span>
@@ -1925,7 +1925,7 @@ then in Redis.</p>
 <h2 id="moving-the-poll">Moving the poll<a class="headerlink" href="#moving-the-poll" title="Permanent link">&para;</a></h2>
 <p><a href="../../api/state/placement/#risa.state.placement.InStore"><code>risa.InStore</code></a> on <code>@risa.register</code> moves the view, and it takes
 <code>ttl</code>, in seconds. The handlers stay as they were. Polls already sent cannot follow, so <code>version</code> goes up, as
-<a href="../09-changing-a-view-safely/#a-change-that-is-not-free">Changing a view safely</a> explains.</p>
+<a href="../10-changing-a-view-safely/#a-change-that-is-not-free">Changing a view safely</a> explains.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"poll"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InStore</span><span class="p">(</span><span class="n">ttl</span><span class="o">=</span><span class="n">WEEK</span><span class="p">))</span>
 </span><span id="__span-0-2"><span class="k">class</span><span class="w"> </span><span class="nc">Poll</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
 </span><span id="__span-0-3">    <span class="n">question</span><span class="p">:</span> <span class="nb">str</span>
@@ -2217,7 +2217,7 @@ because RDB snapshots alone lose recent votes in a crash.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../07-where-state-lives/" class="md-footer__link md-footer__link--prev" aria-label="Previous: 07 Where state lives">
+          <a href="../08-where-state-lives/" class="md-footer__link md-footer__link--prev" aria-label="Previous: 08 Where state lives">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2227,20 +2227,20 @@ because RDB snapshots alone lose recent votes in a crash.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                07 Where state lives
+                08 Where state lives
               </div>
             </div>
           </a>
         
         
           
-          <a href="../09-changing-a-view-safely/" class="md-footer__link md-footer__link--next" aria-label="Next: 09 Changing a view safely">
+          <a href="../10-changing-a-view-safely/" class="md-footer__link md-footer__link--next" aria-label="Next: 10 Changing a view safely">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                09 Changing a view safely
+                10 Changing a view safely
               </div>
             </div>
             <div class="md-footer__button md-icon">

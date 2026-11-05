@@ -782,14 +782,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../06-fresh-data/" class="md-nav__link">
+      <a href="../06-dependency-injection/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  06 Fresh data
+  06 Dependency injection
 
     
   </span>
@@ -809,14 +809,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../07-where-state-lives/" class="md-nav__link">
+      <a href="../07-fresh-data/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  07 Where state lives
+  07 Fresh data
 
     
   </span>
@@ -836,14 +836,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../08-stores-and-ttl/" class="md-nav__link">
+      <a href="../08-where-state-lives/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  08 Stores and TTL
+  08 Where state lives
 
     
   </span>
@@ -863,14 +863,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../09-changing-a-view-safely/" class="md-nav__link">
+      <a href="../09-stores-and-ttl/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  09 Changing a view safely
+  09 Stores and TTL
 
     
   </span>
@@ -890,14 +890,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../10-dependency-injection/" class="md-nav__link">
+      <a href="../10-changing-a-view-safely/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  10 Dependency injection
+  10 Changing a view safely
 
     
   </span>
@@ -1983,10 +1983,10 @@ click and can click again.</p>
 <h2 id="what-a-field-can-hold">What a field can hold<a class="headerlink" href="#what-a-field-can-hold" title="Permanent link">&para;</a></h2>
 <p>A view is a <code>msgspec.Struct</code>, and a field can be anything msgspec encodes: numbers, strings, enums, lists, dicts, other
 Structs. It all has to fit in the message, which has room for about 60 bytes on one button and about 70 more for each
-further one, with the default codec. <a href="../07-where-state-lives/">Where state lives</a> shows what you can do when a view
+further one, with the default codec. <a href="../08-where-state-lives/">Where state lives</a> shows what you can do when a view
 needs more.</p>
 <p>For what should be read fresh instead of saved, such as a database row, mark the field <code>risa.Prop[T]</code> and fill it in
-<code>load()</code>, as <a href="../06-fresh-data/">Fresh data</a> shows.</p>
+<code>load()</code>, as <a href="../07-fresh-data/">Fresh data</a> shows.</p>
 <details class="example">
 <summary>Full file</summary>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="sd">"""Two fields and two buttons: the state travels in the message."""</span>

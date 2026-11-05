@@ -793,14 +793,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../06-fresh-data/" class="md-nav__link">
+      <a href="../06-dependency-injection/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  06 Fresh data
+  06 Dependency injection
 
     
   </span>
@@ -820,14 +820,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../07-where-state-lives/" class="md-nav__link">
+      <a href="../07-fresh-data/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  07 Where state lives
+  07 Fresh data
 
     
   </span>
@@ -847,14 +847,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../08-stores-and-ttl/" class="md-nav__link">
+      <a href="../08-where-state-lives/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  08 Stores and TTL
+  08 Where state lives
 
     
   </span>
@@ -874,14 +874,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../09-changing-a-view-safely/" class="md-nav__link">
+      <a href="../09-stores-and-ttl/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  09 Changing a view safely
+  09 Stores and TTL
 
     
   </span>
@@ -901,14 +901,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../10-dependency-injection/" class="md-nav__link">
+      <a href="../10-changing-a-view-safely/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  10 Dependency injection
+  10 Changing a view safely
 
     
   </span>
@@ -1988,7 +1988,7 @@ argument. These are the ticket's real ids:</p>
 <h2 id="what-can-be-an-argument">What can be an argument<a class="headerlink" href="#what-can-be-an-argument" title="Permanent link">&para;</a></h2>
 <p>Arguments come right after <code>ctx</code> and are positional. They are annotated <code>bool</code>, <code>int</code>, <code>str</code>, <code>hikari.Snowflake</code> or an
 <code>enum.Enum</code> of <code>int</code> or <code>str</code> values. Every parameter after them without a default is filled in by dependency injection
-through linkd, as <a href="../10-dependency-injection/">Dependency injection</a> shows.</p>
+through linkd, as <a href="../06-dependency-injection/">Dependency injection</a> shows.</p>
 <p>An argument takes room on its button, out of what the button can hold of the state. With the default codec, a button with
 no state holds a <code>str</code> of up to 68 ASCII characters, and a longer one makes <code>client.build</code> raise.</p>
 <details class="example">
@@ -2201,7 +2201,7 @@ in <code>@risa.handler(handler_id="pick", version=2)</code>.</p>
 </tr>
 </tbody>
 </table>
-<p><a href="../09-changing-a-view-safely/#on_outdated">Changing a view safely</a> shows what a bump does to components already sent.</p>
+<p><a href="../10-changing-a-view-safely/#on_outdated">Changing a view safely</a> shows what a bump does to components already sent.</p>
 <p>Pin <code>handler_id</code> before renaming a method, so components already sent keep working.</p>
 
 

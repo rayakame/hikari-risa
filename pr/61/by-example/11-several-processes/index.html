@@ -14,7 +14,7 @@
       
       
       
-        <link rel="prev" href="../10-dependency-injection/">
+        <link rel="prev" href="../10-changing-a-view-safely/">
       
       
         <link rel="next" href="../12-writing-your-own-store/">
@@ -691,14 +691,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../06-fresh-data/" class="md-nav__link">
+      <a href="../06-dependency-injection/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  06 Fresh data
+  06 Dependency injection
 
     
   </span>
@@ -718,14 +718,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../07-where-state-lives/" class="md-nav__link">
+      <a href="../07-fresh-data/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  07 Where state lives
+  07 Fresh data
 
     
   </span>
@@ -745,14 +745,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../08-stores-and-ttl/" class="md-nav__link">
+      <a href="../08-where-state-lives/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  08 Stores and TTL
+  08 Where state lives
 
     
   </span>
@@ -772,14 +772,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../09-changing-a-view-safely/" class="md-nav__link">
+      <a href="../09-stores-and-ttl/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  09 Changing a view safely
+  09 Stores and TTL
 
     
   </span>
@@ -799,14 +799,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../10-dependency-injection/" class="md-nav__link">
+      <a href="../10-changing-a-view-safely/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  10 Dependency injection
+  10 Changing a view safely
 
     
   </span>
@@ -1945,7 +1945,7 @@
 <p class="risa-lead">With more than one process, every <code>InStore</code> view needs a store they all reach, and a REST bot's <code>InMessage</code> views can lose
 a click.</p>
 <h2 id="which-store-you-need">Which store you need<a class="headerlink" href="#which-store-you-need" title="Permanent link">&para;</a></h2>
-<p>A view in the message needs no store. A view in a store needs <a href="../08-stores-and-ttl/#redis-and-postgresql"><code>RedisStore</code> or <code>PostgresStore</code></a>,
+<p>A view in the message needs no store. A view in a store needs <a href="../09-stores-and-ttl/#redis-and-postgresql"><code>RedisStore</code> or <code>PostgresStore</code></a>,
 on one server for all processes, or <a href="../12-writing-your-own-store/">your own</a>.</p>
 <table class="risa-grid">
 <thead>
@@ -1958,7 +1958,7 @@ on one server for all processes, or <a href="../12-writing-your-own-store/">your
 </tbody>
 </table>
 
-<p>A click that does not find the state runs <a href="../08-stores-and-ttl/#ttl"><code>on_state_missing</code></a>.</p>
+<p>A click that does not find the state runs <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a>.</p>
 <p>Every process runs the same setup.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">connection</span> <span class="o">=</span> <span class="n">redis</span><span class="o">.</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"REDIS_HOST"</span><span class="p">])</span>
 </span><span id="__span-0-2"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_lightbulb</span><span class="p">(</span>
@@ -2034,7 +2034,7 @@ winner wrote. A handler that changes a field and never calls <code>rerender()</c
 and drops the change.</p>
 <details class="example">
 <summary>Full file</summary>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="sd">"""The poll from chapter 08 on a REST bot.</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="sd">"""The poll from chapter 09 on a REST bot.</span>
 </span><span id="__span-2-2">
 </span><span id="__span-2-3"><span class="sd">Needs `hikari-risa[redis]`, `hikari[server]` and hikari-lightbulb.</span>
 </span><span id="__span-2-4"><span class="sd">"""</span>
@@ -2186,7 +2186,7 @@ and drops the change.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../10-dependency-injection/" class="md-footer__link md-footer__link--prev" aria-label="Previous: 10 Dependency injection">
+          <a href="../10-changing-a-view-safely/" class="md-footer__link md-footer__link--prev" aria-label="Previous: 10 Changing a view safely">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2196,7 +2196,7 @@ and drops the change.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                10 Dependency injection
+                10 Changing a view safely
               </div>
             </div>
           </a>

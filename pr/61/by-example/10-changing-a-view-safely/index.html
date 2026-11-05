@@ -10,14 +10,14 @@
       
       
       
-        <link rel="canonical" href="https://rayakame.github.io/hikari-risa/pr/61/by-example/09-changing-a-view-safely/">
+        <link rel="canonical" href="https://rayakame.github.io/hikari-risa/pr/61/by-example/10-changing-a-view-safely/">
       
       
       
-        <link rel="prev" href="../08-stores-and-ttl/">
+        <link rel="prev" href="../09-stores-and-ttl/">
       
       
-        <link rel="next" href="../10-dependency-injection/">
+        <link rel="next" href="../11-several-processes/">
       
       
         
@@ -28,7 +28,7 @@
     
     
       
-        <title>09 Changing a view safely - hikari-risa</title>
+        <title>10 Changing a view safely - hikari-risa</title>
       
     
     
@@ -76,15 +76,15 @@
   
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="hikari-risa">
-  <meta property="og:title" content="09 Changing a view safely - hikari-risa">
+  <meta property="og:title" content="10 Changing a view safely - hikari-risa">
   <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta property="og:url" content="https://rayakame.github.io/hikari-risa/pr/61/by-example/09-changing-a-view-safely/">
+  <meta property="og:url" content="https://rayakame.github.io/hikari-risa/pr/61/by-example/10-changing-a-view-safely/">
   <meta property="og:image" content="https://rayakame.github.io/hikari-risa/pr/61/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="09 Changing a view safely - hikari-risa">
+  <meta name="twitter:title" content="10 Changing a view safely - hikari-risa">
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:image" content="https://rayakame.github.io/hikari-risa/pr/61/assets/images/social-preview.png">
 
@@ -155,7 +155,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              09 Changing a view safely
+              10 Changing a view safely
             
           </span>
         </div>
@@ -691,14 +691,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../06-fresh-data/" class="md-nav__link">
+      <a href="../06-dependency-injection/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  06 Fresh data
+  06 Dependency injection
 
     
   </span>
@@ -718,14 +718,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../07-where-state-lives/" class="md-nav__link">
+      <a href="../07-fresh-data/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  07 Where state lives
+  07 Fresh data
 
     
   </span>
@@ -745,14 +745,41 @@
   
   
     <li class="md-nav__item">
-      <a href="../08-stores-and-ttl/" class="md-nav__link">
+      <a href="../08-where-state-lives/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  08 Stores and TTL
+  08 Where state lives
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../09-stores-and-ttl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  09 Stores and TTL
 
     
   </span>
@@ -788,7 +815,7 @@
   <span class="md-ellipsis">
     
   
-  09 Changing a view safely
+  10 Changing a view safely
 
     
   </span>
@@ -805,7 +832,7 @@
   <span class="md-ellipsis">
     
   
-  09 Changing a view safely
+  10 Changing a view safely
 
     
   </span>
@@ -878,33 +905,6 @@
   
 </nav>
       
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../10-dependency-injection/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  10 Dependency injection
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1946,11 +1946,11 @@ on the ones that do not.</p>
 
 <p>An old poll keeps working. Its next click fills <code>note</code> with the default, <code>rerender()</code> draws it, and the votes are still
 there. In a message the new field takes room too: with this <code>note</code>, the poll from
-<a href="../07-where-state-lives/#the-limit">Where state lives</a> has room for ten voters, and one that already holds ten or more
+<a href="../08-where-state-lives/#the-limit">Where state lives</a> has room for ten voters, and one that already holds ten or more
 fails on its next vote. A field anywhere else, or without a default, is not free.</p>
 <div class="admonition tip">
 <p class="admonition-title">Try it.</p>
-<p>Send a poll with the Redis file from <a href="../08-stores-and-ttl/#redis-and-postgresql">Stores and TTL</a> and stop the bot.
+<p>Send a poll with the Redis file from <a href="../09-stores-and-ttl/#redis-and-postgresql">Stores and TTL</a> and stop the bot.
 Start the file below on the same Redis and click <strong>Yes</strong> on the old poll. It counts your vote and gains the note.</p>
 </div>
 <details class="example">
@@ -2141,7 +2141,7 @@ change does:</p>
 </tr>
 </tbody>
 </table>
-<p>A record that is gone goes to <a href="../08-stores-and-ttl/#ttl"><code>on_state_missing</code></a> instead.</p>
+<p>A record that is gone goes to <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a> instead.</p>
 <details class="example">
 <summary>Full file</summary>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><span class="sd">"""A vote now records who chose what, so the view's version goes up. Version 2 stays to answer old polls."""</span>
@@ -2294,7 +2294,7 @@ change does:</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../08-stores-and-ttl/" class="md-footer__link md-footer__link--prev" aria-label="Previous: 08 Stores and TTL">
+          <a href="../09-stores-and-ttl/" class="md-footer__link md-footer__link--prev" aria-label="Previous: 09 Stores and TTL">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2304,20 +2304,20 @@ change does:</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                08 Stores and TTL
+                09 Stores and TTL
               </div>
             </div>
           </a>
         
         
           
-          <a href="../10-dependency-injection/" class="md-footer__link md-footer__link--next" aria-label="Next: 10 Dependency injection">
+          <a href="../11-several-processes/" class="md-footer__link md-footer__link--next" aria-label="Next: 11 Several processes">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                10 Dependency injection
+                11 Several processes
               </div>
             </div>
             <div class="md-footer__button md-icon">

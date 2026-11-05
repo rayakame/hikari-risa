@@ -804,14 +804,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../by-example/06-fresh-data/" class="md-nav__link">
+      <a href="../../by-example/06-dependency-injection/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  06 Fresh data
+  06 Dependency injection
 
     
   </span>
@@ -831,14 +831,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../by-example/07-where-state-lives/" class="md-nav__link">
+      <a href="../../by-example/07-fresh-data/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  07 Where state lives
+  07 Fresh data
 
     
   </span>
@@ -858,14 +858,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../by-example/08-stores-and-ttl/" class="md-nav__link">
+      <a href="../../by-example/08-where-state-lives/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  08 Stores and TTL
+  08 Where state lives
 
     
   </span>
@@ -885,14 +885,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../by-example/09-changing-a-view-safely/" class="md-nav__link">
+      <a href="../../by-example/09-stores-and-ttl/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  09 Changing a view safely
+  09 Stores and TTL
 
     
   </span>
@@ -912,14 +912,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../by-example/10-dependency-injection/" class="md-nav__link">
+      <a href="../../by-example/10-changing-a-view-safely/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  10 Dependency injection
+  10 Changing a view safely
 
     
   </span>
@@ -2020,7 +2020,7 @@ clicks find it. Then, for each message, <code>client.build(Counter())</code> ren
 </span><span id="__span-2-12">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="o">**</span><span class="k">await</span> <span class="n">risa_client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">Counter</span><span class="p">()))</span>
 </span></code></pre></div>
 <p><a href="../../api/client/#risa.client.client_from_lightbulb"><code>risa.client_from_lightbulb</code></a> makes a client that shares
-lightbulb's bot and its <a href="../../by-example/10-dependency-injection/#share-one-manager-with-lightbulb">dependency manager</a>.
+lightbulb's bot and its <a href="../../by-example/06-dependency-injection/#share-one-manager-with-lightbulb">dependency manager</a>.
 <code>build</code> returns a mapping, and <code>**</code> spreads it into <code>ctx.respond</code>.
 lightbulb registers <code>/counter</code> with Discord when the bot starts.</p>
 <details class="example">
@@ -2171,7 +2171,7 @@ where it was, and the next click after the restart works.</p>
 <p>Anyone who can see the message can read what the button holds, so keep secrets somewhere else.</p>
 </div>
 <p>The message also has limited room: about 60 bytes on one button, and about 70 more for each further one, with the
-default codec. A view that needs more can move to a store with <a href="../../by-example/07-where-state-lives/"><code>risa.InStore</code></a>. Its
+default codec. A view that needs more can move to a store with <a href="../../by-example/08-where-state-lives/"><code>risa.InStore</code></a>. Its
 handlers stay the same, but the move means raising its <code>version</code>, which retires the buttons already sent.</p>
 <p>A click changes the id of the button that holds the count, and Discord refuses a click on an id the message no longer
 has. If two people click at nearly the same moment, the second can fail in Discord and click again. In a store the ids
