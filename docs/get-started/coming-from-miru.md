@@ -30,7 +30,7 @@ This page compares with miru 4.3.1. The main things miru has and risa does not a
 | `respond("Hi", components=view)` | `respond(**await client.build(MyView()))` |
 | `timeout=`, 120 seconds by default | `InStore(ttl=...)`, and no expiry in the message |
 | `autodefer=True` by default, after 2 seconds | `AutoDefer.OFF` by default; set it on a handler, view or client |
-| alluka, with `@client.inject_dependencies` | linkd, with no decorator; [Dependency injection](../by-example/10-dependency-injection.md#name-it-as-a-parameter) says which parameters are injected |
+| alluka, with `@client.inject_dependencies` | linkd, with no decorator; [Dependency injection](../by-example/06-dependency-injection.md#name-it-as-a-parameter) says which parameters are injected |
 
 ## A view
 
@@ -70,7 +70,7 @@ Three things differ:
 - **There is no `__init__`.** A view is a `msgspec.Struct`, made with `Counter(count=3)`, and its annotated fields are
   saved from click to click. For what should not be saved, such as a database row, mark the field
   `risa.Prop[T]` and fill it in `load()`, which runs before every handler, as
-  [Fresh data](../by-example/06-fresh-data.md) shows.
+  [Fresh data](../by-example/07-fresh-data.md) shows.
 
 ## Sending
 
@@ -150,7 +150,7 @@ view = TimeoutView(timeout=10.0)
 ```
 
 A risa view in the message has no timeout: it works as long as the message exists. For a lifetime, keep the state in a
-store with [`InStore`](../by-example/08-stores-and-ttl.md#ttl). `ttl` has no default. Like miru's timeout it counts seconds of
+store with [`InStore`](../by-example/09-stores-and-ttl.md#ttl). `ttl` has no default. Like miru's timeout it counts seconds of
 inactivity, and every click restarts it.
 
 ```python title="risa"

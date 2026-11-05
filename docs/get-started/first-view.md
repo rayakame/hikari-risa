@@ -64,7 +64,7 @@ The two ways below differ in what makes the bot post. Pick one.
     ```
 
     [`risa.client_from_lightbulb`](../api/client.md#risa.client.client_from_lightbulb) makes a client that shares
-    lightbulb's bot and its [dependency manager](../by-example/10-dependency-injection.md#share-one-manager-with-lightbulb).
+    lightbulb's bot and its [dependency manager](../by-example/06-dependency-injection.md#share-one-manager-with-lightbulb).
     `build` returns a mapping, and `**` spreads it into `ctx.respond`.
     lightbulb registers `/counter` with Discord when the bot starts.
 
@@ -124,7 +124,7 @@ where it was, and the next click after the restart works.
     Anyone who can see the message can read what the button holds, so keep secrets somewhere else.
 
 The message also has limited room: about 60 bytes on one button, and about 70 more for each further one, with the
-default codec. A view that needs more can move to a store with [`risa.InStore`](../by-example/07-where-state-lives.md). Its
+default codec. A view that needs more can move to a store with [`risa.InStore`](../by-example/08-where-state-lives.md). Its
 handlers stay the same, but the move means raising its `version`, which retires the buttons already sent.
 
 A click changes the id of the button that holds the count, and Discord refuses a click on an id the message no longer

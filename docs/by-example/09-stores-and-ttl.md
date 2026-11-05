@@ -8,10 +8,10 @@ then in Redis.
 
 [`risa.InStore`](../api/state/placement.md#risa.state.placement.InStore) on `@risa.register` moves the view, and it takes
 `ttl`, in seconds. The handlers stay as they were. Polls already sent cannot follow, so `version` goes up, as
-[Changing a view safely](09-changing-a-view-safely.md#a-change-that-is-not-free) explains.
+[Changing a view safely](10-changing-a-view-safely.md#a-change-that-is-not-free) explains.
 
 ```python
---8<-- "ch08_poll_memory.py:fields"
+--8<-- "ch09_poll_memory.py:fields"
 ```
 
 The thirteen voters that raised an error now fit:
@@ -29,7 +29,7 @@ A client gets its store from `store=`. [`risa.MemoryStore`](../api/store/memory.
 nothing installed.
 
 ```python
---8<-- "ch08_poll_memory.py:client"
+--8<-- "ch09_poll_memory.py:client"
 ```
 
 `add_view` warns you about it:
@@ -54,7 +54,7 @@ The message stays as it is when the time runs out, and the next click runs
 [`on_state_missing`](../api/view.md#risa.view.View.on_state_missing).
 
 ```python
---8<-- "ch08_poll_memory.py:missing"
+--8<-- "ch09_poll_memory.py:missing"
 ```
 
 --8<-- "previews/poll-expired.html"
@@ -66,7 +66,7 @@ Without this method the click fails in Discord, and risa logs a warning. `ctx` h
 ??? example "Full file"
 
     ```python
-    --8<-- "ch08_poll_memory.py:20:"
+    --8<-- "ch09_poll_memory.py:20:"
     ```
 
 ## Redis and PostgreSQL
@@ -83,7 +83,7 @@ The connection stays yours, so the bot closes it when it stops. An asyncpg pool 
 make the pool and the client in a `hikari.StartingEvent` listener.
 
 ```python
---8<-- "ch08_poll_redis.py:client"
+--8<-- "ch09_poll_redis.py:client"
 ```
 
 !!! tip "Try it."
@@ -99,5 +99,5 @@ PostgreSQL needs no cleanup job: `PostgresStore` creates its tables on first use
 ??? example "Full file"
 
     ```python
-    --8<-- "ch08_poll_redis.py:20:"
+    --8<-- "ch09_poll_redis.py:20:"
     ```

@@ -9,7 +9,7 @@ Register a thing once, and any handler or `load()` that names it as a parameter 
 This shop looks up prices. `Prices` stands in for your database, and you can find it in the full file.
 
 ```python
---8<-- "ch10_shop.py:dependencies"
+--8<-- "ch06_shop.py:dependencies"
 ```
 
 [`client.di`](../api/client.md#risa.client.Client.di) is linkd's manager, and
@@ -26,7 +26,7 @@ A connection pool has to open inside the running event loop, so register a funct
 A click on an item runs `show`, which names what it needs.
 
 ```python
---8<-- "ch10_shop.py:show"
+--8<-- "ch06_shop.py:show"
 ```
 
 | Parameter | Filled by |
@@ -35,8 +35,11 @@ A click on an item runs `show`, which names what it needs.
 | `item: str` | The [wire argument](03-handlers-and-arguments.md#what-can-be-an-argument) bound to the button |
 | `prices: Prices`, `client: risa.Client` | Injection, going by the annotation, so any name will do |
 
-[`load()`](06-fresh-data.md#a-leaderboard) takes injected parameters as well, with `= risa.INJECTED`, and so do
-`on_outdated` and `on_state_missing`.
+[`load()`](07-fresh-data.md#a-leaderboard), which the next chapter introduces, takes injected parameters as well. Give each
+the default [`risa.INJECTED`](../api/di.md#risa.di.INJECTED), which is for your type checker: `View.load` takes no
+parameters, so without it pyright reports an incompatible override.
+[`on_state_missing`](09-stores-and-ttl.md#ttl) and [`on_outdated`](10-changing-a-view-safely.md#on_outdated) take them the
+same way.
 
 If nothing is registered for a parameter, the handler does not run: risa logs linkd's
 `DependencyNotSatisfiableException`, and the click fails in Discord. A handler with only `ctx` and wire arguments needs
@@ -49,13 +52,13 @@ A handler needs the client for `client.build`, and the client is a local variabl
 client.
 
 ```python
---8<-- "ch10_shop.py:offer"
+--8<-- "ch06_shop.py:offer"
 ```
 
 ??? example "Full file"
 
     ```python
-    --8<-- "ch10_shop.py:20:"
+    --8<-- "ch06_shop.py:20:"
     ```
 
 ## What risa registers
@@ -75,17 +78,17 @@ These need no registering from you:
 so what you register with lightbulb reaches your handlers too. lightbulb registers the hikari types above itself.
 
 ```python
---8<-- "ch10_shop_lightbulb.py:share"
+--8<-- "ch06_shop_lightbulb.py:share"
 ```
 
 A command gets the risa client the same way:
 
 ```python
---8<-- "ch10_shop_lightbulb.py:command"
+--8<-- "ch06_shop_lightbulb.py:command"
 ```
 
 ??? example "Full file"
 
     ```python
-    --8<-- "ch10_shop_lightbulb.py:20:"
+    --8<-- "ch06_shop_lightbulb.py:20:"
     ```

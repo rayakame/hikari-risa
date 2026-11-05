@@ -187,7 +187,7 @@ ephemeral = false
 [[preview]]
 kind = "view"
 id = "leaderboard"
-example = "ch06_leaderboard"
+example = "ch07_leaderboard"
 view = "Leaderboard"
 fields = {}
 
@@ -195,7 +195,7 @@ fields = {}
 kind = "view"
 id = "leaderboard-go"
 label = "After a click on Go"
-example = "ch06_leaderboard"
+example = "ch07_leaderboard"
 view = "Leaderboard"
 fields = { game = "go" }
 
@@ -210,7 +210,7 @@ ephemeral = true
 kind = "view"
 id = "poll-full"
 label = "12 voters"
-example = "ch07_poll"
+example = "ch08_poll"
 view = "Poll"
 
 [preview.fields]
@@ -236,7 +236,7 @@ voters = [
 kind = "ids"
 id = "poll-full-ids"
 title = "Twelve voters"
-example = "ch07_poll"
+example = "ch08_poll"
 view = "Poll"
 
 [preview.before]
@@ -262,7 +262,7 @@ voters = [
 kind = "error"
 id = "poll-overflow"
 label = "13 voters: what client.build raises"
-example = "ch07_poll"
+example = "ch08_poll"
 view = "Poll"
 
 [preview.fields]
@@ -289,7 +289,7 @@ voters = [
 kind = "view"
 id = "poll-stored"
 label = "13 voters, in a store"
-example = "ch08_poll_memory"
+example = "ch09_poll_memory"
 view = "Poll"
 
 [preview.fields]
@@ -315,7 +315,7 @@ voters = [
 [[preview]]
 kind = "ids"
 id = "poll-stored-ids"
-example = "ch08_poll_memory"
+example = "ch09_poll_memory"
 view = "Poll"
 before = { question = "Pizza on Friday?", yes = 0, no = 0, voters = [] }
 after = { question = "Pizza on Friday?", yes = 1, no = 0, voters = [1298471056230400001] }
@@ -324,7 +324,7 @@ after = { question = "Pizza on Friday?", yes = 1, no = 0, voters = [129847105623
 kind = "log"
 id = "poll-memory-warning"
 label = "In your log at startup"
-example = "ch08_poll_memory"
+example = "ch09_poll_memory"
 view = "Poll"
 
 [[preview]]
@@ -337,7 +337,7 @@ ephemeral = false
 [[preview]]
 kind = "view"
 id = "poll-note"
-example = "ch09_poll_free"
+example = "ch10_poll_free"
 view = "Poll"
 
 [preview.fields]
@@ -355,7 +355,7 @@ voters = [
 [[preview]]
 kind = "view"
 id = "poll-bumped"
-example = "ch09_poll_bumped"
+example = "ch10_poll_bumped"
 view = "Poll"
 
 [preview.fields]

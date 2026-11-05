@@ -9,24 +9,24 @@ on the ones that do not.
 Add a field at the end of the class, with a default. This poll gets a note under its question.
 
 ```python
---8<-- "ch09_poll_free.py:view"
+--8<-- "ch10_poll_free.py:view"
 ```
 
 --8<-- "previews/poll-note.html"
 
 An old poll keeps working. Its next click fills `note` with the default, `rerender()` draws it, and the votes are still
 there. In a message the new field takes room too: with this `note`, the poll from
-[Where state lives](07-where-state-lives.md#the-limit) has room for ten voters, and one that already holds ten or more
+[Where state lives](08-where-state-lives.md#the-limit) has room for ten voters, and one that already holds ten or more
 fails on its next vote. A field anywhere else, or without a default, is not free.
 
 !!! tip "Try it."
-    Send a poll with the Redis file from [Stores and TTL](08-stores-and-ttl.md#redis-and-postgresql) and stop the bot.
+    Send a poll with the Redis file from [Stores and TTL](09-stores-and-ttl.md#redis-and-postgresql) and stop the bot.
     Start the file below on the same Redis and click **Yes** on the old poll. It counts your vote and gains the note.
 
 ??? example "Full file"
 
     ```python
-    --8<-- "ch09_poll_free.py:20:"
+    --8<-- "ch10_poll_free.py:20:"
     ```
 
 ## A change that is not free
@@ -35,7 +35,7 @@ The poll should now let people change their mind, so a vote has to record who ch
 and `voters` goes. An old record cannot say who chose what, so the view's [`version`](../api/view.md#risa.view.register) goes up.
 
 ```python
---8<-- "ch09_poll_bumped.py:fields"
+--8<-- "ch10_poll_bumped.py:fields"
 ```
 
 --8<-- "previews/poll-bumped.html"
@@ -56,18 +56,18 @@ the class at version 3.
 To answer those clicks, keep a class at the old version, with the old fields, and add both to the client.
 
 ```python
---8<-- "ch09_poll_bumped.py:old-fields"
+--8<-- "ch10_poll_bumped.py:old-fields"
 ```
 
 ```python
---8<-- "ch09_poll_bumped.py:client"
+--8<-- "ch10_poll_bumped.py:client"
 ```
 
 Keep the old handlers too, with the same ids, versions and arguments, and let their bodies say the poll is over. Such a
 rejection handler routes like any other and logs nothing, and `self` holds the old record.
 
 ```python
---8<-- "ch09_poll_bumped.py:old-handlers"
+--8<-- "ch10_poll_bumped.py:old-handlers"
 ```
 
 --8<-- "previews/poll-ended.html"
@@ -79,7 +79,7 @@ handler has gone, or the record no longer fits the fields. `ctx` has no view, so
 `NoViewError`. By default it does nothing, and the click fails in Discord.
 
 ```python
---8<-- "ch09_poll_bumped.py:outdated"
+--8<-- "ch10_poll_bumped.py:outdated"
 ```
 
 --8<-- "previews/poll-outdated.html"
@@ -98,10 +98,10 @@ change does:
 | Changed a handler's arguments, with no new `version` | `on_outdated` | `ERROR` |
 | Deleted a handler, or raised its `version` and kept no method at the old one | `on_outdated` | `WARNING`, or `DEBUG` once you override it |
 
-A record that is gone goes to [`on_state_missing`](08-stores-and-ttl.md#ttl) instead.
+A record that is gone goes to [`on_state_missing`](09-stores-and-ttl.md#ttl) instead.
 
 ??? example "Full file"
 
     ```python
-    --8<-- "ch09_poll_bumped.py:20:"
+    --8<-- "ch10_poll_bumped.py:20:"
     ```

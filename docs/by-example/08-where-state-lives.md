@@ -10,12 +10,12 @@ Smallest step first. The last column counts for the poll below, which fits twelv
 
 | Step | What you write | Room for voters |
 |---|---|---|
-| Read it fresh | Mark the field [`risa.Prop[T]`](06-fresh-data.md) and fill it in `load()` from your database | The field takes none |
+| Read it fresh | Mark the field [`risa.Prop[T]`](07-fresh-data.md) and fill it in `load()` from your database | The field takes none |
 | Another codec | [`state=risa.InMessage(codec=risa.codecs.BASE32768)`](../api/codecs.md#risa.codecs.BASE32768), with the [`radixly` extra](../get-started/installation.md#extras) | 33 voters, or 30 with [`URO14`](../api/codecs.md#risa.codecs.URO14) |
-| A store | `state=risa.InStore(ttl=...)`, as [Stores and TTL](08-stores-and-ttl.md) shows | No size limit |
+| A store | `state=risa.InStore(ttl=...)`, as [Stores and TTL](09-stores-and-ttl.md) shows | No size limit |
 
 A codec change leaves messages already sent working, since each id names its codec. A prop or a move to a store retires
-them: a click on one fails in Discord, unless [a class at the old version](09-changing-a-view-safely.md#answering-old-polls)
+them: a click on one fails in Discord, unless [a class at the old version](10-changing-a-view-safely.md#answering-old-polls)
 answers it.
 
 ## A poll that outgrows its message
@@ -23,13 +23,13 @@ answers it.
 This poll counts the votes and keeps the id of everyone who voted, so that nobody votes twice.
 
 ```python
---8<-- "ch07_poll.py:fields"
+--8<-- "ch08_poll.py:fields"
 ```
 
 **Yes** and **No** each ask this method first, and it adds the voter's id to the list.
 
 ```python
---8<-- "ch07_poll.py:first-vote"
+--8<-- "ch08_poll.py:first-vote"
 ```
 
 --8<-- "previews/poll-already.html"
@@ -77,5 +77,5 @@ Where the bot runs counts too, as [Several processes](11-several-processes.md) s
 ??? example "Full file"
 
     ```python
-    --8<-- "ch07_poll.py:20:"
+    --8<-- "ch08_poll.py:20:"
     ```

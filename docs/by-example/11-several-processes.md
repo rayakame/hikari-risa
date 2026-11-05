@@ -6,7 +6,7 @@ a click.
 
 ## Which store you need
 
-A view in the message needs no store. A view in a store needs [`RedisStore` or `PostgresStore`](08-stores-and-ttl.md#redis-and-postgresql),
+A view in the message needs no store. A view in a store needs [`RedisStore` or `PostgresStore`](09-stores-and-ttl.md#redis-and-postgresql),
 on one server for all processes, or [your own](12-writing-your-own-store.md).
 
 <table class="risa-grid">
@@ -20,7 +20,7 @@ on one server for all processes, or [your own](12-writing-your-own-store.md).
 </tbody>
 </table>
 
-A click that does not find the state runs [`on_state_missing`](08-stores-and-ttl.md#ttl).
+A click that does not find the state runs [`on_state_missing`](09-stores-and-ttl.md#ttl).
 
 Every process runs the same setup.
 

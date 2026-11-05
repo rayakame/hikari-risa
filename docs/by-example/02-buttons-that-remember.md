@@ -59,11 +59,11 @@ click and can click again.
 
 A view is a `msgspec.Struct`, and a field can be anything msgspec encodes: numbers, strings, enums, lists, dicts, other
 Structs. It all has to fit in the message, which has room for about 60 bytes on one button and about 70 more for each
-further one, with the default codec. [Where state lives](07-where-state-lives.md) shows what you can do when a view
+further one, with the default codec. [Where state lives](08-where-state-lives.md) shows what you can do when a view
 needs more.
 
 For what should be read fresh instead of saved, such as a database row, mark the field `risa.Prop[T]` and fill it in
-`load()`, as [Fresh data](06-fresh-data.md) shows.
+`load()`, as [Fresh data](07-fresh-data.md) shows.
 
 ??? example "Full file"
 

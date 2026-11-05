@@ -11,32 +11,22 @@ Some things should be read fresh on every click instead of saved in the message,
 it. `Scores` stands in for your database, and you can find it in the full file.
 
 ```python
---8<-- "ch06_leaderboard.py:fields"
+--8<-- "ch07_leaderboard.py:fields"
 ```
 
-`load()` takes what it needs as parameters, and risa injects them.
+`load()` names `Scores` as a parameter, with the default `= risa.INJECTED` from
+[Dependency injection](06-dependency-injection.md#name-it-as-a-parameter). `main()` registers it as that chapter shows,
+or `client.build` raises linkd's `DependencyNotSatisfiableException`.
 `msgspec.field(default_factory=list[str])` gives each view a new empty list.
-[`= risa.INJECTED`](../api/di.md#risa.di.INJECTED) is for your type checker: `View.load` takes no parameters, so without
-that default pyright reports an incompatible override.
 
 `render()` reads a prop as it reads a field. Each game's button runs `switch`, and `_TOP` at the top of the file holds
 each game's top players.
 
 ```python
---8<-- "ch06_leaderboard.py:render"
+--8<-- "ch07_leaderboard.py:render"
 ```
 
 --8<-- "previews/leaderboard.html"
-
-## Registering what it needs
-
-risa injects what you registered on the client, as [Dependency injection](10-dependency-injection.md) explains. This
-function does that once, and `main()` calls it after making the client. Without it, `client.build` raises linkd's
-`DependencyNotSatisfiableException`.
-
-```python
---8<-- "ch06_leaderboard.py:dependencies"
-```
 
 ## What a prop costs
 
@@ -60,7 +50,7 @@ default again.
 and the rows are new because `load()` has just read them.
 
 ```python
---8<-- "ch06_leaderboard.py:refresh"
+--8<-- "ch07_leaderboard.py:refresh"
 ```
 
 `load()` runs inside the three seconds from [Answering in time](05-answering-in-time.md), and its time counts toward
@@ -77,7 +67,7 @@ Read them again in the handler. `switch` takes the game as a wire argument, as i
 as it does for `load()`. A handler's injected parameter needs no default.
 
 ```python
---8<-- "ch06_leaderboard.py:switch"
+--8<-- "ch07_leaderboard.py:switch"
 ```
 
 --8<-- "previews/leaderboard-go.html"
@@ -85,5 +75,5 @@ as it does for `load()`. A handler's injected parameter needs no default.
 ??? example "Full file"
 
     ```python
-    --8<-- "ch06_leaderboard.py:20:"
+    --8<-- "ch07_leaderboard.py:20:"
     ```

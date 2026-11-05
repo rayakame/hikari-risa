@@ -40,7 +40,7 @@ argument. These are the ticket's real ids:
 
 Arguments come right after `ctx` and are positional. They are annotated `bool`, `int`, `str`, `hikari.Snowflake` or an
 `enum.Enum` of `int` or `str` values. Every parameter after them without a default is filled in by dependency injection
-through linkd, as [Dependency injection](10-dependency-injection.md) shows.
+through linkd, as [Dependency injection](06-dependency-injection.md) shows.
 
 An argument takes room on its button, out of what the button can hold of the state. With the default codec, a button with
 no state holds a `str` of up to 68 ASCII characters, and a longer one makes `client.build` raise.
@@ -94,6 +94,6 @@ in `@risa.handler(handler_id="pick", version=2)`.
 | `version` | Bump it when the handler's arguments change |
 | `defer` | The handler's [`AutoDefer`](05-answering-in-time.md#where-to-set-it), overriding the view's |
 
-[Changing a view safely](09-changing-a-view-safely.md#on_outdated) shows what a bump does to components already sent.
+[Changing a view safely](10-changing-a-view-safely.md#on_outdated) shows what a bump does to components already sent.
 
 Pin `handler_id` before renaming a method, so components already sent keep working.

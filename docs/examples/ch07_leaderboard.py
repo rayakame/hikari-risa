@@ -90,11 +90,9 @@ class Leaderboard(risa.View):
         # --8<-- [end:switch]
 
 
-# --8<-- [start:dependencies]
 def add_dependencies(client: risa.Client) -> None:
     registry = client.di.registry_for(risa.Contexts.DEFAULT)
     registry.register_value(Scores, Scores())
-    # --8<-- [end:dependencies]
 
 
 def main() -> None:

@@ -129,7 +129,7 @@ is the only shape that can carry `content` beside it.
 ```
 
 In a lightbulb command, or in a risa handler that takes
-[`client: risa.Client`](10-dependency-injection.md#build-another-view) as a parameter after `ctx`, it reads
+[`client: risa.Client`](06-dependency-injection.md#build-another-view) as a parameter after `ctx`, it reads
 `await ctx.respond("Ship it?", **await client.build(YesNo()))`.
 
 ??? example "Full file"

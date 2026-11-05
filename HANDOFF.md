@@ -20,9 +20,9 @@ live frame for `count = n` at n, so the ids on the pages are the ones a real cli
 clicks through the dispatcher to hold it. Three things nobody has seen on real Discord, and the
 pages claim nothing about them beyond Discord's documentation: a `ui.File` upload (chapter 04's
 `!meetup`), what becomes of a thinking message nothing answers, and a rows-only message sent with no
-`content`. A view `version` bump never reaches `on_outdated`, so chapter 09 teaches a class kept at the
+`content`. A view `version` bump never reaches `on_outdated`, so chapter 10 teaches a class kept at the
 old version to answer old components. The lock, lease and compare-and-set claims of chapter 11 ran on a real Redis and a real PostgreSQL with two OS
-processes, as did `ttl`, the eviction and persistence notes of chapter 08 and the store tests. They did
+processes, as did `ttl`, the eviction and persistence notes of chapter 09 and the store tests. They did
 not run on a Redis failover, behind a real load balancer, or with Discord choosing the process that gets a
 click, and the `InMessage` race of chapter 11 ran offline only. Nothing ran on real Discord. Each of the three sections
 now opens on an overview, `index.md`, and its header in the sidebar links there, as Home does: chapters as cards in three
@@ -134,7 +134,7 @@ now says how many bytes each durable field takes, largest first, with risa's own
 as the last line, and keeps the numbers in a new `fields` attribute (name to bytes, in
 declaration order). The build plan measures them with `StateSchema.field_sizes` when
 `anchor.carve` overflows and raises the enriched error in place of carve's. This is what
-DESIGN §13 promised, and chapter 07 of the planned docs site builds its story on it.
+DESIGN §13 promised, and chapter 08 of the planned docs site builds its story on it.
 A public way to ask how full a view is before it overflows is still open (DESIGN §15).
 
 **2026-11-02, docs pass, part 1: API docstrings (merged as PR #50, `a9fe286`):** ruff's docstring

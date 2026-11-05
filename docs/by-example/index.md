@@ -32,29 +32,29 @@ Twelve chapters that start with a single message and end with your own store. Re
 
     Answer within Discord's three seconds, even when the work takes longer.
 
-- [Fresh data](06-fresh-data.md)
+- [Dependency injection](06-dependency-injection.md)
 
-    Read a database row on every click instead of saving it.
+    Register a thing once, and name it as a parameter where you need it.
 
 ## Keep its state
 
-- [Where state lives](07-where-state-lives.md)
+- [Fresh data](07-fresh-data.md)
+
+    Read a database row on every click instead of saving it.
+
+- [Where state lives](08-where-state-lives.md)
 
     See what you can do when a view runs out of room in its message.
 
-- [Stores and TTL](08-stores-and-ttl.md)
+- [Stores and TTL](09-stores-and-ttl.md)
 
     Move a view into a store, with room to grow and a lifetime.
 
-- [Changing a view safely](09-changing-a-view-safely.md)
-
-    Change a view without breaking the messages already sent.
-
 ## Fit it into your bot
 
-- [Dependency injection](10-dependency-injection.md)
+- [Changing a view safely](10-changing-a-view-safely.md)
 
-    Register a thing once, and name it as a parameter where you need it.
+    Change a view without breaking the messages already sent.
 
 - [Several processes](11-several-processes.md)
 
