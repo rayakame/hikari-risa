@@ -142,7 +142,6 @@ def publish_preview(site: pathlib.Path, target: pathlib.Path, *, number: int) ->
 
 
 def remove_preview(target: pathlib.Path, *, number: int) -> None:
-    """Remove the preview of a pull request, if it has one."""
     folder = target / _PREVIEWS / str(number)
     if folder.is_dir():
         shutil.rmtree(folder)

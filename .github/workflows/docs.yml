@@ -40,6 +40,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
           if [ "$EVENT" = release ]; then
             folder=$(python3 -c 'import sys; from tools.docs.publish import release_folder; print(release_folder(sys.argv[1]))' "$TAG")
             echo "VERSION=$TAG" >> "$GITHUB_ENV"
@@ -54,4 +55,4 @@ jobs:
       - uses: ./.github/actions/push-gh-pages
         with:
           arguments: --site site --version ${{ env.VERSION }}
-          message: Publish ${{ env.VERSION }} from ${{ github.sha }}
+          message: Publish ${{ env.VERSION }} from ${{ env.SHORT_SHA }}

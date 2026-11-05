@@ -28,7 +28,7 @@ runs:
             git init --initial-branch gh-pages "$pages"
           fi
           # shellcheck disable=SC2086
-          python3 -m tools.docs.publish --target "$pages" $ARGUMENTS
+          env -u GITHUB_TOKEN python3 -m tools.docs.publish --target "$pages" $ARGUMENTS
           cd "$pages"
           git add --all
           if git diff --cached --quiet; then

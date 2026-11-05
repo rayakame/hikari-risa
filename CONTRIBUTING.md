@@ -58,7 +58,8 @@ A pull request from a branch of this repository also gets a preview. `.github/wo
 `pr/<number>/` on `gh-pages` and names the link in a comment on the pull request, and `docs-preview-remove.yml` removes it
 when the pull request closes. A preview is missing from `versions.json`, so it shows no version selector and no outdated
 banner, and it asks search engines not to index it, which `check_site` checks in both directions. A fork gets no preview,
-because its code must not run beside a token that can write to `gh-pages`.
+because its code must not run beside a token that can write to `gh-pages`. Neither does a bot's bump, which can change the
+actions of that job, unless it bumps what draws the site, such as Zensical.
 
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.

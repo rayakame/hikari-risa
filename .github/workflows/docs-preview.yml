@@ -3,7 +3,7 @@ name: Docs preview
 on:
   pull_request:
 
-# docs-preview-remove.yml shares this group, so closing a pull request stops a build that would publish after the removal.
+# docs-preview-remove.yml shares this group, so closing stops a build that would publish after the removal.
 concurrency:
   group: docs-preview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -17,8 +17,14 @@ env:
 jobs:
   build:
     name: build preview
-    # A fork's token cannot write to gh-pages, and a fork's code must not run beside one that can.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Forks and bots stay away from the write token; only a bump of what draws the site has pages worth a preview.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && (github.event.pull_request.user.type != 'Bot'
+      || startsWith(github.event.pull_request.head.ref, 'renovate/zensical')
+      || startsWith(github.event.pull_request.head.ref, 'renovate/griffe')
+      || startsWith(github.event.pull_request.head.ref, 'renovate/mkdocstrings')
+      || startsWith(github.event.pull_request.head.ref, 'renovate/pygments'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,6 +72,6 @@ jobs:
       - uses: ./.github/actions/preview-comment
         with:
           body: >-
-            Docs preview of ${{ github.event.pull_request.head.sha }}:
+            Docs preview of ${{ github.event.pull_request.head.sha }} merged into its base branch:
             https://rayakame.github.io/hikari-risa/pr/${{ github.event.pull_request.number }}/
             (Pages needs about a minute to serve a new push.)
