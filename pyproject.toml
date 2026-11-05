@@ -74,7 +74,7 @@ pyright = [
     {include-group = "bot"},
 ]
 ruff = [
-    "ruff==0.17.3",
+    "ruff==0.17.4",
 ]
 slotscheck = [
     "asyncpg~=0.32",
