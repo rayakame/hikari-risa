@@ -29,11 +29,12 @@ import re
 import shutil
 import typing
 
-__all__ = ("publish", "release_folder")
+__all__ = ("publish", "publish_preview", "release_folder", "remove_preview")
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("tools.docs.publish")
 _MAIN: typing.Final = "main"
 _STABLE: typing.Final = "stable"
+_PREVIEWS: typing.Final = "pr"
 _TAG: typing.Final = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
 _FOLDER: typing.Final = re.compile(r"(\d+)\.(\d+)")
 _RELEASE_TAG: typing.Final = ".release-tag"
@@ -91,9 +92,7 @@ def publish(site: pathlib.Path, target: pathlib.Path, *, version: str) -> None:
         If the site is not a directory.
     """
     folder = _MAIN if version == _MAIN else release_folder(version)
-    if not site.is_dir():
-        message = f"site is not a directory: {site}"
-        raise NotADirectoryError(message)
+    _require_directory(site)
     recorded = _recorded_tag(target / folder)
     if recorded is not None and _release_key(recorded) > _release_key(version):
         _LOGGER.warning("kept %s in %s, since %s is older", recorded, folder, version)
@@ -126,6 +125,33 @@ def publish(site: pathlib.Path, target: pathlib.Path, *, version: str) -> None:
         shutil.copyfile(not_found, target / "404.html")
     (target / ".nojekyll").touch()
     _LOGGER.info("published %s as %s", version, folder)
+
+
+def publish_preview(site: pathlib.Path, target: pathlib.Path, *, number: int) -> None:
+    """Place the built site of a pull request under ``pr/<number>``, where no version list or redirect names it."""
+    _require_directory(site)
+    folder = target / _PREVIEWS / str(number)
+    folder.parent.mkdir(parents=True, exist_ok=True)
+    _replace(site, folder)
+    (target / ".nojekyll").touch()
+    # Pages wants an entry file at the root, which the first published version replaces.
+    root = target / "index.html"
+    if not root.exists():
+        root.write_text(_REDIRECT.format(destination=_MAIN), encoding="utf-8")
+    _LOGGER.info("published the preview of #%d", number)
+
+
+def remove_preview(target: pathlib.Path, *, number: int) -> None:
+    folder = target / _PREVIEWS / str(number)
+    if folder.is_dir():
+        shutil.rmtree(folder)
+        _LOGGER.info("removed the preview of #%d", number)
+
+
+def _require_directory(site: pathlib.Path) -> None:
+    if not site.is_dir():
+        message = f"site is not a directory: {site}"
+        raise NotADirectoryError(message)
 
 
 def _replace(site: pathlib.Path, destination: pathlib.Path) -> None:
@@ -165,11 +191,21 @@ def main() -> None:
     argument_parser = argparse.ArgumentParser(
         description="Publish a built documentation site into a gh-pages checkout."
     )
-    argument_parser.add_argument("--site", type=pathlib.Path, required=True)
+    argument_parser.add_argument("--site", type=pathlib.Path)
     argument_parser.add_argument("--target", type=pathlib.Path, required=True)
-    argument_parser.add_argument("--version", required=True)
+    action = argument_parser.add_mutually_exclusive_group(required=True)
+    action.add_argument("--version")
+    action.add_argument("--preview", type=int, metavar="PULL_REQUEST")
+    action.add_argument("--remove-preview", type=int, metavar="PULL_REQUEST")
     arguments = argument_parser.parse_args()
-    publish(arguments.site, arguments.target, version=arguments.version)
+    if arguments.remove_preview is not None:
+        remove_preview(arguments.target, number=arguments.remove_preview)
+    elif arguments.site is None:
+        argument_parser.error("--version and --preview need --site")
+    elif arguments.preview is not None:
+        publish_preview(arguments.site, arguments.target, number=arguments.preview)
+    else:
+        publish(arguments.site, arguments.target, version=arguments.version)
 
 
 if __name__ == "__main__":

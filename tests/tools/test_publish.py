@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import typing
 
 import pytest
@@ -224,3 +225,128 @@ def test_a_failed_copy_keeps_the_previous_folder_and_leaves_no_temporary_one(
 
     assert (target / "main" / "index.html").read_text() == "live"
     assert sorted(path.name for path in target.iterdir()) == before
+
+
+def test_a_preview_goes_under_pr_and_changes_nothing_else(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish(_site(tmp_path, "m"), target, version="main")
+    before = {path: path.read_bytes() for path in target.rglob("*") if path.is_file()}
+
+    publish.publish_preview(_site(tmp_path, "p"), target, number=57)
+
+    assert (target / "pr" / "57" / "index.html").read_text() == "p"
+    previews = target / "pr"
+    outside = {path: path.read_bytes() for path in target.rglob("*") if path.is_file() and previews not in path.parents}
+    assert outside == before
+
+
+def test_a_preview_on_an_empty_branch_leaves_a_root_that_pages_can_serve(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+
+    publish.publish_preview(_site(tmp_path, "p"), target, number=57)
+
+    assert (target / ".nojekyll").exists()
+    assert 'content="0; url=main/"' in (target / "index.html").read_text()
+    assert not (target / "versions.json").exists()
+
+
+def test_a_new_push_replaces_the_preview(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish_preview(_site(tmp_path, "old"), target, number=57)
+    (target / "pr" / "57" / "stale.html").write_text("stale")
+
+    publish.publish_preview(_site(tmp_path, "new"), target, number=57)
+
+    assert (target / "pr" / "57" / "index.html").read_text() == "new"
+    assert not (target / "pr" / "57" / "stale.html").exists()
+
+
+def test_publishing_a_version_keeps_the_previews_and_does_not_list_them(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish_preview(_site(tmp_path, "p"), target, number=57)
+
+    publish.publish(_site(tmp_path, "m"), target, version="main")
+    publish.publish(_site(tmp_path, "r"), target, version="v0.1.0")
+
+    assert (target / "pr" / "57" / "index.html").read_text() == "p"
+    assert [entry["version"] for entry in _versions(target)] == ["0.1", "main"]
+
+
+def test_removing_a_preview_keeps_the_others(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish_preview(_site(tmp_path, "a"), target, number=57)
+    publish.publish_preview(_site(tmp_path, "b"), target, number=58)
+
+    publish.remove_preview(target, number=57)
+
+    assert not (target / "pr" / "57").exists()
+    assert (target / "pr" / "58" / "index.html").read_text() == "b"
+
+
+def test_removing_a_preview_that_is_not_there_changes_nothing(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish(_site(tmp_path, "m"), target, version="main")
+    before = {path: path.read_bytes() for path in target.rglob("*") if path.is_file()}
+
+    publish.remove_preview(target, number=57)
+
+    assert {path: path.read_bytes() for path in target.rglob("*") if path.is_file()} == before
+
+
+def test_a_preview_of_a_missing_site_is_refused_and_keeps_the_old_one(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish_preview(_site(tmp_path, "live"), target, number=57)
+
+    with pytest.raises(NotADirectoryError, match="site"):
+        publish.publish_preview(tmp_path / "missing", target, number=57)
+
+    assert (target / "pr" / "57" / "index.html").read_text() == "live"
+
+
+@pytest.mark.parametrize(
+    ("arguments", "served"),
+    [
+        (["--site", "{site}", "--version", "main"], "main/index.html"),
+        (["--site", "{site}", "--preview", "57"], "pr/57/index.html"),
+    ],
+)
+def test_the_command_line_places_what_it_is_asked_to(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, arguments: list[str], served: str
+) -> None:
+    site = _site(tmp_path, "s")
+    target = tmp_path / "pages"
+    filled = [argument.format(site=site) for argument in arguments]
+    monkeypatch.setattr(sys, "argv", ["publish", "--target", str(target), *filled])
+
+    publish.main()
+
+    assert (target / served).read_text() == "s"
+
+
+def test_the_command_line_removes_a_preview_without_a_site(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    publish.publish_preview(_site(tmp_path, "p"), target, number=57)
+    monkeypatch.setattr(sys, "argv", ["publish", "--target", str(target), "--remove-preview", "57"])
+
+    publish.main()
+
+    assert not (target / "pr" / "57").exists()
+
+
+@pytest.mark.parametrize("action", [["--version", "main"], ["--preview", "57"]])
+def test_the_command_line_needs_a_site_to_place(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, action: list[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["publish", "--target", str(tmp_path), *action])
+
+    with pytest.raises(SystemExit):
+        publish.main()

@@ -47,6 +47,8 @@ _LANDING = (
     '<script src="javascripts/live-preview.js"></script>'
 )
 
+_NOINDEX = '<meta name="robots" content="noindex">'
+
 _PALETTE = (
     '<input data-md-color-media="{media}" data-md-color-scheme="{first}" type="radio" name="__palette">'
     '<input data-md-color-media="none" data-md-color-scheme="risa-banner" type="radio" name="__palette">'
@@ -362,3 +364,29 @@ def test_an_overview_ends_with_its_block(tmp_path: pathlib.Path) -> None:
     _page(site, "by-example/02-state/index.html")
 
     assert check_site.check_site(site) == ["by-example/index.html: its overview does not link to 02-state/"]
+
+
+def test_a_published_page_that_asks_not_to_be_indexed_is_reported(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "get-started/index.html", extra=_NOINDEX)
+
+    assert check_site.check_site(site) == [
+        "get-started/index.html: it asks search engines not to index it, but it is not a preview of a pull request"
+    ]
+
+
+def test_a_preview_page_that_does_not_ask_not_to_be_indexed_is_reported(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "index.html", extra=_NOINDEX)
+
+    assert check_site.check_site(site, expect_noindex=True) == [
+        "get-started/index.html: it is a preview of a pull request, but search engines may index it"
+    ]
+
+
+def test_a_preview_that_asks_not_to_be_indexed_everywhere_is_clean(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "index.html", extra=_NOINDEX)
+    _page(site, "get-started/index.html", extra=_NOINDEX)
+
+    assert check_site.check_site(site, expect_noindex=True) == []
