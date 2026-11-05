@@ -22,10 +22,17 @@ runs:
         remote="https://github.com/$REPOSITORY.git"
         for attempt in 1 2 3 4 5; do
           pages="$RUNNER_TEMP/gh-pages-$attempt"
-          if git ls-remote --exit-code --heads "$remote" gh-pages > /dev/null; then
+          found=0
+          git ls-remote --exit-code --heads "$remote" gh-pages > /dev/null || found=$?
+          if [ "$found" -eq 0 ]; then
             git clone --branch gh-pages --depth 1 "$remote" "$pages"
-          else
+          # Only 2 means the branch is missing; anything else is a failure that says nothing about it.
+          elif [ "$found" -eq 2 ]; then
             git init --initial-branch gh-pages "$pages"
+          else
+            echo "Could not look up gh-pages (attempt $attempt), retrying."
+            sleep $((attempt * 3))
+            continue
           fi
           # shellcheck disable=SC2086
           python3 -m tools.docs.publish --target "$pages" $ARGUMENTS
@@ -44,5 +51,5 @@ runs:
           echo "Push rejected (attempt $attempt), retrying from a fresh clone."
           sleep $((attempt * 3))
         done
-        echo "Could not push gh-pages after 5 attempts." >&2
+        echo "Could not update gh-pages after 5 attempts." >&2
         exit 1
