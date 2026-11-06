@@ -171,7 +171,8 @@ class HandlerBinder:
             raise errors.ArgBindError(
                 self._func_name,
                 None,
-                f"received {len(args)} wire arguments, but the handler declares {len(names)}",
+                f"received {len(args)} wire {'argument' if len(args) == 1 else 'arguments'}, "
+                f"but the handler declares {len(names)}",
             )
         filled: dict[str, object] = dict(zip(names, args, strict=False))
         for name, value in kwargs.items():

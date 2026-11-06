@@ -25,6 +25,7 @@ import argparse
 import html.parser
 import logging
 import pathlib
+import posixpath
 import sys
 import typing
 import urllib.parse
@@ -42,8 +43,9 @@ _NO_MEDIA: typing.Final = "none"
 _UNPUBLISHED_FOLDERS: typing.Final = ("specs", "examples", "generated")
 _INVENTORY_HOSTS: typing.Final = ("https://docs.python.org/3/", "https://docs.hikari-py.dev/")
 _LANDING_PAGE: typing.Final = "index.html"
+_OVERVIEW_SECTIONS: typing.Final = ("get-started", "by-example")
+_OVERVIEW_CLASS: typing.Final = "risa-overview"
 _LIVE_SCRIPT: typing.Final = "javascripts/live-preview.js"
-_MIN_LIVE_FRAMES: typing.Final = 2
 _NOINDEX: typing.Final = '<meta name="robots" content="noindex">'
 _TITLE_ENDINGS: typing.Final = (".", "?", "!", "…", ":", ")", '"', "'", "”", "\u2019")
 
@@ -98,6 +100,26 @@ class _PageParser(html.parser.HTMLParser):
             self.live_frames += 1
 
 
+class _OverviewParser(html.parser.HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[str] = []
+        self._depth = 0
+
+    @typing.override
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "div" and self._depth:
+            self._depth -= 1
+
+    @typing.override
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "div" and (self._depth or _OVERVIEW_CLASS in (values.get("class") or "").split()):
+            self._depth += 1
+        elif tag == "a" and self._depth and (href := values.get("href")) is not None:
+            self.links.append(href)
+
+
 def check_site(
     site: pathlib.Path, *, require_inventory_links: bool = False, expect_noindex: bool = False
 ) -> collections.abc.Sequence[str]:
@@ -107,8 +129,9 @@ def check_site(
     first palette entry with no media query anywhere, load nothing from Google Fonts, leave
     the design folders unpublished and resolve every relative image. An admonition's title
     runs into its text, so it must end like a sentence. The landing page must also carry the
-    frames of its live preview and load the script that swaps them. Only a pull request's preview
-    asks search engines not to index its pages, and every page of one does.
+    frame of its live preview and load the script that fills it. The overview of Get started
+    and of By example must link every page of its section. Only a pull request's preview asks
+    search engines not to index its pages, and every page of one does.
 
     Parameters
     ----------
@@ -145,6 +168,7 @@ def check_site(
                 problems.extend(_check_landing(parser, path, site))
             if _relative(path, site).startswith("api/"):
                 api_links.extend(parser.links)
+    problems.extend(_check_overviews(site))
     if require_inventory_links:
         problems.extend(
             f"api/: no link to {host}, so the object inventory was not loaded"
@@ -204,14 +228,26 @@ def _check_indexing(
 
 def _check_landing(parser: _PageParser, path: pathlib.Path, site: pathlib.Path) -> collections.abc.Sequence[str]:
     problems: list[str] = []
-    if parser.live_frames < _MIN_LIVE_FRAMES:
-        problems.append(f"{_LANDING_PAGE}: it has {parser.live_frames} frames of the live preview, so nothing can swap")
+    if not parser.live_frames:
+        problems.append(f"{_LANDING_PAGE}: it has no frame of the live preview, so the button does nothing")
     if not any(
         urllib.parse.urlsplit(src).path.removeprefix("./") == _LIVE_SCRIPT and not _is_broken(src, path, site)
         for src in parser.script_sources
     ):
         problems.append(f"{_LANDING_PAGE}: it does not load {_LIVE_SCRIPT}, so the button does nothing")
     return problems
+
+
+def _check_overviews(site: pathlib.Path) -> collections.abc.Iterator[str]:
+    for section in _OVERVIEW_SECTIONS:
+        overview = site / section / "index.html"
+        parser = _OverviewParser()
+        if overview.is_file():
+            parser.feed(overview.read_text(encoding="utf-8"))
+        linked = {posixpath.normpath(urllib.parse.urlsplit(link).path) for link in parser.links}
+        for page in sorted((site / section).glob("*/index.html")):
+            if page.parent.name not in linked:
+                yield f"{section}/index.html: its overview does not link to {page.parent.name}/"
 
 
 def _is_broken(src: str, page: pathlib.Path, site: pathlib.Path) -> bool:

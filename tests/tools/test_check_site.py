@@ -42,10 +42,7 @@ _PAGE = """<!doctype html>
 """
 
 
-_LANDING = (
-    "<template data-live-frame></template><template data-live-frame></template>"
-    '<script src="javascripts/live-preview.js"></script>'
-)
+_LANDING = '<template data-live-frame></template><script src="javascripts/live-preview.js"></script>'
 
 _NOINDEX = '<meta name="robots" content="noindex">'
 
@@ -246,32 +243,24 @@ def test_a_preview_beside_a_paragraph_is_fine(tmp_path: pathlib.Path) -> None:
     assert check_site.check_site(site) == []
 
 
-@pytest.mark.parametrize(
-    "landing",
-    [
-        '<script src="javascripts/live-preview.js"></script>',
-        '<template data-live-frame></template><script src="javascripts/live-preview.js"></script>',
-    ],
-)
-def test_the_site_check_needs_the_landing_frames(tmp_path: pathlib.Path, landing: str) -> None:
+def test_the_site_check_needs_the_landing_frame(tmp_path: pathlib.Path) -> None:
     site = _site(tmp_path)
-    _page(site, "index.html", landing=landing)
+    _page(site, "index.html", landing='<script src="javascripts/live-preview.js"></script>')
 
     problems = check_site.check_site(site)
 
     assert len(problems) == 1
     assert "index.html" in problems[0]
-    assert "frames" in problems[0]
+    assert "frame" in problems[0]
 
 
 @pytest.mark.parametrize(
     "script",
     ["", '<script src="javascripts/gone.js"></script>', '<script src="javascripts/other/live-preview.js"></script>'],
 )
-def test_the_site_check_needs_the_script_of_the_landing_frames(tmp_path: pathlib.Path, script: str) -> None:
+def test_the_site_check_needs_the_script_of_the_landing_frame(tmp_path: pathlib.Path, script: str) -> None:
     site = _site(tmp_path)
-    frames = "<template data-live-frame></template>" * 2
-    _page(site, "index.html", landing=frames + script)
+    _page(site, "index.html", landing="<template data-live-frame></template>" + script)
 
     problems = check_site.check_site(site)
 
@@ -279,7 +268,7 @@ def test_the_site_check_needs_the_script_of_the_landing_frames(tmp_path: pathlib
     assert "live-preview.js" in problems[0]
 
 
-def test_only_the_landing_page_needs_the_frames(tmp_path: pathlib.Path) -> None:
+def test_only_the_landing_page_needs_the_frame(tmp_path: pathlib.Path) -> None:
     site = _site(tmp_path)
 
     _page(site, "api/index.html")
@@ -336,6 +325,42 @@ def test_the_title_of_a_collapsed_block_needs_no_closing_punctuation(tmp_path: p
     _page(site, "get-started/index.html", extra='<details class="example"><summary>Full file</summary></details>')
 
     assert check_site.check_site(site) == []
+
+
+def test_a_page_missing_from_the_overview_of_its_section_is_reported(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    nav = '<nav><a href="01-views/">Views</a><a href="02-state/">State</a></nav>'
+    _page(site, "by-example/index.html", extra=f'{nav}<div class="risa-overview"><a href="01-views/">Views</a></div>')
+    _page(site, "by-example/01-views/index.html")
+    _page(site, "by-example/02-state/index.html")
+
+    assert check_site.check_site(site) == ["by-example/index.html: its overview does not link to 02-state/"]
+
+
+def test_an_overview_link_into_a_page_counts_for_that_page(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "by-example/index.html", extra='<div class="risa-overview"><a href="01-views/#render">Views</a></div>')
+    _page(site, "by-example/01-views/index.html")
+
+    assert check_site.check_site(site) == []
+
+
+def test_a_section_without_an_overview_page_is_reported(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    _page(site, "get-started/installation/index.html")
+    (site / "get-started" / "index.html").unlink()
+
+    assert check_site.check_site(site) == ["get-started/index.html: its overview does not link to installation/"]
+
+
+def test_an_overview_ends_with_its_block(tmp_path: pathlib.Path) -> None:
+    site = _site(tmp_path)
+    overview = '<div class="risa-overview"><div></div><a href="01-views/">Views</a></div><a href="02-state/">State</a>'
+    _page(site, "by-example/index.html", extra=overview)
+    _page(site, "by-example/01-views/index.html")
+    _page(site, "by-example/02-state/index.html")
+
+    assert check_site.check_site(site) == ["by-example/index.html: its overview does not link to 02-state/"]
 
 
 def test_a_published_page_that_asks_not_to_be_indexed_is_reported(tmp_path: pathlib.Path) -> None:

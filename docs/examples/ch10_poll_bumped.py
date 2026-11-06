@@ -1,0 +1,138 @@
+# Copyright (c) 2025 Rayakame
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+"""A vote now records who chose what, so the view's version goes up. Version 2 stays to answer old polls."""
+
+from __future__ import annotations
+
+import os
+
+import hikari
+import msgspec
+import redis.asyncio
+
+import risa
+from risa import ui
+from risa.store.redis import RedisStore
+
+WEEK = 7 * 24 * 60 * 60
+
+
+# --8<-- [start:fields]
+@risa.register(name="poll", version=3, state=risa.InStore(ttl=WEEK))
+class Poll(risa.View):
+    question: str
+    yes: list[int] = msgspec.field(default_factory=list[int])
+    no: list[int] = msgspec.field(default_factory=list[int])
+    note: str = "Change your mind whenever you like."
+    # --8<-- [end:fields]
+
+    def render(self) -> ui.Layout:
+        return ui.Container(
+            ui.TextDisplay(f"## {self.question}"),
+            ui.TextDisplay(self.note),
+            ui.Row(
+                ui.Button(self.vote_yes, label=f"Yes: {len(self.yes)}"),
+                ui.Button(self.vote_no, label=f"No: {len(self.no)}"),
+            ),
+        )
+
+    @risa.handler
+    async def vote_yes(self, ctx: risa.ComponentContext) -> None:
+        self._take_back(ctx.user.id)
+        self.yes.append(ctx.user.id)
+        await ctx.rerender()
+
+    @risa.handler
+    async def vote_no(self, ctx: risa.ComponentContext) -> None:
+        self._take_back(ctx.user.id)
+        self.no.append(ctx.user.id)
+        await ctx.rerender()
+
+    def _take_back(self, voter: int) -> None:
+        self.yes = [other for other in self.yes if other != voter]
+        self.no = [other for other in self.no if other != voter]
+
+    # --8<-- [start:outdated]
+    @classmethod
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        await ctx.respond("This button no longer works.", ephemeral=True)
+        # --8<-- [end:outdated]
+
+    @classmethod
+    async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
+        await ctx.edit(ui.TextDisplay("This poll has expired."))
+
+
+# --8<-- [start:old-fields]
+@risa.register(name="poll", version=2, state=risa.InStore(ttl=WEEK))
+class OldPoll(risa.View):
+    question: str
+    yes: int = 0
+    no: int = 0
+    voters: list[int] = msgspec.field(default_factory=list[int])
+    note: str = ""
+    # --8<-- [end:old-fields]
+
+    # --8<-- [start:old-handlers]
+    @risa.handler
+    async def vote_yes(self, ctx: risa.ComponentContext) -> None:
+        await self._ended(ctx)
+
+    @risa.handler
+    async def vote_no(self, ctx: risa.ComponentContext) -> None:
+        await self._ended(ctx)
+
+    async def _ended(self, ctx: risa.ComponentContext) -> None:
+        text = f"{self.question} It ended with {self.yes} yes and {self.no} no."
+        await ctx.edit(ui.TextDisplay(text))
+        # --8<-- [end:old-handlers]
+
+    @classmethod
+    async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
+        await ctx.edit(ui.TextDisplay("This poll has expired."))
+
+
+def main() -> None:
+    bot = hikari.GatewayBot(
+        os.environ["DISCORD_TOKEN"],
+        intents=hikari.Intents.ALL_UNPRIVILEGED | hikari.Intents.MESSAGE_CONTENT,
+    )
+    connection = redis.asyncio.Redis(host="localhost")
+    client = risa.client_from_app(bot, store=RedisStore(connection))
+    # --8<-- [start:client]
+    client.add_view(Poll)
+    client.add_view(OldPoll)
+    # --8<-- [end:client]
+
+    @bot.listen()
+    async def on_stopped(_: hikari.StoppedEvent) -> None:
+        await connection.aclose()
+
+    @bot.listen()
+    async def on_message(event: hikari.GuildMessageCreateEvent) -> None:
+        if event.content == "!poll":
+            rendered = await client.build(Poll(question="Pizza on Friday?"))
+            await rendered.send_to(bot.rest, event.channel_id)
+
+    bot.run()
+
+
+if __name__ == "__main__":
+    main()

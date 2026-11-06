@@ -14,6 +14,20 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
+**2026-11-05, docs site, "By example" (branch `docs-by-example`):** the branch holds the tooling and
+chapters 01 to 12 (`docs/by-example/`, examples in `docs/examples/ch*.py`). The preview tool now builds a diagram's after state at sequence number 1 and the
+live frame for `count = n` at n, so the ids on the pages are the ones a real click leaves; a test
+clicks through the dispatcher to hold it. Three things nobody has seen on real Discord, and the
+pages claim nothing about them beyond Discord's documentation: a `ui.File` upload (chapter 04's
+`!meetup`), what becomes of a thinking message nothing answers, and a rows-only message sent with no
+`content`. A view `version` bump never reaches `on_outdated`, so chapter 10 teaches a class kept at the
+old version to answer old components. The lock, lease and compare-and-set claims of chapter 11 ran on a real Redis and a real PostgreSQL with two OS
+processes, as did `ttl`, the eviction and persistence notes of chapter 09 and the store tests. They did
+not run on a Redis failover, behind a real load balancer, or with Discord choosing the process that gets a
+click, and the `InMessage` race of chapter 11 ran offline only. Nothing ran on real Discord. Each of the three sections
+now opens on an overview, `index.md`, and its header in the sidebar links there, as Home does: chapters as cards in three
+parts, the API as rows whose lines are the first lines of the module docstrings.
+
 **2026-11-04, forged `custom_id`s: settled, no check in risa.** Discord answers a click whose
 `custom_id` is not on the message with HTTP 400 and `COMPONENT_VALIDATION_FAILED`, so it never
 reaches the bot. The maintainer tested it by hand in the browser with an invented id and with an
@@ -32,15 +46,14 @@ through a tab each for lightbulb and gateway to a restart, with one sentence for
 `coming-from-miru.md` says hikari-risa is not a direct successor to miru, maps miru 4.3.1 onto
 risa and says what risa does not have. Every claim about miru was read from
 miru's documentation and its 4.3.1 source, so a new miru release means reading them again. The
-hero's calls to action point there, with "Learn by example" on `first-view.md` until the chapters
-exist, and the landing page has its "Coming from miru" line. Code on the pages comes from
+hero's calls to action point there, and "Learn by example" now opens `by-example/index.md`; the landing page has its "Coming from miru" line. Code on the pages comes from
 `docs/examples/` through snippets, with `dedent_subsections` on for sections inside `main()`; the
 one exception is miru's half of each pair on the miru page, which no example can hold because
 miru is not a dependency. `docs/examples/coming_from_miru.py` holds the `InStore` example. A page's
 first paragraph takes `{: .risa-lead }`, tabs carry the pink bar, and `check_site` fails an
 admonition title without closing punctuation, since it runs into its text. The `counter` previews
-now show 0 and 1, which agree with `count: int = 0` above them. What is left of the docs site is
-"By example" (spec §4.3).
+now show 0 and 1, which agree with `count: int = 0` above them. What was left of the docs site
+then, "By example" (spec §4.3), is under way: see the 2026-11-05 entry above.
 
 **2026-11-04, docs site, the counter on the landing page (branch `docs-get-started`):**
 under the three statements a reader now clicks a real-looking Discord button, and the number
@@ -54,6 +67,8 @@ one `--8<--` line. `docs/javascripts/live-preview.js` only swaps those frames, t
 static preview. Frames and every preview's wrapper carry `data-search-exclude`, or their text lands in
 the search index. Spec §4.4 item 4 and §6 describe it. `check_site` fails a landing page without frames or without
 the script.
+Since 2026-11-05 the count has no cap: the page holds one `<template>` and the script works out each
+`custom_id`, which a test holds against `client.build`.
 
 **2026-11-04, docs site, milestone 1c (branch `docs-redesign`):** the first live site was
 rejected as looking like a template, so the frame was rebuilt in the language of the social
@@ -119,7 +134,7 @@ now says how many bytes each durable field takes, largest first, with risa's own
 as the last line, and keeps the numbers in a new `fields` attribute (name to bytes, in
 declaration order). The build plan measures them with `StateSchema.field_sizes` when
 `anchor.carve` overflows and raises the enriched error in place of carve's. This is what
-DESIGN §13 promised, and chapter 07 of the planned docs site builds its story on it.
+DESIGN §13 promised, and chapter 08 of the planned docs site builds its story on it.
 A public way to ask how full a view is before it overflows is still open (DESIGN §15).
 
 **2026-11-02, docs pass, part 1: API docstrings (merged as PR #50, `a9fe286`):** ruff's docstring

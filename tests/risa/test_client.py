@@ -39,6 +39,7 @@ from risa.internal import reader
 from risa.internal import registry
 from risa.state import anchor
 from risa.state import message
+from risa.state import placement
 from risa.state import stateless
 from risa.state import stored
 from risa.ui import build as build_
@@ -335,8 +336,16 @@ def interaction_with(custom_id: str) -> unittest.mock.Mock:
     return interaction
 
 
-def interaction_on(view: risa.View, layout: ui.Layout, *, clicked: int = 0) -> unittest.mock.Mock:
+def interaction_on(
+    view: risa.View,
+    layout: ui.Layout,
+    *,
+    clicked: int = 0,
+    sent_as: placement.InMessage | None = None,
+) -> unittest.mock.Mock:
     meta = registry.require_meta(view)
+    if sent_as is not None:
+        meta = msgspec.structs.replace(meta, state=sent_as)
     state = message.MessageBackend().first_anchor(meta=meta, view=view) if meta.schema.durable else b""
     ids = [
         typing.cast("str", leaf["custom_id"])
@@ -1067,6 +1076,121 @@ async def test_an_unsatisfiable_dependency_is_contained(caplog: pytest.LogCaptur
 
     assert "failed while answering" in caplog.text
     assert not DI_CALLS
+
+
+class Wallet: ...
+
+
+def wallet_torn_down(_wallet: Wallet) -> None:
+    DI_CALLS.append(("torn down",))
+
+
+@risa.register(name="client-di-per-click")
+class DiPerClick(risa.View):
+    async def load(self, wallet: Wallet = risa.INJECTED) -> None:  # ruff:ignore[no-self-use]
+        DI_CALLS.append((wallet,))
+
+    @risa.handler
+    async def spend(self, _ctx: risa.ComponentContext, wallet: Wallet) -> None:  # ruff:ignore[no-self-use]
+        DI_CALLS.append((wallet,))
+
+    @risa.handler
+    async def explode(self, _ctx: risa.ComponentContext, wallet: Wallet) -> None:  # ruff:ignore[no-self-use]
+        DI_CALLS.append((wallet,))
+        raise RuntimeError
+
+
+def per_click_client() -> risa.GatewayEnabledClient:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(DiPerClick)
+    built.di.registry_for(risa.Contexts.COMPONENT).register_factory(Wallet, Wallet, teardown=wallet_torn_down)
+    DI_CALLS.clear()
+    return built
+
+
+async def test_a_click_makes_a_component_dependency_once_and_load_shares_it() -> None:
+    built = per_click_client()
+
+    for _ in range(2):
+        interaction = interaction_with(custom_id_of(DiPerClick, ui.Button(DiPerClick().spend)))
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    (first_load,), (first_handler,), first_end, (second_load,), (second_handler,), second_end = DI_CALLS
+    assert first_load is first_handler
+    assert second_load is second_handler
+    assert first_load is not second_load
+    assert first_end == second_end == ("torn down",)
+
+
+async def test_a_component_dependency_is_torn_down_after_a_handler_raises() -> None:
+    built = per_click_client()
+    interaction = interaction_with(custom_id_of(DiPerClick, ui.Button(DiPerClick().explode)))
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert DI_CALLS[-1] == ("torn down",)
+
+
+async def test_build_runs_load_without_the_component_context() -> None:
+    built = per_click_client()
+
+    with pytest.raises(linkd.DependencyNotSatisfiableException):
+        await built.build(DiPerClick())
+
+
+def open_database_from_click(_ctx: risa.ComponentContext) -> Database:
+    return Database()
+
+
+async def test_a_default_dependency_cannot_name_a_component_one(caplog: pytest.LogCaptureFixture) -> None:
+    built, _database = di_client(register_database=False)
+    built.di.registry_for(risa.Contexts.DEFAULT).register_factory(Database, open_database_from_click)
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(risa.bind(DiWired().fetch, 1))))
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "failed while answering" in caplog.text
+    assert not DI_CALLS
+
+
+@risa.register(name="client-dense-votes", state=risa.InMessage(codec=codecs.BASE32768))
+class DenseVotes(risa.View):
+    voters: list[int] = msgspec.field(default_factory=list[int])
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.vote, label="Vote"), ui.Button(self.vote, label="Vote too"))
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(self.voters[0])
+        DI_CALLS.append((len(self.voters),))
+        await ctx.rerender()
+
+
+async def test_a_new_codec_reads_a_full_message_and_makes_room_at_its_rerender() -> None:
+    voter = 1298471056230400001
+    full = DenseVotes(voters=[voter] * 14)
+    grown = DenseVotes(voters=[voter] * 15)
+    meta = registry.require_meta(DenseVotes)
+    built = risa.client_from_app(gateway_app())
+    built.add_view(DenseVotes)
+    DI_CALLS.clear()
+    interaction = interaction_on(full, full.render(), sent_as=risa.InMessage())
+    assert interaction.custom_id[1] == codecs.BASE85.tag
+
+    with pytest.raises(risa.StateOverflowError):
+        build_.plan(grown.render(), msgspec.structs.replace(meta, state=risa.InMessage())).emit(
+            message.MessageBackend().first_anchor(meta=meta, view=grown),
+        )
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert DI_CALLS == [(15,)]
+    call = rest_of(built).create_interaction_response.await_args
+    assert call is not None
+    (row,) = call.kwargs["components"]
+    assert {leaf["custom_id"][1] for leaf in row.build()[0]["components"]} == {codecs.BASE32768.tag}
 
 
 async def test_the_client_injects_itself_for_cross_file_handlers() -> None:
@@ -2218,3 +2342,55 @@ async def test_a_stored_view_with_nothing_to_click_builds_without_its_store() ->
     rendered = await built.build(Receipt(total=3))
 
     assert not ids_of(rendered.components)
+
+
+@risa.register(name="client-retired", version=2)
+class RetiredPoll(risa.View):
+    votes: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.vote))
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext) -> None:
+        await ctx.respond(f"ended with {self.votes}")
+
+
+@risa.register(name="client-retired", version=3)
+class CurrentPoll(risa.View):
+    votes: list[int] = msgspec.field(default_factory=list[int])
+    outdated: typing.ClassVar[list[str]] = []
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext) -> None:
+        await ctx.respond(f"version 3 answered with {self.votes}")
+
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        cls.outdated.append("ran")
+
+
+async def test_a_class_kept_at_the_old_version_answers_clicks_on_old_components() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(CurrentPoll)
+    built.add_view(RetiredPoll)
+    view = RetiredPoll(votes=3)
+
+    await built._process_interaction(interaction_on(view, view.render()))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert rest_of(built).create_interaction_response.await_args.args[3] == "ended with 3"
+    assert not CurrentPoll.outdated
+
+
+async def test_without_the_old_class_a_click_reaches_no_view_and_no_hook(caplog: pytest.LogCaptureFixture) -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(CurrentPoll)
+    view = RetiredPoll(votes=3)
+
+    with caplog.at_level(logging.DEBUG, logger="risa.dispatch"):
+        await built._process_interaction(interaction_on(view, view.render()))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    rest_of(built).create_interaction_response.assert_not_awaited()
+    assert not CurrentPoll.outdated
+    assert "this client has no view for it" in caplog.text

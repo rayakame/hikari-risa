@@ -40,9 +40,9 @@ A view keeps its state in its message by default, and that needs nothing extra. 
 
 | Extra | Installs | You want it when |
 |---|---|---|
-| `redis` | `redis` | Your views keep their state in Redis, with [`RedisStore`](../api/store/redis.md). |
-| `postgres` | `asyncpg` | Your views keep their state in PostgreSQL, with [`PostgresStore`](../api/store/postgres.md). |
-| `radixly` | `radixly` | A view runs out of room in its message. The [codecs](../api/codecs.md) `BASE32768` and `URO14` fit more than twice as much. |
+| `redis` | `redis` | Your views keep their state in Redis, with [`RedisStore`](../by-example/09-stores-and-ttl.md#redis-and-postgresql). |
+| `postgres` | `asyncpg` | Your views keep their state in PostgreSQL, with [`PostgresStore`](../by-example/09-stores-and-ttl.md#redis-and-postgresql). |
+| `radixly` | `radixly` | A view runs out of room in its message. The [codecs](../by-example/08-where-state-lives.md#another-codec) `BASE32768` and `URO14` fit more than twice as much. |
 
 Name one when you install:
 

@@ -1,0 +1,370 @@
+/* The diagrams stay dark in both schemes, so --risa-rule-color, which turns dark in Banner tone, would vanish on them. */
+.md-typeset ol.risa-flow,
+.md-typeset .risa-ids,
+.md-typeset .risa-scope,
+.md-typeset table.risa-grid,
+.md-typeset ol.risa-timeline {
+  --risa-night-rule: rgba(233, 218, 249, 0.09);
+}
+
+.md-typeset ol.risa-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+  margin: 1.2rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-typeset .risa-flow__step {
+  --risa-inline-code-color: #ffd479;
+  --risa-inline-code-bg: transparent;
+
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--risa-night-rule);
+  border-radius: 0.3rem;
+  color: #b7a3cc;
+  background: #150524;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.md-typeset ol.risa-flow > .risa-flow__step {
+  margin: 0;
+}
+
+.md-typeset .risa-flow__step:not(:last-child, :nth-child(3n))::after {
+  position: absolute;
+  top: 50%;
+  right: -0.95rem;
+  color: #f680a1;
+  content: "\2192";
+  transform: translateY(-50%);
+}
+
+.risa-flow__n {
+  color: #f680a1;
+  font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.md-typeset .risa-flow__step strong {
+  color: #ece2f6;
+  font-size: 0.8rem;
+}
+
+.md-typeset .risa-flow__step code {
+  padding: 0;
+  color: #ffd479;
+  background: none;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.md-typeset ol.risa-flow.risa-flow--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.md-typeset ol.risa-flow--4 .risa-flow__step:nth-child(3)::after {
+  position: absolute;
+  top: 50%;
+  right: -0.95rem;
+  color: #f680a1;
+  content: "\2192";
+  transform: translateY(-50%);
+}
+
+.md-typeset .risa-flow__step .risa-live__changed,
+.md-typeset .risa-ids .risa-live__changed {
+  border-bottom: 2px solid #f680a1;
+  color: #fff;
+}
+
+.risa-id-route {
+  color: #ffd479;
+}
+
+.risa-id-state {
+  color: #f680a1;
+}
+
+.risa-id-arg {
+  color: #c9a7f0;
+}
+
+.md-typeset .risa-ids {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  color: #b7a3cc;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.md-typeset .risa-ids__title {
+  margin: 0.45rem 0 0.1rem;
+  color: #ece2f6;
+  font-weight: 700;
+}
+
+.md-typeset .risa-ids__title:first-child {
+  margin-top: 0;
+}
+
+.md-typeset .risa-ids__row {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.md-typeset .risa-ids code {
+  padding: 0;
+  color: inherit;
+  background: none;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.md-typeset .risa-ids__legend {
+  margin: 0.55rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--risa-night-rule);
+}
+
+.md-typeset .risa-scope {
+  --risa-inline-code-color: #ffd479;
+  --risa-inline-code-bg: transparent;
+
+  display: grid;
+  gap: 0.5rem;
+  margin: 1.2rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--risa-night-rule);
+  border-radius: 0.3rem;
+  color: #b7a3cc;
+  background: #150524;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.md-typeset .risa-scope--inner {
+  margin: 0.35rem 0 0;
+  background: #240c3a;
+}
+
+.md-typeset .risa-scope p {
+  margin: 0;
+}
+
+.md-typeset .risa-scope code {
+  padding: 0;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.md-typeset .risa-scope__title {
+  --risa-inline-code-color: #f680a1;
+
+  color: #ece2f6;
+  font-weight: 700;
+}
+
+.md-typeset .risa-scope__title code {
+  margin-right: 0.35rem;
+}
+
+.md-typeset .risa-scope__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1.1rem;
+}
+
+.md-typeset table.risa-grid {
+  display: table;
+  width: 100%;
+  margin: 1.2rem 0;
+  border-spacing: 0.4rem;
+  border-collapse: separate;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  table-layout: fixed;
+}
+
+.md-typeset .risa-grid th,
+.md-typeset .risa-grid td {
+  --risa-inline-code-color: #ffd479;
+  --risa-inline-code-bg: transparent;
+
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--risa-night-rule);
+  border-radius: 0.3rem;
+  color: #b7a3cc;
+  background: #150524;
+  font-weight: 400;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-typeset .risa-grid thead th {
+  color: #f680a1;
+  font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+  font-weight: 900;
+}
+
+.md-typeset .risa-grid thead th:first-child {
+  border-color: transparent;
+  background: none;
+}
+
+.md-typeset .risa-grid tbody th {
+  color: #ece2f6;
+  font-weight: 700;
+}
+
+.md-typeset .risa-grid code,
+.md-typeset .risa-timeline code {
+  padding: 0;
+  color: #ffd479;
+  background: none;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.md-typeset ol.risa-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.1rem;
+  margin: 1.2rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-typeset ol.risa-timeline > .risa-timeline__event {
+  --risa-inline-code-color: #ffd479;
+  --risa-inline-code-bg: transparent;
+
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--risa-night-rule);
+  border-top: 2px solid #f680a1;
+  border-radius: 0 0 0.3rem 0.3rem;
+  color: #b7a3cc;
+  background: #150524;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.md-typeset ol.risa-timeline > .risa-timeline__event:not(:last-child)::after {
+  position: absolute;
+  top: -2px;
+  right: calc(-1.1rem - 1px);
+  width: 1.1rem;
+  height: 2px;
+  background: #f680a1;
+  content: "";
+}
+
+.risa-timeline__when {
+  color: #f680a1;
+  font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.md-typeset .risa-timeline__event strong {
+  color: #ece2f6;
+  font-size: 0.8rem;
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-typeset table.risa-grid,
+  .md-typeset .risa-grid tbody,
+  .md-typeset .risa-grid tr,
+  .md-typeset .risa-grid th,
+  .md-typeset .risa-grid td {
+    display: block;
+    width: auto;
+  }
+
+  .md-typeset .risa-grid thead {
+    display: none;
+  }
+
+  .md-typeset .risa-grid tr {
+    margin-bottom: 0.9rem;
+  }
+
+  .md-typeset .risa-grid tbody th,
+  .md-typeset .risa-grid td {
+    margin-bottom: 0.3rem;
+  }
+
+  .md-typeset .risa-grid td::before {
+    display: block;
+    color: #f680a1;
+    font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+    font-size: 0.7rem;
+    font-weight: 900;
+    content: attr(data-where);
+  }
+
+  .md-typeset ol.risa-timeline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .md-typeset ol.risa-timeline > .risa-timeline__event {
+    border-top: 1px solid var(--risa-night-rule);
+    border-left: 2px solid #f680a1;
+    border-radius: 0 0.3rem 0.3rem 0;
+  }
+
+  .md-typeset ol.risa-timeline > .risa-timeline__event:not(:last-child)::after {
+    top: auto;
+    right: auto;
+    bottom: calc(-1.1rem - 1px);
+    left: -2px;
+    width: 2px;
+    height: 1.1rem;
+  }
+
+  .md-typeset ol.risa-flow,
+  .md-typeset ol.risa-flow.risa-flow--4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .md-typeset .risa-flow__step:not(:last-child)::after {
+    position: absolute;
+    top: auto;
+    right: auto;
+    bottom: -1.05rem;
+    left: 1rem;
+    content: "\2193";
+    transform: none;
+  }
+
+  .md-typeset ol.risa-flow--4 .risa-flow__step:nth-child(3)::after {
+    top: auto;
+    right: auto;
+    bottom: -1.05rem;
+    left: 1rem;
+    content: "\2193";
+    transform: none;
+  }
+
+  .md-typeset .risa-ids__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    margin-bottom: 0.3rem;
+  }
+}

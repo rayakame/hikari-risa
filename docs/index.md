@@ -16,7 +16,7 @@ hide:
 Components V2 views for hikari, with state that survives restarts.
 {: .risa-hero__tagline }
 
-[Get started](get-started/installation.md){ .risa-hero__start } [Learn by example](get-started/first-view.md){ .risa-hero__example }
+[Get started](get-started/installation.md){ .risa-hero__start } [Learn by example](by-example/index.md){ .risa-hero__example }
 {: .risa-hero__actions }
 
 `uv add hikari-risa`

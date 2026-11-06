@@ -93,6 +93,7 @@ def render_message(
     *,
     author: str = "Risa Bot",
     interactive: bool = False,
+    content: str = "",
 ) -> str:
     """Draw the components of a message as Discord's dark theme does.
 
@@ -104,13 +105,16 @@ def render_message(
         The name of the bot that sent the message.
     interactive
         Draw buttons that carry a ``custom_id`` as real ``<button>`` elements, not inert spans.
+    content
+        Discord Markdown drawn above the components.
 
     Returns
     -------
     :
         One block of HTML without blank lines, safe to include in a Markdown page.
     """
-    return frame_message(render_body(components, interactive=interactive), author=author)
+    text = f'<div class="dc-text">{render_markdown(content)}</div>' if content else ""
+    return frame_message(text + render_body(components, interactive=interactive), author=author)
 
 
 def render_body(
