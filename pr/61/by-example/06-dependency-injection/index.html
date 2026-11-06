@@ -750,6 +750,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#why-you-need-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why you need it
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#register-it" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1784,6 +1795,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#why-you-need-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why you need it
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#register-it" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1942,18 +1964,40 @@
 
 
 <h1 id="dependency-injection">Dependency injection<a class="headerlink" href="#dependency-injection" title="Permanent link">&para;</a></h1>
-<p class="risa-lead">Register a thing once, and any handler or <code>load()</code> that names it as a parameter gets it. risa does this through
-<a href="https://linkd.readthedocs.io/en/latest/">linkd</a>.</p>
+<p class="risa-lead">A handler often needs something from outside its view, such as your database. Register it once at startup, name it as a
+parameter, and risa passes it in on every click.</p>
+<h2 id="why-you-need-it">Why you need it<a class="headerlink" href="#why-you-need-it" title="Permanent link">&para;</a></h2>
+<p>This shop shows a price when someone clicks an item. The prices are in your database, so the handler that answers the
+click needs your database.</p>
+<div class="risa-result"><p class="risa-result__label">In Discord</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-box"><div class="dc-text"><p class="dc-h2">Shop</p></div><div class="dc-row"><span class="dc-btn dc-primary">Apple</span><span class="dc-btn dc-primary">Pear</span></div></div></div></div></div>
+
+<p>A function of your own gets what it needs as arguments, because you write the call. You never call a handler: a click
+comes in, and risa calls it. The view can't hold your database either, because
+<a href="../02-buttons-that-remember/#fields-are-the-state">its fields get saved</a> from click to click, and <code>@risa.register</code> raises
+<code>ViewDeclarationError</code> on a type it can't save.</p>
+<p>So the handler names what it needs as a parameter, and risa passes it in. Your database is a <em>dependency</em> of the handler,
+and passing it in is <em>injecting</em> it.</p>
+<ol class="risa-flow">
+<li class="risa-flow__step"><span class="risa-flow__n">1</span><strong>You register it</strong><span>At startup, you tell risa which object a <code>Prices</code> parameter gets.</span></li>
+<li class="risa-flow__step"><span class="risa-flow__n">2</span><strong>The handler names it</strong><span>It takes a parameter, <code>prices: Prices</code>.</span></li>
+<li class="risa-flow__step"><span class="risa-flow__n">3</span><strong>risa passes it in</strong><span>On each click, risa calls the handler with that object.</span></li>
+</ol>
+
+<p>A global variable would do for a small object like this one. A connection pool opens only once the bot is running, so its
+global would stay empty until then, and each handler would have to check it.</p>
 <h2 id="register-it">Register it<a class="headerlink" href="#register-it" title="Permanent link">&para;</a></h2>
-<p>This shop looks up prices. <code>Prices</code> stands in for your database, and you can find it in the full file.</p>
+<p><code>Prices</code> is your own class, standing in for your database, and you can find it in the full file. <code>main()</code> calls this once,
+before the bot starts.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><span class="k">def</span><span class="w"> </span><span class="nf">add_dependencies</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">Client</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-0-2">    <span class="n">registry</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">di</span><span class="o">.</span><span class="n">registry_for</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">Contexts</span><span class="o">.</span><span class="n">DEFAULT</span><span class="p">)</span>
 </span><span id="__span-0-3">    <span class="n">registry</span><span class="o">.</span><span class="n">register_value</span><span class="p">(</span><span class="n">Prices</span><span class="p">,</span> <span class="n">Prices</span><span class="p">())</span>
 </span></code></pre></div>
-<p><a href="../../api/client/#risa.client.Client.di"><code>client.di</code></a> is linkd's manager, and
-<a href="../../api/di/#risa.di.Contexts"><code>risa.Contexts.DEFAULT</code></a> is the context that stays open for the whole run. <code>register_value</code>
-takes the type a parameter will name and the object it gets. Do this before the bot starts: once a click or a view's <code>load()</code> has used the
-manager, <code>register_value</code> raises linkd's <code>RegistryFrozenException</code>.</p>
+<p><code>register_value(Prices, Prices())</code> says that a parameter annotated <code>Prices</code> gets this one object. <code>registry_for</code> picks
+where it's kept, and <a href="../../api/di/#risa.di.Contexts"><code>risa.Contexts.DEFAULT</code></a> keeps it for the whole run.
+<a href="../../api/client/#risa.client.Client.di"><code>client.di</code></a> is the manager of <a href="https://linkd.readthedocs.io/en/latest/">linkd</a>,
+the library risa injects with.</p>
+<p>Do this before the bot starts: once a click or a view's <code>load()</code> has used the manager, <code>register_value</code> raises linkd's
+<code>RegistryFrozenException</code>.</p>
 <p>A connection pool has to open inside the running event loop, so register a function for it:
 <code>registry.register_factory(Pool, open_pool, teardown=close_pool)</code> calls <code>open_pool</code> at first use, and
 <code>await client.di.close()</code> calls the teardown.</p>
@@ -1992,11 +2036,10 @@ manager, <code>register_value</code> raises linkd's <code>RegistryFrozenExceptio
 </tr>
 </tbody>
 </table>
-<p><a href="../07-fresh-data/#a-leaderboard"><code>load()</code></a>, which the next chapter introduces, takes injected parameters as well. Give each
-the default <a href="../../api/di/#risa.di.INJECTED"><code>risa.INJECTED</code></a>, which is for your type checker: <code>View.load</code> takes no
-parameters, so without it pyright reports an incompatible override.
-<a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a> and <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a> take them the
-same way.</p>
+<p>risa tells them apart by type. <code>str</code> is a <a href="../03-handlers-and-arguments/#what-can-be-an-argument">type an argument can have</a>,
+so <code>item</code> comes from the button. <code>Prices</code> is not, so <code>prices</code> is injected.</p>
+<p>Later chapters add <a href="../07-fresh-data/#a-leaderboard"><code>load()</code></a>, <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a> and
+<a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a>, which take injected parameters the same way.</p>
 <p>If nothing is registered for a parameter, the handler does not run: risa logs linkd's
 <code>DependencyNotSatisfiableException</code>, and the click fails in Discord. A handler with only <code>ctx</code> and wire arguments needs
 nothing from linkd.</p>
@@ -2019,6 +2062,8 @@ client.</p>
 </span><span id="__span-2-13">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">buy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-2-14">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">edit</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="sa">f</span><span class="s2">"You bought the </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="si">}</span><span class="s2">."</span><span class="p">))</span>
 </span></code></pre></div>
+<div class="risa-result"><p class="risa-result__label">The answer to a click on Apple, which only that person sees</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-box"><div class="dc-text"><p>Apple: 3 coins</p></div><div class="dc-row"><span class="dc-btn dc-primary">Buy</span></div></div></div></div></div>
+
 <details class="example">
 <summary>Full file</summary>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="sd">"""A shop whose handler takes a wire argument, your database and the client."""</span>

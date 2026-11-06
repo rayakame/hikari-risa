@@ -1934,9 +1934,10 @@ it. <code>Scores</code> stands in for your database, and you can find it in the 
 </span><span id="__span-0-6">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scores</span><span class="p">:</span> <span class="n">Scores</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">INJECTED</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-0-7">        <span class="bp">self</span><span class="o">.</span><span class="n">rows</span> <span class="o">=</span> <span class="k">await</span> <span class="n">scores</span><span class="o">.</span><span class="n">top</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>load()</code> names <code>Scores</code> as a parameter, with the default <code>= risa.INJECTED</code> from
-<a href="../06-dependency-injection/#name-it-as-a-parameter">Dependency injection</a>. <code>main()</code> registers it as that chapter shows,
-or <code>client.build</code> raises linkd's <code>DependencyNotSatisfiableException</code>.
+<p><code>load()</code> <a href="../06-dependency-injection/#name-it-as-a-parameter">names <code>Scores</code> as a parameter</a>, as a handler would, and
+<code>main()</code> registers it. Without that, <code>client.build</code> raises linkd's <code>DependencyNotSatisfiableException</code>. The default
+<a href="../../api/di/#risa.di.INJECTED"><code>risa.INJECTED</code></a> is for your type checker: <code>View.load</code> takes no parameters, so without it
+pyright reports an incompatible override.
 <code>msgspec.field(default_factory=list[str])</code> gives each view a new empty list.</p>
 <p><code>render()</code> reads a prop as it reads a field. Each game's button runs <code>switch</code>, and <code>_TOP</code> at the top of the file holds
 each game's top players.</p>
