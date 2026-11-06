@@ -39,6 +39,7 @@ from risa.internal import reader
 from risa.internal import registry
 from risa.state import anchor
 from risa.state import message
+from risa.state import placement
 from risa.state import stateless
 from risa.state import stored
 from risa.ui import build as build_
@@ -335,8 +336,16 @@ def interaction_with(custom_id: str) -> unittest.mock.Mock:
     return interaction
 
 
-def interaction_on(view: risa.View, layout: ui.Layout, *, clicked: int = 0) -> unittest.mock.Mock:
+def interaction_on(
+    view: risa.View,
+    layout: ui.Layout,
+    *,
+    clicked: int = 0,
+    sent_as: placement.InMessage | None = None,
+) -> unittest.mock.Mock:
     meta = registry.require_meta(view)
+    if sent_as is not None:
+        meta = msgspec.structs.replace(meta, state=sent_as)
     state = message.MessageBackend().first_anchor(meta=meta, view=view) if meta.schema.durable else b""
     ids = [
         typing.cast("str", leaf["custom_id"])
@@ -1143,6 +1152,45 @@ async def test_a_default_dependency_cannot_name_a_component_one(caplog: pytest.L
 
     assert "failed while answering" in caplog.text
     assert not DI_CALLS
+
+
+@risa.register(name="client-dense-votes", state=risa.InMessage(codec=codecs.BASE32768))
+class DenseVotes(risa.View):
+    voters: list[int] = msgspec.field(default_factory=list[int])
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.vote, label="Vote"), ui.Button(self.vote, label="Vote too"))
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(self.voters[0])
+        DI_CALLS.append((len(self.voters),))
+        await ctx.rerender()
+
+
+async def test_a_new_codec_reads_a_full_message_and_makes_room_at_its_rerender() -> None:
+    voter = 1298471056230400001
+    full = DenseVotes(voters=[voter] * 14)
+    grown = DenseVotes(voters=[voter] * 15)
+    meta = registry.require_meta(DenseVotes)
+    built = risa.client_from_app(gateway_app())
+    built.add_view(DenseVotes)
+    DI_CALLS.clear()
+    interaction = interaction_on(full, full.render(), sent_as=risa.InMessage())
+    assert interaction.custom_id[1] == codecs.BASE85.tag
+
+    with pytest.raises(risa.StateOverflowError):
+        build_.plan(grown.render(), msgspec.structs.replace(meta, state=risa.InMessage())).emit(
+            message.MessageBackend().first_anchor(meta=meta, view=grown),
+        )
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert DI_CALLS == [(15,)]
+    call = rest_of(built).create_interaction_response.await_args
+    assert call is not None
+    (row,) = call.kwargs["components"]
+    assert {leaf["custom_id"][1] for leaf in row.build()[0]["components"]} == {codecs.BASE32768.tag}
 
 
 async def test_the_client_injects_itself_for_cross_file_handlers() -> None:

@@ -288,6 +288,32 @@ voters = [
 ]
 
 [[preview]]
+kind = "ids"
+id = "poll-dense-ids"
+title = "The same twelve voters in BASE32768"
+example = "ch08_poll_dense"
+view = "Poll"
+
+[preview.before]
+question = "Pizza on Friday?"
+yes = 7
+no = 5
+voters = [
+  1298471056230400001,
+  1298471056230407920,
+  1298471056230415839,
+  1298471056230423758,
+  1298471056230431677,
+  1298471056230439596,
+  1298471056230447515,
+  1298471056230455434,
+  1298471056230463353,
+  1298471056230471272,
+  1298471056230479191,
+  1298471056230487110,
+]
+
+[[preview]]
 kind = "error"
 id = "poll-overflow"
 label = "13 voters: what client.build raises"

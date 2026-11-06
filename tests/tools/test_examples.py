@@ -28,9 +28,12 @@ import typing
 import unittest.mock
 
 import linkd
+import msgspec
 import pytest
 
 import risa
+from risa import codecs
+from risa import ui
 
 if typing.TYPE_CHECKING:
     import types
@@ -92,3 +95,29 @@ async def test_the_function_of_chapter_06_needs_the_context_it_opens() -> None:
     await client.di.close()
 
     typing.cast("unittest.mock.AsyncMock", client.rest).create_message.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ("wire_codec", "voters"),
+    [(codecs.BASE85, 12), (codecs.BASE32768, 33), (codecs.URO14, 30)],
+)
+async def test_the_poll_of_chapter_08_fits_what_its_page_says(wire_codec: codecs.Codec, voters: int) -> None:
+    @risa.register(name=f"examples-poll-{wire_codec.name}", state=risa.InMessage(codec=wire_codec))
+    class Poll(risa.View):
+        question: str
+        yes: int = 0
+        no: int = 0
+        voters: list[int] = msgspec.field(default_factory=list[int])
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.vote, label="Yes"), ui.Button(self.vote, label="No"))
+
+        @risa.handler
+        async def vote(self, ctx: risa.ComponentContext) -> None: ...
+
+    client = _client()
+    ids = [1298471056230400001 + index * 7919 for index in range(voters + 1)]
+
+    await client.build(Poll(question="Pizza on Friday?", yes=voters, voters=ids[:voters]))
+    with pytest.raises(risa.StateOverflowError):
+        await client.build(Poll(question="Pizza on Friday?", yes=voters, voters=ids))

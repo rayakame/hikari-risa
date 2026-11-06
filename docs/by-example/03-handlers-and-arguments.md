@@ -44,6 +44,7 @@ through linkd, as [Dependency injection](06-dependency-injection.md) shows.
 
 An argument takes room on its button, out of what the button can hold of the state. With the default codec, a button with
 no state holds a `str` of up to 68 ASCII characters, and a longer one makes `client.build` raise.
+[Another codec](08-where-state-lives.md#another-codec) fits more.
 
 ??? example "Full file"
 
