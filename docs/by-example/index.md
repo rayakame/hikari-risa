@@ -34,7 +34,7 @@ Twelve chapters that start with a single message and end with your own store. Re
 
 - [Dependency injection](06-dependency-injection.md)
 
-    Hand your database to a handler, even though risa is the one calling it.
+    Hand your database to a handler, and choose how long each dependency lives.
 
 ## Keep its state
 

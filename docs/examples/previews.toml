@@ -201,6 +201,20 @@ fields = { item = "apple", price = 3 }
 
 [[preview]]
 kind = "view"
+id = "stall"
+example = "ch06_wallet"
+view = "Stall"
+fields = {}
+
+[[preview]]
+kind = "reply"
+id = "stall-bought"
+label = "After a click on Buy"
+text = "You have 7 coins left."
+ephemeral = true
+
+[[preview]]
+kind = "view"
 id = "leaderboard"
 example = "ch07_leaderboard"
 view = "Leaderboard"

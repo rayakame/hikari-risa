@@ -1,6 +1,7 @@
 /* The diagrams stay dark in both schemes, so --risa-rule-color, which turns dark in Banner tone, would vanish on them. */
 .md-typeset ol.risa-flow,
 .md-typeset .risa-ids,
+.md-typeset .risa-scope,
 .md-typeset table.risa-grid,
 .md-typeset ol.risa-timeline {
   --risa-night-rule: rgba(233, 218, 249, 0.09);
@@ -135,6 +136,54 @@
   margin: 0.55rem 0 0;
   padding-top: 0.5rem;
   border-top: 1px solid var(--risa-night-rule);
+}
+
+.md-typeset .risa-scope {
+  --risa-inline-code-color: #ffd479;
+  --risa-inline-code-bg: transparent;
+
+  display: grid;
+  gap: 0.5rem;
+  margin: 1.2rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--risa-night-rule);
+  border-radius: 0.3rem;
+  color: #b7a3cc;
+  background: #150524;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.md-typeset .risa-scope--inner {
+  margin: 0.35rem 0 0;
+  background: #240c3a;
+}
+
+.md-typeset .risa-scope p {
+  margin: 0;
+}
+
+.md-typeset .risa-scope code {
+  padding: 0;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.md-typeset .risa-scope__title {
+  --risa-inline-code-color: #f680a1;
+
+  color: #ece2f6;
+  font-weight: 700;
+}
+
+.md-typeset .risa-scope__title code {
+  margin-right: 0.35rem;
+}
+
+.md-typeset .risa-scope__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1.1rem;
 }
 
 .md-typeset table.risa-grid {

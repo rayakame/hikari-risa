@@ -1069,6 +1069,82 @@ async def test_an_unsatisfiable_dependency_is_contained(caplog: pytest.LogCaptur
     assert not DI_CALLS
 
 
+class Wallet: ...
+
+
+def wallet_torn_down(_wallet: Wallet) -> None:
+    DI_CALLS.append(("torn down",))
+
+
+@risa.register(name="client-di-per-click")
+class DiPerClick(risa.View):
+    async def load(self, wallet: Wallet = risa.INJECTED) -> None:  # ruff:ignore[no-self-use]
+        DI_CALLS.append((wallet,))
+
+    @risa.handler
+    async def spend(self, _ctx: risa.ComponentContext, wallet: Wallet) -> None:  # ruff:ignore[no-self-use]
+        DI_CALLS.append((wallet,))
+
+    @risa.handler
+    async def explode(self, _ctx: risa.ComponentContext, wallet: Wallet) -> None:  # ruff:ignore[no-self-use]
+        DI_CALLS.append((wallet,))
+        raise RuntimeError
+
+
+def per_click_client() -> risa.GatewayEnabledClient:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(DiPerClick)
+    built.di.registry_for(risa.Contexts.COMPONENT).register_factory(Wallet, Wallet, teardown=wallet_torn_down)
+    DI_CALLS.clear()
+    return built
+
+
+async def test_a_click_makes_a_component_dependency_once_and_load_shares_it() -> None:
+    built = per_click_client()
+
+    for _ in range(2):
+        interaction = interaction_with(custom_id_of(DiPerClick, ui.Button(DiPerClick().spend)))
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    (first_load,), (first_handler,), first_end, (second_load,), (second_handler,), second_end = DI_CALLS
+    assert first_load is first_handler
+    assert second_load is second_handler
+    assert first_load is not second_load
+    assert first_end == second_end == ("torn down",)
+
+
+async def test_a_component_dependency_is_torn_down_after_a_handler_raises() -> None:
+    built = per_click_client()
+    interaction = interaction_with(custom_id_of(DiPerClick, ui.Button(DiPerClick().explode)))
+
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert DI_CALLS[-1] == ("torn down",)
+
+
+async def test_build_runs_load_without_the_component_context() -> None:
+    built = per_click_client()
+
+    with pytest.raises(linkd.DependencyNotSatisfiableException):
+        await built.build(DiPerClick())
+
+
+def open_database_from_click(_ctx: risa.ComponentContext) -> Database:
+    return Database()
+
+
+async def test_a_default_dependency_cannot_name_a_component_one(caplog: pytest.LogCaptureFixture) -> None:
+    built, _database = di_client(register_database=False)
+    built.di.registry_for(risa.Contexts.DEFAULT).register_factory(Database, open_database_from_click)
+    interaction = interaction_with(custom_id_of(DiWired, ui.Button(risa.bind(DiWired().fetch, 1))))
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "failed while answering" in caplog.text
+    assert not DI_CALLS
+
+
 async def test_the_client_injects_itself_for_cross_file_handlers() -> None:
     built, _database = di_client()
     interaction = interaction_with(custom_id_of(DiWired, ui.Button(DiWired().whoami)))
