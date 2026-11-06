@@ -61,7 +61,7 @@ docs = [
     "mkdocstrings-python==2.0.10",
     "pygments==2.21.0",
     "redis~=8.0",
-    "zensical==0.0.74",
+    "zensical==0.1.0",
 ]
 nox = [
     "nox[uv]==2026.10.20",
@@ -75,7 +75,7 @@ pyright = [
     {include-group = "bot"},
 ]
 ruff = [
-    "ruff==0.17.3",
+    "ruff==0.17.4",
 ]
 slotscheck = [
     "asyncpg~=0.32",
