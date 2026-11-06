@@ -759,6 +759,11 @@ html .md-header__option:has(.md-option:focus-visible) label:not([hidden]) {
   background-color: var(--risa-inline-code-bg);
 }
 
+/* The theme's break-word lets a table squeeze a type name in its first column onto two lines. */
+.md-typeset td:first-child > code {
+  word-break: normal;
+}
+
 .md-typeset code.doc-symbol,
 .md-typeset .doc-label code {
   --risa-inline-code-color: var(--md-default-fg-color--light);
