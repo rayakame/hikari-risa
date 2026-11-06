@@ -186,6 +186,21 @@ ephemeral = false
 
 [[preview]]
 kind = "view"
+id = "shop"
+example = "ch06_shop"
+view = "Shop"
+fields = {}
+
+[[preview]]
+kind = "view"
+id = "offer"
+label = "The answer to a click on Apple, which only that person sees"
+example = "ch06_shop"
+view = "Offer"
+fields = { item = "apple", price = 3 }
+
+[[preview]]
+kind = "view"
 id = "leaderboard"
 example = "ch07_leaderboard"
 view = "Leaderboard"

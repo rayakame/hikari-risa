@@ -14,9 +14,10 @@ it. `Scores` stands in for your database, and you can find it in the full file.
 --8<-- "ch07_leaderboard.py:fields"
 ```
 
-`load()` names `Scores` as a parameter, with the default `= risa.INJECTED` from
-[Dependency injection](06-dependency-injection.md#name-it-as-a-parameter). `main()` registers it as that chapter shows,
-or `client.build` raises linkd's `DependencyNotSatisfiableException`.
+`load()` [names `Scores` as a parameter](06-dependency-injection.md#name-it-as-a-parameter), as a handler would, and
+`main()` registers it. Without that, `client.build` raises linkd's `DependencyNotSatisfiableException`. The default
+[`risa.INJECTED`](../api/di.md#risa.di.INJECTED) is for your type checker: `View.load` takes no parameters, so without it
+pyright reports an incompatible override.
 `msgspec.field(default_factory=list[str])` gives each view a new empty list.
 
 `render()` reads a prop as it reads a field. Each game's button runs `switch`, and `_TOP` at the top of the file holds

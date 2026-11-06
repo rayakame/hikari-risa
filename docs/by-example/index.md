@@ -34,7 +34,7 @@ Twelve chapters that start with a single message and end with your own store. Re
 
 - [Dependency injection](06-dependency-injection.md)
 
-    Register a thing once, and name it as a parameter where you need it.
+    Hand your database to a handler, even though risa is the one calling it.
 
 ## Keep its state
 
