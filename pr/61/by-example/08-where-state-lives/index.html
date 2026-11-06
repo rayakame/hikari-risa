@@ -837,6 +837,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#another-codec" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Another codec
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#message-or-store" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1806,6 +1817,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#another-codec" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Another codec
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#message-or-store" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1939,9 +1961,9 @@ to choose between the message and a store.</p>
 <td>The field takes none</td>
 </tr>
 <tr>
-<td>Another codec</td>
-<td><a href="../../api/codecs/#risa.codecs.BASE32768"><code>state=risa.InMessage(codec=risa.codecs.BASE32768)</code></a>, with the <a href="../../get-started/installation/#extras"><code>radixly</code> extra</a></td>
-<td>33 voters, or 30 with <a href="../../api/codecs/#risa.codecs.URO14"><code>URO14</code></a></td>
+<td><a href="#another-codec">Another codec</a></td>
+<td><code>state=risa.InMessage(codec=risa.codecs.BASE32768)</code>, with the <code>radixly</code> extra</td>
+<td>33 voters, or 30 with <code>URO14</code></td>
 </tr>
 <tr>
 <td>A store</td>
@@ -1999,6 +2021,90 @@ read who voted.</p>
 </div>
 <p>Each vote also changes these ids. When tested, Discord refused a click on an old id, so of two people voting at the same
 moment, the second can get a failed click and has to click again.</p>
+<h2 id="another-codec">Another codec<a class="headerlink" href="#another-codec" title="Permanent link">&para;</a></h2>
+<p>A codec decides how risa writes a view's state into the ids of its buttons. Discord allows 100 characters per id, however
+many bytes each character takes, so a codec with more characters to choose from fits more into each one. The default,
+<a href="../../api/codecs/#risa.codecs.BASE85"><code>BASE85</code></a>, uses 85 ASCII characters and writes 6.4 bits with each.
+<a href="../../api/codecs/#risa.codecs.BASE32768"><code>BASE32768</code></a> chooses from 32,768 characters and writes 15. When tested, ids of 100
+such characters came back from Discord byte for byte.</p>
+<table>
+<thead>
+<tr>
+<th>Codec</th>
+<th>Bits per character</th>
+<th>One button holds</th>
+<th>The poll fits</th>
+<th>A bound <code>str</code>, in ASCII characters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BASE85</code></td>
+<td>6.4</td>
+<td>70 bytes</td>
+<td>12 voters</td>
+<td>68</td>
+</tr>
+<tr>
+<td><code>BASE32768</code></td>
+<td>15</td>
+<td>165 bytes</td>
+<td>33 voters</td>
+<td>159</td>
+</tr>
+<tr>
+<td><a href="../../api/codecs/#risa.codecs.URO14"><code>URO14</code></a></td>
+<td>14</td>
+<td>152 bytes</td>
+<td>30 voters</td>
+<td>147</td>
+</tr>
+</tbody>
+</table>
+<p>The last column is for a button with no state, as in <a href="../03-handlers-and-arguments/#what-can-be-an-argument">What can be an argument</a>.</p>
+<p>To switch, install the <a href="../../get-started/installation/#extras"><code>radixly</code> extra</a>:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">uv</label><label for="__tabbed_1_2">pip</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1">uv<span class="w"> </span>add<span class="w"> </span><span class="s2">"hikari-risa[radixly]"</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"hikari-risa[radixly]"</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<p>Then name the codec on the view with <a href="../../api/state/placement/#risa.state.placement.InMessage"><code>risa.InMessage</code></a>. Nothing
+else in the view changes.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"poll"</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InMessage</span><span class="p">(</span><span class="n">codec</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">codecs</span><span class="o">.</span><span class="n">BASE32768</span><span class="p">))</span>
+</span><span id="__span-4-2"><span class="k">class</span><span class="w"> </span><span class="nc">Poll</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-4-3">    <span class="n">question</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-4-4">    <span class="n">yes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-4-5">    <span class="n">no</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-4-6">    <span class="n">voters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">msgspec</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span>
+</span></code></pre></div>
+<p>Compare the ids with the ones above: the same twelve voters now fit on the first button, and the second has no state at
+all.</p>
+<div class="risa-result"><p class="risa-result__label">What the buttons hold</p><div class="risa-ids"><p class="risa-ids__title">The same twelve voters in BASE32768</p><div class="risa-ids__row"><span class="risa-ids__name">Yes: 7</span><code><span class="risa-id-route">1w*_|V|0b=!m</span><span class="risa-id-state">峠䣛優ҠҤ礡䜒ꄚ困䈛橨趆熃ᨤꔎᣜ跩ᄦ㞹䈔Ү抨⠱⩉蔏抓袠矨蒭鱗旾㡅⬅飏姹鍑㙨袏㦻戝跩ᄦ㞹䈝篆抨⠱⩉蕜赓袠矨蒭黂㯞㡅⬅飏浏䌱㙨袏㦼糈跩ᄦ㞹䈧儞抨⠱⩉薪㟿</span></code></div><div class="risa-ids__row"><span class="risa-ids__name">No: 5</span><code><span class="risa-id-route">1w*_|V|0SU#!</span><span class="risa-id-state"></span></code></div><p class="risa-ids__legend"><span class="risa-id-route">Yellow</span> routes the click to its view and handler. <span class="risa-id-state">Pink</span> is the state.</p></div></div>
+
+<p>You don't raise <code>version</code>, and messages already sent keep working. Each id names its codec, so risa reads an old message in
+the codec it was written in, and writes it in the new one at its next rerender. A poll that was full gets its room with the
+next vote.</p>
+<p><code>BASE32768</code> holds the most, so take it unless you have a reason not to. <code>URO14</code> holds a little less and writes only
+characters from one CJK block. <code>InMessage(codec=...)</code> also takes a <a href="../../api/codecs/#risa.codecs.Codec"><code>Codec</code></a> of your own.</p>
+<p>Keep these in mind:</p>
+<ul>
+<li><strong>There is still a limit.</strong> The 34<sup>th</sup> voter raises <code>StateOverflowError</code>, where <a href="../09-stores-and-ttl/">a store</a> has no limit.</li>
+<li><strong>The state stays readable.</strong> The ids look scrambled, but anyone can decode them, so a codec is no encryption.</li>
+<li><strong>Each vote still changes the ids</strong>, so two people voting at the same moment can still get a failed click.</li>
+<li><strong>The extra has to stay installed.</strong> Without <code>radixly</code>, <code>@risa.register</code> raises
+  <a href="../../api/errors/#risa.errors.CodecUnavailableError"><code>CodecUnavailableError</code></a> on a view that names the codec. A click on a
+  message written in it logs an error that names the extra, and the click fails.</li>
+<li><strong>Going back can overflow.</strong> A message that holds more than the old codec fits fails at its next rerender with
+  <code>StateOverflowError</code>.</li>
+</ul>
+<p>A codec is only for the message. <code>InStore</code> has no <code>codec</code>, since its buttons hold a short key.</p>
 <h2 id="message-or-store">Message or store<a class="headerlink" href="#message-or-store" title="Permanent link">&para;</a></h2>
 <p>The message, <a href="../../api/state/placement/#risa.state.placement.InMessage"><code>risa.InMessage</code></a>, is the default. It needs no infrastructure, and the state lives as long as the message does. Move to a store
 when the view needs one of these:</p>
@@ -2031,74 +2137,74 @@ when the view needs one of these:</p>
 <p>Where the bot runs counts too, as <a href="../11-several-processes/">Several processes</a> shows.</p>
 <details class="example">
 <summary>Full file</summary>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="sd">"""A poll that records who voted, in the message, until the message runs out of room."""</span>
-</span><span id="__span-2-2">
-</span><span id="__span-2-3"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-</span><span id="__span-2-4">
-</span><span id="__span-2-5"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-</span><span id="__span-2-6">
-</span><span id="__span-2-7"><span class="kn">import</span><span class="w"> </span><span class="nn">hikari</span>
-</span><span id="__span-2-8"><span class="kn">import</span><span class="w"> </span><span class="nn">msgspec</span>
-</span><span id="__span-2-9">
-</span><span id="__span-2-10"><span class="kn">import</span><span class="w"> </span><span class="nn">risa</span>
-</span><span id="__span-2-11"><span class="kn">from</span><span class="w"> </span><span class="nn">risa</span><span class="w"> </span><span class="kn">import</span> <span class="n">ui</span>
-</span><span id="__span-2-12">
-</span><span id="__span-2-13">
-</span><span id="__span-2-14"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"poll"</span><span class="p">)</span>
-</span><span id="__span-2-15"><span class="k">class</span><span class="w"> </span><span class="nc">Poll</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
-</span><span id="__span-2-16">    <span class="n">question</span><span class="p">:</span> <span class="nb">str</span>
-</span><span id="__span-2-17">    <span class="n">yes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="__span-2-18">    <span class="n">no</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="__span-2-19">    <span class="n">voters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">msgspec</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span>
-</span><span id="__span-2-20">
-</span><span id="__span-2-21">    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ui</span><span class="o">.</span><span class="n">Layout</span><span class="p">:</span>
-</span><span id="__span-2-22">        <span class="k">return</span> <span class="n">ui</span><span class="o">.</span><span class="n">Container</span><span class="p">(</span>
-</span><span id="__span-2-23">            <span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="sa">f</span><span class="s2">"## </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">question</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
-</span><span id="__span-2-24">            <span class="n">ui</span><span class="o">.</span><span class="n">Row</span><span class="p">(</span>
-</span><span id="__span-2-25">                <span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vote_yes</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Yes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">yes</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
-</span><span id="__span-2-26">                <span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vote_no</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"No: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">no</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
-</span><span id="__span-2-27">            <span class="p">),</span>
-</span><span id="__span-2-28">        <span class="p">)</span>
-</span><span id="__span-2-29">
-</span><span id="__span-2-30">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
-</span><span id="__span-2-31">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">vote_yes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-2-32">        <span class="k">if</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_vote</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
-</span><span id="__span-2-33">            <span class="bp">self</span><span class="o">.</span><span class="n">yes</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span id="__span-2-34">            <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
-</span><span id="__span-2-35">
-</span><span id="__span-2-36">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
-</span><span id="__span-2-37">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">vote_no</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-2-38">        <span class="k">if</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_vote</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
-</span><span id="__span-2-39">            <span class="bp">self</span><span class="o">.</span><span class="n">no</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span id="__span-2-40">            <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
-</span><span id="__span-2-41">
-</span><span id="__span-2-42">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_first_vote</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="__span-2-43">        <span class="k">if</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">voters</span><span class="p">:</span>
-</span><span id="__span-2-44">            <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"You already voted."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-2-45">            <span class="k">return</span> <span class="kc">False</span>
-</span><span id="__span-2-46">        <span class="bp">self</span><span class="o">.</span><span class="n">voters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-</span><span id="__span-2-47">        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="__span-2-48">
-</span><span id="__span-2-49">
-</span><span id="__span-2-50"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-2-51">    <span class="n">bot</span> <span class="o">=</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">(</span>
-</span><span id="__span-2-52">        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DISCORD_TOKEN"</span><span class="p">],</span>
-</span><span id="__span-2-53">        <span class="n">intents</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">ALL_UNPRIVILEGED</span> <span class="o">|</span> <span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">MESSAGE_CONTENT</span><span class="p">,</span>
-</span><span id="__span-2-54">    <span class="p">)</span>
-</span><span id="__span-2-55">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">)</span>
-</span><span id="__span-2-56">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
-</span><span id="__span-2-57">
-</span><span id="__span-2-58">    <span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
-</span><span id="__span-2-59">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-2-60">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!poll"</span><span class="p">:</span>
-</span><span id="__span-2-61">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">Poll</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"Pizza on Friday?"</span><span class="p">))</span>
-</span><span id="__span-2-62">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">)</span>
-</span><span id="__span-2-63">
-</span><span id="__span-2-64">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span><span id="__span-2-65">
-</span><span id="__span-2-66">
-</span><span id="__span-2-67"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
-</span><span id="__span-2-68">    <span class="n">main</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><span class="sd">"""A poll that records who voted, in the message, until the message runs out of room."""</span>
+</span><span id="__span-5-2">
+</span><span id="__span-5-3"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="__span-5-4">
+</span><span id="__span-5-5"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-5-6">
+</span><span id="__span-5-7"><span class="kn">import</span><span class="w"> </span><span class="nn">hikari</span>
+</span><span id="__span-5-8"><span class="kn">import</span><span class="w"> </span><span class="nn">msgspec</span>
+</span><span id="__span-5-9">
+</span><span id="__span-5-10"><span class="kn">import</span><span class="w"> </span><span class="nn">risa</span>
+</span><span id="__span-5-11"><span class="kn">from</span><span class="w"> </span><span class="nn">risa</span><span class="w"> </span><span class="kn">import</span> <span class="n">ui</span>
+</span><span id="__span-5-12">
+</span><span id="__span-5-13">
+</span><span id="__span-5-14"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"poll"</span><span class="p">)</span>
+</span><span id="__span-5-15"><span class="k">class</span><span class="w"> </span><span class="nc">Poll</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-5-16">    <span class="n">question</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-5-17">    <span class="n">yes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-5-18">    <span class="n">no</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-5-19">    <span class="n">voters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">msgspec</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span>
+</span><span id="__span-5-20">
+</span><span id="__span-5-21">    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ui</span><span class="o">.</span><span class="n">Layout</span><span class="p">:</span>
+</span><span id="__span-5-22">        <span class="k">return</span> <span class="n">ui</span><span class="o">.</span><span class="n">Container</span><span class="p">(</span>
+</span><span id="__span-5-23">            <span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="sa">f</span><span class="s2">"## </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">question</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+</span><span id="__span-5-24">            <span class="n">ui</span><span class="o">.</span><span class="n">Row</span><span class="p">(</span>
+</span><span id="__span-5-25">                <span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vote_yes</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Yes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">yes</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+</span><span id="__span-5-26">                <span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vote_no</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"No: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">no</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+</span><span id="__span-5-27">            <span class="p">),</span>
+</span><span id="__span-5-28">        <span class="p">)</span>
+</span><span id="__span-5-29">
+</span><span id="__span-5-30">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
+</span><span id="__span-5-31">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">vote_yes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-32">        <span class="k">if</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_vote</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
+</span><span id="__span-5-33">            <span class="bp">self</span><span class="o">.</span><span class="n">yes</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span id="__span-5-34">            <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
+</span><span id="__span-5-35">
+</span><span id="__span-5-36">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
+</span><span id="__span-5-37">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">vote_no</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-38">        <span class="k">if</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_first_vote</span><span class="p">(</span><span class="n">ctx</span><span class="p">):</span>
+</span><span id="__span-5-39">            <span class="bp">self</span><span class="o">.</span><span class="n">no</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span id="__span-5-40">            <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
+</span><span id="__span-5-41">
+</span><span id="__span-5-42">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_first_vote</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-5-43">        <span class="k">if</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">voters</span><span class="p">:</span>
+</span><span id="__span-5-44">            <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"You already voted."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-5-45">            <span class="k">return</span> <span class="kc">False</span>
+</span><span id="__span-5-46">        <span class="bp">self</span><span class="o">.</span><span class="n">voters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span id="__span-5-47">        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-5-48">
+</span><span id="__span-5-49">
+</span><span id="__span-5-50"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-51">    <span class="n">bot</span> <span class="o">=</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">(</span>
+</span><span id="__span-5-52">        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DISCORD_TOKEN"</span><span class="p">],</span>
+</span><span id="__span-5-53">        <span class="n">intents</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">ALL_UNPRIVILEGED</span> <span class="o">|</span> <span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">MESSAGE_CONTENT</span><span class="p">,</span>
+</span><span id="__span-5-54">    <span class="p">)</span>
+</span><span id="__span-5-55">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">)</span>
+</span><span id="__span-5-56">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
+</span><span id="__span-5-57">
+</span><span id="__span-5-58">    <span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
+</span><span id="__span-5-59">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-60">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!poll"</span><span class="p">:</span>
+</span><span id="__span-5-61">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">Poll</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"Pizza on Friday?"</span><span class="p">))</span>
+</span><span id="__span-5-62">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">)</span>
+</span><span id="__span-5-63">
+</span><span id="__span-5-64">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-5-65">
+</span><span id="__span-5-66">
+</span><span id="__span-5-67"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-5-68">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 </details>
 

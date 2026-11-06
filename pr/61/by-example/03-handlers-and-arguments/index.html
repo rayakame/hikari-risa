@@ -1990,7 +1990,8 @@ argument. These are the ticket's real ids:</p>
 <code>enum.Enum</code> of <code>int</code> or <code>str</code> values. Every parameter after them without a default is filled in by dependency injection
 through linkd, as <a href="../06-dependency-injection/">Dependency injection</a> shows.</p>
 <p>An argument takes room on its button, out of what the button can hold of the state. With the default codec, a button with
-no state holds a <code>str</code> of up to 68 ASCII characters, and a longer one makes <code>client.build</code> raise.</p>
+no state holds a <code>str</code> of up to 68 ASCII characters, and a longer one makes <code>client.build</code> raise.
+<a href="../08-where-state-lives/#another-codec">Another codec</a> fits more.</p>
 <details class="example">
 <summary>Full file</summary>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="sd">"""One handler behind several buttons, each carrying its own argument."""</span>
