@@ -336,7 +336,8 @@ class File(Component):
     Parameters
     ----------
     file
-        The file: a path, bytes, or anything else hikari accepts as a resource.
+        The file: a path, bytes, or data named through `hikari.Bytes`. Discord's documentation allows only
+        `attachment://` references for a file, so a URL will not do.
     spoiler
         Hide it behind a spoiler.
     """

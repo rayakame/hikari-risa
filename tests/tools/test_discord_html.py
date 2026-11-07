@@ -49,6 +49,17 @@ def test_a_message_has_the_author_the_app_tag_and_a_fixed_time() -> None:
     assert 'role="img" aria-label="Risa Bot"' in html
 
 
+def test_the_content_of_a_message_comes_above_its_components() -> None:
+    html = discord_html.render_message([_button()], content="Hello **there**")
+
+    assert '<div class="dc-text"><p>Hello <strong>there</strong></p></div>' in html
+    assert html.index("Hello") < html.index("dc-btn")
+
+
+def test_a_message_without_content_draws_no_text_above_its_components() -> None:
+    assert "dc-text" not in discord_html.render_message([_button()])
+
+
 def test_a_container_draws_its_accent_colour() -> None:
     html = _message({"type": 17, "accent_color": 0xF680A1, "components": [_text("hi")]})
 

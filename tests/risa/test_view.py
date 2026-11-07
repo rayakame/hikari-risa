@@ -404,6 +404,9 @@ class Wired(risa.View):
     @risa.handler
     async def aim(self, _ctx: risa.ComponentContext, user: hikari.Snowflake) -> None: ...
 
+    @risa.handler
+    async def plain(self, _ctx: risa.ComponentContext) -> None: ...
+
 
 def test_the_census_threads_the_signature_into_the_record() -> None:
     record = meta_of(Wired).handlers[codec.make_handler_token("pick", 1)]
@@ -490,6 +493,13 @@ def test_binding_too_many_values_reports_the_counts() -> None:
 
     assert exc_info.value.parameter is None
     assert "declares 2" in str(exc_info.value)
+
+
+def test_the_count_in_the_too_many_values_message_agrees_with_its_noun() -> None:
+    with pytest.raises(risa.ArgBindError, match="received 1 wire argument, but"):
+        engine(Wired().plain).bind(1)
+    with pytest.raises(risa.ArgBindError, match="received 2 wire arguments, but"):
+        engine(Wired().plain).bind(1, 2)
 
 
 def test_binding_a_name_outside_the_wire_section_is_rejected() -> None:

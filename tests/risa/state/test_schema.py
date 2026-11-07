@@ -471,6 +471,15 @@ def test_an_enum_renders_by_its_values_rather_than_its_member_names() -> None:
     assert schema_.structural_type_id(Colour) == schema_.structural_type_id(Renamed)
 
 
+def test_a_new_member_changes_the_shape_of_an_enum() -> None:
+    class Grown(enum.Enum):
+        RED = 1
+        BLUE = 2
+        GREEN = 3
+
+    assert schema_.structural_type_id(Colour) != schema_.structural_type_id(Grown)
+
+
 def test_a_struct_that_contains_itself_renders_without_recursing_forever() -> None:
     assert "rec" in schema_.structural_type_id(Node)
 

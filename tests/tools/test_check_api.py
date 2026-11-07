@@ -930,6 +930,28 @@ def test_a_page_not_linked_from_the_index_is_reported(tmp_path: pathlib.Path) ->
     ]
 
 
+def test_a_module_summary_that_differs_from_its_docstring_is_reported(tmp_path: pathlib.Path) -> None:
+    index = _FILES["docs/api/index.md"] + "\n        - [`risa.core`](core.md)\n\n            Something else.\n"
+
+    assert _problems(tmp_path, {"docs/api/index.md": index}) == [
+        "risa.core: docs/api/index.md says 'Something else.', but its docstring starts with 'The core.'",
+    ]
+
+
+def test_a_module_summary_with_a_class_on_its_link_is_read(tmp_path: pathlib.Path) -> None:
+    entry = "\n        - [`risa.kit.parts`](kit/parts.md){ .risa-overview__sub }\n\n            Other parts.\n"
+
+    assert _problems(tmp_path, {"docs/api/index.md": _FILES["docs/api/index.md"] + entry}) == [
+        "risa.kit.parts: docs/api/index.md says 'Other parts.', but its docstring starts with 'The parts.'",
+    ]
+
+
+def test_a_module_summary_that_repeats_its_docstring_is_fine(tmp_path: pathlib.Path) -> None:
+    index = _FILES["docs/api/index.md"] + "\n        - [`risa.core`](core.md)\n\n            The core.\n"
+
+    assert _problems(tmp_path, {"docs/api/index.md": index}) == []
+
+
 def test_a_public_package_without_an_index_page_is_reported(tmp_path: pathlib.Path) -> None:
     assert _problems(tmp_path, {"docs/api/kit/index.md": None}) == [
         "risa.kit: a public package needs the index page docs/api/kit/index.md",

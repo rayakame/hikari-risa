@@ -218,7 +218,7 @@ def handler(
     values `risa.bind` put on the component. Every parameter after them without a default
     is injected through linkd, so a hikari enum such as `hikari.ChannelType`, which is not
     an `enum.Enum`, is injected too; to carry one on the wire, bind its value as an `int`.
-    To inject an `int` or another of those types, default it to `risa.di.INJECTED`. A
+    To inject an `int` or another of those types, default it to `risa.INJECTED`. A
     handler returns `None`.
 
     Parameters
@@ -293,7 +293,8 @@ class View(msgspec.Struct):
         """Fill the view's props before it renders.
 
         risa awaits it before the first send and on every click, after restoring the durable
-        state and before the handler runs. Its parameters are injected, as a handler's are.
+        state and before the handler runs. Its parameters are injected, as a handler's are. A strict type
+        checker needs the default `risa.INJECTED` on them, since `load` overrides a method that takes none.
         """
 
     @classmethod
@@ -383,9 +384,10 @@ def register[T: View](
     class Poll(risa.View): ...
     ```
 
-    A client then routes it once it is passed to `client.add_view`. The decorator raises
-    `ViewDeclarationError` for a class risa cannot serve, such as a blank name, a prop
-    without a default, or an `InStore` view without durable fields.
+    A client then routes it once it is passed to `client.add_view`, or without that if the
+    client was made with `use_global=True`. The decorator raises `ViewDeclarationError` for a
+    class risa cannot serve, such as a blank name, a prop without a default, or an `InStore`
+    view without durable fields.
 
     Parameters
     ----------

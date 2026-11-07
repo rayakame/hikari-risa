@@ -33,7 +33,9 @@ if typing.TYPE_CHECKING:
 __all__ = (
     "ClickPath",
     "ErrorPreview",
+    "IdsDiagram",
     "LivePreview",
+    "LogPreview",
     "ManifestError",
     "Preview",
     "ReplyPreview",
@@ -62,6 +64,7 @@ class ViewPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="view"):
     view: str
     fields: dict[str, object]
     label: str = "In Discord"
+    content: str = ""
 
 
 class ReplyPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="reply"):
@@ -85,6 +88,13 @@ class ErrorPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="error"):
     label: str = "In Discord"
 
 
+class LogPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="log"):
+    id: str
+    example: str
+    view: str
+    label: str = "In your log"
+
+
 class ClickPath(msgspec.Struct, frozen=True, tag_field="kind", tag="click"):
     id: str
     example: str
@@ -95,17 +105,26 @@ class ClickPath(msgspec.Struct, frozen=True, tag_field="kind", tag="click"):
     label: str = "In Discord"
 
 
+class IdsDiagram(msgspec.Struct, frozen=True, tag_field="kind", tag="ids"):
+    id: str
+    example: str
+    view: str
+    before: dict[str, object]
+    after: dict[str, object] | None = None
+    label: str = "What the buttons hold"
+    title: str = ""
+
+
 class LivePreview(msgspec.Struct, frozen=True, tag_field="kind", tag="live"):
     id: str
     example: str
     view: str
     section: str
     field: str
-    stop: int
     note: str = ""
 
 
-type StaticPreview = ViewPreview | ReplyPreview | ThinkingPreview | ErrorPreview | ClickPath
+type StaticPreview = ViewPreview | ReplyPreview | ThinkingPreview | ErrorPreview | LogPreview | ClickPath | IdsDiagram
 type Preview = StaticPreview | LivePreview
 
 
@@ -129,7 +148,7 @@ def load_manifest(path: pathlib.Path) -> collections.abc.Sequence[Preview]:
     Raises
     ------
     ManifestError
-        If the file is not valid, an id repeats, an example has no file, or a live preview has no positive stop.
+        If the file is not valid, an id repeats, or an example has no file.
     """
     try:
         previews = msgspec.toml.decode(path.read_bytes(), type=_Manifest).preview
@@ -152,6 +171,4 @@ def load_manifest(path: pathlib.Path) -> collections.abc.Sequence[Preview]:
             raise ManifestError(
                 path, f"preview {preview.id!r} names the example {preview.example!r}, which has no file"
             )
-        if isinstance(preview, LivePreview) and preview.stop < 1:
-            raise ManifestError(path, f"the live preview {preview.id!r} needs a positive stop, not {preview.stop}")
     return previews
