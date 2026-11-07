@@ -45,6 +45,7 @@ if typing.TYPE_CHECKING:
     import types
 
 _EXAMPLES: typing.Final = pathlib.Path(__file__).parents[2] / "docs" / "examples"
+_FIVE_VOTERS: typing.Final = [1298471056230400001 + index * 7919 for index in range(5)]
 
 
 def _load(name: str) -> types.ModuleType:
@@ -132,6 +133,12 @@ async def test_the_poll_of_chapter_08_fits_what_its_page_says(wire_codec: codecs
 @pytest.fixture
 def own_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(registry, "_GLOBAL_REGISTRY", registry.Registry())
+
+
+def _client_with(view: type[risa.View]) -> risa.Client:
+    client = _client()
+    client.add_view(view)
+    return client
 
 
 def _poll_client(store: risa.Store, *views: type[risa.View]) -> risa.Client:
@@ -403,15 +410,6 @@ async def test_a_render_with_fewer_buttons_can_leave_an_old_message_no_room(capl
 
     assert "handler 'vote' (version 1) of view examples-room failed" in caplog.text
     assert "StateOverflowError" in caplog.text
-
-
-def _client_with(view: type[risa.View]) -> risa.Client:
-    client = _client()
-    client.add_view(view)
-    return client
-
-
-_FIVE_VOTERS: typing.Final = [1298471056230400001 + index * 7919 for index in range(5)]
 
 
 def _shown(*clients: risa.Client) -> set[str]:

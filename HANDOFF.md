@@ -7,12 +7,18 @@ were lost, so this file is the *only* record of that evening's decisions). `DESI
 its internals were never a blueprint. The branch was deleted from GitHub on 2026-11-04
 and survives only as a local copy on the maintainer's machine.
 
-## Resume here (written 2026-10-25, updated 2026-11-04)
+## Resume here (written 2026-10-25, updated 2026-11-07)
 
 This block is current; it is the short path back in. Below it, the "Next, in order"
 notes for steps 1 and 2 are the August record and are kept as history: where they and
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
+
+**2026-11-07, docs site, chapters 06, 08, 10 and 11 reworked (branch `docs-by-example`):** chapter 10 opens on which changes
+break old buttons, then gives every option, then handlers; its tables come from clicking each kind of change under both
+placements, offline, and tests in `tests/tools/test_examples.py` hold the examples and the two-click table of chapter 11. New
+and not yet seen on real Discord: the upgrade in chapter 10, which replaces the message through hikari's
+`edit_initial_response`, and a codec switch on a sent message.
 
 **2026-11-05, docs site, "By example" (branch `docs-by-example`):** the branch holds the tooling and
 chapters 01 to 12 (`docs/by-example/`, examples in `docs/examples/ch*.py`). The preview tool now builds a diagram's after state at sequence number 1 and the

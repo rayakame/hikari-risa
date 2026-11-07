@@ -74,7 +74,9 @@ such characters came back from Discord byte for byte.
 | `BASE32768` | 15 | 165 bytes | 33 voters | 159 |
 | [`URO14`](../api/codecs.md#risa.codecs.URO14) | 14 | 152 bytes | 30 voters | 147 |
 
-The last column is for a button with no state, as in [What can be an argument](03-handlers-and-arguments.md#what-can-be-an-argument).
+The bytes include 9 of framing per view, so the default codec leaves about 60 for your state on one button, and about 70
+for each further one. The last column is for a button with no state, as in
+[What can be an argument](03-handlers-and-arguments.md#what-can-be-an-argument).
 
 To switch, install the [`radixly` extra](../get-started/installation.md#extras):
 

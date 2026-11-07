@@ -97,6 +97,19 @@ risa compares names and types. If `price: int` held cents and now holds euros, e
 old cents as euros. An argument that keeps its type and changes its meaning is the same. Raise the `version` yourself
 when a meaning changes.
 
+### In a message or in a store
+
+This chapter's rules hold for `InMessage` and `InStore` alike, and its poll sits in a store. These are the differences:
+
+| | `InMessage` | `InStore` |
+|---|---|---|
+| New fields | Take room, and a message that no longer fits fails at its next save | No limit |
+| Fewer buttons | Less room, with the same failure | No effect, since each button holds the same key |
+| State that is gone | Cannot happen, so `on_state_missing` never runs | An expired record, another store or another `key_prefix` run `on_state_missing` |
+| What a retired message leaves behind | Nothing | Its record, until its `ttl` runs out, or for good under `ttl=None` |
+| A bound argument | Shares its id with the state | Shares its id with the key |
+| Free to change | The codec | `ttl` |
+
 ## What you can do
 
 Say the poll should take any options, not only yes and no. `yes` and `no` become one `votes` dict, and `vote_yes` and
@@ -137,7 +150,7 @@ the other options. Old polls keep working, and you carry both forms for as long 
 ### Let old buttons fail
 
 Raise the `version` and do nothing else. A click on an old poll reaches no view, so it fails in Discord. `on_outdated`
-on the new class does not run, because that class answers only for version 3.
+on the new class does not run, because that class answers only for version 3. For this poll in a store, that looks like this:
 
 <ol class="risa-timeline">
 <li class="risa-timeline__event"><span class="risa-timeline__when">Monday</span><strong>Version 2 sends a poll</strong><span>Its buttons route to version 2 and hold the record's key.</span></li>
@@ -146,8 +159,7 @@ on the new class does not run, because that class answers only for version 3.
 <li class="risa-timeline__event"><span class="risa-timeline__when">A week after the last click that read it</span><strong>The record expires</strong><span>The message stays, and a later click finds no record.</span></li>
 </ol>
 
-This suits messages nobody comes back to. Under `InStore(ttl=None)`, the records of old messages stay in the store for
-good.
+This suits messages nobody comes back to.
 
 ### Answer them all the same way
 
@@ -167,8 +179,8 @@ base class.
 
 ### Close the old message
 
-To show what the old poll held, keep a class at the old version. Its fields have to match the old ones, or risa cannot
-read the state.
+To show what the old poll held, keep a class at the old version. Its fields and its `state=` have to match the old ones,
+or risa cannot read the state.
 
 ```python
 --8<-- "ch10_poll_bumped.py:old-fields"
@@ -183,8 +195,8 @@ Such a rejection handler routes like any other and logs nothing, and `self` hold
 
 --8<-- "previews/poll-ended.html"
 
-Add both classes to the client. Each answers for its own version, so the old class needs an `on_state_missing` of its own
-as well.
+Add both classes to the client. Each answers for its own version, so an old class in a store needs an `on_state_missing`
+of its own as well.
 
 ```python
 --8<-- "ch10_poll_bumped.py:client"
@@ -231,8 +243,8 @@ state, count the vote, and replace the message.
 - **Replacing the message.** `ctx.edit` takes only the buttons of the view that was clicked, and raises
   [`LayoutError`](../api/errors.md#risa.errors.LayoutError) for another's. So the handler acknowledges the click and
   edits the message through hikari.
-- **The old record.** In a store, `client.build` writes a new record under a new key, and the old one expires with its
-  `ttl`.
+- **The new state.** In a store, `client.build` writes a new record under a new key, and the old one expires with its
+  `ttl`. In a message, `client.build` raises `StateOverflowError` if the new state does not fit the new buttons.
 - **Messages nobody clicks.** risa keeps no list of the messages it sent, so one that gets no click stays at version 2.
   It still needs this class when someone clicks it next.
 - **Two clicks at once.** Both start from the same old state, and the second replaces the first with only its own vote.
@@ -273,7 +285,8 @@ With no pin, the route changes with the name, and old buttons go to `on_outdated
 
 ### Changing its arguments
 
-An option's name travels on its button, and in this poll it can be 54 characters long before `client.build` raises. So
+An option's name travels on its button, and in this poll, in a store, it can be 54 characters long before `client.build`
+raises. So
 the buttons should carry the option's position instead, and `option: str` becomes `position: int`. Old buttons still hold
 a `str`, so the new method gets a new `version`, and the method above stays at the old one.
 

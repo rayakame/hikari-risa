@@ -86,7 +86,8 @@ Two people click **Yes** at the same moment on a poll at 5, so the right result 
 </tbody>
 </table>
 
-A REST bot with one process behaves like the gateway column. A gateway bot with split shards can miss a `MemoryStore`
+A click that finds no record runs [`on_state_missing`](09-stores-and-ttl.md#ttl). A REST bot with one process behaves like
+the gateway column. A gateway bot with split shards can miss a `MemoryStore`
 record too, when one process sends a message into a guild another process serves, and `add_view` warns about a
 `MemoryStore` at startup.
 
