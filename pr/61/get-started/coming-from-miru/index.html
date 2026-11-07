@@ -2147,7 +2147,8 @@ bring back whatever the view held.</p>
 <p>This has costs:</p>
 <ul>
 <li>The view's <code>name</code> is its route, and so is its <code>version</code>, which you raise when you change its fields or move it to a
-  store. Either change retires the buttons already sent. Appending a field with a default needs no new version.</li>
+  store. Either change retires the buttons already sent. Appending a field with a default needs no new version, and
+  <a href="../../by-example/10-changing-a-view-safely/">Changing a view safely</a> lists the rest.</li>
 <li>State in the message has limited room: about 60 bytes on one button, and about 70 more for each further one, with the
   default codec. Anyone who can see the message can read it.</li>
 <li>A rerender that changes state in the message changes the id of the button that holds it, and Discord refuses a click
