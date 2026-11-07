@@ -37,12 +37,12 @@ Old buttons keep working through all of these:
 | A button added to `render()`, or left out | A button you left out stays on old messages until their next rerender, so keep its handler until then |
 | The Python name of the class or its module | risa routes by `name=` |
 | A field added at the end, with a default | It takes room in a message |
-| A field's default, or a default added to a field | Old state holds its own value |
+| A field's default, or a default added to a field | State that holds the field keeps its value, and state saved before the field existed gets the current default |
 | A [`risa.Prop`](07-fresh-data.md), added, changed or removed | Props are not saved |
 | A field from `int` to `hikari.Snowflake` | Both are saved the same way |
 | An enum member's name, if its value stays | risa saves the value |
 | `ttl` | An old record takes it at its next click, or `None` at its next save |
-| The [codec](08-where-state-lives.md#another-codec) | An old message takes it at its next rerender |
+| The [codec](08-where-state-lives.md#another-codec) | An old message takes it at its next rerender, as long as risa can still read the old one |
 | A handler's parameter names, its `defer`, or an injected parameter added | See [Changing a handler](#changing-a-handler) |
 
 Here is the most useful one. This poll gets a note under its question, in a field at the end of the class:
@@ -82,6 +82,7 @@ fails on its next vote.
 | Less room in a message: more state, or fewer buttons to hold it | The handler runs, and `rerender()` raises `StateOverflowError` | `ERROR` |
 | A method renamed or deleted, or its `version` raised with no method left at the old one | `on_outdated` | `WARNING`, or `DEBUG` once you override it |
 | A handler's arguments: added, removed or retyped | `on_outdated` | `ERROR` |
+| A codec old messages use: its extra removed, or [your own](08-where-state-lives.md#another-codec) no longer registered | Fails in Discord | `ERROR` for the extra, nothing for your own |
 | A bound enum member removed, or its value changed | Fails in Discord | `WARNING` |
 | An argument's default removed, from a button that left the argument out | Fails in Discord | `ERROR` |
 
@@ -285,8 +286,8 @@ With no pin, the route changes with the name, and old buttons go to `on_outdated
 
 ### Changing its arguments
 
-An option's name travels on its button, and in this poll, in a store, it can be 54 characters long before `client.build`
-raises. So
+An option's name travels on its button, and in this poll, in a store, it can be 54 ASCII characters long before
+`client.build` raises, and fewer of anything else, since a `str` takes its UTF-8 bytes. So
 the buttons should carry the option's position instead, and `option: str` becomes `position: int`. Old buttons still hold
 a `str`, so the new method gets a new `version`, and the method above stays at the old one.
 

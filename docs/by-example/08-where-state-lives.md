@@ -119,6 +119,9 @@ Keep these in mind:
 - **The extra has to stay installed.** Without `radixly`, `@risa.register` raises
   [`CodecUnavailableError`](../api/errors.md#risa.errors.CodecUnavailableError) on a view that names the codec. A click on a
   message written in it logs an error that names the extra, and the click fails.
+- **A codec of your own has to stay registered.** Once no view names it, call
+  [`risa.codecs.register`](../api/codecs.md#risa.codecs.register) on it in every process that answers clicks. Otherwise risa
+  takes its ids for another bot's and ignores them, so the click fails with no line in your log.
 - **Going back can overflow.** A message that holds more than the old codec fits fails at its next rerender with
   `StateOverflowError`.
 

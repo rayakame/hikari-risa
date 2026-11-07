@@ -348,6 +348,110 @@ async def test_an_option_of_chapter_10_fits_its_button_only_up_to_what_its_page_
 
 
 @pytest.mark.usefixtures("own_registry")
+async def test_a_changed_default_of_chapter_10_reaches_only_state_saved_without_the_field() -> None:
+    seen: list[str] = []
+
+    @risa.register(name="examples-default")
+    class Before(risa.View):
+        total: int = 0
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.go))
+
+        @risa.handler
+        async def go(self, ctx: risa.ComponentContext) -> None: ...
+
+    without_field = _ids((await _client_with(Before).build(Before())).components)
+    registry.global_registry().clear()
+
+    @risa.register(name="examples-default")
+    class First(risa.View):
+        total: int = 0
+        note: str = "first"
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.go))
+
+        @risa.handler
+        async def go(self, ctx: risa.ComponentContext) -> None: ...
+
+    with_field = _ids((await _client_with(First).build(First())).components)
+    registry.global_registry().clear()
+
+    @risa.register(name="examples-default")
+    class Second(risa.View):
+        total: int = 0
+        note: str = "second"
+
+        @risa.handler
+        async def go(self, _: risa.ComponentContext) -> None:
+            seen.append(self.note)
+
+    client = _client_with(Second)
+
+    await _process(client, _click(without_field, 0))
+    await _process(client, _click(with_field, 0))
+
+    assert seen == ["second", "first"]
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_a_codec_of_chapter_08_that_left_the_registry_makes_its_ids_foreign(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built_in = {codecs.BASE85.tag: codecs.BASE85}
+    monkeypatch.setattr(codecs, "_REGISTRY", dict(built_in))
+    own = codecs.Codec(
+        tag="z",
+        name="own",
+        encode=codecs.BASE85.encode,
+        decode=codecs.BASE85.decode,
+        max_bytes=codecs.BASE85.max_bytes,
+    )
+
+    @risa.register(name="examples-own", state=risa.InMessage(codec=own))
+    class Sent(risa.View):
+        total: int = 0
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.go))
+
+        @risa.handler
+        async def go(self, ctx: risa.ComponentContext) -> None: ...
+
+    ids = _ids((await _client_with(Sent).build(Sent())).components)
+    registry.global_registry().clear()
+    monkeypatch.setattr(codecs, "_REGISTRY", dict(built_in))
+
+    @risa.register(name="examples-own")
+    class Current(risa.View):
+        total: int = 0
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.go))
+
+        @risa.handler
+        async def go(self, ctx: risa.ComponentContext) -> None:
+            self.total += 1
+            await ctx.rerender()
+
+    client = _client_with(Current)
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await _process(client, _click(ids, 0))
+
+    _rest(client).create_interaction_response.assert_not_awaited()
+    assert not caplog.records
+
+    codecs.register(own)
+    await _process(client, _click(ids, 0))
+
+    assert _ids(_answer(client))[0][1] == codecs.BASE85.tag
+
+
+@pytest.mark.usefixtures("own_registry")
 async def test_a_handler_runs_another_through_its_plain_function_and_cannot_call_it() -> None:
     @risa.register(name="examples-delegate")
     class Delegating(risa.View):
