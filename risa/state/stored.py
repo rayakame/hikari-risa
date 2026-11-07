@@ -110,8 +110,8 @@ class StoredSession(backend.StateSession):
     TTL, and does nothing under `ttl=None`. A lost compare-and-set adopts the state that won
     as the new baseline and raises `StateConflictError`, so the handler can apply its change
     again and commit on top. A record that is gone, or a winner that cannot be read,
-    detaches the session instead and raises `StateNotFoundError` or `StateConflictError`, so
-    nothing more commits against a dead baseline. `close` restarts the TTL if nothing has
+    detaches the session instead and raises `StateNotFoundError` or `StateUnreadableError`
+    without adopting anything, so nothing more commits against a dead baseline. `close` restarts the TTL if nothing has
     yet, then releases the lock.
     """
 

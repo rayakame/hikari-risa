@@ -529,7 +529,9 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
 
         It builds `view` as `Client.build` does, so a view in a store gets a record of its own.
         This view's state is not saved, also not when the handler returns, and its record stays
-        until its `ttl` runs out. `ctx.edit(**rendered)` does not do this: `edit` stays with this view.
+        until its `ttl` runs out. If the message cannot be edited, the new view's record stays
+        the same way and this view keeps the message. `ctx.edit(**rendered)` does not do this:
+        `edit` stays with this view.
 
         Parameters
         ----------

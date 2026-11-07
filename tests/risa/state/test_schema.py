@@ -502,3 +502,4 @@ def test_only_the_kinds_of_literal_values_are_part_of_the_shape() -> None:
     assert schema_.structural_type_id(typing.Literal[1]) != schema_.structural_type_id(typing.Literal["1"])
     assert schema_.structural_type_id(typing.Literal[1, "a"]) == "literal(int,str)"
     assert schema_.structural_type_id(typing.Literal["a"]) != schema_.structural_type_id(typing.Literal["a", 1])
+    assert schema_.structural_type_id(typing.Literal["a", 1]) != schema_.structural_type_id(typing.Literal["a", "b"])

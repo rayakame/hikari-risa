@@ -818,7 +818,8 @@ Changes from the original protocol, all verdicts of the lock investigation:
   (prefix fingerprints); remove/reorder/retype/rename fails closed to `on_outdated`. An enum or
   `Literal` counts by the kinds of its values **[decided 2026-11-07]**, as a wire argument does:
   a new value of a kind it already has is free, and a removed one fails closed only for the state that holds it, at
-  WARNING, since the fingerprint still matches. An enum with `_missing_` maps a removed value
+  WARNING, since the fingerprint still matches. A `Literal` that gains a kind of value or loses
+  its last value of one changes the fingerprint, and all old state fails closed at ERROR. An enum with `_missing_` maps a removed value
   itself, in a field and in a wire argument alike, and the handler then runs on what it
   returned: that is the developer's own migration, so risa leaves it alone. Nested structs stay
   strict, since a hash cannot tell a field added from a field renamed.

@@ -78,6 +78,7 @@ fails on its next vote.
 | A field added anywhere but the end, or with no default | `on_outdated` | `ERROR` |
 | A field made a `risa.Prop` | `on_outdated` | `ERROR` |
 | A value removed from a field's `enum.Enum` or `Literal`, or changed | `on_outdated`, only for messages that hold it | `WARNING` |
+| A field's `Literal` gains a kind of value, or loses its last value of one | `on_outdated` | `ERROR` |
 | A field's nested struct changes | `on_outdated` | `ERROR` |
 | `InMessage` to `InStore`, or back | `on_outdated` | `ERROR` |
 | Another store, or another `key_prefix` | `on_state_missing` | `WARNING`, or `DEBUG` once you override it |
