@@ -2703,7 +2703,9 @@ context has no view state, as in <code>on_outdated</code> and <code>on_state_mis
         <p>Turn the message into another view, which answers its clicks from here on.</p>
 <p>It builds <code>view</code> as <code>Client.build</code> does, so a view in a store gets a record of its own.
 This view's state is not saved, also not when the handler returns, and its record stays
-until its <code>ttl</code> runs out. <code>ctx.edit(**rendered)</code> does not do this: <code>edit</code> stays with this view.</p>
+until its <code>ttl</code> runs out. If the message cannot be edited, the new view's record stays
+the same way and this view keeps the message. <code>ctx.edit(**rendered)</code> does not do this:
+<code>edit</code> stays with this view.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
