@@ -1650,6 +1650,32 @@ async def test_a_value_added_to_an_enum_field_leaves_old_messages_working() -> N
     assert SHADED_CALLS == ["DARK"]
 
 
+class ShadeMapped(enum.Enum):
+    DARK = 2
+
+    @classmethod
+    @typing.override
+    def _missing_(cls, value: object) -> ShadeMapped:
+        return cls.DARK
+
+
+@pytest.mark.usefixtures("replaced_shaded")
+async def test_an_enum_field_with_missing_maps_a_removed_value_itself() -> None:
+    old = interaction_on(Shaded(shade=Shade.LIGHT), Shaded().render())
+
+    @risa.register(name="client-shaded")
+    class Mapped(risa.View):
+        shade: ShadeMapped = ShadeMapped.DARK
+
+        @risa.handler
+        async def go(self, _ctx: risa.ComponentContext) -> None:
+            SHADED_CALLS.append(self.shade.name)
+
+    await shaded_click(Mapped, old)
+
+    assert SHADED_CALLS == ["DARK"]
+
+
 @pytest.mark.usefixtures("replaced_shaded")
 async def test_a_value_removed_from_an_enum_field_reaches_the_hook_only_for_messages_that_hold_it(
     caplog: pytest.LogCaptureFixture,

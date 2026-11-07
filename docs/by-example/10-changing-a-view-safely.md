@@ -91,6 +91,9 @@ fails on its next vote.
 `on_outdated` and `on_state_missing` do nothing until you override them, so without that, a click that reaches them fails
 in Discord too.
 
+An enum with a `_missing_` method decides itself what a removed value becomes, in a field and in an argument. The handler
+then runs with the member it returns, and `on_outdated` stays out of it.
+
 The `ERROR` lines on fields and arguments usually mean a forgotten `version`, and they tell you to raise it. hikari logs
 at `INFO` by default, so you see no line for a raised `version` until you turn `DEBUG` on.
 
