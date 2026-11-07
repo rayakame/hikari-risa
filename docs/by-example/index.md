@@ -54,7 +54,7 @@ Twelve chapters that start with a single message and end with your own store. Re
 
 - [Changing a view safely](10-changing-a-view-safely.md)
 
-    Change a view without breaking the messages already sent.
+    See which changes break the buttons already sent, and every way to deal with one that does.
 
 - [Several processes](11-several-processes.md)
 

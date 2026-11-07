@@ -8,7 +8,7 @@ then in Redis.
 
 [`risa.InStore`](../api/state/placement.md#risa.state.placement.InStore) on `@risa.register` moves the view, and it takes
 `ttl`, in seconds. The handlers stay as they were. Polls already sent cannot follow, so `version` goes up, as
-[Changing a view safely](10-changing-a-view-safely.md#a-change-that-is-not-free) explains.
+[Changing a view safely](10-changing-a-view-safely.md#what-breaks) explains.
 
 ```python
 --8<-- "ch09_poll_memory.py:fields"

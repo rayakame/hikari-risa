@@ -17,7 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""A vote now records who chose what, so the view's version goes up. Version 2 stays to answer old polls."""
+"""The poll takes any options, so its version goes up. Old classes answer old polls."""
 
 from __future__ import annotations
 
@@ -34,46 +34,38 @@ from risa.store.redis import RedisStore
 WEEK = 7 * 24 * 60 * 60
 
 
-# --8<-- [start:fields]
+# --8<-- [start:view]
 @risa.register(name="poll", version=3, state=risa.InStore(ttl=WEEK))
 class Poll(risa.View):
     question: str
-    yes: list[int] = msgspec.field(default_factory=list[int])
-    no: list[int] = msgspec.field(default_factory=list[int])
-    note: str = "Change your mind whenever you like."
-    # --8<-- [end:fields]
+    votes: dict[str, int]
+    voters: list[int] = msgspec.field(default_factory=list[int])
+    note: str = "One vote each."
 
     def render(self) -> ui.Layout:
+        buttons = [
+            ui.Button(
+                risa.bind(self.vote, option),
+                label=f"{option}: {count}",
+            )
+            for option, count in self.votes.items()
+        ]
         return ui.Container(
             ui.TextDisplay(f"## {self.question}"),
             ui.TextDisplay(self.note),
-            ui.Row(
-                ui.Button(self.vote_yes, label=f"Yes: {len(self.yes)}"),
-                ui.Button(self.vote_no, label=f"No: {len(self.no)}"),
-            ),
+            ui.Row(*buttons),
         )
 
     @risa.handler
-    async def vote_yes(self, ctx: risa.ComponentContext) -> None:
-        self._take_back(ctx.user.id)
-        self.yes.append(ctx.user.id)
+    async def vote(self, ctx: risa.ComponentContext, option: str) -> None:
+        if ctx.user.id in self.voters:
+            await ctx.respond("You already voted.", ephemeral=True)
+            return
+        self.voters.append(ctx.user.id)
+        self.votes[option] += 1
         await ctx.rerender()
 
-    @risa.handler
-    async def vote_no(self, ctx: risa.ComponentContext) -> None:
-        self._take_back(ctx.user.id)
-        self.no.append(ctx.user.id)
-        await ctx.rerender()
-
-    def _take_back(self, voter: int) -> None:
-        self.yes = [other for other in self.yes if other != voter]
-        self.no = [other for other in self.no if other != voter]
-
-    # --8<-- [start:outdated]
-    @classmethod
-    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
-        await ctx.respond("This button no longer works.", ephemeral=True)
-        # --8<-- [end:outdated]
+    # --8<-- [end:view]
 
     @classmethod
     async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
@@ -109,6 +101,15 @@ class OldPoll(risa.View):
         await ctx.edit(ui.TextDisplay("This poll has expired."))
 
 
+# --8<-- [start:retired]
+@risa.register(name="poll", version=1)
+class RetiredPoll(risa.View):
+    @classmethod
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        await ctx.respond("This button no longer works.", ephemeral=True)
+        # --8<-- [end:retired]
+
+
 def main() -> None:
     bot = hikari.GatewayBot(
         os.environ["DISCORD_TOKEN"],
@@ -119,6 +120,7 @@ def main() -> None:
     # --8<-- [start:client]
     client.add_view(Poll)
     client.add_view(OldPoll)
+    client.add_view(RetiredPoll)
     # --8<-- [end:client]
 
     @bot.listen()
@@ -128,7 +130,11 @@ def main() -> None:
     @bot.listen()
     async def on_message(event: hikari.GuildMessageCreateEvent) -> None:
         if event.content == "!poll":
-            rendered = await client.build(Poll(question="Pizza on Friday?"))
+            poll = Poll(
+                question="Pizza on Friday?",
+                votes={"Yes": 0, "No": 0, "Maybe": 0},
+            )
+            rendered = await client.build(poll)
             await rendered.send_to(bot.rest, event.channel_id)
 
     bot.run()

@@ -15,7 +15,7 @@ Smallest step first. The last column counts for the poll below, which fits twelv
 | A store | `state=risa.InStore(ttl=...)`, as [Stores and TTL](09-stores-and-ttl.md) shows | No size limit |
 
 A codec change leaves messages already sent working, since each id names its codec. A prop or a move to a store retires
-them: a click on one fails in Discord, unless [a class at the old version](10-changing-a-view-safely.md#answering-old-polls)
+them: a click on one fails in Discord, unless [a class at the old version](10-changing-a-view-safely.md#what-you-can-do)
 answers it.
 
 ## A poll that outgrows its message

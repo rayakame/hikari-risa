@@ -408,6 +408,13 @@ voters = [
 ]
 
 [[preview]]
+kind = "ids"
+id = "poll-bumped-ids"
+example = "ch10_poll_bumped"
+view = "Poll"
+before = { question = "Pizza on Friday?", votes = { Yes = 3, No = 2, Maybe = 1 } }
+
+[[preview]]
 kind = "view"
 id = "poll-bumped"
 example = "ch10_poll_bumped"
@@ -415,12 +422,7 @@ view = "Poll"
 
 [preview.fields]
 question = "Pizza on Friday?"
-yes = [
-  1298471056230400001,
-  1298471056230407920,
-  1298471056230415839,
-]
-no = [1298471056230423758, 1298471056230431677]
+votes = { Yes = 3, No = 2, Maybe = 1 }
 
 [[preview]]
 kind = "reply"
@@ -428,6 +430,17 @@ id = "poll-ended"
 label = "After a click on an old poll"
 text = "Pizza on Friday? It ended with 3 yes and 2 no."
 ephemeral = false
+
+[[preview]]
+kind = "view"
+id = "poll-upgraded"
+label = "After a click on Yes on an old poll with 3 yes and 2 no"
+example = "ch10_poll_upgraded"
+view = "Poll"
+
+[preview.fields]
+question = "Pizza on Friday?"
+votes = { Yes = 4, No = 2 }
 
 [[preview]]
 kind = "reply"

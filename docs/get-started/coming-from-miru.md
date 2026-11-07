@@ -123,7 +123,8 @@ In risa, the `Counter` above already survives a restart. `add_view` at startup i
 This has costs:
 
 - The view's `name` is its route, and so is its `version`, which you raise when you change its fields or move it to a
-  store. Either change retires the buttons already sent. Appending a field with a default needs no new version.
+  store. Either change retires the buttons already sent. Appending a field with a default needs no new version, and
+  [Changing a view safely](../by-example/10-changing-a-view-safely.md) lists the rest.
 - State in the message has limited room: about 60 bytes on one button, and about 70 more for each further one, with the
   default codec. Anyone who can see the message can read it.
 - A rerender that changes state in the message changes the id of the button that holds it, and Discord refuses a click

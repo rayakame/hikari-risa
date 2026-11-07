@@ -95,6 +95,5 @@ in `@risa.handler(handler_id="pick", version=2)`.
 | `version` | Bump it when the handler's arguments change |
 | `defer` | The handler's [`AutoDefer`](05-answering-in-time.md#where-to-set-it), overriding the view's |
 
-[Changing a view safely](10-changing-a-view-safely.md#on_outdated) shows what a bump does to components already sent.
-
-Pin `handler_id` before renaming a method, so components already sent keep working.
+[Changing a handler](10-changing-a-view-safely.md#changing-a-handler) shows what each change does to buttons already sent,
+how `handler_id` keeps them working through a rename, and how a method at the old `version` answers them.

@@ -22,11 +22,13 @@
 from __future__ import annotations
 
 import importlib.util
+import logging
 import pathlib
 import sys
 import typing
 import unittest.mock
 
+import hikari
 import linkd
 import msgspec
 import pytest
@@ -34,6 +36,7 @@ import pytest
 import risa
 from risa import codecs
 from risa import ui
+from risa.internal import registry
 
 if typing.TYPE_CHECKING:
     import types
@@ -121,3 +124,285 @@ async def test_the_poll_of_chapter_08_fits_what_its_page_says(wire_codec: codecs
     await client.build(Poll(question="Pizza on Friday?", yes=voters, voters=ids[:voters]))
     with pytest.raises(risa.StateOverflowError):
         await client.build(Poll(question="Pizza on Friday?", yes=voters, voters=ids))
+
+
+@pytest.fixture
+def own_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(registry, "_GLOBAL_REGISTRY", registry.Registry())
+
+
+def _poll_client(store: risa.MemoryStore, *views: type[risa.View]) -> risa.Client:
+    app = unittest.mock.Mock(rest=unittest.mock.AsyncMock())
+    client = risa.client_from_app(typing.cast("risa.GatewayClientAppT", app), store=store, key_prefix="examples")
+    for view in views:
+        client.add_view(view)
+    return client
+
+
+def _ids(components: typing.Sequence[hikari.api.ComponentBuilder]) -> list[str]:
+    found: list[str] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            entries = typing.cast("dict[str, object]", node)
+            if isinstance(raw := entries.get("custom_id"), str):
+                found.append(raw)
+            for value in entries.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in typing.cast("list[object]", node):
+                walk(value)
+
+    for builder in components:
+        walk(builder.build()[0])
+    return found
+
+
+def _click(ids: typing.Sequence[str], index: int, *, user: int = 777) -> unittest.mock.Mock:
+    buttons = [
+        hikari.ButtonComponent(
+            type=hikari.ComponentType.BUTTON,
+            id=0,
+            style=hikari.ButtonStyle.PRIMARY,
+            label=None,
+            emoji=None,
+            custom_id=raw,
+            url=None,
+            is_disabled=False,
+        )
+        for raw in ids
+    ]
+    interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
+    interaction.custom_id = ids[index]
+    interaction.user = unittest.mock.Mock(id=hikari.Snowflake(user))
+    interaction.member = None
+    interaction.edit_initial_response = unittest.mock.AsyncMock()
+    interaction.message = unittest.mock.Mock(
+        spec=hikari.Message,
+        id=hikari.Snowflake(1),
+        flags=hikari.MessageFlag.NONE,
+        components=[hikari.ActionRowComponent(type=hikari.ComponentType.ACTION_ROW, id=0, components=buttons)],
+    )
+    return interaction
+
+
+async def _process(client: risa.Client, interaction: unittest.mock.Mock) -> None:
+    await client._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+def _rest(client: risa.Client) -> unittest.mock.Mock:
+    return typing.cast("unittest.mock.Mock", client.rest)
+
+
+def _answer(client: risa.Client) -> list[hikari.api.ComponentBuilder]:
+    return _rest(client).create_interaction_response.await_args.kwargs["components"]
+
+
+async def _poll_at_version_2(store: risa.MemoryStore) -> list[str]:
+    module = _load("ch10_poll_free")
+    poll = module.Poll(question="Pizza on Friday?", yes=3, no=2, voters=[1, 2, 3, 4, 5])
+    ids = _ids((await _poll_client(store, module.Poll).build(poll)).components)
+    registry.global_registry().clear()
+    return ids
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_a_raised_version_of_chapter_10_lets_old_buttons_fail_without_its_hook(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    store = risa.MemoryStore()
+    ids = await _poll_at_version_2(store)
+    client = _poll_client(store, _load("ch10_poll_bumped").Poll)
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await _process(client, _click(ids, 0))
+
+    _rest(client).create_interaction_response.assert_not_awaited()
+    assert "this client has no view for it" in caplog.text
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_retired_class_of_chapter_10_answers_a_poll_at_version_1() -> None:
+    first = _load("ch08_poll")
+    ids = _ids((await _client().build(first.Poll(question="Pizza on Friday?"))).components)
+    registry.global_registry().clear()
+    module = _load("ch10_poll_bumped")
+    client = _poll_client(risa.MemoryStore(), module.Poll, module.OldPoll, module.RetiredPoll)
+
+    await _process(client, _click(ids, 0))
+
+    answered = _rest(client).create_interaction_response.await_args
+    assert answered.args[3] == "This button no longer works."
+    assert answered.kwargs["flags"] == hikari.MessageFlag.EPHEMERAL
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_closed_poll_of_chapter_10_reads_the_old_state_and_logs_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    store = risa.MemoryStore()
+    ids = await _poll_at_version_2(store)
+    module = _load("ch10_poll_bumped")
+    client = _poll_client(store, module.Poll, module.OldPoll, module.RetiredPoll)
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await _process(client, _click(ids, 0))
+
+    assert "It ended with 3 yes and 2 no." in str(_answer(client)[0].build()[0])
+    assert not caplog.records
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_kept_class_of_chapter_10_keeps_an_old_poll_at_its_version() -> None:
+    store = risa.MemoryStore()
+    ids = await _poll_at_version_2(store)
+    module = _load("ch10_poll_kept")
+    client = _poll_client(store, module.Poll, module.OldPoll)
+
+    await _process(client, _click(ids, 0))
+
+    assert "Yes: 4" in str(_answer(client)[0].build()[0])
+    assert [raw[:8] for raw in _ids(_answer(client))] == [raw[:8] for raw in ids]
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_upgrade_of_chapter_10_moves_an_old_poll_and_counts_the_click() -> None:
+    store = risa.MemoryStore()
+    ids = await _poll_at_version_2(store)
+    module = _load("ch10_poll_upgraded")
+    client = _poll_client(store, module.Poll, module.OldPoll)
+    interaction = _click(ids, 0)
+
+    await _process(client, interaction)
+
+    components = interaction.edit_initial_response.await_args.kwargs["components"]
+    assert "Yes: 4" in str(components[0].build()[0])
+    assert "No: 2" in str(components[0].build()[0])
+
+    upgraded = _ids(components)
+    assert {raw[2:8] for raw in upgraded} == {registry.require_meta(module.Poll).cookie}
+
+    await _process(client, _click(upgraded, 1, user=888))
+    assert "No: 3" in str(_answer(client)[0].build()[0])
+
+    await _process(client, _click(upgraded, 1, user=777))
+    assert _rest(client).create_interaction_response.await_args.args[3] == "You already voted."
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_upgrade_of_chapter_10_counts_nobody_twice() -> None:
+    store = risa.MemoryStore()
+    ids = await _poll_at_version_2(store)
+    module = _load("ch10_poll_upgraded")
+    client = _poll_client(store, module.Poll, module.OldPoll)
+    interaction = _click(ids, 0, user=1)
+
+    await _process(client, interaction)
+
+    assert "Yes: 3" in str(interaction.edit_initial_response.await_args.kwargs["components"][0].build()[0])
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_old_method_of_chapter_10_moves_a_button_to_the_new_handler_version() -> None:
+    store = risa.MemoryStore()
+    sent = _load("ch10_poll_bumped")
+    poll = sent.Poll(question="Pizza on Friday?", votes={"Yes": 3, "No": 2})
+    ids = _ids((await _poll_client(store, sent.Poll).build(poll)).components)
+    registry.global_registry().clear()
+    module = _load("ch10_poll_handlers")
+    client = _poll_client(store, module.Poll)
+
+    await _process(client, _click(ids, 1, user=1))
+    assert "No: 3" in str(_answer(client)[0].build()[0])
+
+    moved = _ids(_answer(client))
+    assert [raw[8:10] for raw in moved] == [module.Poll.vote.token] * 2
+
+    await _process(client, _click(moved, 0, user=2))
+    assert "Yes: 4" in str(_answer(client)[0].build()[0])
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_an_option_of_chapter_10_fits_its_button_only_up_to_what_its_page_says() -> None:
+    sent = _load("ch10_poll_bumped")
+    client = _poll_client(risa.MemoryStore(), sent.Poll)
+
+    await client.build(sent.Poll(question="q", votes={"x" * 54: 0}))
+    with pytest.raises(risa.CustomIdOverflowError):
+        await client.build(sent.Poll(question="q", votes={"x" * 55: 0}))
+
+    registry.global_registry().clear()
+    module = _load("ch10_poll_handlers")
+    await _poll_client(risa.MemoryStore(), module.Poll).build(module.Poll(question="q", votes={"x" * 55: 0}))
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_a_handler_runs_another_through_its_plain_function_and_cannot_call_it() -> None:
+    @risa.register(name="examples-delegate")
+    class Delegating(risa.View):
+        total: int = 0
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.add_one, label=str(self.total)))
+
+        @risa.handler
+        async def add(self, ctx: risa.ComponentContext, amount: int) -> None:
+            self.total += amount
+            await ctx.rerender()
+
+        @risa.handler
+        async def add_one(self, ctx: risa.ComponentContext) -> None:
+            await Delegating.add.func(self, ctx, 1)
+
+    client = _client_with(Delegating)
+
+    await _process(client, _click(_ids((await client.build(Delegating())).components), 0))
+
+    assert "'label': '1'" in str(_answer(client)[0].build()[0])
+    with pytest.raises(risa.HandlerNotCallableError):
+        typing.cast("typing.Callable[..., object]", Delegating().add)(None, 1)
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_a_render_with_fewer_buttons_can_leave_an_old_message_no_room(caplog: pytest.LogCaptureFixture) -> None:
+    voters = [1298471056230400001 + index * 7919 for index in range(9)]
+
+    @risa.register(name="examples-room")
+    class TwoButtons(risa.View):
+        voters: list[int] = msgspec.field(default_factory=list[int])
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.vote), ui.Button(self.vote))
+
+        @risa.handler
+        async def vote(self, ctx: risa.ComponentContext) -> None:
+            self.voters.append(ctx.user.id)
+            await ctx.rerender()
+
+    ids = _ids((await _client_with(TwoButtons).build(TwoButtons(voters=voters))).components)
+    registry.global_registry().clear()
+
+    @risa.register(name="examples-room")
+    class OneButton(risa.View):
+        voters: list[int] = msgspec.field(default_factory=list[int])
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.vote))
+
+        @risa.handler
+        async def vote(self, ctx: risa.ComponentContext) -> None:
+            self.voters.append(ctx.user.id)
+            await ctx.rerender()
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await _process(_client_with(OneButton), _click(ids, 0))
+
+    assert "handler 'vote' (version 1) of view examples-room failed" in caplog.text
+    assert "StateOverflowError" in caplog.text
+
+
+def _client_with(view: type[risa.View]) -> risa.Client:
+    client = _client()
+    client.add_view(view)
+    return client
