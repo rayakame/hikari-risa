@@ -611,6 +611,7 @@ def _decode_frames(
 ) -> list[object] | _Outdated | None:
     signature = record.signature
     decoded: list[object] = []
+    outdated = False
     for (name, converter), frame in zip(signature.converters.items(), frames, strict=False):
         data = codec.decode_text(frame, wire_codec)
         if isinstance(data, errors.CodecUnavailableError):
@@ -665,6 +666,9 @@ def _decode_frames(
                 meta.name,
                 name,
             )
-            return _OUTDATED if isinstance(converter, codec.EnumConverter) and converter.reads(data) else None
+            if not (isinstance(converter, codec.EnumConverter) and converter.reads(data)):
+                return None
+            outdated = True
+            continue
         decoded.append(value)
-    return decoded
+    return _OUTDATED if outdated else decoded

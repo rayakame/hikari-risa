@@ -1723,6 +1723,10 @@ class Hooked(risa.View):
     async def pair(self, _ctx: risa.ComponentContext, first: int, second: int) -> None:  # ruff:ignore[no-self-use]
         HOOKED_CALLS.append(f"{first} {second}")
 
+    @risa.handler
+    async def mixed(self, _ctx: risa.ComponentContext, weather: Weather, amount: int) -> None:  # ruff:ignore[no-self-use]
+        HOOKED_CALLS.append(f"{weather.name} {amount}")
+
     @classmethod
     @typing.override
     async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
@@ -1768,6 +1772,24 @@ async def test_too_few_arguments_reach_the_hook_only_when_the_ones_given_can_be_
 
     assert not HOOKED_CALLS
     assert "could not be decoded" in caplog.text
+
+
+async def test_a_removed_enum_value_reaches_the_hook_only_when_every_other_argument_can_be_read(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    gone = codecs.BASE85.encode(codec.IntConverter(int).encode(99))
+    readable = codecs.BASE85.encode(codec.IntConverter(int).encode(1))
+    unreadable = codecs.BASE85.encode(b"")
+
+    await click_hooked(Hooked.mixed.token, Hooked.mixed.signature.fingerprint + codec.pack_frames([gone, readable]))
+    assert HOOKED_CALLS == ["outdated"]
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await click_hooked(
+            Hooked.mixed.token, Hooked.mixed.signature.fingerprint + codec.pack_frames([gone, unreadable])
+        )
+
+    assert not HOOKED_CALLS
 
 
 async def test_a_value_its_converter_cannot_read_never_reaches_the_hook(caplog: pytest.LogCaptureFixture) -> None:
