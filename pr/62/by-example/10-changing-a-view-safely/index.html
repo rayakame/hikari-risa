@@ -2588,6 +2588,8 @@ Start the file below on the same Redis and click <strong>Yes</strong> on the old
 </table>
 <p><code>on_outdated</code> and <code>on_state_missing</code> do nothing until you override them, so without that, a click that reaches them fails
 in Discord too.</p>
+<p>An enum with a <code>_missing_</code> method decides itself what a removed value becomes, in a field and in an argument. The handler
+then runs with the member it returns, and <code>on_outdated</code> stays out of it.</p>
 <p>The <code>ERROR</code> lines on fields and arguments usually mean a forgotten <code>version</code>, and they tell you to raise it. hikari logs
 at <code>INFO</code> by default, so you see no line for a raised <code>version</code> until you turn <code>DEBUG</code> on.</p>
 <h3 id="what-risa-cannot-see">What risa cannot see<a class="headerlink" href="#what-risa-cannot-see" title="Permanent link">&para;</a></h3>
