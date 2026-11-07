@@ -19,6 +19,8 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import typing
+
 import hikari
 
 import risa
@@ -38,6 +40,25 @@ class Guard(risa.View):
 
     @risa.handler
     async def press(self, ctx: risa.ComponentContext) -> None: ...
+
+
+class LoadsADependency(risa.View):
+    async def load(self, service: GuardService) -> None: ...
+
+
+class LoadsNothing(risa.View):
+    @typing.override
+    async def load(self) -> None: ...
+
+
+class LoadsReturningSomething(risa.View):
+    @typing.override
+    async def load(self, service: GuardService) -> str: ...  # type: ignore[reportIncompatibleVariableOverride]
+
+
+class LoadsSynchronously(risa.View):
+    @typing.override
+    def load(self, service: GuardService) -> None: ...  # type: ignore[reportIncompatibleVariableOverride]
 
 
 def pyright_must_accept(view: Guard) -> None:

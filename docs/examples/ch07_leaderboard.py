@@ -48,7 +48,7 @@ class Leaderboard(risa.View):
     game: str = "chess"
     rows: risa.Prop[list[str]] = msgspec.field(default_factory=list[str])
 
-    async def load(self, scores: Scores = risa.INJECTED) -> None:
+    async def load(self, scores: Scores) -> None:
         self.rows = await scores.top(self.game)
         # --8<-- [end:fields]
 

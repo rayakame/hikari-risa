@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import enum
 import logging
 import typing
 
@@ -50,12 +51,21 @@ if typing.TYPE_CHECKING:
 
     from risa import codecs
     from risa.internal import registry
+    from risa.ui import build as build_
 
 __all__ = ("Dispatcher",)
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.dispatch")
 
 type BackendResolver = collections.abc.Callable[[registry.ViewMeta], backend.StateBackend | None]
+type ViewBuilder = collections.abc.Callable[[view_.View], collections.abc.Awaitable[build_.Rendered]]
+
+
+class _Outdated(enum.Enum):
+    OUTDATED = enum.auto()
+
+
+_OUTDATED: typing.Final = _Outdated.OUTDATED
 
 
 class _Route(msgspec.Struct, frozen=True):
@@ -93,9 +103,11 @@ class Dispatcher:
         The client's `AutoDefer`, for handlers and views that set none.
     auto_defer_delay
         Seconds after which the watchdog answers in a handler's place.
+    build
+        Builds a view for `ComponentContext.replace`.
     """
 
-    __slots__ = ("_auto_defer", "_auto_defer_delay", "_backend_for", "_di", "_resolve_view", "_rest")
+    __slots__ = ("_auto_defer", "_auto_defer_delay", "_backend_for", "_build", "_di", "_resolve_view", "_rest")
 
     def __init__(
         self,
@@ -106,6 +118,7 @@ class Dispatcher:
         *,
         auto_defer: view_.AutoDefer,
         auto_defer_delay: float,
+        build: ViewBuilder,
     ) -> None:
         self._rest = rest
         self._di = di
@@ -113,6 +126,7 @@ class Dispatcher:
         self._backend_for = backend_for
         self._auto_defer = auto_defer
         self._auto_defer_delay = auto_defer_delay
+        self._build = build
 
     async def process(
         self,
@@ -140,8 +154,9 @@ class Dispatcher:
 
         A `custom_id` risa did not write is ignored without a word, and a cookie no view of
         this client has with a DEBUG line, so other handlers can answer the click. A known
-        view with an unknown handler token or a mismatched wire signature routes without a
-        handler, which sends the click to `on_outdated`.
+        view with an unknown handler token, a mismatched wire signature, too few wire
+        arguments or an enum value that no longer exists routes without a handler, which sends
+        the click to `on_outdated`.
 
         Returns
         -------
@@ -160,29 +175,7 @@ class Dispatcher:
                 custom_id.cookie,
             )
             return None
-        record = meta.handlers.get(custom_id.handler)
-        if record is None:
-            level = logging.DEBUG if meta.handles_outdated else logging.WARNING
-            _LOGGER.log(
-                level,
-                "interaction %s routes to view %s (version %d), but no handler answers to token %r."
-                " A live component may predate a version bump that retired its handler.",
-                interaction.id,
-                meta.name,
-                meta.version,
-                custom_id.handler,
-            )
-            return _Route(meta=meta, component=custom_id)
-
-        mismatch = _fingerprint_mismatch(custom_id, meta, record)
-        if mismatch is not None:
-            _LOGGER.error("interaction %s: %s", interaction.id, mismatch)  # ERROR always
-            return _Route(meta=meta, component=custom_id)
-
-        decoded = _decode_args(custom_id, meta, record, interaction.id)
-        if decoded is None:
-            return None
-        return _Route(meta=meta, component=custom_id, handler=record, decoded=decoded)
+        return _route_to_handler(meta, custom_id, interaction)
 
     async def _dispatch(
         self,
@@ -194,7 +187,14 @@ class Dispatcher:
             return
         gate.adopted = True
         slot = context.ViewSlot()
-        ctx = context.ComponentContext(interaction, rest=self._rest, meta=route.meta, gate=gate, slot=slot)
+        ctx = context.ComponentContext(
+            interaction,
+            rest=self._rest,
+            meta=route.meta,
+            build=self._build,
+            gate=gate,
+            slot=slot,
+        )
         if route.handler is None:
             await self._run_hook(route.meta, route.meta.outdated, ctx, "on_outdated")
             return
@@ -287,7 +287,8 @@ class Dispatcher:
         if not await self._call(click, view):
             await _stand_down(watchdog, click.gate)
             return False
-        await _commit_leftovers(click, session, view)
+        if click.slot.view is not None:
+            await _commit_leftovers(click, session, view)
         return True
 
     async def _hydrate(
@@ -411,7 +412,7 @@ async def _commit_leftovers(click: _Click, session: backend.StateSession, view: 
             click.interaction.id,
             click.meta.name,
         )
-    except (errors.StateConflictError, errors.StateNotFoundError) as exc:
+    except (errors.StateConflictError, errors.StateNotFoundError, errors.StateUnreadableError) as exc:
         _LOGGER.warning(
             "interaction %s on view %s mutated durable state without calling rerender(), and"
             " committing it at the end of the dispatch failed: %s; the change was discarded - call"
@@ -477,6 +478,38 @@ async def _stand_down(task: asyncio.Task[None] | None, gate: context.ResponseGat
         _LOGGER.exception("the auto-defer watchdog raised while being stood down")
 
 
+def _route_to_handler(
+    meta: registry.ViewMeta,
+    custom_id: codec.CustomID,
+    interaction: hikari.ComponentInteraction,
+) -> _Route | None:
+    record = meta.handlers.get(custom_id.handler)
+    if record is None:
+        level = logging.DEBUG if meta.handles_outdated else logging.WARNING
+        _LOGGER.log(
+            level,
+            "interaction %s routes to view %s (version %d), but no handler answers to token %r."
+            " A live component may predate a version bump that retired its handler.",
+            interaction.id,
+            meta.name,
+            meta.version,
+            custom_id.handler,
+        )
+        return _Route(meta=meta, component=custom_id)
+
+    mismatch = _fingerprint_mismatch(custom_id, meta, record)
+    if mismatch is not None:
+        _LOGGER.error("interaction %s: %s", interaction.id, mismatch)  # ERROR always
+        return _Route(meta=meta, component=custom_id)
+
+    decoded = _decode_args(custom_id, meta, record, interaction.id)
+    if decoded is None:
+        return None
+    if decoded is _OUTDATED:
+        return _Route(meta=meta, component=custom_id)
+    return _Route(meta=meta, component=custom_id, handler=record, decoded=decoded)
+
+
 def _fingerprint_mismatch(
     custom_id: codec.CustomID,
     meta: registry.ViewMeta,
@@ -519,7 +552,7 @@ def _decode_args(
     meta: registry.ViewMeta,
     record: registry.HandlerRecord,
     interaction_id: hikari.Snowflake,
-) -> list[object] | None:
+) -> list[object] | _Outdated | None:
     signature = record.signature
     if not signature.converters:
         return []
@@ -548,7 +581,7 @@ def _decode_args(
             len(frames),
             signature.required,
         )
-        return None
+        return _OUTDATED
     if len(frames) > len(signature.converters):
         _LOGGER.warning(
             "interaction %s routes to handler %r (version %d) of view %s with %d wire argument"
@@ -572,7 +605,7 @@ def _decode_frames(
     meta: registry.ViewMeta,
     record: registry.HandlerRecord,
     interaction_id: hikari.Snowflake,
-) -> list[object] | None:
+) -> list[object] | _Outdated | None:
     signature = record.signature
     decoded: list[object] = []
     for (name, converter), frame in zip(signature.converters.items(), frames, strict=False):
@@ -629,6 +662,6 @@ def _decode_frames(
                 meta.name,
                 name,
             )
-            return None
+            return _OUTDATED if isinstance(converter, codec.EnumConverter) and converter.reads(data) else None
         decoded.append(value)
     return decoded

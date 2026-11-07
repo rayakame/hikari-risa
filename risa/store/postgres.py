@@ -76,9 +76,6 @@ CREATE TABLE IF NOT EXISTS {lease} (
     expires_at timestamptz NOT NULL
 )
 """
-_GET: typing.Final[str] = """
-SELECT data FROM {state} WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
-"""
 _GET_VERSIONED: typing.Final[str] = """
 SELECT data, version FROM {state} WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
 """
@@ -134,7 +131,6 @@ class _Sql(msgspec.Struct, frozen=True):
     state: str
     lease: str
     create: str
-    get: str
     get_versioned: str
     put: str
     put_if_version: str
@@ -204,12 +200,6 @@ class PostgresStore(protocol.Store):
             lease=lease,
             max_hold=max_hold,
         )
-
-    @typing.override
-    async def get(self, key: str) -> bytes | None:
-        await self._prepare()
-        data = await self._pool.fetchval(self._sql.get, key)
-        return None if data is None else _expect(data, bytes)
 
     @typing.override
     async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
@@ -299,7 +289,6 @@ def _statements(table: str) -> _Sql:
         state=names["state"],
         lease=names["lease"],
         create=_CREATE.format_map(names),
-        get=_GET.format_map(names),
         get_versioned=_GET_VERSIONED.format_map(names),
         put=_PUT.format_map(names),
         put_if_version=_PUT_IF_VERSION.format_map(names),

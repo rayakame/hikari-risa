@@ -217,7 +217,7 @@ async def test_an_evicting_memory_policy_is_warned_about_once(
     store = redis_store.RedisStore(client)
 
     with caplog.at_level(logging.WARNING, logger="risa"):
-        await store.get(fresh_key())
+        await store.get_versioned(fresh_key())
         await store.put(fresh_key(), b"one", ttl=1.0)
 
     (warning,) = [record.getMessage() for record in caplog.records]
@@ -235,7 +235,7 @@ async def test_noeviction_draws_no_warning(
     monkeypatch.setattr(client, "config_get", config_get)
 
     with caplog.at_level(logging.WARNING, logger="risa"):
-        await redis_store.RedisStore(client).get(fresh_key())
+        await redis_store.RedisStore(client).get_versioned(fresh_key())
 
     assert not caplog.records
 
@@ -252,7 +252,7 @@ async def test_a_reply_without_the_policy_is_noted_at_debug(
     monkeypatch.setattr(client, "config_get", config_get)
 
     with caplog.at_level(logging.DEBUG, logger="risa"):
-        await redis_store.RedisStore(client).get(fresh_key())
+        await redis_store.RedisStore(client).get_versioned(fresh_key())
 
     assert [record.levelno for record in caplog.records] == [logging.DEBUG]
     assert "maxmemory-policy" in caplog.records[0].getMessage()
@@ -270,7 +270,7 @@ async def test_a_server_that_hides_its_policy_is_only_noted_at_debug(
     monkeypatch.setattr(client, "config_get", config_get)
 
     with caplog.at_level(logging.DEBUG, logger="risa"):
-        assert await redis_store.RedisStore(client).get(fresh_key()) is None
+        assert await redis_store.RedisStore(client).get_versioned(fresh_key()) is None
 
     assert [record.levelno for record in caplog.records] == [logging.DEBUG]
     assert "maxmemory-policy" in caplog.records[0].getMessage()

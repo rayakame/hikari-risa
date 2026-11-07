@@ -72,6 +72,7 @@ def component_ctx(
         interaction,
         rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
         meta=meta,
+        build=unittest.mock.AsyncMock(),
         gate=gate,
         slot=slot,
     )
@@ -147,6 +148,62 @@ async def test_a_respond_after_a_defer_is_a_followup() -> None:
     await ctx.respond("late")
 
     rest_of(ctx).execute_webhook.assert_awaited_once()
+
+
+async def test_a_respond_after_thinking_replaces_the_thinking_message() -> None:
+    ctx = component_ctx(component_interaction())
+
+    await ctx.defer(thinking=True)
+    response = await ctx.respond("done")
+
+    call = rest_of(ctx).edit_interaction_response.await_args
+    assert call is not None
+    assert call.args[2] == "done"
+    rest_of(ctx).execute_webhook.assert_not_called()
+
+    await response.edit("later")
+
+    assert rest_of(ctx).edit_interaction_response.await_count == 2
+    rest_of(ctx).edit_webhook_message.assert_not_called()
+
+
+async def test_a_second_respond_after_thinking_is_a_followup() -> None:
+    ctx = component_ctx(component_interaction())
+    rest_of(ctx).execute_webhook.return_value = mock_message(999)
+
+    await ctx.defer(thinking=True)
+    await ctx.respond("one")
+    await ctx.respond("two")
+
+    rest_of(ctx).edit_interaction_response.assert_awaited_once()
+    call = rest_of(ctx).execute_webhook.await_args
+    assert call is not None
+    assert call.args[2] == "two"
+
+
+async def test_a_respond_after_thinking_cannot_change_its_visibility() -> None:
+    ctx = component_ctx(component_interaction())
+
+    await ctx.defer(thinking=True)
+    await ctx.respond("done", ephemeral=True, tts=True)
+
+    call = rest_of(ctx).edit_interaction_response.await_args
+    assert call is not None
+    assert "flags" not in call.kwargs
+    assert "tts" not in call.kwargs
+
+
+async def test_a_rerender_after_answering_thinking_edits_the_origin_message() -> None:
+    interaction = component_interaction()
+    interaction.message = mock_message(1)
+    ctx = component_ctx(interaction)
+
+    await ctx.defer(thinking=True)
+    await ctx.respond("done")
+    await ctx.rerender()
+
+    rest_of(ctx).edit_message.assert_awaited_once()
+    rest_of(ctx).edit_interaction_response.assert_awaited_once()
 
 
 async def test_an_ephemeral_respond_sets_the_flag() -> None:
@@ -422,6 +479,7 @@ async def test_a_hook_on_a_view_without_state_can_still_rerender() -> None:
         interaction,
         rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
         meta=registry.require_meta(Menu),
+        build=unittest.mock.AsyncMock(),
     )
 
     await ctx.rerender()

@@ -345,7 +345,8 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
         """Send a message in answer to the interaction.
 
         The first response answers the interaction itself; every later one is a follow-up
-        message. Apart from `ephemeral`, the parameters are those of hikari's
+        message. After a thinking message, the first one replaces it, and keeps its visibility
+        whatever `ephemeral` and `tts` say. Apart from `ephemeral`, the parameters are those of hikari's
         [`create_interaction_response`][hikari.api.rest.RESTClient.create_interaction_response]
         and [`execute_webhook`][hikari.api.rest.RESTClient.execute_webhook], which describe them
         in full.
@@ -407,6 +408,24 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
                 self._record_initial(_InitialResponse.MESSAGE_CREATE)
                 return Response(self._rest, self._interaction, None)
 
+            if self._gate.response is _InitialResponse.DEFERRED_THINKING:
+                await self._rest.edit_interaction_response(
+                    self._interaction.application_id,
+                    self._interaction.token,
+                    content,
+                    attachment=attachment,
+                    attachments=attachments,
+                    component=component,
+                    components=components,
+                    embed=embed,
+                    embeds=embeds,
+                    mentions_everyone=mentions_everyone,
+                    user_mentions=user_mentions,
+                    role_mentions=role_mentions,
+                )
+                self._record_initial(_InitialResponse.MESSAGE_CREATE)
+                return Response(self._rest, self._interaction, None)
+
             message = await self._rest.execute_webhook(
                 self._interaction.application_id,
                 self._interaction.token,
@@ -438,7 +457,7 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
     message. risa makes one per click.
     """
 
-    __slots__ = ("_meta", "_slot")
+    __slots__ = ("_build", "_meta", "_slot")
 
     def __init__(
         self,
@@ -446,11 +465,13 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         *,
         rest: hikari.api.RESTClient,
         meta: registry.ViewMeta,
+        build: collections.abc.Callable[[view_.View], collections.abc.Awaitable[build_.Rendered]],
         gate: ResponseGate | None = None,
         slot: ViewSlot | None = None,
     ) -> None:
         super().__init__(interaction, rest=rest, gate=gate)
         self._meta = meta
+        self._build = build
         self._slot = slot if slot is not None else ViewSlot()
 
     @property
@@ -490,8 +511,9 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         StateOverflowError
             If an `InMessage` view's state does not fit the layout's components.
         StateConflictError
-            If another process saved the view's state first. The view then holds that state,
-            unless that record cannot be read, which risa logs.
+            If another process saved the view's state first. The view then holds that state.
+        StateUnreadableError
+            If another process saved the view's state first, in a form this code cannot read.
         """
         plan = build_.plan(layout, self._meta)
         view, session = self._slot.view, self._slot.session
@@ -501,6 +523,34 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         if plan.interactive and self._meta.schema.durable:
             raise errors.NoViewError(self._meta.name, "edit() with interactive components")
         await self._update_origin(plan.emit(b""))
+
+    async def replace(self, view: view_.View, /) -> None:
+        """Turn the message into another view, which answers its clicks from here on.
+
+        It builds `view` as `Client.build` does, so a view in a store gets a record of its own.
+        This view's state is not saved, also not when the handler returns, and its record stays
+        until its `ttl` runs out. `ctx.edit(**rendered)` does not do this: `edit` stays with this view.
+
+        Parameters
+        ----------
+        view
+            The view to show, an instance of a registered class.
+
+        Raises
+        ------
+        EphemeralOriginError
+            If the message is ephemeral and the interaction was answered with a new message.
+        NotAViewError
+            If the view's class was never registered.
+        StateOverflowError
+            If an `InMessage` view's state does not fit its components.
+        ViewDeclarationError
+            If the view keeps its state in a store this client does not have.
+        """
+        rendered = await self._build(view)
+        await self._update_origin(rendered.components)
+        self._slot.view = None
+        self._slot.session = None
 
     async def rerender(self) -> None:
         """Redraw the message from the view's current state, and save that state.
@@ -521,8 +571,9 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
             If an `InMessage` view's state no longer fits its components.
         StateConflictError
             If another process saved the view's state first. The view then holds that state,
-            unless that record cannot be read, which risa logs. Otherwise the handler can
-            apply its change again and rerender.
+            so the handler can apply its change again and rerender.
+        StateUnreadableError
+            If another process saved the view's state first, in a form this code cannot read.
         StateNotFoundError
             If an `InStore` view's record disappeared while the handler ran.
         """

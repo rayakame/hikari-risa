@@ -56,6 +56,7 @@ __all__ = (
     "StateError",
     "StateNotFoundError",
     "StateOverflowError",
+    "StateUnreadableError",
     "StoreConformanceError",
     "StoreUnavailableError",
     "ViewDeclarationError",
@@ -505,8 +506,8 @@ class StateConflictError(StateError):
     """Raised when another process wrote a view's state first.
 
     By the time it is raised, the view already holds the state that won, so the handler
-    can apply its change again on top of it. The exception is a winning record that cannot
-    be read: risa logs that and the view keeps its own state.
+    can apply its change again on top of it. A record that cannot be read raises
+    `StateUnreadableError` instead.
 
     Attributes
     ----------
@@ -526,6 +527,23 @@ class StateConflictError(StateError):
             f"state for key {key!r} was written concurrently: this handler read version {expected},"
             f" the store holds version {found}; the write was rejected",
         )
+
+
+class StateUnreadableError(StateError):
+    """Raised when another process wrote a view's state first, in a form this code cannot read.
+
+    It can happen during a deploy, when a process with other fields wins the race. The view
+    keeps its own state, the change is lost, and another attempt in this click raises again.
+
+    Attributes
+    ----------
+    key
+        The store key of the state.
+    """
+
+    def __init__(self, key: str) -> None:
+        self.key: str = key
+        super().__init__(f"state for key {key!r} was written concurrently in a form this code cannot read")
 
 
 class LockTimeoutError(StateError):

@@ -1,18 +1,17 @@
 # Writing your own store
 
-A store is seven methods. Write them against what you already run, and `verify_store` tells you whether risa can rely on
+A store is six methods. Write them against what you already run, and `verify_store` tells you whether risa can rely on
 them.
 {: .risa-lead }
 
-## The seven methods
+## The six methods
 
 [`risa.Store`](../api/store/protocol.md#risa.store.protocol.Store) is a protocol, and the reference has each method in
 full.
 
 | Method | What it has to do |
 |---|---|
-| `get(key)` | Return the bytes last written, unchanged, or `None` if the entry is missing or expired |
-| `get_versioned(key)` | The same, with the entry's version, as a `risa.VersionedEntry` |
+| `get_versioned(key)` | Return the bytes last written, unchanged, with the entry's version, as a `risa.VersionedEntry`, or `None` if the entry is missing or expired |
 | `put(key, value, *, ttl)` | Write whether or not an entry exists, and change the version |
 | `put_if_version(key, value, *, expected, ttl)` | Write only if the entry is at version `expected`, in one atomic step, and return the new version. Otherwise write nothing and return `None` |
 | `delete(key)` | Remove the entry, if there is one |

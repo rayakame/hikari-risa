@@ -289,13 +289,17 @@ class View(msgspec.Struct):
         """
         raise NotImplementedError
 
-    async def load(self) -> None:
-        """Fill the view's props before it renders.
+    if typing.TYPE_CHECKING:
+        # An override names whatever it wants injected, which no method signature here could allow.
+        load: typing.ClassVar[collections.abc.Callable[..., collections.abc.Awaitable[None]]]
+    else:
 
-        risa awaits it before the first send and on every click, after restoring the durable
-        state and before the handler runs. Its parameters are injected, as a handler's are. A strict type
-        checker needs the default `risa.INJECTED` on them, since `load` overrides a method that takes none.
-        """
+        async def load(self) -> None:
+            """Fill the view's props before it renders.
+
+            risa awaits it before the first send and on every click, after restoring the durable
+            state and before the handler runs. Its parameters are injected, as a handler's are.
+            """
 
     @classmethod
     async def on_outdated(cls, ctx: context.ComponentContext) -> None:

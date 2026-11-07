@@ -21,12 +21,13 @@ does not fail at 3 seconds, and the real answer can come later. The 2 seconds ar
 
 ## Which message
 
-Three calls answer a click, and they differ in which message they touch.
+Four calls answer a click, and they differ in which message they touch.
 
 | Call | What it does | `AutoDefer` for a slow handler |
 |---|---|---|
 | [`ctx.rerender()`](../api/context.md#risa.context.ComponentContext.rerender) | Redraws the clicked message | `UPDATE` |
 | [`ctx.edit(layout)`](../api/context.md#risa.context.ComponentContext.edit) | Replaces the clicked message | `UPDATE` |
+| [`ctx.replace(view)`](../api/context.md#risa.context.ComponentContext.replace) | Turns the clicked message into another view | `UPDATE` |
 | [`ctx.respond(...)`](../api/context.md#risa.context.Context.respond) | Sends a new message | `THINKING` or `THINKING_EPHEMERAL` |
 
 On a view with no slow handlers, a fast handler needs no auto-defer, because each of these calls is an answer in itself.

@@ -81,11 +81,6 @@ class MemoryStore(protocol.Store):
         self._capacity_warned = False
 
     @typing.override
-    async def get(self, key: str) -> bytes | None:
-        entry = self._live(key)
-        return None if entry is None else entry.data
-
-    @typing.override
     async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
         entry = self._live(key)
         return None if entry is None else protocol.VersionedEntry(data=entry.data, version=entry.version)

@@ -14,6 +14,16 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
+**2026-11-07, library decisions (branch `library-decisions`):** the maintainer went through the open library questions one
+by one. A field's enum or `Literal` now counts by the kinds of its values, so a new value is free. `Store.get` is gone, since
+`get_versioned` covers it; `delete` stays for `verify_store`. `load()` needs no `= risa.INJECTED` under pyright; hooks still
+do. The first `respond()` after thinking edits the original response, as Discord asks, which has not run on live Discord,
+including a Components V2 layout replacing the thinking message. `ctx.replace(view)` turns a message into another view, and
+chapter 10's upgrade uses it. A winner that cannot be read raises `StateUnreadableError`. `client.build` warns once about a
+view this client does not answer. A removed bound enum value and a removed argument default reach `on_outdated`. Decided to
+stay as they are: a handler that answers nothing stays quiet on a gateway bot, an unknown codec tag is ignored without a word,
+one class per old version, the docs' `default_factory`, and an ended view keeps its record until its `ttl`.
+
 **2026-11-07, docs site, chapters 06, 08, 10 and 11 reworked (branch `docs-by-example`):** chapter 10 opens on which changes
 break old buttons, then gives every option, then handlers; its tables come from clicking each kind of change under both
 placements, offline, and tests in `tests/tools/test_examples.py` hold the examples and the two-click table of chapter 11. New

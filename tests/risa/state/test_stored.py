@@ -221,7 +221,7 @@ async def test_key_prefix_replaces_the_whole_namespace_head() -> None:
 
     located = anchor.StoreAnchor.parse(raw)
     assert located is not None
-    assert await store.get(f"modbot:1:{located.token}") is not None
+    assert await store.get_versioned(f"modbot:1:{located.token}") is not None
 
 
 async def test_builds_before_any_click_fetch_the_application_id_once() -> None:
@@ -433,12 +433,15 @@ async def test_an_unreadable_winner_raises_without_adopting() -> None:
     await store.put(key_of(raw), b"\xc1", ttl=TTL)
 
     todo.items.append("mine")
-    with pytest.raises(risa.StateConflictError) as exc_info:
+    with pytest.raises(risa.StateUnreadableError) as exc_info:
         await session.stage(todo)
 
-    assert exc_info.value.found == 2
+    assert exc_info.value.key == key_of(raw)
+    assert not isinstance(exc_info.value, risa.StateConflictError)
     assert todo.items == ["mine"]
     assert await session.settle(todo) is False
+    with pytest.raises(risa.StateUnreadableError):
+        await session.stage(todo)
 
 
 async def test_an_expired_record_reads_as_missing_without_a_log_of_its_own(caplog: pytest.LogCaptureFixture) -> None:

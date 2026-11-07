@@ -182,7 +182,8 @@ class MessageSession(backend.StateSession):
         if values is None:
             _LOGGER.warning(
                 "interaction %s routes to view %s, but the state in message %s does not decode under its"
-                " own fingerprint; the components may be forged or corrupted",
+                " own fingerprint: a value of an enum or Literal field may have been removed, or the"
+                " components are forged or corrupted",
                 self._interaction.id,
                 self._meta.name,
                 self._interaction.message.id,

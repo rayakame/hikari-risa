@@ -51,10 +51,6 @@ class DictStore(risa.Store):
         self._locks: dict[str, asyncio.Lock] = {}
         self._versions = itertools.count(1)
 
-    async def get(self, key: str) -> bytes | None:
-        entry = self._live(key)
-        return None if entry is None else entry.data
-
     async def get_versioned(self, key: str) -> risa.VersionedEntry | None:
         entry = self._live(key)
         if entry is None:

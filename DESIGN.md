@@ -510,9 +510,12 @@ parameters resolve and nested injected helpers see the open contexts, but it run
 acknowledge: one courtesy answer is the whole job, and ``AutoDefer.OFF`` has to keep meaning
 off. Whether a view overrides it is resolved once, at registration
 (``ViewMeta.handles_outdated``), which is both what gates the call and what downgrades the
-token-miss log. Two boundaries worth stating: decode failures -- unreadable frames, bad
-frame counts, undecodable values -- deliberately do **not** reach the hook, because that
-input is client-forgeable and must never invoke user code; and the hook's context carries
+token-miss log. Two boundaries worth stating: data that looks broken -- unreadable frames, too
+many frames, text the codec cannot read, a value its converter cannot read -- does **not** reach
+the hook; too few frames for what the handler now requires and an enum value that no longer
+exists do **[decided -- revised 2026-11-07]**, since they are what a developer's edit leaves
+behind, a forged one can only trigger the courtesy answer a real old button gets, and the hook
+sees no state or arguments. And the hook's context carries
 no view **[decided -- revised 2026-10-26]**. Dispatch builds the ``ComponentContext``
 before any state is read, so the watchdog covers the session's I/O (§8.1), and attaches
 the hydrated view only once ``restore()`` succeeds. A hook therefore never constructs the
@@ -591,7 +594,7 @@ class Leaderboard(risa.View):
     page: int = 0                                             # durable — survives restarts
     rows: risa.Prop[list[Row]] = msgspec.field(default_factory=list[Row])   # fresh, free
 
-    async def load(self, db: Database = linkd.INJECTED) -> None:
+    async def load(self, db: Database) -> None:
         """Awaited before every render — initial send and every dispatch."""
         self.rows = await db.top(self.guild_id, page=self.page)
 ```
@@ -637,7 +640,9 @@ the lock is a throughput optimization.**
   handler, and the message still shows the winner, who edited it. risa never retries: a
   handler that already responded or wrote elsewhere must not run twice. A record that
   vanished under the handler raises `StateNotFoundError(key)` instead, and a winner that
-  cannot be read raises the conflict without adopting; both detach the session, so nothing
+  cannot be read raises `StateUnreadableError(key)` without adopting **[decided 2026-11-07]**,
+  so `StateConflictError` always means `self` holds the winner, and the retry above cannot
+  mistake the handler's own attempt for the winner's state; both detach the session, so nothing
   commits against a dead baseline. A race lost by the end-of-dispatch commit (§7.4) has no
   one left to raise to: WARNING with both versions, naming `rerender()` as the way to
   handle conflicts, and the mutation is discarded. An earlier revision converged without
@@ -690,7 +695,6 @@ handlers) are designed but deferred post-1.0 (§15).
 
 ```python
 class Store(Protocol):
-    async def get(self, key: str) -> bytes | None: ...
     async def get_versioned(self, key: str) -> tuple[bytes, int] | None: ...
     async def put(self, key: str, value: bytes, *, ttl: float | None) -> None: ...
     async def put_if_version(self, key: str, value: bytes, *,
@@ -811,7 +815,11 @@ Changes from the original protocol, all verdicts of the lock investigation:
   `total` and gave the fingerprint 2 characters; §6.1 is the layout of record, and the three
   extra characters are spent per *view*, not per component.
 - Evolution policy, both placements: **appending a defaulted durable field is free**
-  (prefix fingerprints); remove/reorder/retype/rename fails closed to `on_outdated`.
+  (prefix fingerprints); remove/reorder/retype/rename fails closed to `on_outdated`. An enum or
+  `Literal` counts by the kinds of its values **[decided 2026-11-07]**, as a wire argument does:
+  a new value is free, and a removed one fails closed only for the state that holds it, at
+  WARNING, since the fingerprint still matches. Nested structs stay strict, since a hash cannot
+  tell a field added from a field renamed.
   That includes the *first* durable field of a formerly stateless view **[decided
   2026-10-26]**: a view without durable fields writes no anchor, and a message whose
   fragments under the view's cookie are all empty *and* indexed 0..n without a gap reads as
@@ -918,16 +926,23 @@ message. risa's ``rerender``/``edit`` always land on the component's message:
 
 | Call | Nothing sent | After defer (update) | After defer (thinking) or respond() |
 |---|---|---|---|
-| ``respond()`` | initial `MESSAGE_CREATE` | webhook `execute()` | webhook `execute()` |
+| ``respond()`` | initial `MESSAGE_CREATE` | webhook `execute()` | first after thinking: `edit_initial_response()`; otherwise webhook `execute()` |
 
 | ``rerender()`` / ``edit()`` | initial `MESSAGE_UPDATE` | `edit_initial_response()` | REST edit of the origin message |
+| ``replace()`` | initial `MESSAGE_UPDATE` | `edit_initial_response()` | REST edit of the origin message |
 | ``defer()`` | initial `DEFERRED_*` | `AlreadyRespondedError` | `AlreadyRespondedError` |
 
-The *thinking* column's ``respond()`` row is **empirically verified** (2026-08-15, live
-Discord, throwaway testbot probe): a webhook followup after a
-``DEFERRED_MESSAGE_CREATE`` resolves the "Bot is thinking..." placeholder — it does not
-leave one stranded beside the followup, so no special case turning the first
-post-thinking ``respond()`` into an ``edit_interaction_response`` is needed.
+A webhook followup after a ``DEFERRED_MESSAGE_CREATE`` did resolve the "Bot is thinking..."
+placeholder when tested live on 2026-08-15, but Discord documents that behaviour as deprecated
+and points at Edit Original Interaction Response. So the first ``respond()`` after thinking
+edits the original **[decided 2026-11-07]**; ``ephemeral`` and ``tts`` have no effect there,
+since the message keeps the visibility of the thinking one. This route has not run on live
+Discord yet.
+
+``replace(view)`` turns the message into another view **[decided 2026-11-07]**: it builds through
+the client and lands on the origin message in every state above, and ``edit`` stays with this
+view. The old view's state is not saved, also not at the end of the dispatch, ``rerender()``
+raises ``NoViewError`` afterwards, and an old record stays until its TTL.
 
 ``ctx.prompt(SomeModal, ...)`` remains the modal chapter's problem; the initial-response
 gate is built to accommodate it.
@@ -1205,6 +1220,7 @@ new types ad hoc:
 | store unreachable (never conflated with "gone") | `StoreUnavailableError` |
 | state written in a codec this host cannot load | `CodecUnavailableError` from the session's `restore()`: ERROR with the install line, no hook (§6.1) |
 | CAS lost in `rerender()` | `StateConflictError` after adopting the winner (§7.3) |
+| CAS lost to a record this code cannot read | `StateUnreadableError`, nothing adopted (§7.3) |
 | CAS lost by the end-of-dispatch commit | logged at WARNING, mutation discarded (§7.3) |
 | lock not acquired within `timeout` | `LockTimeoutError` |
 | wire args predate a signature edit | `SignatureMismatchError` (caught in dispatch: logged, routed to `on_outdated`) |
@@ -1316,7 +1332,7 @@ old branch proved steps 1-4 once; they are to be rebuilt against this design, no
 - Docs: the placement 2×2 (§10), the capacity/introspection story, the world-readable
   warning, a first stateful tutorial example whose state *grows*. The first half, numpy
   docstrings for the whole public API with ruff's `D`/`DOC` rules enforcing them, was
-  built 2026-11-02; the site and its guides remain. Of the capacity story, the per-field
+  built 2026-11-02, and the site and its guides on 2026-11-07. Of the capacity story, the per-field
   breakdown in `StateOverflowError` was built 2026-11-03; a way to ask how full a view is
   before it overflows remains.
 

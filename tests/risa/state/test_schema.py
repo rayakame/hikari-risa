@@ -471,13 +471,21 @@ def test_an_enum_renders_by_its_values_rather_than_its_member_names() -> None:
     assert schema_.structural_type_id(Colour) == schema_.structural_type_id(Renamed)
 
 
-def test_a_new_member_changes_the_shape_of_an_enum() -> None:
+def test_a_new_member_leaves_the_shape_of_an_enum_alone() -> None:
     class Grown(enum.Enum):
         RED = 1
         BLUE = 2
         GREEN = 3
 
-    assert schema_.structural_type_id(Colour) != schema_.structural_type_id(Grown)
+    assert schema_.structural_type_id(Colour) == schema_.structural_type_id(Grown)
+
+
+def test_an_enum_of_another_kind_of_value_has_another_shape() -> None:
+    class Worded(enum.Enum):
+        RED = "red"
+
+    assert schema_.structural_type_id(Colour) == "enum(int)"
+    assert schema_.structural_type_id(Worded) == "enum(str)"
 
 
 def test_a_struct_that_contains_itself_renders_without_recursing_forever() -> None:
@@ -489,7 +497,7 @@ def test_an_annotation_with_no_shape_to_render_is_rejected() -> None:
         schema_.structural_type_id(typing.ClassVar[int])
 
 
-def test_literal_values_are_part_of_the_shape() -> None:
-    assert schema_.structural_type_id(typing.Literal["a", "b"]) == schema_.structural_type_id(typing.Literal["b", "a"])
-    assert schema_.structural_type_id(typing.Literal["a", "b"]) != schema_.structural_type_id(typing.Literal["a", "c"])
+def test_only_the_kinds_of_literal_values_are_part_of_the_shape() -> None:
+    assert schema_.structural_type_id(typing.Literal["a", "b"]) == schema_.structural_type_id(typing.Literal["a", "c"])
     assert schema_.structural_type_id(typing.Literal[1]) != schema_.structural_type_id(typing.Literal["1"])
+    assert schema_.structural_type_id(typing.Literal[1, "a"]) == "literal(int,str)"

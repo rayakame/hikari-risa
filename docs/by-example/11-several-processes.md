@@ -141,6 +141,10 @@ state that won, so the handler can apply its change once more.
 
 `_first_vote` runs again on the record that won, so someone whose vote is already in gets "You already voted."
 
+If a process with other fields won, say during a deploy, this process cannot read the record. `ctx.rerender()` then raises
+[`StateUnreadableError`](../api/errors.md#risa.errors.StateUnreadableError), which this `except` lets through: the handler
+fails, risa logs it, and the click fails in Discord.
+
 The retry is one attempt. If it conflicts too, `rerender()` raises again, risa logs the error and that click fails.
 
 Without the `except`, the handler fails: risa logs the error, the click fails in Discord, and the message shows what the
