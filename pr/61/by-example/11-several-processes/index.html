@@ -885,10 +885,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#which-store-you-need" class="md-nav__link">
+  <a href="#where-a-click-lands" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Which store you need
+        Where a click lands
       </span>
     </span>
   </a>
@@ -896,10 +896,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#where-a-click-lands" class="md-nav__link">
+  <a href="#what-two-clicks-do-to-a-view" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Where a click lands
+        What two clicks do to a view
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-set-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What to set up
       </span>
     </span>
   </a>
@@ -1784,10 +1795,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#which-store-you-need" class="md-nav__link">
+  <a href="#where-a-click-lands" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Which store you need
+        Where a click lands
       </span>
     </span>
   </a>
@@ -1795,10 +1806,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#where-a-click-lands" class="md-nav__link">
+  <a href="#what-two-clicks-do-to-a-view" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Where a click lands
+        What two clicks do to a view
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-set-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What to set up
       </span>
     </span>
   </a>
@@ -1942,24 +1964,94 @@
 
 
 <h1 id="several-processes">Several processes<a class="headerlink" href="#several-processes" title="Permanent link">&para;</a></h1>
-<p class="risa-lead">With more than one process, every <code>InStore</code> view needs a store they all reach, and a REST bot's <code>InMessage</code> views can lose
-a click.</p>
-<h2 id="which-store-you-need">Which store you need<a class="headerlink" href="#which-store-you-need" title="Permanent link">&para;</a></h2>
-<p>A view in the message needs no store. A view in a store needs <a href="../09-stores-and-ttl/#redis-and-postgresql"><code>RedisStore</code> or <code>PostgresStore</code></a>,
-on one server for all processes, or <a href="../12-writing-your-own-store/">your own</a>.</p>
+<p class="risa-lead">Run more than one process, and two clicks on one message can land in two places. This chapter shows when that happens,
+what it does to your views, and how to keep every click.</p>
+<p>A bot in one process needs nothing from here. With several processes, put every <code>InStore</code> view on Redis or PostgreSQL. On a
+REST bot with several processes, move every view that cannot lose a click to such a store as well.</p>
+<h2 id="where-a-click-lands">Where a click lands<a class="headerlink" href="#where-a-click-lands" title="Permanent link">&para;</a></h2>
+<p>Two people click the same message. Which process runs each click depends on the kind of bot:</p>
+<div class="risa-routes">
+<div class="risa-routes__bot">
+<strong>Gateway bot</strong>
+<svg viewBox="0 0 300 208" role="img" aria-label="Two clicks on one message of a gateway bot. The shard of the guild decides, and both clicks reach process 1.">
+<defs>
+<marker id="risa-gateway-1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#f680a1"/></marker>
+<marker id="risa-gateway-2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#ffd479"/></marker>
+</defs>
+<rect class="risa-routes__click-1" x="20" y="4" width="116" height="32" rx="4"/>
+<text class="risa-routes__label-1" x="78" y="20">Click 1</text>
+<rect class="risa-routes__click-2" x="164" y="4" width="116" height="32" rx="4"/>
+<text class="risa-routes__label-2" x="222" y="20">Click 2</text>
+<path class="risa-routes__line-1" d="M78 36L104 68" marker-end="url(#risa-gateway-1)"/>
+<path class="risa-routes__line-2" d="M222 36L196 68" marker-end="url(#risa-gateway-2)"/>
+<rect class="risa-routes__box" x="46" y="70" width="208" height="32" rx="4"/>
+<text x="150" y="86">The guild's shard decides</text>
+<path class="risa-routes__line-1" d="M100 102L56 136" marker-end="url(#risa-gateway-1)"/>
+<path class="risa-routes__line-2" d="M130 102L92 136" marker-end="url(#risa-gateway-2)"/>
+<rect class="risa-routes__box" x="4" y="138" width="138" height="66" rx="4"/>
+<text class="risa-routes__name" x="73" y="160">Process 1</text>
+<text x="73" y="182">Both clicks</text>
+<rect class="risa-routes__box risa-routes__idle" x="158" y="138" width="138" height="66" rx="4"/>
+<text class="risa-routes__name risa-routes__idle" x="227" y="160">Process 2</text>
+<text class="risa-routes__idle" x="227" y="182">No click</text>
+</svg>
+<span>All clicks on one message reach one process, so they can wait for each other there.</span>
+</div>
+<div class="risa-routes__bot">
+<strong>REST bot, several processes</strong>
+<svg viewBox="0 0 300 208" role="img" aria-label="Two clicks on one message of a REST bot. The load balancer decides, and click 1 reaches process 1 while click 2 reaches process 2.">
+<defs>
+<marker id="risa-rest-1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#f680a1"/></marker>
+<marker id="risa-rest-2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#ffd479"/></marker>
+</defs>
+<rect class="risa-routes__click-1" x="20" y="4" width="116" height="32" rx="4"/>
+<text class="risa-routes__label-1" x="78" y="20">Click 1</text>
+<rect class="risa-routes__click-2" x="164" y="4" width="116" height="32" rx="4"/>
+<text class="risa-routes__label-2" x="222" y="20">Click 2</text>
+<path class="risa-routes__line-1" d="M78 36L104 68" marker-end="url(#risa-rest-1)"/>
+<path class="risa-routes__line-2" d="M222 36L196 68" marker-end="url(#risa-rest-2)"/>
+<rect class="risa-routes__box" x="46" y="70" width="208" height="32" rx="4"/>
+<text x="150" y="86">The load balancer decides</text>
+<path class="risa-routes__line-1" d="M104 102L73 136" marker-end="url(#risa-rest-1)"/>
+<path class="risa-routes__line-2" d="M196 102L227 136" marker-end="url(#risa-rest-2)"/>
+<rect class="risa-routes__box" x="4" y="138" width="138" height="66" rx="4"/>
+<text class="risa-routes__name" x="73" y="160">Process 1</text>
+<text x="73" y="182">Click 1</text>
+<rect class="risa-routes__box" x="158" y="138" width="138" height="66" rx="4"/>
+<text class="risa-routes__name" x="227" y="160">Process 2</text>
+<text x="227" y="182">Click 2</text>
+</svg>
+<span>Each click can reach another process, so two can run at the same moment.</span>
+</div>
+</div>
+
+<ul>
+<li><strong>A gateway bot</strong> has several processes when you split its shards, with <code>shard_ids</code> and <code>shard_count</code> on <code>bot.run</code>. A
+  message's guild decides its shard, by <a href="https://docs.discord.com/developers/events/gateway#sharding">Discord's formula</a>,
+  and a DM goes to shard 0. That process need not be the one that sent the message.</li>
+<li><strong>A REST bot</strong> has several when you run several copies behind a load balancer, which picks a copy for each click.</li>
+</ul>
+<h2 id="what-two-clicks-do-to-a-view">What two clicks do to a view<a class="headerlink" href="#what-two-clicks-do-to-a-view" title="Permanent link">&para;</a></h2>
+<p>Two people click <strong>Yes</strong> at the same moment on a poll at 5, so the right result is 7:</p>
 <table class="risa-grid">
 <thead>
 <tr><th></th><th scope="col">Gateway bot</th><th scope="col">REST bot, several processes</th></tr>
 </thead>
 <tbody>
-<tr><th scope="row"><code>InMessage</code></th><td data-where="Gateway bot">Clicks on one message queue up.</td><td data-where="REST bot, several processes">The last edit of the message wins.</td></tr>
-<tr><th scope="row"><code>InStore</code> on Redis or PostgreSQL</th><td data-where="Gateway bot">Clicks on one view queue up.</td><td data-where="REST bot, several processes">Clicks on one view queue up across the processes.</td></tr>
-<tr><th scope="row"><code>InStore</code> on <code>MemoryStore</code></th><td data-where="Gateway bot">A restart loses the state, and <code>add_view</code> warns at startup.</td><td data-where="REST bot, several processes">Most clicks do not find the state, and <code>add_view</code> warns at startup.</td></tr>
+<tr><th scope="row"><code>InMessage</code></th><td data-where="Gateway bot"><strong class="risa-grid__good">7</strong>Both clicks count.</td><td data-where="REST bot, several processes"><strong class="risa-grid__bad">6</strong>Both processes read 5 and write 6, so one click is lost, and nothing logs it.</td></tr>
+<tr><th scope="row"><code>InStore</code> on Redis or PostgreSQL</th><td data-where="Gateway bot"><strong class="risa-grid__good">7</strong>Both clicks count.</td><td data-where="REST bot, several processes"><strong class="risa-grid__good">7</strong>Both clicks count. The second waits for the first, across the processes.</td></tr>
+<tr><th scope="row"><code>InStore</code> on <code>MemoryStore</code></th><td data-where="Gateway bot"><strong class="risa-grid__warn">7, until a restart</strong>Both clicks count, and a restart loses the poll.</td><td data-where="REST bot, several processes"><strong class="risa-grid__bad">Most clicks fail</strong>Only the process that sent the poll has its record. Elsewhere <code>on_state_missing</code> runs.</td></tr>
 </tbody>
 </table>
 
-<p>A click that does not find the state runs <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a>.</p>
-<p>Every process runs the same setup.</p>
+<p>A REST bot with one process behaves like the gateway column. A gateway bot with split shards can miss a <code>MemoryStore</code>
+record too, when one process sends a message into a guild another process serves, and <code>add_view</code> warns about a
+<code>MemoryStore</code> at startup.</p>
+<p>In a message, one more thing holds on every bot: a vote changes the ids, so a click that reaches Discord after the first
+edit fails there, and the person has to click again. <a href="../08-where-state-lives/#message-or-store">In a store</a> the ids stay.</p>
+<h2 id="what-to-set-up">What to set up<a class="headerlink" href="#what-to-set-up" title="Permanent link">&para;</a></h2>
+<p>A view in the message needs no store. A view in a store needs <a href="../09-stores-and-ttl/#redis-and-postgresql"><code>RedisStore</code> or <code>PostgresStore</code></a>,
+on one server for all processes, or <a href="../12-writing-your-own-store/">your own</a>. Every process runs the same setup.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">connection</span> <span class="o">=</span> <span class="n">redis</span><span class="o">.</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"REDIS_HOST"</span><span class="p">])</span>
 </span><span id="__span-0-2"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_lightbulb</span><span class="p">(</span>
 </span><span id="__span-0-3">    <span class="n">lightbulb_client</span><span class="p">,</span>
@@ -1968,30 +2060,6 @@ on one server for all processes, or <a href="../12-writing-your-own-store/">your
 </span><span id="__span-0-6"><span class="p">)</span>
 </span><span id="__span-0-7"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="where-a-click-lands">Where a click lands<a class="headerlink" href="#where-a-click-lands" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Bot</th>
-<th>It has several processes when</th>
-<th>A click lands on</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Gateway</td>
-<td>You split its shards, with <code>shard_ids</code> and <code>shard_count</code> on <code>bot.run</code></td>
-<td>The process with the shard of the message's guild, by <a href="https://docs.discord.com/developers/events/gateway#sharding">Discord's formula</a>, and shard 0 for a DM</td>
-</tr>
-<tr>
-<td>REST</td>
-<td>You run several copies behind a load balancer</td>
-<td>Whichever copy the balancer picks</td>
-</tr>
-</tbody>
-</table>
-<p>So all clicks on one message of a gateway bot reach one process, although that need not be the process that sent the
-message. On a REST bot, two clicks on one message can run at the same moment in two processes.</p>
 <h2 id="how-clicks-take-turns">How clicks take turns<a class="headerlink" href="#how-clicks-take-turns" title="Permanent link">&para;</a></h2>
 <p>On Redis or PostgreSQL, clicks on one view run one after another, across processes too. Each goes through these steps:</p>
 <ol class="risa-flow risa-flow--4">

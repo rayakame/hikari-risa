@@ -2,6 +2,7 @@
 .md-typeset ol.risa-flow,
 .md-typeset .risa-ids,
 .md-typeset .risa-scope,
+.md-typeset .risa-routes,
 .md-typeset table.risa-grid,
 .md-typeset ol.risa-timeline {
   --risa-night-rule: rgba(233, 218, 249, 0.09);
@@ -186,6 +187,96 @@
   gap: 0.2rem 1.1rem;
 }
 
+.md-typeset .risa-routes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 1.2rem 0;
+}
+
+.md-typeset .risa-routes__bot {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--risa-night-rule);
+  border-radius: 0.3rem;
+  color: #b7a3cc;
+  background: #150524;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.md-typeset .risa-routes__bot > strong {
+  color: #f680a1;
+  font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+  font-weight: 900;
+}
+
+.md-typeset .risa-routes svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.md-typeset .risa-routes text {
+  fill: #b7a3cc;
+  font-size: 12.5px;
+  dominant-baseline: central;
+  text-anchor: middle;
+}
+
+.md-typeset .risa-routes text.risa-routes__name {
+  fill: #ece2f6;
+  font-weight: 700;
+}
+
+.md-typeset .risa-routes .risa-routes__box {
+  fill: #240c3a;
+  stroke: rgba(233, 218, 249, 0.18);
+}
+
+.md-typeset .risa-routes rect.risa-routes__idle {
+  fill: none;
+  stroke-dasharray: 4 3;
+}
+
+.md-typeset .risa-routes text.risa-routes__idle {
+  fill: #7d6a92;
+}
+
+.md-typeset .risa-routes__click-1 {
+  fill: none;
+  stroke: #f680a1;
+}
+
+.md-typeset .risa-routes__click-2 {
+  fill: none;
+  stroke: #ffd479;
+}
+
+.md-typeset .risa-routes text.risa-routes__label-1 {
+  fill: #f680a1;
+}
+
+.md-typeset .risa-routes text.risa-routes__label-2 {
+  fill: #ffd479;
+}
+
+.md-typeset .risa-routes__line-1,
+.md-typeset .risa-routes__line-2 {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.md-typeset .risa-routes__line-1 {
+  stroke: #f680a1;
+}
+
+.md-typeset .risa-routes__line-2 {
+  stroke: #ffd479;
+}
+
 .md-typeset table.risa-grid {
   display: table;
   width: 100%;
@@ -226,6 +317,27 @@
 .md-typeset .risa-grid tbody th {
   color: #ece2f6;
   font-weight: 700;
+}
+
+.md-typeset .risa-grid td > strong {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.md-typeset .risa-grid__good {
+  color: #8ce0a8;
+}
+
+.md-typeset .risa-grid__warn {
+  color: #ffd479;
+}
+
+.md-typeset .risa-grid__bad {
+  color: #ff8fa3;
 }
 
 .md-typeset .risa-grid code,
@@ -288,6 +400,10 @@
 }
 
 @media screen and (max-width: 44.984375em) {
+  .md-typeset .risa-routes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .md-typeset table.risa-grid,
   .md-typeset .risa-grid tbody,
   .md-typeset .risa-grid tr,
