@@ -64,6 +64,48 @@
         <loc>https://rayakame.github.io/hikari-risa/main/api/view/</loc>
       </url>
       <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/01-views/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/02-buttons-that-remember/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/03-handlers-and-arguments/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/04-selects-sections-galleries/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/05-answering-in-time/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/06-dependency-injection/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/07-fresh-data/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/08-where-state-lives/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/09-stores-and-ttl/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/10-changing-a-view-safely/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/11-several-processes/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/by-example/12-writing-your-own-store/</loc>
+      </url>
+      <url>
+        <loc>https://rayakame.github.io/hikari-risa/main/get-started/</loc>
+      </url>
+      <url>
         <loc>https://rayakame.github.io/hikari-risa/main/get-started/coming-from-miru/</loc>
       </url>
       <url>
