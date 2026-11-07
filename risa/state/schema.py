@@ -395,7 +395,8 @@ def structural_type_id(annotation: object) -> str:
     """Describe a field type by its structure, for the schema fingerprint.
 
     An enum or `Literal` counts by the kinds of its values, so a new value of a kind it already
-    has leaves old state readable, and a removed one fails only for the state that holds it.
+    has leaves old state readable, and a removed one fails only for the state that holds it. A
+    `Literal` that gains a kind, or loses its last value of one, changes the shape.
 
     Parameters
     ----------
