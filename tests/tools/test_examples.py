@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import logging
 import pathlib
@@ -28,6 +29,7 @@ import sys
 import typing
 import unittest.mock
 
+import fakeredis
 import hikari
 import linkd
 import msgspec
@@ -37,6 +39,7 @@ import risa
 from risa import codecs
 from risa import ui
 from risa.internal import registry
+from risa.store.redis import RedisStore
 
 if typing.TYPE_CHECKING:
     import types
@@ -131,7 +134,7 @@ def own_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(registry, "_GLOBAL_REGISTRY", registry.Registry())
 
 
-def _poll_client(store: risa.MemoryStore, *views: type[risa.View]) -> risa.Client:
+def _poll_client(store: risa.Store, *views: type[risa.View]) -> risa.Client:
     app = unittest.mock.Mock(rest=unittest.mock.AsyncMock())
     client = risa.client_from_app(typing.cast("risa.GatewayClientAppT", app), store=store, key_prefix="examples")
     for view in views:
@@ -406,3 +409,88 @@ def _client_with(view: type[risa.View]) -> risa.Client:
     client = _client()
     client.add_view(view)
     return client
+
+
+_FIVE_VOTERS: typing.Final = [1298471056230400001 + index * 7919 for index in range(5)]
+
+
+def _shown(*clients: risa.Client) -> set[str]:
+    shown: set[str] = set()
+    for client in clients:
+        for call in _rest(client).create_interaction_response.await_args_list:
+            for count in (5, 6, 7):
+                if f"Yes: {count}" in str(call.kwargs["components"][0].build()[0]):
+                    shown.add(f"Yes: {count}")
+    return shown
+
+
+async def _two_clicks(first: risa.Client, second: risa.Client, ids: typing.Sequence[str]) -> None:
+    await asyncio.gather(
+        _process(first, _click(ids, 0, user=1)),
+        _process(second, _click(ids, 0, user=2)),
+    )
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_two_clicks_of_chapter_11_both_count_in_a_message_on_one_process() -> None:
+    module = _load("ch08_poll")
+    client = _poll_client(risa.MemoryStore(), module.Poll)
+    ids = _ids((await client.build(module.Poll(question="q", yes=5, voters=_FIVE_VOTERS))).components)
+
+    await _two_clicks(client, client, ids)
+
+    assert "Yes: 7" in _shown(client)
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_two_clicks_of_chapter_11_lose_one_in_a_message_across_processes_and_log_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    module = _load("ch08_poll")
+    first = _poll_client(risa.MemoryStore(), module.Poll)
+    second = _poll_client(risa.MemoryStore(), module.Poll)
+    ids = _ids((await first.build(module.Poll(question="q", yes=5, voters=_FIVE_VOTERS))).components)
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await _two_clicks(first, second, ids)
+
+    assert _shown(first, second) == {"Yes: 6"}
+    assert not caplog.records
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_two_clicks_of_chapter_11_both_count_on_redis_across_processes() -> None:
+    module = _load("ch09_poll_redis")
+    connection = fakeredis.FakeAsyncRedis(server=fakeredis.FakeServer())
+    first = _poll_client(RedisStore(connection), module.Poll)
+    second = _poll_client(RedisStore(connection), module.Poll)
+    ids = _ids((await first.build(module.Poll(question="q", yes=5, voters=_FIVE_VOTERS))).components)
+
+    await _two_clicks(first, second, ids)
+    await connection.aclose()
+
+    assert "Yes: 7" in _shown(first, second)
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_two_clicks_of_chapter_11_both_count_on_memory_store_on_one_process() -> None:
+    module = _load("ch09_poll_memory")
+    client = _poll_client(risa.MemoryStore(), module.Poll)
+    ids = _ids((await client.build(module.Poll(question="q", yes=5, voters=_FIVE_VOTERS))).components)
+
+    await _two_clicks(client, client, ids)
+
+    assert "Yes: 7" in _shown(client)
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_a_click_of_chapter_11_finds_no_record_on_a_process_with_its_own_memory_store() -> None:
+    module = _load("ch09_poll_memory")
+    sender = _poll_client(risa.MemoryStore(), module.Poll)
+    other = _poll_client(risa.MemoryStore(), module.Poll)
+    ids = _ids((await sender.build(module.Poll(question="q", yes=5, voters=_FIVE_VOTERS))).components)
+
+    await _process(other, _click(ids, 0, user=1))
+
+    assert "This poll has expired." in str(_answer(other)[0].build()[0])
