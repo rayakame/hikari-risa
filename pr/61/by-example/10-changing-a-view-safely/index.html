@@ -913,6 +913,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#in-a-message-or-in-a-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In a message or in a store
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2011,6 +2022,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#in-a-message-or-in-a-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In a message or in a store
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2558,6 +2580,49 @@ at <code>INFO</code> by default, so you see no line for a raised <code>version</
 <p>risa compares names and types. If <code>price: int</code> held cents and now holds euros, every check passes, and your handler reads
 old cents as euros. An argument that keeps its type and changes its meaning is the same. Raise the <code>version</code> yourself
 when a meaning changes.</p>
+<h3 id="in-a-message-or-in-a-store">In a message or in a store<a class="headerlink" href="#in-a-message-or-in-a-store" title="Permanent link">&para;</a></h3>
+<p>This chapter's rules hold for <code>InMessage</code> and <code>InStore</code> alike, and its poll sits in a store. These are the differences:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>InMessage</code></th>
+<th><code>InStore</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New fields</td>
+<td>Take room, and a message that no longer fits fails at its next save</td>
+<td>No limit</td>
+</tr>
+<tr>
+<td>Fewer buttons</td>
+<td>Less room, with the same failure</td>
+<td>No effect, since each button holds the same key</td>
+</tr>
+<tr>
+<td>State that is gone</td>
+<td>Cannot happen, so <code>on_state_missing</code> never runs</td>
+<td>An expired record, another store or another <code>key_prefix</code> run <code>on_state_missing</code></td>
+</tr>
+<tr>
+<td>What a retired message leaves behind</td>
+<td>Nothing</td>
+<td>Its record, until its <code>ttl</code> runs out, or for good under <code>ttl=None</code></td>
+</tr>
+<tr>
+<td>A bound argument</td>
+<td>Shares its id with the state</td>
+<td>Shares its id with the key</td>
+</tr>
+<tr>
+<td>Free to change</td>
+<td>The codec</td>
+<td><code>ttl</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="what-you-can-do">What you can do<a class="headerlink" href="#what-you-can-do" title="Permanent link">&para;</a></h2>
 <p>Say the poll should take any options, not only yes and no. <code>yes</code> and <code>no</code> become one <code>votes</code> dict, and <code>vote_yes</code> and
 <code>vote_no</code> become one handler with an argument. The fields changed, so the view's
@@ -2668,7 +2733,7 @@ when a meaning changes.</p>
 the other options. Old polls keep working, and you carry both forms for as long as those polls matter.</p>
 <h3 id="let-old-buttons-fail">Let old buttons fail<a class="headerlink" href="#let-old-buttons-fail" title="Permanent link">&para;</a></h3>
 <p>Raise the <code>version</code> and do nothing else. A click on an old poll reaches no view, so it fails in Discord. <code>on_outdated</code>
-on the new class does not run, because that class answers only for version 3.</p>
+on the new class does not run, because that class answers only for version 3. For this poll in a store, that looks like this:</p>
 <ol class="risa-timeline">
 <li class="risa-timeline__event"><span class="risa-timeline__when">Monday</span><strong>Version 2 sends a poll</strong><span>Its buttons route to version 2 and hold the record's key.</span></li>
 <li class="risa-timeline__event"><span class="risa-timeline__when">Tuesday</span><strong>You release version 3</strong><span>New polls route to version 3. The old message stays as it was.</span></li>
@@ -2676,8 +2741,7 @@ on the new class does not run, because that class answers only for version 3.</p
 <li class="risa-timeline__event"><span class="risa-timeline__when">A week after the last click that read it</span><strong>The record expires</strong><span>The message stays, and a later click finds no record.</span></li>
 </ol>
 
-<p>This suits messages nobody comes back to. Under <code>InStore(ttl=None)</code>, the records of old messages stay in the store for
-good.</p>
+<p>This suits messages nobody comes back to.</p>
 <h3 id="answer-them-all-the-same-way">Answer them all the same way<a class="headerlink" href="#answer-them-all-the-same-way" title="Permanent link">&para;</a></h3>
 <p>A class at the old version needs no fields, no handlers and no <code>state=</code>. Every old button finds no handler there, so
 <a href="#on_outdated"><code>on_outdated</code></a> answers it. Add the class to the client as well. This one answers the oldest polls, from
@@ -2694,8 +2758,8 @@ version 1 in <a href="../08-where-state-lives/">Where state lives</a>:</p>
 <code>ctx.edit(ui.TextDisplay("..."))</code> instead. Each old version needs a class of its own, and they can share the method through a
 base class.</p>
 <h3 id="close-the-old-message">Close the old message<a class="headerlink" href="#close-the-old-message" title="Permanent link">&para;</a></h3>
-<p>To show what the old poll held, keep a class at the old version. Its fields have to match the old ones, or risa cannot
-read the state.</p>
+<p>To show what the old poll held, keep a class at the old version. Its fields and its <code>state=</code> have to match the old ones,
+or risa cannot read the state.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"poll"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InStore</span><span class="p">(</span><span class="n">ttl</span><span class="o">=</span><span class="n">WEEK</span><span class="p">))</span>
 </span><span id="__span-4-2"><span class="k">class</span><span class="w"> </span><span class="nc">OldPoll</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
 </span><span id="__span-4-3">    <span class="n">question</span><span class="p">:</span> <span class="nb">str</span>
@@ -2720,8 +2784,8 @@ Such a rejection handler routes like any other and logs nothing, and <code>self<
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">After a click on an old poll</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>Pizza on Friday? It ended with 3 yes and 2 no.</p></div></div></div></div>
 
-<p>Add both classes to the client. Each answers for its own version, so the old class needs an <code>on_state_missing</code> of its own
-as well.</p>
+<p>Add both classes to the client. Each answers for its own version, so an old class in a store needs an <code>on_state_missing</code>
+of its own as well.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
 </span><span id="__span-6-2"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">OldPoll</span><span class="p">)</span>
 </span><span id="__span-6-3"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">RetiredPoll</span><span class="p">)</span>
@@ -3030,8 +3094,8 @@ state, count the vote, and replace the message.</p>
 <li><strong>Replacing the message.</strong> <code>ctx.edit</code> takes only the buttons of the view that was clicked, and raises
   <a href="../../api/errors/#risa.errors.LayoutError"><code>LayoutError</code></a> for another's. So the handler acknowledges the click and
   edits the message through hikari.</li>
-<li><strong>The old record.</strong> In a store, <code>client.build</code> writes a new record under a new key, and the old one expires with its
-  <code>ttl</code>.</li>
+<li><strong>The new state.</strong> In a store, <code>client.build</code> writes a new record under a new key, and the old one expires with its
+  <code>ttl</code>. In a message, <code>client.build</code> raises <code>StateOverflowError</code> if the new state does not fit the new buttons.</li>
 <li><strong>Messages nobody clicks.</strong> risa keeps no list of the messages it sent, so one that gets no click stays at version 2.
   It still needs this class when someone clicks it next.</li>
 <li><strong>Two clicks at once.</strong> Both start from the same old state, and the second replaces the first with only its own vote.</li>
@@ -3198,7 +3262,8 @@ called <code>vote</code>:</p>
 </span></code></pre></div>
 <p>With no pin, the route changes with the name, and old buttons go to <code>on_outdated</code>.</p>
 <h3 id="changing-its-arguments">Changing its arguments<a class="headerlink" href="#changing-its-arguments" title="Permanent link">&para;</a></h3>
-<p>An option's name travels on its button, and in this poll it can be 54 characters long before <code>client.build</code> raises. So
+<p>An option's name travels on its button, and in this poll, in a store, it can be 54 characters long before <code>client.build</code>
+raises. So
 the buttons should carry the option's position instead, and <code>option: str</code> becomes <code>position: int</code>. Old buttons still hold
 a <code>str</code>, so the new method gets a new <code>version</code>, and the method above stays at the old one.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>

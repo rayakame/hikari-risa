@@ -2061,7 +2061,9 @@ such characters came back from Discord byte for byte.</p>
 </tr>
 </tbody>
 </table>
-<p>The last column is for a button with no state, as in <a href="../03-handlers-and-arguments/#what-can-be-an-argument">What can be an argument</a>.</p>
+<p>The bytes include 9 of framing per view, so the default codec leaves about 60 for your state on one button, and about 70
+for each further one. The last column is for a button with no state, as in
+<a href="../03-handlers-and-arguments/#what-can-be-an-argument">What can be an argument</a>.</p>
 <p>To switch, install the <a href="../../get-started/installation/#extras"><code>radixly</code> extra</a>:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">uv</label><label for="__tabbed_1_2">pip</label></div>
 <div class="tabbed-content">

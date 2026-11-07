@@ -2044,7 +2044,8 @@ REST bot with several processes, move every view that cannot lose a click to suc
 </tbody>
 </table>
 
-<p>A REST bot with one process behaves like the gateway column. A gateway bot with split shards can miss a <code>MemoryStore</code>
+<p>A click that finds no record runs <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a>. A REST bot with one process behaves like
+the gateway column. A gateway bot with split shards can miss a <code>MemoryStore</code>
 record too, when one process sends a message into a guild another process serves, and <code>add_view</code> warns about a
 <code>MemoryStore</code> at startup.</p>
 <p>In a message, one more thing holds on every bot: a vote changes the ids, so a click that reaches Discord after the first
