@@ -2355,7 +2355,7 @@ handler changed.</p>
 </tr>
 <tr>
 <td>A field's default, or a default added to a field</td>
-<td>Old state holds its own value</td>
+<td>State that holds the field keeps its value, and state saved before the field existed gets the current default</td>
 </tr>
 <tr>
 <td>A <a href="../07-fresh-data/"><code>risa.Prop</code></a>, added, changed or removed</td>
@@ -2375,7 +2375,7 @@ handler changed.</p>
 </tr>
 <tr>
 <td>The <a href="../08-where-state-lives/#another-codec">codec</a></td>
-<td>An old message takes it at its next rerender</td>
+<td>An old message takes it at its next rerender, as long as risa can still read the old one</td>
 </tr>
 <tr>
 <td>A handler's parameter names, its <code>defer</code>, or an injected parameter added</td>
@@ -2559,6 +2559,11 @@ Start the file below on the same Redis and click <strong>Yes</strong> on the old
 <td>A handler's arguments: added, removed or retyped</td>
 <td><code>on_outdated</code></td>
 <td><code>ERROR</code></td>
+</tr>
+<tr>
+<td>A codec old messages use: its extra removed, or <a href="../08-where-state-lives/#another-codec">your own</a> no longer registered</td>
+<td>Fails in Discord</td>
+<td><code>ERROR</code> for the extra, nothing for your own</td>
 </tr>
 <tr>
 <td>A bound enum member removed, or its value changed</td>
@@ -3262,8 +3267,8 @@ called <code>vote</code>:</p>
 </span></code></pre></div>
 <p>With no pin, the route changes with the name, and old buttons go to <code>on_outdated</code>.</p>
 <h3 id="changing-its-arguments">Changing its arguments<a class="headerlink" href="#changing-its-arguments" title="Permanent link">&para;</a></h3>
-<p>An option's name travels on its button, and in this poll, in a store, it can be 54 characters long before <code>client.build</code>
-raises. So
+<p>An option's name travels on its button, and in this poll, in a store, it can be 54 ASCII characters long before
+<code>client.build</code> raises, and fewer of anything else, since a <code>str</code> takes its UTF-8 bytes. So
 the buttons should carry the option's position instead, and <code>option: str</code> becomes <code>position: int</code>. Old buttons still hold
 a <code>str</code>, so the new method gets a new <code>version</code>, and the method above stays at the old one.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>

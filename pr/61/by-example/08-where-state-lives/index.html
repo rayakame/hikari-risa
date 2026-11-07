@@ -2103,6 +2103,9 @@ characters from one CJK block. <code>InMessage(codec=...)</code> also takes a <a
 <li><strong>The extra has to stay installed.</strong> Without <code>radixly</code>, <code>@risa.register</code> raises
   <a href="../../api/errors/#risa.errors.CodecUnavailableError"><code>CodecUnavailableError</code></a> on a view that names the codec. A click on a
   message written in it logs an error that names the extra, and the click fails.</li>
+<li><strong>A codec of your own has to stay registered.</strong> Once no view names it, call
+  <a href="../../api/codecs/#risa.codecs.register"><code>risa.codecs.register</code></a> on it in every process that answers clicks. Otherwise risa
+  takes its ids for another bot's and ignores them, so the click fails with no line in your log.</li>
 <li><strong>Going back can overflow.</strong> A message that holds more than the old codec fits fails at its next rerender with
   <code>StateOverflowError</code>.</li>
 </ul>
