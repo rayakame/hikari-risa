@@ -570,6 +570,9 @@ def _decode_args(
         return None
 
     if len(frames) < signature.required:
+        given = _decode_frames(frames, custom_id.codec, meta, record, interaction_id)
+        if given is None:
+            return None
         _LOGGER.error(
             "interaction %s: handler %r (version %d) of view %s received %d wire argument"
             " frames but now requires %d; a parameter default was removed in place - bump the"

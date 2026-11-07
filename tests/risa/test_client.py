@@ -1719,6 +1719,10 @@ class Hooked(risa.View):
     async def count(self, _ctx: risa.ComponentContext, amount: int) -> None:  # ruff:ignore[no-self-use]
         HOOKED_CALLS.append(str(amount))
 
+    @risa.handler
+    async def pair(self, _ctx: risa.ComponentContext, first: int, second: int) -> None:  # ruff:ignore[no-self-use]
+        HOOKED_CALLS.append(f"{first} {second}")
+
     @classmethod
     @typing.override
     async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
@@ -1748,6 +1752,22 @@ async def test_an_argument_default_that_was_removed_reaches_the_hook(caplog: pyt
 
     assert HOOKED_CALLS == ["outdated"]
     assert "bump the handler version" in caplog.text
+
+
+async def test_too_few_arguments_reach_the_hook_only_when_the_ones_given_can_be_read(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    readable = codec.pack_frames([codecs.BASE85.encode(codec.IntConverter(int).encode(1))])
+    unreadable = codec.pack_frames([codecs.BASE85.encode(b"")])
+
+    await click_hooked(Hooked.pair.token, Hooked.pair.signature.fingerprint + readable)
+    assert HOOKED_CALLS == ["outdated"]
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await click_hooked(Hooked.pair.token, Hooked.pair.signature.fingerprint + unreadable)
+
+    assert not HOOKED_CALLS
+    assert "could not be decoded" in caplog.text
 
 
 async def test_a_value_its_converter_cannot_read_never_reaches_the_hook(caplog: pytest.LogCaptureFixture) -> None:
