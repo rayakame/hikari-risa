@@ -15,7 +15,7 @@ DESIGN disagree, DESIGN and this block win, and the two contracts they describe 
 step 3 replaced are marked *superseded* in place.
 
 **2026-11-07, library decisions (branch `library-decisions`):** the maintainer went through the open library questions one
-by one. A field's enum or `Literal` now counts by the kinds of its values, so a new value is free. `Store.get` is gone, since
+by one. A field's enum or `Literal` now counts by the kinds of its values, so a new value of a kind it already has is free. `Store.get` is gone, since
 `get_versioned` covers it; `delete` stays for `verify_store`. `load()` needs no `= risa.INJECTED` under pyright; hooks still
 do. The first `respond()` after thinking edits the original response, as Discord asks, which has not run on live Discord,
 including a Components V2 layout replacing the thinking message. `ctx.replace(view)` turns a message into another view, and

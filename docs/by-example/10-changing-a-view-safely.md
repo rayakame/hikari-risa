@@ -40,7 +40,7 @@ Old buttons keep working through all of these:
 | A field's default, or a default added to a field | State that holds the field keeps its value, and state saved before the field existed gets the current default |
 | A [`risa.Prop`](07-fresh-data.md), added, changed or removed | Props are not saved |
 | A field from `int` to `hikari.Snowflake` | Both are saved the same way |
-| A value added to a field's `enum.Enum` or `Literal` | risa compares only whether its values are `int` or `str` |
+| A value added to a field's `enum.Enum`, or to a `Literal` of the same kinds of values | risa compares only whether the values are `int`, `str` or `None` |
 | An enum member's name, if its value stays | risa saves the value |
 | `ttl` | An old record takes it at its next click, or `None` at its next save |
 | The [codec](08-where-state-lives.md#another-codec) | An old message takes it at its next rerender, as long as risa can still read the old one |

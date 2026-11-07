@@ -817,7 +817,7 @@ Changes from the original protocol, all verdicts of the lock investigation:
 - Evolution policy, both placements: **appending a defaulted durable field is free**
   (prefix fingerprints); remove/reorder/retype/rename fails closed to `on_outdated`. An enum or
   `Literal` counts by the kinds of its values **[decided 2026-11-07]**, as a wire argument does:
-  a new value is free, and a removed one fails closed only for the state that holds it, at
+  a new value of a kind it already has is free, and a removed one fails closed only for the state that holds it, at
   WARNING, since the fingerprint still matches. Nested structs stay strict, since a hash cannot
   tell a field added from a field renamed.
   That includes the *first* durable field of a formerly stateless view **[decided

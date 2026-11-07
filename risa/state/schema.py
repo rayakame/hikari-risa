@@ -394,8 +394,8 @@ def _value_kinds(info: msgspec.inspect.EnumType | msgspec.inspect.LiteralType) -
 def structural_type_id(annotation: object) -> str:
     """Describe a field type by its structure, for the schema fingerprint.
 
-    An enum or `Literal` counts by the kinds of its values, so a new value leaves old state
-    readable, and a removed one fails only for the state that holds it.
+    An enum or `Literal` counts by the kinds of its values, so a new value of a kind it already
+    has leaves old state readable, and a removed one fails only for the state that holds it.
 
     Parameters
     ----------
