@@ -93,10 +93,10 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 - Never skip hooks with `--no-verify`.
 - A pull request that changes what users of risa see adds a fragment to `changes/`, named after its number and the kind
   of change, such as `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`, and a second
-  entry of one kind takes a counter, `71.feature.1.md`. It holds one paragraph written for users, and towncrier adds
-  the link to the pull request. The same text reaches the docs and the GitHub release notes, so a fragment has no
-  list, quote, heading or code block, which the docs would break apart, and its links are `https://` addresses;
-  names go in backticks. `changelog.yml` asks for a fragment named after the pull request when it changes `risa/`
+  entry of one kind takes a counter, `71.feature.1.md`. It holds a single line written for users, however long, and
+  towncrier adds the link to the pull request. The same text reaches the docs and the GitHub release notes, which
+  break at every newline, so a fragment is not a list item, quote, heading or code block, and its links are
+  `https://` addresses; names go in backticks. `changelog.yml` asks for a fragment named after the pull request when it changes `risa/`
   beyond the version, unless it has the label `skip-changelog`. The docs build refuses a fragment that breaks these
   rules, since towncrier would leave a misnamed one out without a word.
 
@@ -108,9 +108,10 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 2. Publish a GitHub release on that commit, tagged `v` and the version, such as `v1.2.0`, with the version's section of
    `CHANGELOG.md` as its notes.
 
-`.github/workflows/publish.yml` builds the package, checks its contents and the tag against it, and uploads it to PyPI
-through trusted publishing from the `pypi` environment, so no token is stored anywhere. Then it calls `docs.yml` for
-the release's docs, so they never name a version PyPI lacks. A GitHub pre-release publishes neither.
+`.github/workflows/publish.yml` checks that `CHANGELOG.md` has the version's section and no fragment still waits,
+builds the package, checks its contents and the tag against it, and uploads it to PyPI through trusted publishing from
+the `pypi` environment, so no token is stored anywhere. Then it calls `docs.yml` for the release's docs, so they never
+name a version PyPI lacks. A GitHub pre-release publishes neither.
 
 ## Toolchain
 

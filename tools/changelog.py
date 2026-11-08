@@ -33,13 +33,13 @@ import typing
 if typing.TYPE_CHECKING:
     import collections.abc
 
-__all__ = ("ChangelogError", "page", "problems")
+__all__ = ("ChangelogError", "page", "problems", "release_problems")
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("tools.changelog")
 _FRAGMENT: typing.Final = re.compile(r"(\d+)\.([a-z]+)(?:\.\d+)?\.md")
-# towncrier indents an entry's later lines by two spaces, too few for Python-Markdown to keep a second block inside it.
-_BLOCK: typing.Final = re.compile(r"^[ \t]*$|^[ \t]*(?:[-*+]\s|#{1,6}\s|\d+[.)]\s|>|```|~~~)", re.MULTILINE)
-_LOCAL_LINK: typing.Final = re.compile(r"\]\((?!https?://)|\]\[")
+_BLOCK_START: typing.Final = re.compile(r"[-*+]\s|#{1,6}\s|\d+[.)]\s|>|```|~~~|:|\[[^\]]*\]:")
+_CODE: typing.Final = re.compile(r"`+[^`]*`+")
+_LOCAL_LINK: typing.Final = re.compile(r"\]\((?!https://)|\]\[")
 _SKIP_LABEL: typing.Final = "skip-changelog"
 _VERSION_FILE: typing.Final = "risa/_about.py"
 
@@ -85,11 +85,10 @@ def problems(
             )
             continue
         text = path.read_text(encoding="utf-8").strip()
-        if not text or _BLOCK.search(text):
-            found.append(
-                f"changes/{path.name} should be one paragraph, with no blank line, list, quote, heading or fence"
-            )
-        if _LOCAL_LINK.search(text):
+        # GitHub breaks release notes at every newline, and towncrier indents later lines too little for the docs.
+        if not text or "\n" in text or _BLOCK_START.match(text):
+            found.append(f"changes/{path.name} should be one line of text, not a list item, quote, heading or fence")
+        if _LOCAL_LINK.search(_CODE.sub("", text)):
             found.append(f"changes/{path.name} links to something other than an https:// address")
     if pull_request is not None:
         own = [
@@ -104,6 +103,20 @@ def problems(
                 f"this pull request changes risa/ but adds no changes/{pull_request}.<kind>.md; add one, or give it"
                 f" the label {_SKIP_LABEL} if users see no difference"
             )
+    return found
+
+
+def release_problems(root: pathlib.Path, version: str) -> collections.abc.Sequence[str]:
+    """Return why the changelog is not ready for the release of ``version``, or nothing."""
+    found: list[str] = []
+    if _fragments(root):
+        found.append(
+            "fragments still wait in changes/; move them into CHANGELOG.md with"
+            f" towncrier build --version {version} --yes"
+        )
+    heading = re.compile(rf"^## {re.escape(version)}(?: |$)", re.MULTILINE)
+    if not heading.search((root / "CHANGELOG.md").read_text(encoding="utf-8")):
+        found.append(f"CHANGELOG.md has no section for {version}")
     return found
 
 
@@ -169,16 +182,21 @@ def main() -> None:
     argument_parser.add_argument(
         "--changed", type=pathlib.Path, help="a file listing the paths the pull request changes, one per line"
     )
+    argument_parser.add_argument("--release", metavar="VERSION", help="check that the changelog is ready for VERSION")
     arguments = argument_parser.parse_args()
     if (arguments.pull_request is None) != (arguments.changed is None):
         argument_parser.error("--pull-request and --changed go together")
-    changed: list[str] = [] if arguments.changed is None else arguments.changed.read_text(encoding="utf-8").split()
-    found = problems(pathlib.Path.cwd(), pull_request=arguments.pull_request, changed=changed)
+    root = pathlib.Path.cwd()
+    if arguments.release is not None:
+        found = release_problems(root, arguments.release)
+    else:
+        changed: list[str] = [] if arguments.changed is None else arguments.changed.read_text(encoding="utf-8").split()
+        found = problems(root, pull_request=arguments.pull_request, changed=changed)
     for problem in found:
         _LOGGER.error(problem)
     if found:
         raise SystemExit(1)
-    _LOGGER.info("the changelog fragments are in order")
+    _LOGGER.info("the changelog is in order")
 
 
 if __name__ == "__main__":

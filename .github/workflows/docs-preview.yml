@@ -25,7 +25,8 @@ jobs:
       || startsWith(github.event.pull_request.head.ref, 'renovate/zensical')
       || startsWith(github.event.pull_request.head.ref, 'renovate/griffe')
       || startsWith(github.event.pull_request.head.ref, 'renovate/mkdocstrings')
-      || startsWith(github.event.pull_request.head.ref, 'renovate/pygments'))
+      || startsWith(github.event.pull_request.head.ref, 'renovate/pygments')
+      || startsWith(github.event.pull_request.head.ref, 'renovate/towncrier'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

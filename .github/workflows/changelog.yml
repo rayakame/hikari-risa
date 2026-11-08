@@ -32,6 +32,6 @@ jobs:
           if [ "$SKIP" = true ]; then
             uv run --no-project python -m tools.changelog
           else
-            git diff --name-only "origin/$BASE...HEAD" > "$RUNNER_TEMP/changed"
+            git diff --name-only --no-renames "origin/$BASE...HEAD" > "$RUNNER_TEMP/changed"
             uv run --no-project python -m tools.changelog --pull-request "$NUMBER" --changed "$RUNNER_TEMP/changed"
           fi

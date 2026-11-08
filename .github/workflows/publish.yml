@@ -26,6 +26,11 @@ jobs:
           enable-cache: false
           python-version: "3.12"
 
+      - name: Check the changelog
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: uv run --no-project python -m tools.changelog --release "${TAG#v}"
+
       - run: uv build
 
       - run: uv run --no-project python -m tools.check_dist dist

@@ -62,19 +62,25 @@ def test_a_fragment_of_an_unknown_kind_or_without_a_number_is_named(tmp_path: pa
 @pytest.mark.parametrize(
     "text",
     [
-        "One paragraph.\n\nAnd a second one.",
-        "New nodes:\n- `File`\n- `Separator`",
-        "Like this:\n```python\nrisa.View\n```",
+        "Two\nlines.",
+        "One paragraph.\r\n\r\nAnd a second one.",
+        "- a list item",
+        "1. an ordered one",
+        "# A heading",
+        "> A quote",
+        "```python",
+        "~~~",
+        ": a definition",
+        "[docs]: https://rayakame.github.io/hikari-risa/",
         "",
     ],
-    ids=["paragraphs", "list", "fence", "empty"],
 )
-def test_a_fragment_of_more_than_one_paragraph_is_named(tmp_path: pathlib.Path, text: str) -> None:
+def test_a_fragment_that_is_not_one_line_of_text_is_named(tmp_path: pathlib.Path, text: str) -> None:
     root = _root(tmp_path)
     (root / "changes" / "7.feature.md").write_text(text)
 
     assert changelog.problems(root) == [
-        "changes/7.feature.md should be one paragraph, with no blank line, list, quote, heading or fence"
+        "changes/7.feature.md should be one line of text, not a list item, quote, heading or fence"
     ]
 
 
@@ -83,8 +89,9 @@ def test_a_fragment_of_more_than_one_paragraph_is_named(tmp_path: pathlib.Path, 
     [
         ("See [the guide](../by-example/01-views.md).", True),
         ("See [`add_view`][risa.client.Client.add_view].", True),
+        ("See [the guide](http://rayakame.github.io/hikari-risa/).", True),
         ("See [the guide](https://rayakame.github.io/hikari-risa/stable/).", False),
-        ("Works with hikari\n2.7 and `ctx.replace`.", False),
+        ("Works with `rows[0][1]`, `list[int]()` and ``a](b``.", False),
     ],
 )
 def test_a_fragment_links_only_to_https_addresses(tmp_path: pathlib.Path, text: str, *, local: bool) -> None:
@@ -93,6 +100,14 @@ def test_a_fragment_links_only_to_https_addresses(tmp_path: pathlib.Path, text: 
 
     expected = ["changes/7.feature.md links to something other than an https:// address"] if local else []
     assert changelog.problems(root) == expected
+
+
+def test_a_long_line_with_inline_markdown_and_other_scripts_passes(tmp_path: pathlib.Path) -> None:
+    root = _root(tmp_path)
+    text = "`ctx.replace()` keeps *every* field " + "and more " * 20 + "for Ünïcödé views 🎉.\r\n"
+    (root / "changes" / "7.feature.md").write_bytes(text.encode())
+
+    assert changelog.problems(root) == []
 
 
 @pytest.mark.parametrize(
@@ -143,6 +158,46 @@ def test_the_command_line_wants_the_pull_request_with_its_changes(
         changelog.main()
 
     assert exited.value.code == 2
+
+
+@pytest.mark.parametrize(
+    ("fragments", "heading", "expected"),
+    [
+        ((), "## 1.0.1 (2026-12-01)", []),
+        (
+            ("7.feature.md",),
+            "## 1.0.1 (2026-12-01)",
+            [
+                (
+                    "fragments still wait in changes/; move them into CHANGELOG.md with"
+                    " towncrier build --version 1.0.1 --yes"
+                )
+            ],
+        ),
+        ((), "## 1.0.10 (2027-01-01)", ["CHANGELOG.md has no section for 1.0.1"]),
+    ],
+    ids=["ready", "fragments-wait", "no-section"],
+)
+def test_a_release_needs_its_section_and_no_waiting_fragments(
+    tmp_path: pathlib.Path, fragments: tuple[str, ...], heading: str, expected: list[str]
+) -> None:
+    root = _root(tmp_path, *fragments)
+    (root / "CHANGELOG.md").write_text(f"# Changelog\n\n{_MARKER}\n\n{heading}\n\nA fix.\n\n{_RELEASED}")
+
+    assert changelog.release_problems(root, "1.0.1") == expected
+
+
+def test_the_command_line_fails_a_release_without_its_section(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.chdir(_root(tmp_path))
+    monkeypatch.setattr(sys, "argv", ["changelog", "--release", "1.1.0"])
+
+    with pytest.raises(SystemExit) as exited:
+        changelog.main()
+
+    assert exited.value.code == 1
+    assert "CHANGELOG.md has no section for 1.1.0" in caplog.text
 
 
 def test_the_page_lists_waiting_fragments_above_the_releases(tmp_path: pathlib.Path) -> None:
@@ -225,4 +280,5 @@ def test_the_marker_comes_from_the_towncrier_settings(tmp_path: pathlib.Path) ->
 
 def test_the_changelog_of_the_repository_is_in_order() -> None:
     assert changelog.problems(_REPOSITORY) == []
+    assert changelog.release_problems(_REPOSITORY, "1.0.0") == []
     assert "## 1.0.0" in changelog.page(_REPOSITORY)
