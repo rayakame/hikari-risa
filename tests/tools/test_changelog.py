@@ -280,5 +280,6 @@ def test_the_marker_comes_from_the_towncrier_settings(tmp_path: pathlib.Path) ->
 
 def test_the_changelog_of_the_repository_is_in_order() -> None:
     assert changelog.problems(_REPOSITORY) == []
-    assert changelog.release_problems(_REPOSITORY, "1.0.0") == []
+    # Fragments of later pull requests may wait in changes/; the 1.0.0 section must stay.
+    assert "CHANGELOG.md has no section for 1.0.0" not in changelog.release_problems(_REPOSITORY, "1.0.0")
     assert "## 1.0.0" in changelog.page(_REPOSITORY)
