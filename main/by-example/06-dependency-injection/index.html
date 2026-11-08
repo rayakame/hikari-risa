@@ -2777,8 +2777,8 @@ a <code>typing.NewType</code> as the type, but pyright rejects it in <code>regis
 <p>A union falls back the same way: <code>Memory | Disk</code> gets the first one registered. <code>linkd.Try[Memory] | Disk</code> also falls back
 when making <code>Memory</code> fails, where a plain union would fail the click.</p>
 <h2 id="where-injection-works">Where injection works<a class="headerlink" href="#where-injection-works" title="Permanent link">&para;</a></h2>
-<p>Handlers, <code>load()</code>, <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a>, <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a>
-and factories have it without a decorator. For a function of your own, add <code>@linkd.inject</code>. <code>render()</code> takes no injected
+<p>Handlers, <code>load()</code>, <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a>, <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a>,
+<a href="../05-answering-in-time/#when-something-fails">error handlers</a> and factories have it without a decorator. For a function of your own, add <code>@linkd.inject</code>. <code>render()</code> takes no injected
 parameters, so <code>load()</code> reads what it draws.</p>
 <p>A parameter is injected if it has an annotation and either no default or the default
 <a href="../../api/di/#risa.di.INJECTED"><code>risa.INJECTED</code></a>. Any other default stays as it is. <code>*args</code>, <code>**kwargs</code> and positional-only
@@ -2787,8 +2787,8 @@ parameters are left alone. A parameter with no annotation gets nothing, so the c
 <code>on_state_missing</code> and a function of your own that you call with no arguments need it. In a handler it also marks a wire type as
 injected: <code>limit: int = risa.INJECTED</code>.</p>
 <h2 id="injection-context">Injection context<a class="headerlink" href="#injection-context" title="Permanent link">&para;</a></h2>
-<p>An injected function needs an open context when it runs. risa opens <code>DEFAULT</code> and <code>COMPONENT</code> around <code>load()</code>, the handler
-and the hooks of a click, and <code>DEFAULT</code> around the <code>load()</code> in <code>client.build</code>. A function called from inside those has them
+<p>An injected function needs an open context when it runs. risa opens <code>DEFAULT</code> and <code>COMPONENT</code> around <code>load()</code>, the handler,
+the hooks and the error handlers of a click, and <code>DEFAULT</code> around the <code>load()</code> in <code>client.build</code>. A function called from inside those has them
 too, so you rarely need to think about this.</p>
 <p>Anywhere else, such as in a hikari listener, open the context yourself, or the call raises
 <code>DependencyNotSatisfiableException</code>.</p>

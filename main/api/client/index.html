@@ -1601,6 +1601,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.error_handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        error_handler
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1998,6 +2009,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.error_handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        error_handler
       </span>
     </span>
   </a>
@@ -2650,6 +2672,83 @@ that send fails, the record stays behind until its TTL reaps it, or for good und
             –
           <div class="doc-md-description">
             <p>If an <code>InMessage</code> view's state does not fit its components.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.client.Client.error_handler" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">error_handler</span>
+
+
+<a href="#risa.client.Client.error_handler" class="headerlink" title="Permanent link">&para;</a></h3>
+          <div class="doc-overloads">
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">error_handler</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n"><span title="T">T</span></span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">priority</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="T">T</span></span>
+</span></code></pre></div><div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">error_handler</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">priority</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="risa.client._ErrorHandlerDecorator">_ErrorHandlerDecorator</span></span>
+</span></code></pre></div>          </div>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Register a function that answers clicks that failed.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="risa.client.Client.error_handler--__span-0-1"><span class="nd">@client</span><span class="o">.</span><span class="n">error_handler</span>
+</span><span id="risa.client.Client.error_handler--__span-0-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_error</span><span class="p">(</span><span class="n">failure</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ClickFailure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="risa.client.Client.error_handler--__span-0-3">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">failure</span><span class="o">.</span><span class="n">error</span><span class="p">,</span> <span class="n">risa</span><span class="o">.</span><span class="n">StoreUnavailableError</span><span class="p">):</span>
+</span><span id="risa.client.Client.error_handler--__span-0-4">        <span class="k">await</span> <span class="n">failure</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Try again in a moment."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="risa.client.Client.error_handler--__span-0-5">        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="risa.client.Client.error_handler--__span-0-6">    <span class="k">return</span> <span class="kc">False</span>
+</span></code></pre></div>
+<p>It runs when a handler, <code>load</code>, <code>View.on_outdated</code> or <code>View.on_state_missing</code> raises,
+or when the view's state cannot be reached before them; <code>ClickFailure.stage</code> says
+which. It returns <code>True</code> once it has dealt with the failure, and risa then logs
+nothing. Otherwise the next one runs, and if none returns <code>True</code>, risa logs the
+failure as it would without them. One that raises is logged and counts as <code>False</code>.
+Its parameters after the first are injected, as a handler's are. It runs without
+auto-defer, and Discord's three seconds count from the click, so a failure that comes
+late, such as a lock timeout, may leave it no time unless auto-defer answered first.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>func</code></b>
+              (<code><a class="autorefs autorefs-internal" title="            ErrorHandler (risa.context.ErrorHandler)" href="../context/#risa.context.ErrorHandler">ErrorHandler</a> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The function to register. Left out, the call takes <code>priority</code> and returns the
+decorator.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>priority</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>, default:
+                  <code>0</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Higher runs first; functions of one priority run in the order they were
+registered.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            ErrorHandler (risa.context.ErrorHandler)" href="../context/#risa.context.ErrorHandler">ErrorHandler</a> | <span title="risa.client._ErrorHandlerDecorator">_ErrorHandlerDecorator</span></code>
+          –
+          <div class="doc-md-description">
+            <p>The function, unchanged, or the decorator that registers one.</p>
           </div>
         </li>
     </ul>

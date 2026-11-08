@@ -1589,6 +1589,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#risa.context.ErrorHandler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ErrorHandler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.context.ClickFailure" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ClickFailure
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#risa.context.ComponentContext" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1817,6 +1839,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.context.FailureStage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FailureStage
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -2037,6 +2070,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#risa.context.ErrorHandler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ErrorHandler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.context.ClickFailure" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ClickFailure
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#risa.context.ComponentContext" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2269,6 +2324,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#risa.context.FailureStage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        FailureStage
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#risa.context.Response" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2475,6 +2541,106 @@
 
 
 
+<div class="doc doc-object doc-type_alias">
+
+
+
+<h2 id="risa.context.ErrorHandler" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-type_alias"></code>            <span class="doc doc-object-name doc-type_alias-name">ErrorHandler</span>
+
+
+<a href="#risa.context.ErrorHandler" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nc">ErrorHandler</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="typing.Concatenate" href="https://docs.python.org/3/library/typing.html#typing.Concatenate">Concatenate</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            ClickFailure (risa.context.ClickFailure)" href="./#risa.context.ClickFailure">ClickFailure</a></span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Awaitable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Awaitable">Awaitable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span><span class="p">]]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>A function <code>Client.error_handler</code> registers: it takes a <code>ClickFailure</code>, then anything to inject.</p>
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.context.ClickFailure" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">ClickFailure</span>
+
+
+<a href="#risa.context.ClickFailure" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">ClickFailure</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            ComponentContext (risa.context.ComponentContext)" href="./#risa.context.ComponentContext">ComponentContext</a></span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#Exception">Exception</a></span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            FailureStage (risa.context.FailureStage)" href="./#risa.context.FailureStage">FailureStage</a></span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="msgspec.Struct">Struct</span></code></p>
+
+
+
+        <p>A click that failed, as the functions <code>Client.error_handler</code> registers receive it.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.context.ClickFailure.ctx">ctx</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="            ComponentContext (risa.context.ComponentContext)" href="./#risa.context.ComponentContext">ComponentContext</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The context of the click. It has no view state, as in <code>View.on_outdated</code>: answer
+with <code>respond</code>, <code>edit</code> without interactive components or <code>replace</code>, and on a view
+with durable fields <code>rerender()</code> raises <code>NoViewError</code>. <code>respond</code> continues what was
+sent before the failure, as it would in the handler.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.context.ClickFailure.error">error</span></code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#Exception">Exception</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The exception.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.context.ClickFailure.stage">stage</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="            FailureStage (risa.context.FailureStage)" href="./#risa.context.FailureStage">FailureStage</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Where it was raised.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-class">
 
@@ -3401,6 +3567,95 @@ in full.</p>
     </div>
 
 </div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.context.FailureStage" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">FailureStage</span>
+
+
+<a href="#risa.context.FailureStage" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-external" title="enum.StrEnum" href="https://docs.python.org/3/library/enum.html#enum.StrEnum">StrEnum</a></code></p>
+
+
+
+        <p>Where a click failed, as <code>ClickFailure.stage</code> names it.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.context.FailureStage.HANDLER">HANDLER</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>The handler raised.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.context.FailureStage.LOAD">LOAD</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>The view's <code>load</code> raised, so the handler never ran.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.context.FailureStage.ON_OUTDATED">ON_OUTDATED</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p><code>View.on_outdated</code> raised.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.context.FailureStage.ON_STATE_MISSING">ON_STATE_MISSING</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p><code>View.on_state_missing</code> raised.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.context.FailureStage.STATE">STATE</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>The view's state could not be reached before any of the bot's code ran: the store
+failed or is missing, its lock timed out, or the codec's extra is not installed.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
 
 
 
