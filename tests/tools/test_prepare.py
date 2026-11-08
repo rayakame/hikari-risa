@@ -34,6 +34,8 @@ def _tree(tmp_path: pathlib.Path) -> pathlib.Path:
     (tmp_path / "assets" / "logo-light.svg").write_bytes(b"<svg light/>")
     (tmp_path / "docs" / "examples").mkdir(parents=True)
     (tmp_path / "docs" / "examples" / "previews.toml").write_text("")
+    (tmp_path / "pyproject.toml").write_text('[[tool.towncrier.type]]\ndirectory = "feature"\nname = "Features"\n')
+    (tmp_path / "CHANGELOG.md").write_text("# Changelog\n\n<!-- towncrier release notes start -->\n\n## 1.0.0\n")
     return tmp_path
 
 
@@ -193,3 +195,11 @@ def test_prepare_draws_a_live_preview_into_one_block(tmp_path: pathlib.Path) -> 
     text = (root / "docs" / "generated" / "previews" / "tiny-live.html").read_text()
     assert text.count("<template data-live-frame") == 1
     assert "\n\n" not in text
+
+
+def test_prepare_writes_the_changelog_page(tmp_path: pathlib.Path) -> None:
+    root = _tree(tmp_path)
+
+    prepare.prepare(root)
+
+    assert (root / "docs" / "generated" / "changelog.md").read_text() == "## 1.0.0\n"

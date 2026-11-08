@@ -27,6 +27,7 @@ import pathlib
 import shutil
 import typing
 
+from tools import changelog
 from tools.docs import discord_html
 from tools.docs import manifest
 from tools.docs import render_example
@@ -37,16 +38,24 @@ _LOGGER: typing.Final[logging.Logger] = logging.getLogger("tools.docs.prepare")
 
 
 def prepare(root: pathlib.Path) -> None:
-    """Stage the artwork in ``docs/assets/images/`` and draw the previews into ``docs/generated/previews/``.
+    """Stage the artwork in ``docs/assets/images/`` and write the previews and the changelog into ``docs/generated/``.
 
     The artwork is the web artwork, the small logos and the favicon. Every preview of
     ``docs/examples/previews.toml`` becomes one HTML file; files of previews that left
-    the manifest are removed.
+    the manifest are removed. The changelog is ``CHANGELOG.md`` with the fragments in
+    ``changes/`` above it.
 
     Parameters
     ----------
     root
         The repository root.
+
+    Raises
+    ------
+    RenderError
+        If an example cannot be rendered.
+    FragmentNameError
+        If a file in ``changes/`` is not a fragment towncrier would read.
     """
     images = root / "docs" / "assets" / "images"
     shutil.rmtree(images, ignore_errors=True)
@@ -63,6 +72,9 @@ def prepare(root: pathlib.Path) -> None:
     shutil.copyfile(root / "assets" / "logo.svg", images / "favicon.svg")
 
     _write_previews(root)
+    generated = root / "docs" / "generated"
+    (generated / "changelog.md").write_text(changelog.page(root), encoding="utf-8")
+    _LOGGER.info("wrote the changelog")
 
 
 def _write_previews(root: pathlib.Path) -> None:
