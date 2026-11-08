@@ -510,13 +510,24 @@ class Dispatcher:
             _LOGGER.exception("auto-defer failed to acknowledge interaction %s", ctx.interaction.id)
 
 
+def _log_caught_overflow(click: _Click) -> None:
+    _LOGGER.debug(
+        "interaction %s on view %s left a state that already overflowed in rerender() or edit(), which"
+        " the handler caught; it could not be saved when the handler returned either",
+        click.interaction.id,
+        click.meta.name,
+    )
+
+
 async def _commit_leftovers(click: _Click, session: backend.StateSession, view: view_.View) -> None:
     """Save durable changes the handler made without rerendering.
 
     The commit is a plain `rerender()`. Nobody is left to raise to, so a failure is
     logged. A lost race discards the change. An `InStore` commit that fails after the
     store accepted it, while editing the message, leaves the state saved and only the
-    message behind, which the next click redraws.
+    message behind, which the next click redraws. A state that overflowed earlier in the
+    click, which the handler caught, is still tried, since `render()` may hold more than the
+    layout that overflowed; if it fails again, only a DEBUG line is logged.
     """
     try:
         dirty = await session.settle(view)
@@ -529,29 +540,35 @@ async def _commit_leftovers(click: _Click, session: backend.StateSession, view: 
         return
     if not dirty:
         return
+    caught = bool(click.slot.overflowed) and click.meta.schema.pack_view(view) in click.slot.overflowed
     try:
         await click.ctx.rerender()
     except errors.EphemeralOriginError:
+        if caught:
+            _log_caught_overflow(click)
+            return
         _LOGGER.warning(
-            "interaction %s on view %s mutated durable state without calling rerender(), but the"
-            " handler had already answered and the origin message is ephemeral, so the change could"
+            "interaction %s on view %s left durable state unsaved, but the handler had already"
+            " answered and the origin message is ephemeral, so the change could"
             " not be written; call ctx.rerender() before ctx.respond()",
             click.interaction.id,
             click.meta.name,
         )
     except (errors.StateConflictError, errors.StateNotFoundError, errors.StateUnreadableError) as exc:
         _LOGGER.warning(
-            "interaction %s on view %s mutated durable state without calling rerender(), and"
-            " committing it at the end of the dispatch failed: %s; the change was discarded - call"
+            "interaction %s on view %s left durable state unsaved, and committing it at the end of"
+            " the dispatch failed: %s; the change was discarded - call"
             " ctx.rerender() in the handler to handle conflicts yourself",
             click.interaction.id,
             click.meta.name,
             exc,
         )
-    except Exception:
+    except Exception as exc:
+        if caught and isinstance(exc, errors.StateOverflowError):
+            _log_caught_overflow(click)
+            return
         _LOGGER.exception(
-            "interaction %s on view %s mutated durable state without calling rerender(), and"
-            " committing it at the end of the dispatch failed",
+            "interaction %s on view %s left durable state unsaved, and committing it at the end of the dispatch failed",
             click.interaction.id,
             click.meta.name,
         )
