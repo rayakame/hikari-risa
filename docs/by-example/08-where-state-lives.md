@@ -46,8 +46,20 @@ The thirteenth does not. [`client.build`](01-views.md#send-it) raises
 
 --8<-- "previews/poll-overflow.html"
 
-A running poll gets this error from `ctx.rerender()` in the thirteenth voter's click. risa logs it, the click fails in
-Discord, and the vote is lost.
+A running poll gets this error from `ctx.rerender()` in the thirteenth voter's click. Nothing has been written yet, so
+the message keeps twelve votes. If the handler lets the error through, risa logs it and the click fails in Discord. This
+poll catches it and answers instead:
+
+```python
+--8<-- "ch08_poll.py:save"
+```
+
+--8<-- "previews/poll-full-reply.html"
+
+`self` still holds the thirteenth vote. When the handler returns, risa tries to save it once more, finds that it still
+does not fit, and leaves it at a `DEBUG` line, since the handler has dealt with it. A handler that goes on to change the
+poll after the `except` saves that change together with the thirteenth vote, which does not fit either, so it takes the
+vote back first.
 
 At twelve voters the state fills both buttons:
 

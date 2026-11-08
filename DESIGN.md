@@ -680,7 +680,13 @@ handlers) are designed but deferred post-1.0 (§15).
   and an otherwise unanswered interaction is answered by the `MESSAGE_UPDATE`. An earlier
   draft wanted a visually-identical components edit, which would have meant rebuilding the
   message from hikari's component models. A handler that raises commits nothing. Mutating
-  state and silently losing it is not an outcome this library ships.
+  state and silently losing it is not an outcome this library ships. A state that overflowed
+  in the handler's own `rerender()` or `edit()`, which the handler caught, is still committed
+  at the end, since `render()` may hold more than the layout that overflowed; if that commit
+  fails, by overflow or because an answered ephemeral origin can no longer be edited, risa
+  logs only DEBUG: the handler saw this very state fail and changed nothing since
+  **[decided 2026-11-08]**. A change made after the catch is a new state,
+  and a failure to commit it is logged as before.
 - Clean dispatches on `InStore` `touch()` the key — sliding TTL, so a view in use never
   expires and an abandoned one eventually does.
 - `ctx.edit(layout)` must re-embed the current anchor into the ad-hoc tree, or raise
@@ -1349,8 +1355,10 @@ old branch proved steps 1-4 once; they are to be rebuilt against this design, no
   warning, a first stateful tutorial example whose state *grows*. The first half, numpy
   docstrings for the whole public API with ruff's `D`/`DOC` rules enforcing them, was
   built 2026-11-02, and the site and its guides on 2026-11-07. Of the capacity story, the per-field
-  breakdown in `StateOverflowError` was built 2026-11-03; a way to ask how full a view is
-  before it overflows remains.
+  breakdown in `StateOverflowError` was built 2026-11-03. A way to ask how full a view is
+  before it overflows moved to the deferred list on 2026-11-08; a handler that catches the
+  overflow is the answer for 1.0, and since then a caught state that still does not fit at
+  the end of the click is logged only at DEBUG (§7.4).
 
 ### Deferred, deliberately (revisit post-1.0 — the maintainer wants these re-discussed)
 
@@ -1365,3 +1373,9 @@ old branch proved steps 1-4 once; they are to be rebuilt against this design, no
 - **`load()` final shape** — accepted tentatively; re-examine ergonomics (failure routing,
   per-handler opt-out) before 1.0.
 - Sub-views (§14.1); `with`-block syntax stays rejected (§5.3).
+- **Hooks** — the maintainer chose lightbulb's model on 2026-11-08: functions bound to a step
+  (checks, before, after), attached to the client, a view or a handler, failures to the error
+  handlers, with ready-made ones such as cooldowns. Where they attach, what a check sees, what
+  a failed one does, which ready-made ones ship, and a per-view `on_error` are open.
+- **Capacity check** — a way to ask how full an `InMessage` view is before it overflows, as
+  numbers or as "does this still fit", on `ctx` or for a view before sending.

@@ -124,6 +124,7 @@ class ResponseGate(msgspec.Struct):
 class ViewSlot(msgspec.Struct):
     view: view_.View | None = None
     session: backend.StateSession | None = None
+    overflowed: set[bytes] = msgspec.field(default_factory=set[bytes])
     replaced: bool = False
 
 
@@ -634,7 +635,12 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         if self._origin_is_out_of_reach():
             raise errors.EphemeralOriginError(self._meta.name)
         state = await session.stage(view)
-        await self._update_origin(plan.emit(state))
+        try:
+            builders = plan.emit(state)
+        except errors.StateOverflowError:
+            self._slot.overflowed.add(self._meta.schema.pack_view(view))
+            raise
+        await self._update_origin(builders)
         await session.published(view)
 
     async def _update_origin(self, builders: collections.abc.Sequence[special_endpoints.ComponentBuilder]) -> None:

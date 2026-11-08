@@ -469,3 +469,10 @@ id = "something-went-wrong"
 label = "After a click on Next city, which raises a KeyError"
 text = "Something went wrong."
 ephemeral = true
+
+[[preview]]
+kind = "reply"
+id = "poll-full-reply"
+label = "The thirteenth voter's click"
+text = "This poll is full."
+ephemeral = true

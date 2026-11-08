@@ -7,12 +7,18 @@ were lost, so this file is the *only* record of that evening's decisions). `DESI
 its internals were never a blueprint. The branch was deleted from GitHub on 2026-11-04
 and survives only as a local copy on the maintainer's machine.
 
-## Resume here (written 2026-10-25, updated 2026-11-07)
+## Resume here (written 2026-10-25, updated 2026-11-08)
 
 This block is current; it is the short path back in. Below it, the "Next, in order"
 notes for steps 1 and 2 are the August record and are kept as history: where they and
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
+
+**2026-11-08, a caught overflow (branch `caught-overflow`):** a handler that catches `StateOverflowError` from
+`rerender()` or `edit()` no longer gets an ERROR when it returns. risa still commits the state at the end, since `render()`
+may have room the overflowing layout lacked, and logs only DEBUG if that state overflowed in the handler before. Chapter
+08's poll catches it. Hooks, as lightbulb has them, and a way to ask how full an `InMessage` view is are deferred past 1.0
+in DESIGN §15.
 
 **2026-11-08, error handlers (branch `error-handler`):** the maintainer decided the design question by question:
 `client.error_handler` on the client, for a failing handler, `load()`, hook or unreachable state; one `ClickFailure`

@@ -52,13 +52,13 @@ class Poll(risa.View):
     async def vote_yes(self, ctx: risa.ComponentContext) -> None:
         if await self._first_vote(ctx):
             self.yes += 1
-            await ctx.rerender()
+            await self._save(ctx)
 
     @risa.handler
     async def vote_no(self, ctx: risa.ComponentContext) -> None:
         if await self._first_vote(ctx):
             self.no += 1
-            await ctx.rerender()
+            await self._save(ctx)
 
     # --8<-- [start:first-vote]
     async def _first_vote(self, ctx: risa.ComponentContext) -> bool:
@@ -68,6 +68,14 @@ class Poll(risa.View):
         self.voters.append(ctx.user.id)
         return True
         # --8<-- [end:first-vote]
+
+    # --8<-- [start:save]
+    async def _save(self, ctx: risa.ComponentContext) -> None:
+        try:
+            await ctx.rerender()
+        except risa.StateOverflowError:
+            await ctx.respond("This poll is full.", ephemeral=True)
+            # --8<-- [end:save]
 
 
 def main() -> None:

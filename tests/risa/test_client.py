@@ -3484,3 +3484,216 @@ async def test_with_an_error_handler_risa_keeps_a_rest_click_in_a_missing_codec(
     downstream = await codec_click_on_rest(with_handler=True, monkeypatch=monkeypatch)
 
     assert not downstream.seen
+
+
+@risa.register(name="client-full")
+class Full(risa.View):
+    voters: list[int] = msgspec.field(default_factory=list[int])
+    closed: bool = False
+
+    def render(self) -> ui.Layout:
+        return ui.Row(
+            ui.Button(self.vote),
+            ui.Button(self.vote_then_close),
+            ui.Button(self.vote_by_edit),
+            ui.Button(self.vote_and_retry),
+            ui.Button(self.vote_twice),
+        )
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(ctx.user.id)
+        try:
+            await ctx.rerender()
+        except risa.StateOverflowError:
+            await ctx.respond("This view is full.", ephemeral=True)
+
+    @risa.handler
+    async def vote_then_close(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(ctx.user.id)
+        try:
+            await ctx.rerender()
+        except risa.StateOverflowError:
+            self.voters.pop()
+            self.closed = True
+            await ctx.respond("Closed.", ephemeral=True)
+
+    @risa.handler
+    async def vote_by_edit(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(ctx.user.id)
+        try:
+            await ctx.edit(self.render())
+        except risa.StateOverflowError:
+            await ctx.respond("This view is full.", ephemeral=True)
+
+    @risa.handler
+    async def vote_and_retry(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(ctx.user.id)
+        try:
+            await ctx.rerender()
+        except risa.StateOverflowError:
+            self.closed = True
+            try:
+                await ctx.rerender()
+            except risa.StateOverflowError:
+                self.closed = False
+                await ctx.respond("This view is full.", ephemeral=True)
+
+    @risa.handler
+    async def vote_twice(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(ctx.user.id)
+        try:
+            await ctx.rerender()
+        except risa.StateOverflowError:
+            self.voters.append(ctx.user.id)
+            await ctx.respond("This view is full.", ephemeral=True)
+
+
+@risa.register(name="client-thanks")
+class Thanks(risa.View):
+    voters: list[int] = msgspec.field(default_factory=list[int])
+    buttons: risa.Prop[int] = 3
+
+    def render(self) -> ui.Layout:
+        return ui.Row(*[ui.Button(self.vote) for _ in range(self.buttons)])
+
+    @risa.handler
+    async def vote(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(ctx.user.id)
+        try:
+            await ctx.edit(ui.Row(ui.Button(self.vote, label="Thanks!")))
+        except risa.StateOverflowError:
+            await ctx.respond("No room to say thanks.", ephemeral=True)
+
+
+NEWCOMER: typing.Final[int] = 1298471056230499999
+
+
+def click_as_newcomer(ids: list[str], index: int) -> unittest.mock.Mock:
+    interaction = click(ids, index)
+    interaction.user = unittest.mock.Mock(id=hikari.Snowflake(NEWCOMER))
+    return interaction
+
+
+async def full_view(
+    make: collections.abc.Callable[[list[int]], risa.View],
+) -> tuple[risa.GatewayEnabledClient, list[int], list[str]]:
+    built = risa.client_from_app(gateway_app())
+    empty = make([])
+    built.add_view(type(empty))
+    voters: list[int] = []
+    rendered = await built.build(empty)
+    while True:
+        joined = [*voters, 1298471056230400001 + len(voters) * 7919]
+        try:
+            rendered = await built.build(make(joined))
+        except risa.StateOverflowError:
+            return built, voters, ids_of(rendered.components)
+        voters = joined
+
+
+def saved_state(view: type[risa.View], built: risa.Client) -> collections.abc.Sequence[object]:
+    meta = registry.require_meta(view)
+    edited = rest_of(built).edit_message.await_args.kwargs["components"]
+    found = reader.fragments(click(ids_of(edited), 0).message.components, cookie=meta.cookie)
+    assert isinstance(found, dict)
+    raw = anchor.gather(found)
+    assert raw is not None
+    parsed = anchor.parse(raw)
+    assert isinstance(parsed, anchor.MessageAnchor)
+    values = meta.schema.unpack(parsed.schema_fp, parsed.payload)
+    assert values is not None
+    return values
+
+
+@pytest.mark.parametrize(
+    ("button", "flags"),
+    [(0, hikari.MessageFlag.NONE), (2, hikari.MessageFlag.NONE), (0, hikari.MessageFlag.EPHEMERAL)],
+    ids=["rerender", "edit", "ephemeral-origin"],
+)
+async def test_a_caught_overflow_that_still_does_not_fit_logs_only_a_debug_line(
+    button: int,
+    flags: hikari.MessageFlag,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built, _, ids = await full_view(lambda voters: Full(voters=voters))
+    interaction = click_as_newcomer(ids, button)
+    interaction.message.flags = flags
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert rest_of(built).create_interaction_response.await_args.args[3] == "This view is full."
+    rest_of(built).edit_message.assert_not_awaited()
+    assert [record.levelname for record in caplog.records] == ["DEBUG"]
+    assert "already overflowed" in caplog.text
+
+
+async def test_a_handler_that_returns_to_an_earlier_caught_overflow_logs_only_a_debug_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built, _, ids = await full_view(lambda voters: Full(voters=voters))
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await built._process_interaction(click_as_newcomer(ids, 3))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    rest_of(built).edit_message.assert_not_awaited()
+    assert [record.levelname for record in caplog.records] == ["DEBUG"]
+    assert "already overflowed" in caplog.text
+
+
+async def test_a_change_after_a_caught_overflow_is_saved_when_the_handler_returns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built, voters, ids = await full_view(lambda voters: Full(voters=voters))
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await built._process_interaction(click_as_newcomer(ids, 1))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert saved_state(Full, built) == (voters, True)
+    assert not caplog.records
+
+
+async def test_a_change_after_a_caught_overflow_on_an_ephemeral_origin_still_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built, _, ids = await full_view(lambda voters: Full(voters=voters))
+    interaction = click_as_newcomer(ids, 1)
+    interaction.message.flags = hikari.MessageFlag.EPHEMERAL
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "origin message is ephemeral" in caplog.text
+    assert "already overflowed" not in caplog.text
+
+
+async def test_a_new_overflow_after_a_caught_one_is_logged_as_an_error(caplog: pytest.LogCaptureFixture) -> None:
+    built, _, ids = await full_view(lambda voters: Full(voters=voters))
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await built._process_interaction(click_as_newcomer(ids, 4))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "committing it at the end of the dispatch failed" in caplog.text
+    assert "already overflowed" not in caplog.text
+
+
+async def test_a_caught_overflow_that_render_can_carry_is_saved_when_the_handler_returns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Sent with one button, which the newcomer's vote overflows; render() draws three.
+    built, voters, ids = await full_view(lambda voters: Thanks(voters=voters, buttons=1))
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await built._process_interaction(click_as_newcomer(ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert rest_of(built).create_interaction_response.await_args.args[3] == "No room to say thanks."
+    assert saved_state(Thanks, built) == ([*voters, NEWCOMER],)
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    assert "already overflowed" not in caplog.text

@@ -699,3 +699,18 @@ async def test_the_error_handlers_of_chapter_05_answer_and_log_as_the_page_says(
     answered = _rest(client).create_interaction_response.await_args
     assert answered.args[3] == "Something went wrong."
     assert "KeyError" in caplog.text
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_poll_of_chapter_08_answers_a_full_poll_and_logs_nothing(caplog: pytest.LogCaptureFixture) -> None:
+    module = _load("ch08_poll")
+    client = _poll_client(risa.MemoryStore(), module.Poll)
+    voters = [1298471056230400001 + index * 7919 for index in range(12)]
+    ids = _ids((await client.build(module.Poll(question="Pizza on Friday?", yes=12, voters=voters))).components)
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await _process(client, _click(ids, 0, user=1298471056230499999))
+
+    assert _rest(client).create_interaction_response.await_args.args[3] == "This poll is full."
+    assert not caplog.records
