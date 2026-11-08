@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import enum
 import logging
 import typing
@@ -46,7 +47,6 @@ from risa.ui import build as build_
 
 if typing.TYPE_CHECKING:
     import collections.abc
-    import contextlib
 
 
 def emitted(layout: ui.Layout, meta: registry.ViewMeta) -> typing.Sequence[hikari.api.ComponentBuilder]:
@@ -2908,3 +2908,579 @@ async def test_the_view_that_called_replace_cannot_answer_again(button: int, exp
     await built._process_interaction(click(ids, button))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert [expected] == AGAIN_SEEN
+
+
+FAILURES: list[str] = []
+
+
+@risa.register(name="client-erroring")
+class Erroring(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.boom), ui.Button(self.answer_then_boom))
+
+    @risa.handler
+    async def boom(self, _ctx: risa.ComponentContext) -> None:
+        self.count += 1
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    @risa.handler
+    async def answer_then_boom(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.respond("first")
+        msg = "late"
+        raise RuntimeError(msg)
+
+
+@risa.register(name="client-erroring-load")
+class FaultyLoad(risa.View):
+    count: int = 0
+
+    async def load(self) -> None:  # ruff:ignore[no-self-use]
+        msg = "load"
+        raise RuntimeError(msg)
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.go))
+
+    @risa.handler
+    async def go(self, _ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        FAILURES.append("handler ran")
+
+
+@risa.register(name="client-erroring-hook")
+class FaultyHook(risa.View):
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        msg = "hook"
+        raise RuntimeError(msg)
+
+
+def erroring_client(
+    *views: type[risa.View],
+    store: risa.Store | None = None,
+    use_global: bool = False,
+    auto_defer: risa.AutoDefer = risa.AutoDefer.OFF,
+) -> risa.GatewayEnabledClient:
+    built = risa.client_from_app(
+        gateway_app(),
+        store=store,
+        key_prefix="test",
+        use_global=use_global,
+        auto_defer=auto_defer,
+        auto_defer_delay=0.01,
+    )
+    for view in views:
+        built.add_view(view)
+    FAILURES.clear()
+    return built
+
+
+def erroring_click(button: int = 0) -> unittest.mock.Mock:
+    return interaction_on(Erroring(), Erroring().render(), clicked=button)
+
+
+async def process(built: risa.Client, interaction: unittest.mock.Mock) -> None:
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+async def test_an_error_handler_answers_a_failed_handler_and_nothing_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = erroring_client(Erroring)
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:
+        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
+        await failure.ctx.respond("Something went wrong.", ephemeral=True)
+        return True
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await process(built, erroring_click())
+
+    assert FAILURES == ["handler RuntimeError"]
+    assert rest_of(built).create_interaction_response.await_args.args[3] == "Something went wrong."
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+async def test_a_failure_no_error_handler_takes_is_logged_as_before(caplog: pytest.LogCaptureFixture) -> None:
+    built = erroring_client(Erroring)
+
+    @built.error_handler
+    async def on_error(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append("asked")
+        return False
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await process(built, erroring_click())
+
+    assert FAILURES == ["asked"]
+    assert "handler 'boom' (version 1) of view client-erroring failed" in caplog.text
+
+
+async def test_error_handlers_run_by_priority_then_in_order_until_one_handles() -> None:
+    built = erroring_client(Erroring)
+
+    def handler(name: str, *, handles: bool) -> collections.abc.Callable[[risa.ClickFailure], typing.Awaitable[bool]]:
+        async def on_error(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+            FAILURES.append(name)
+            return handles
+
+        return on_error
+
+    built.error_handler(handler("low", handles=True), priority=-1)
+    built.error_handler(handler("first", handles=False))
+    built.error_handler(handler("high", handles=False), priority=5)
+    built.error_handler(handler("second", handles=True))
+    built.error_handler(handler("never", handles=True))
+
+    await process(built, erroring_click())
+
+    assert FAILURES == ["high", "first", "second"]
+
+
+async def test_an_error_handler_that_raises_is_logged_and_passes_on(caplog: pytest.LogCaptureFixture) -> None:
+    built = erroring_client(Erroring)
+
+    @built.error_handler(priority=1)
+    async def broken(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        msg = "in the error handler"
+        raise ValueError(msg)
+
+    @built.error_handler
+    async def fallback(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append("fallback")
+        return False
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await process(built, erroring_click())
+
+    assert FAILURES == ["fallback"]
+    assert "ValueError: in the error handler" in caplog.text
+    assert "handler 'boom' (version 1) of view client-erroring failed" in caplog.text
+
+
+async def test_an_error_handler_cannot_save_the_state_of_the_failed_view() -> None:
+    built = erroring_client(Erroring)
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:
+        with pytest.raises(risa.NoViewError):
+            await failure.ctx.rerender()
+        with pytest.raises(risa.NoViewError):
+            await failure.ctx.edit(ui.Row(ui.Button(Erroring().boom)))
+        await failure.ctx.edit(ui.TextDisplay("This view broke."))
+        FAILURES.append("closed")
+        return True
+
+    await process(built, erroring_click())
+
+    assert FAILURES == ["closed"]
+    assert rest_of(built).create_interaction_response.await_args.args[2] is hikari.ResponseType.MESSAGE_UPDATE
+
+
+async def test_an_error_handler_after_an_answer_follows_up() -> None:
+    built = erroring_client(Erroring)
+    rest_of(built).execute_webhook.return_value = unittest.mock.Mock(id=hikari.Snowflake(2))
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:
+        await failure.ctx.respond("That went wrong after all.")
+        return True
+
+    await process(built, erroring_click(1))
+
+    assert rest_of(built).execute_webhook.await_args.args[2] == "That went wrong after all."
+
+
+async def test_a_failing_load_reaches_the_error_handler() -> None:
+    built = erroring_client(FaultyLoad)
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{failure.stage} {failure.error}")
+        return True
+
+    await process(built, interaction_on(FaultyLoad(), FaultyLoad().render()))
+
+    assert FAILURES == ["load load"]
+
+
+async def test_a_failing_hook_reaches_the_error_handler(caplog: pytest.LogCaptureFixture) -> None:
+    built = erroring_client(FaultyHook)
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{failure.stage} {failure.error}")
+        return True
+
+    with caplog.at_level(logging.DEBUG, logger="risa"):
+        await process(built, interaction_with(encoded_id_for(FaultyHook, handler="zz")))
+
+    assert FAILURES == ["on_outdated hook"]
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+async def test_state_out_of_reach_reaches_the_error_handler(caplog: pytest.LogCaptureFixture) -> None:
+    built = erroring_client(Notebook, store=DownStore())
+    ids = ids_of((await stored_client().build(Notebook())).components)
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:
+        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
+        await failure.ctx.respond("Try again in a moment.", ephemeral=True)
+        return True
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await process(built, click(ids, 1))
+
+    assert FAILURES == ["state StoreUnavailableError"]
+    assert "could not be reached" not in caplog.text
+
+
+async def test_a_store_the_client_lacks_reaches_the_error_handler() -> None:
+    built = erroring_client(use_global=True)
+    ids = ids_of((await stored_client().build(Notebook())).components)
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
+        return True
+
+    await process(built, click(ids, 1))
+
+    assert FAILURES == ["state ViewDeclarationError"]
+
+
+async def test_an_error_handler_gets_its_dependencies_injected() -> None:
+    built = erroring_client(Erroring)
+    database = Database()
+    built.di.registry_for(risa.Contexts.DEFAULT).register_value(Database, database)
+
+    @built.error_handler
+    async def on_error(_failure: risa.ClickFailure, db: Database) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append("injected" if db is database else "not injected")
+        return True
+
+    await process(built, erroring_click())
+
+    assert FAILURES == ["injected"]
+
+
+def test_error_handler_returns_the_function_in_both_forms() -> None:
+    built = erroring_client()
+
+    async def on_error(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        return True
+
+    assert built.error_handler(on_error) is on_error
+    assert built.error_handler(priority=2)(on_error) is on_error
+
+
+class Teardown:
+    __slots__ = ()
+
+
+async def broken_teardown(_: Teardown) -> None:  # ruff:ignore[unused-async]
+    msg = "teardown failed"
+    raise RuntimeError(msg)
+
+
+def with_teardown(built: risa.Client) -> risa.Client:
+    built.di.registry_for(risa.Contexts.COMPONENT).register_factory(Teardown, Teardown, teardown=broken_teardown)
+    return built
+
+
+@risa.register(name="client-torn")
+class Torn(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add), ui.Button(self.add_and_fail))
+
+    @risa.handler
+    async def add(self, ctx: risa.ComponentContext, _torn: Teardown) -> None:
+        self.count += 1
+        await ctx.rerender()
+
+    @risa.handler
+    async def add_and_fail(self, _ctx: risa.ComponentContext, _torn: Teardown) -> None:
+        self.count += 1
+        msg = "boom"
+        raise RuntimeError(msg)
+
+
+async def test_a_failure_after_the_handler_stays_out_of_the_error_handlers(caplog: pytest.LogCaptureFixture) -> None:
+    built = with_teardown(erroring_client(Torn))
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{failure.stage} {failure.error}")
+        return True
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await process(built, interaction_on(Torn(), Torn().render()))
+        await process(built, interaction_on(Torn(), Torn().render(), clicked=1))
+
+    assert FAILURES == ["handler boom"]
+    assert "RuntimeError: teardown failed" in caplog.text
+
+
+async def test_a_failing_on_state_missing_reaches_the_error_handler() -> None:
+    @risa.register(name="client-missing-hook", state=risa.InStore(ttl=60))
+    class MissingHook(risa.View):
+        count: int = 0
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.go))
+
+        @risa.handler
+        async def go(self, _ctx: risa.ComponentContext) -> None: ...
+
+        @classmethod
+        @typing.override
+        async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
+            msg = "gone"
+            raise RuntimeError(msg)
+
+    sender = erroring_client(MissingHook, store=risa.MemoryStore())
+    ids = ids_of((await sender.build(MissingHook())).components)
+    built = erroring_client(MissingHook, store=risa.MemoryStore())
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{failure.stage} {failure.error}")
+        return True
+
+    await process(built, click(ids, 0))
+
+    assert FAILURES == ["on_state_missing gone"]
+
+
+async def test_the_watchdog_stands_down_before_the_error_handler_answers() -> None:
+    built = erroring_client(Erroring, auto_defer=risa.AutoDefer.UPDATE)
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:
+        await asyncio.sleep(0.05)
+        await failure.ctx.respond("Something went wrong.", ephemeral=True)
+        return True
+
+    await process(built, erroring_click())
+
+    responses = [call.args[2] for call in rest_of(built).create_interaction_response.await_args_list]
+    assert responses == [hikari.ResponseType.MESSAGE_CREATE]
+
+
+class PerClick:
+    __slots__ = ()
+
+
+async def test_an_error_handler_shares_the_dependencies_of_the_failed_handler() -> None:
+    made: list[PerClick] = []
+
+    def make() -> PerClick:
+        made.append(PerClick())
+        return made[-1]
+
+    @risa.register(name="client-sharing")
+    class Sharing(risa.View):
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.go))
+
+        @risa.handler
+        async def go(self, _ctx: risa.ComponentContext, per_click: PerClick) -> None:  # ruff:ignore[no-self-use]
+            FAILURES.append(str(id(per_click)))
+            msg = "boom"
+            raise RuntimeError(msg)
+
+    built = erroring_client(Sharing)
+    built.di.registry_for(risa.Contexts.COMPONENT).register_factory(PerClick, make)
+
+    @built.error_handler
+    async def on_error(_failure: risa.ClickFailure, per_click: PerClick) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(str(id(per_click)))
+        return True
+
+    await process(built, interaction_on(Sharing(), Sharing().render()))
+
+    assert len(made) == 1
+    assert FAILURES[0] == FAILURES[1]
+
+
+async def test_a_component_written_in_a_codec_that_is_not_installed_reaches_the_error_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @risa.register(name="client-dense-args", state=risa.InMessage(codec=codecs.BASE32768))
+    class DenseArgs(risa.View):
+        count: int = 0
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(risa.bind(self.pick, 3)))
+
+        @risa.handler
+        async def pick(self, _ctx: risa.ComponentContext, amount: int) -> None:  # ruff:ignore[no-self-use]
+            FAILURES.append(str(amount))
+
+    interaction = interaction_on(DenseArgs(), DenseArgs().render())
+    built = erroring_client(DenseArgs)
+
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
+        return True
+
+    def missing(name: str) -> object:
+        raise risa.CodecUnavailableError(name, codecs.RADIXLY_EXTRA)
+
+    monkeypatch.setattr(codecs, "_radixly_module", missing)
+    await process(built, interaction)
+
+    assert FAILURES == ["state CodecUnavailableError"]
+
+
+class RefusedLock(contextlib.AbstractAsyncContextManager[None]):
+    __slots__ = ("key", "timeout")
+
+    def __init__(self, key: str, timeout: float) -> None:
+        self.key = key
+        self.timeout = timeout
+
+    @typing.override
+    async def __aenter__(self) -> None:
+        raise risa.LockTimeoutError(self.key, self.timeout)
+
+    @typing.override
+    async def __aexit__(self, *_: object) -> None: ...
+
+
+class LockedStore(risa.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    def lock(self, key: str, *, timeout: float = 10.0) -> contextlib.AbstractAsyncContextManager[None]:
+        return RefusedLock(key, timeout)
+
+
+async def state_failure(built: risa.Client, ids: list[str]) -> list[str]:
+    @built.error_handler
+    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
+        return True
+
+    await process(built, click(ids, 1))
+    return FAILURES
+
+
+async def test_a_lock_that_times_out_reaches_the_error_handler() -> None:
+    ids = ids_of((await stored_client().build(Notebook())).components)
+
+    assert await state_failure(erroring_client(Notebook, store=LockedStore()), ids) == ["state LockTimeoutError"]
+
+
+async def test_a_failing_restore_reaches_the_error_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+    ids = ids_of((await stored_client().build(Notebook())).components)
+
+    async def broken(_: stored.StoredSession) -> None:  # ruff:ignore[unused-async]
+        msg = "restore broke"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(stored.StoredSession, "restore", broken)
+
+    assert await state_failure(erroring_client(Notebook, store=risa.MemoryStore()), ids) == ["state RuntimeError"]
+
+
+async def test_state_in_a_codec_that_is_not_installed_reaches_the_error_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @risa.register(name="client-dense-state", state=risa.InMessage(codec=codecs.BASE32768))
+    class DenseState(risa.View):
+        count: int = 0
+
+        def render(self) -> ui.Layout:
+            return ui.Row(ui.Button(self.add), ui.Button(self.add))
+
+        @risa.handler
+        async def add(self, ctx: risa.ComponentContext) -> None:
+            self.count += 1
+            await ctx.rerender()
+
+    ids = ids_of((await erroring_client(DenseState).build(DenseState(count=3))).components)
+
+    def missing(name: str) -> object:
+        raise risa.CodecUnavailableError(name, codecs.RADIXLY_EXTRA)
+
+    monkeypatch.setattr(codecs, "_radixly_module", missing)
+
+    assert await state_failure(erroring_client(DenseState), ids) == ["state CodecUnavailableError"]
+
+
+async def test_a_lost_commit_at_the_end_stays_out_of_the_error_handlers(caplog: pytest.LogCaptureFixture) -> None:
+    store = risa.MemoryStore()
+    built = erroring_client(Notebook, store=store)
+    ids = ids_of((await built.build(Notebook())).components)
+    (key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    async def rival() -> None:
+        await store.put(key, b"another process", ttl=60.0)
+
+    RIVAL_WRITES[:] = [rival]
+    try:
+        with caplog.at_level(logging.WARNING, logger="risa"):
+            assert await state_failure(built, ids) == []
+    finally:
+        RIVAL_WRITES.clear()
+
+    assert "the change was discarded" in caplog.text
+
+
+@risa.register(name="client-dense-rest", state=risa.InMessage(codec=codecs.BASE32768))
+class DenseRest(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(risa.bind(self.pick, 3)))
+
+    @risa.handler
+    async def pick(self, _ctx: risa.ComponentContext, amount: int) -> None:
+        self.count = amount
+
+
+async def codec_click_on_rest(*, with_handler: bool, monkeypatch: pytest.MonkeyPatch) -> Downstream:
+    interaction = interaction_on(DenseRest(), DenseRest().render())
+    downstream = Downstream()
+    built = risa.client_from_app(typing.cast("risa.RestClientAppT", sharing_app(downstream.stream)))
+    built.add_view(DenseRest)
+    if with_handler:
+
+        @built.error_handler
+        async def on_error(failure: risa.ClickFailure) -> bool:
+            await failure.ctx.respond("The poll cannot be read here.", ephemeral=True)
+            return True
+
+    def missing(name: str) -> object:
+        raise risa.CodecUnavailableError(name, codecs.RADIXLY_EXTRA)
+
+    monkeypatch.setattr(codecs, "_radixly_module", missing)
+    listener = built._on_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    async for _ in listener:
+        pass
+    return downstream
+
+
+async def test_without_error_handlers_a_rest_click_in_a_missing_codec_still_goes_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    downstream = await codec_click_on_rest(with_handler=False, monkeypatch=monkeypatch)
+
+    assert len(downstream.seen) == 1
+
+
+async def test_with_an_error_handler_risa_keeps_a_rest_click_in_a_missing_codec(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    downstream = await codec_click_on_rest(with_handler=True, monkeypatch=monkeypatch)
+
+    assert not downstream.seen

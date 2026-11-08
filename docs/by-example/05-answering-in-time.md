@@ -123,10 +123,77 @@ A handler that changed a field without answering gets a rerender from risa when 
 the change, and it answers the click if the 3 seconds have not run out.
 
 A handler that raises gets no acknowledgement in any mode. risa logs the exception, and the click fails unless the
-handler or auto-defer answered first.
+handler or auto-defer answered first. An [error handler](#when-something-fails) can answer it instead, and if it returns
+`True`, risa logs nothing.
 
 ??? example "Full file"
 
     ```python
     --8<-- "ch05_report.py:20:"
+    ```
+
+## When something fails
+
+A failure can still get an answer. [`client.error_handler`](../api/client.md#risa.client.Client.error_handler) registers
+a function that risa calls when a click fails. This view asks a weather service that is down, and its **Next city** has a
+bug:
+
+```python
+--8<-- "ch05_errors.py:view"
+```
+
+--8<-- "previews/forecast.html"
+
+This error handler answers the failure the bot expects:
+
+```python
+--8<-- "ch05_errors.py:expected"
+```
+
+--8<-- "previews/forecast-unavailable.html"
+
+It gets a [`ClickFailure`](../api/context.md#risa.context.ClickFailure): `failure.ctx` to answer through, `failure.error`
+with the exception, and `failure.stage` with where it was raised. It returns `True` once it has dealt with the failure,
+and risa logs nothing more. With `False` it passes the failure on.
+
+| `stage` | What failed |
+|---|---|
+| `HANDLER` | The handler |
+| `LOAD` | [`load()`](07-fresh-data.md), so the handler never ran |
+| `ON_OUTDATED`, `ON_STATE_MISSING` | That hook |
+| `STATE` | Reaching the view's state, before any of your code ran: the store failed or is missing, its lock timed out, or a codec's extra is not installed |
+
+A failure after the handler, such as saving the view when the handler returns, stays a log line.
+
+Several error handlers run highest `priority` first, and in the order you registered them within one priority, until one
+returns `True`. If none does, risa logs the failure as it would without them. A last one that answers every failure and
+returns `False` tells the person something went wrong and still leaves the failure in your log:
+
+```python
+--8<-- "ch05_errors.py:everything"
+```
+
+--8<-- "previews/something-went-wrong.html"
+
+```python
+--8<-- "ch05_errors.py:register"
+```
+
+`@client.error_handler` and `@client.error_handler(priority=1)` work as decorators too.
+
+- **The view is gone.** `failure.ctx` has no view state, as in [`on_outdated`](10-changing-a-view-safely.md#on_outdated):
+  `respond`, an `edit` with nothing to click and `replace` work, and on a view with fields `rerender()` raises
+  `NoViewError`, so a half-changed view is never saved.
+- **Three seconds.** An error handler runs without auto-defer, and the three seconds count from the click. A failure
+  that comes late, such as a lock that took ten seconds, leaves it no time unless auto-defer answered first.
+- **What was sent before.** `respond` continues it, as it would in the handler: after an answer it sends a follow-up,
+  and after a thinking message it replaces that.
+- **Injection.** Its parameters after `failure` are [injected](06-dependency-injection.md#where-injection-works), as a
+  handler's are.
+- **One that raises** is logged and counts as `False`.
+
+??? example "Full file"
+
+    ```python
+    --8<-- "ch05_errors.py:20:"
     ```

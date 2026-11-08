@@ -673,3 +673,29 @@ async def test_a_winner_of_chapter_11_that_cannot_be_read_fails_the_click_with_n
 
     _rest(client).create_interaction_response.assert_not_awaited()
     assert "StateUnreadableError" in caplog.text
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_error_handlers_of_chapter_05_answer_and_log_as_the_page_says(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    module = _load("ch05_errors")
+    client = _client()
+    client.add_view(module.Forecast)
+    module.add_error_handlers(client)
+    ids = _ids((await client.build(module.Forecast())).components)
+    caplog.clear()
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await _process(client, _click(ids, 0))
+
+    answered = _rest(client).create_interaction_response.await_args
+    assert answered.args[3] == "The weather service is not answering. Try again in a minute."
+    assert not caplog.records
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await _process(client, _click(ids, 1))
+
+    answered = _rest(client).create_interaction_response.await_args
+    assert answered.args[3] == "Something went wrong."
+    assert "KeyError" in caplog.text

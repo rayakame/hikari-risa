@@ -190,9 +190,9 @@ does that with [`ctx.edit`](../by-example/05-answering-in-time.md#which-message)
   [`miru.ext.nav`](https://miru.hypergonial.com/guides/navigators/). In risa you write these yourself, for example as a
   view with a `page: int` field.
 - **A check before every handler.** miru has `view_check`. In risa, a handler checks `ctx.user` itself.
-- **An error hook.** miru has [`on_error`](https://miru.hypergonial.com/guides/error_handling/). risa logs what a
-  handler raises, and the click fails for the user unless the handler answered first. Use `try` in the handler to say
-  something else.
+- **An error hook on each view.** miru has [`on_error`](https://miru.hypergonial.com/guides/error_handling/) on each
+  view. risa has [error handlers](../by-example/05-answering-in-time.md#when-something-fails) for the whole client, and
+  a handler that wants its own answer uses `try`.
 - **Waiting on a view.** miru has `view.wait()` and `wait_for_input()`. A risa view has no object that lives between
   clicks, so the code you would run after `wait()` goes in the handler.
 - **Sharing injection with arc.** miru has `Client.from_arc`. risa shares a dependency manager with lightbulb only,

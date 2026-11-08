@@ -1236,6 +1236,18 @@ new types ad hoc:
 | `rerender()`, or `edit()` with interactive components on a stateful view, where no state exists (a hook) | `NoViewError` |
 | modal submitted against changed state | routed to `on_prompt_conflict` — never raised |
 
+**Error handlers [decided 2026-11-08].** `client.error_handler` registers functions that answer
+a click that failed, as lightbulb's does for commands. They see a failing handler, `load()`,
+`on_outdated` or `on_state_missing`, and state that cannot be reached before any of that runs
+(store failure or missing store, lock timeout, missing codec extra, a failing session); a failure
+after the handler, such as the end-of-dispatch commit, stays a log line. Each takes a
+`ClickFailure` (`ctx`, `error`, `stage`) and returns `True` once it has dealt with the failure;
+handlers run by `priority`, highest first and in registration order within one, until one
+returns `True`, and if none does risa logs as it would without them. One that raises is logged
+and counts as `False`. Its context has no view, as in `on_outdated`, so a half-changed view is
+never saved; it runs without the watchdog, and its further parameters are injected inside the
+click's `COMPONENT` context. A per-view hook can come later without breaking these.
+
 **[decided]** There is no `NoResponseIssuedError`. Under the event/204 pattern (§11) a
 handler that never responds has no caller to throw to — the REST listener logs at ERROR and
 answers 204, and Discord shows the user the timeout it would have shown anyway.

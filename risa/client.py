@@ -70,6 +70,10 @@ type _ComponentResponse = (
 type _ComponentListener = interaction_server_.ListenerT[hikari.ComponentInteraction, _ComponentResponse]
 
 
+class _ErrorHandlerDecorator(typing.Protocol):
+    def __call__[T: context.ErrorHandler](self, func: T, /) -> T: ...
+
+
 @typing.runtime_checkable
 class GatewayClientAppT(hikari.EventManagerAware, hikari.RESTAware, typing.Protocol):
     """A gateway app, with an event manager and a REST client, such as `hikari.GatewayBot`."""
@@ -204,7 +208,7 @@ class Client(abc.ABC):
             rest,
             self._di,
             self._resolve,
-            self._backend_for,
+            self._require_backend,
             auto_defer=auto_defer,
             auto_defer_delay=auto_defer_delay,
             build=self._build_over,
@@ -269,6 +273,60 @@ class Client(abc.ABC):
         builders = plan.emit(anchor)
         await state.commit_first(meta=meta, view=view, anchor=anchor)
         return build_.Rendered(builders)
+
+    @typing.overload
+    def error_handler[T: context.ErrorHandler](self, func: T, /, *, priority: int = 0) -> T: ...
+
+    @typing.overload
+    def error_handler(self, /, *, priority: int = 0) -> _ErrorHandlerDecorator: ...
+
+    def error_handler(
+        self,
+        func: context.ErrorHandler | None = None,
+        /,
+        *,
+        priority: int = 0,
+    ) -> context.ErrorHandler | _ErrorHandlerDecorator:
+        """Register a function that answers clicks that failed.
+
+        ```python
+        @client.error_handler
+        async def on_error(failure: risa.ClickFailure) -> bool:
+            if isinstance(failure.error, risa.StoreUnavailableError):
+                await failure.ctx.respond("Try again in a moment.", ephemeral=True)
+                return True
+            return False
+        ```
+
+        It runs when a handler, `load`, `View.on_outdated` or `View.on_state_missing` raises,
+        or when the view's state cannot be reached before them; `ClickFailure.stage` says
+        which. It returns `True` once it has dealt with the failure, and risa then logs
+        nothing. Otherwise the next one runs, and if none returns `True`, risa logs the
+        failure as it would without them. One that raises is logged and counts as `False`.
+        Its parameters after the first are injected, as a handler's are. It runs without
+        auto-defer, and Discord's three seconds count from the click, so a failure that comes
+        late, such as a lock timeout, may leave it no time unless auto-defer answered first.
+
+        Parameters
+        ----------
+        func
+            The function to register. Left out, the call takes `priority` and returns the
+            decorator.
+        priority
+            Higher runs first; functions of one priority run in the order they were
+            registered.
+
+        Returns
+        -------
+        :
+            The function, unchanged, or the decorator that registers one.
+        """
+
+        def register[T: context.ErrorHandler](handler: T) -> T:
+            self._dispatcher.add_error_handler(handler, priority=priority)
+            return handler
+
+        return register(func) if func is not None else register
 
     def add_view[T: view_.View](self, cls: type[T]) -> type[T]:
         """Route clicks on the components of `cls` through this client.

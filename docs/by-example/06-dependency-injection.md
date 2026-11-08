@@ -259,8 +259,8 @@ when making `Memory` fails, where a plain union would fail the click.
 
 ## Where injection works
 
-Handlers, `load()`, [`on_state_missing`](09-stores-and-ttl.md#ttl), [`on_outdated`](10-changing-a-view-safely.md#on_outdated)
-and factories have it without a decorator. For a function of your own, add `@linkd.inject`. `render()` takes no injected
+Handlers, `load()`, [`on_state_missing`](09-stores-and-ttl.md#ttl), [`on_outdated`](10-changing-a-view-safely.md#on_outdated),
+[error handlers](05-answering-in-time.md#when-something-fails) and factories have it without a decorator. For a function of your own, add `@linkd.inject`. `render()` takes no injected
 parameters, so `load()` reads what it draws.
 
 A parameter is injected if it has an annotation and either no default or the default
@@ -273,8 +273,8 @@ injected: `limit: int = risa.INJECTED`.
 
 ## Injection context
 
-An injected function needs an open context when it runs. risa opens `DEFAULT` and `COMPONENT` around `load()`, the handler
-and the hooks of a click, and `DEFAULT` around the `load()` in `client.build`. A function called from inside those has them
+An injected function needs an open context when it runs. risa opens `DEFAULT` and `COMPONENT` around `load()`, the handler,
+the hooks and the error handlers of a click, and `DEFAULT` around the `load()` in `client.build`. A function called from inside those has them
 too, so you rarely need to think about this.
 
 Anywhere else, such as in a hikari listener, open the context yourself, or the call raises
