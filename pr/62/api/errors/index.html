@@ -3272,8 +3272,8 @@ follow a silent <code>defer()</code>.</p>
 
 
         <p>Raised when an operation needs the view's state, but the context has none.</p>
-<p>That is the case in <code>on_outdated</code> and <code>on_state_missing</code>, and in a context kept past
-the end of its dispatch.</p>
+<p>That is the case in <code>on_outdated</code> and <code>on_state_missing</code>, after <code>ctx.replace</code> gave the
+message to another view, and in a context kept past the end of its dispatch.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>

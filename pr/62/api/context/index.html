@@ -2492,7 +2492,7 @@
 </span><span id="__span-0-3">    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-4">    <span class="n">rest</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.api.RESTClient" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient">RESTClient</a></span><span class="p">,</span>
 </span><span id="__span-0-5">    <span class="n">meta</span><span class="p">:</span> <span class="n"><span title="risa.internal.registry.ViewMeta">ViewMeta</span></span><span class="p">,</span>
-</span><span id="__span-0-6">    <span class="n">build</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Awaitable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Awaitable">Awaitable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            Rendered (risa.ui.build.Rendered)" href="../ui/build/#risa.ui.build.Rendered">Rendered</a></span><span class="p">]],</span>
+</span><span id="__span-0-6">    <span class="n">build</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.Snowflake" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.Snowflake">Snowflake</a></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Awaitable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Awaitable">Awaitable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            Rendered (risa.ui.build.Rendered)" href="../ui/build/#risa.ui.build.Rendered">Rendered</a></span><span class="p">]],</span>
 </span><span id="__span-0-7">    <span class="n">gate</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            ResponseGate (risa.context.ResponseGate)" href="./#risa.context.ResponseGate">ResponseGate</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-8">    <span class="n">slot</span><span class="p">:</span> <span class="n"><span title="risa.context.ViewSlot">ViewSlot</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-9"><span class="p">)</span>
@@ -2645,7 +2645,8 @@ can be clicked any more. Like <code>rerender()</code>, it saves the view's state
             –
           <div class="doc-md-description">
             <p>If the layout has interactive components and the view has durable fields, but this
-context has no view state, as in <code>on_outdated</code> and <code>on_state_missing</code>.</p>
+context has no view state, as in <code>on_outdated</code> and <code>on_state_missing</code>, or if
+<code>replace()</code> gave the message to another view.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2704,8 +2705,9 @@ context has no view state, as in <code>on_outdated</code> and <code>on_state_mis
 <p>It builds <code>view</code> as <code>Client.build</code> does, so a view in a store gets a record of its own.
 This view's state is not saved, also not when the handler returns, and its record stays
 until its <code>ttl</code> runs out. If the message cannot be edited, the new view's record stays
-the same way and this view keeps the message. <code>ctx.edit(**rendered)</code> does not do this:
-<code>edit</code> stays with this view.</p>
+the same way and this view keeps the message. Afterwards <code>rerender()</code> and <code>edit()</code> of
+this context raise <code>NoViewError</code>, since the message is no longer this view's; <code>edit</code>
+only ever shows this view's own components.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2789,7 +2791,8 @@ failure; call it yourself, before any <code>respond()</code>, where a failure mu
             –
           <div class="doc-md-description">
             <p>If the view has durable fields but this context has no view state, as in
-<code>on_outdated</code> and <code>on_state_missing</code>.</p>
+<code>on_outdated</code> and <code>on_state_missing</code>, or if <code>replace()</code> gave the message to
+another view.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">

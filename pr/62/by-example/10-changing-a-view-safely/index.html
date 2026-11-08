@@ -3118,7 +3118,7 @@ into that poll.</p>
 <ul>
 <li><strong><code>ctx.edit</code> cannot do this.</strong> It takes only the buttons of the view that was clicked, and raises
   <a href="../../api/errors/#risa.errors.LayoutError"><code>LayoutError</code></a> for another's.</li>
-<li><strong>The old view stops here.</strong> Its state is not saved, and <code>ctx.rerender()</code> raises
+<li><strong>The old view stops here.</strong> Its state is not saved, and <code>ctx.rerender()</code> and <code>ctx.edit()</code> raise
   <a href="../../api/errors/#risa.errors.NoViewError"><code>NoViewError</code></a>.</li>
 <li><strong>The new state.</strong> In a store, <code>ctx.replace</code> writes a new record under a new key, and the old one expires with its
   <code>ttl</code>. In a message, it raises <code>StateOverflowError</code> if the new state does not fit the new buttons.</li>
