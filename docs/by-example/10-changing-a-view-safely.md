@@ -254,7 +254,7 @@ into that poll.
 
 - **`ctx.edit` cannot do this.** It takes only the buttons of the view that was clicked, and raises
   [`LayoutError`](../api/errors.md#risa.errors.LayoutError) for another's.
-- **The old view stops here.** Its state is not saved, and `ctx.rerender()` raises
+- **The old view stops here.** Its state is not saved, and `ctx.rerender()` and `ctx.edit()` raise
   [`NoViewError`](../api/errors.md#risa.errors.NoViewError).
 - **The new state.** In a store, `ctx.replace` writes a new record under a new key, and the old one expires with its
   `ttl`. In a message, it raises `StateOverflowError` if the new state does not fit the new buttons.

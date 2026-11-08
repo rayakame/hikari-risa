@@ -62,6 +62,6 @@ Twelve chapters that start with a single message and end with your own store. Re
 
 - [Writing your own store](12-writing-your-own-store.md)
 
-    Write seven methods against what you already run, and test them with `verify_store`.
+    Write six methods against what you already run, and test them with `verify_store`.
 
 </div>

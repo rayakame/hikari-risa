@@ -2806,4 +2806,105 @@ async def test_replace_runs_from_on_outdated() -> None:
 
     await built._process_interaction(interaction_with(encoded_id_for(ReplacedFromHook, handler="zz")))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    assert "0" in answered_labels(rest_of(built).create_interaction_response.await_args)
+    assert "'label': '0'" in answered_labels(rest_of(built).create_interaction_response.await_args)
+
+
+AGAIN_SEEN: list[str] = []
+
+
+@risa.register(name="client-again")
+class Again(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(
+            ui.Button(self.add, label=str(self.count)),
+            ui.Button(self.reset),
+            ui.Button(self.away),
+            ui.Button(self.show),
+        )
+
+    @risa.handler
+    async def add(self, ctx: risa.ComponentContext) -> None:
+        self.count += 1
+        await ctx.rerender()
+
+    @risa.handler
+    async def reset(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Again(count=50))
+
+    @risa.handler
+    async def away(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Away())
+
+    @risa.handler
+    async def show(self, _ctx: risa.ComponentContext) -> None:
+        AGAIN_SEEN.append(f"count {self.count}")
+
+
+@risa.register(name="client-away")
+class Away(risa.View):
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.back), ui.Button(self.then_rerender), ui.Button(self.then_edit))
+
+    @risa.handler
+    async def back(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Again(count=100))
+
+    @risa.handler
+    async def then_rerender(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Again())
+        with pytest.raises(risa.NoViewError):
+            await ctx.rerender()
+        AGAIN_SEEN.append("rerender refused")
+
+    @risa.handler
+    async def then_edit(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Again())
+        with pytest.raises(risa.NoViewError):
+            await ctx.edit(ui.TextDisplay("Closed."))
+        AGAIN_SEEN.append("edit refused")
+
+
+async def again_client() -> tuple[risa.Client, list[str]]:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Again)
+    built.add_view(Away)
+    AGAIN_SEEN.clear()
+    return built, ids_of((await built.build(Again())).components)
+
+
+async def click_and_follow(built: risa.Client, ids: list[str], index: int) -> list[str]:
+    await built._process_interaction(click(ids, index))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    return ids_of(rest_of(built).create_interaction_response.await_args.kwargs["components"])
+
+
+async def test_replace_with_the_same_view_shows_the_new_state_on_the_next_click() -> None:
+    built, ids = await again_client()
+
+    ids = await click_and_follow(built, ids, 0)
+    ids = await click_and_follow(built, ids, 1)
+    await click_and_follow(built, ids, 3)
+
+    assert AGAIN_SEEN == ["count 50"]
+
+
+async def test_a_view_that_comes_back_through_replace_shows_its_new_state() -> None:
+    built, ids = await again_client()
+
+    ids = await click_and_follow(built, ids, 0)
+    ids = await click_and_follow(built, ids, 2)
+    ids = await click_and_follow(built, ids, 0)
+    await click_and_follow(built, ids, 3)
+
+    assert AGAIN_SEEN == ["count 100"]
+
+
+@pytest.mark.parametrize(("button", "expected"), [(1, "rerender refused"), (2, "edit refused")])
+async def test_the_view_that_called_replace_cannot_answer_again(button: int, expected: str) -> None:
+    built, ids = await again_client()
+
+    ids = await click_and_follow(built, ids, 2)
+    await built._process_interaction(click(ids, button))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert [expected] == AGAIN_SEEN

@@ -945,7 +945,9 @@ Discord yet.
 ``replace(view)`` turns the message into another view **[decided 2026-11-07]**: it builds through
 the client and lands on the origin message in every state above, and ``edit`` stays with this
 view. The old view's state is not saved, also not at the end of the dispatch, ``rerender()``
-raises ``NoViewError`` afterwards, and an old record stays until its TTL.
+and ``edit()`` raise ``NoViewError`` afterwards, and an old record stays until its TTL. The
+message's version cache is dropped, since the new state starts at sequence 0 and a later commit
+remembered for the message would otherwise win over it.
 
 ``ctx.prompt(SomeModal, ...)`` remains the modal chapter's problem; the initial-response
 gate is built to accommodate it.

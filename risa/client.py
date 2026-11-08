@@ -207,7 +207,7 @@ class Client(abc.ABC):
             self._backend_for,
             auto_defer=auto_defer,
             auto_defer_delay=auto_defer_delay,
-            build=self.build,
+            build=self._build_over,
         )
 
     @property
@@ -295,6 +295,12 @@ class Client(abc.ABC):
         _LOGGER.debug("registering view %s to client", meta.name)
         self._registry.register(meta)
         return cls
+
+    async def _build_over(self, view: view_.View, message_id: hikari.Snowflake) -> build_.Rendered:
+        rendered = await self.build(view)
+        # The new state starts at sequence 0, so a later commit remembered for the message would win over it.
+        self._in_message.forget(message_id)
+        return rendered
 
     def _warn_if_unanswered(self, meta: registry.ViewMeta) -> None:
         if self._resolve(meta.cookie) is None and meta.cookie not in self._unanswered_warned:

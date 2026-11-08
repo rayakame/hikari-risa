@@ -58,7 +58,7 @@ __all__ = ("Dispatcher",)
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.dispatch")
 
 type BackendResolver = collections.abc.Callable[[registry.ViewMeta], backend.StateBackend | None]
-type ViewBuilder = collections.abc.Callable[[view_.View], collections.abc.Awaitable[build_.Rendered]]
+type ViewBuilder = collections.abc.Callable[[view_.View, hikari.Snowflake], collections.abc.Awaitable[build_.Rendered]]
 
 
 class _Outdated(enum.Enum):
@@ -104,7 +104,7 @@ class Dispatcher:
     auto_defer_delay
         Seconds after which the watchdog answers in a handler's place.
     build
-        Builds a view for `ComponentContext.replace`.
+        Builds a view for `ComponentContext.replace` over the message with the given id.
     """
 
     __slots__ = ("_auto_defer", "_auto_defer_delay", "_backend_for", "_build", "_di", "_resolve_view", "_rest")

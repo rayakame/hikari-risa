@@ -246,6 +246,11 @@ class MessageBackend(backend.StateBackend):
             self._cache.move_to_end((message_id, cookie))
         return committed
 
+    def forget(self, message_id: hikari.Snowflake) -> None:
+        """Drop every commit remembered for a message, of whichever view."""
+        for key in [key for key in self._cache if key[0] == message_id]:
+            del self._cache[key]
+
     def remember(self, message_id: hikari.Snowflake, cookie: str, committed: anchor.MessageAnchor) -> None:
         """Remember a commit as the latest for the view `cookie` on a message."""
         self._cache[message_id, cookie] = committed

@@ -90,6 +90,7 @@ class ResponseGate(msgspec.Struct):
 class ViewSlot(msgspec.Struct):
     view: view_.View | None = None
     session: backend.StateSession | None = None
+    replaced: bool = False
 
 
 class Response:
@@ -465,7 +466,7 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         *,
         rest: hikari.api.RESTClient,
         meta: registry.ViewMeta,
-        build: collections.abc.Callable[[view_.View], collections.abc.Awaitable[build_.Rendered]],
+        build: collections.abc.Callable[[view_.View, hikari.Snowflake], collections.abc.Awaitable[build_.Rendered]],
         gate: ResponseGate | None = None,
         slot: ViewSlot | None = None,
     ) -> None:
@@ -505,7 +506,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         ------
         NoViewError
             If the layout has interactive components and the view has durable fields, but this
-            context has no view state, as in `on_outdated` and `on_state_missing`.
+            context has no view state, as in `on_outdated` and `on_state_missing`, or if
+            `replace()` gave the message to another view.
         EphemeralOriginError
             If the message is ephemeral and the interaction was answered with a new message.
         StateOverflowError
@@ -515,6 +517,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         StateUnreadableError
             If another process saved the view's state first, in a form this code cannot read.
         """
+        if self._slot.replaced:
+            raise errors.NoViewError(self._meta.name, "edit() after replace()")
         plan = build_.plan(layout, self._meta)
         view, session = self._slot.view, self._slot.session
         if view is not None and session is not None:
@@ -530,8 +534,9 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         It builds `view` as `Client.build` does, so a view in a store gets a record of its own.
         This view's state is not saved, also not when the handler returns, and its record stays
         until its `ttl` runs out. If the message cannot be edited, the new view's record stays
-        the same way and this view keeps the message. `ctx.edit(**rendered)` does not do this:
-        `edit` stays with this view.
+        the same way and this view keeps the message. Afterwards `rerender()` and `edit()` of
+        this context raise `NoViewError`, since the message is no longer this view's; `edit`
+        only ever shows this view's own components.
 
         Parameters
         ----------
@@ -549,10 +554,11 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         ViewDeclarationError
             If the view keeps its state in a store this client does not have.
         """
-        rendered = await self._build(view)
+        rendered = await self._build(view, self.message.id)
         await self._update_origin(rendered.components)
         self._slot.view = None
         self._slot.session = None
+        self._slot.replaced = True
 
     async def rerender(self) -> None:
         """Redraw the message from the view's current state, and save that state.
@@ -566,7 +572,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         ------
         NoViewError
             If the view has durable fields but this context has no view state, as in
-            `on_outdated` and `on_state_missing`.
+            `on_outdated` and `on_state_missing`, or if `replace()` gave the message to
+            another view.
         EphemeralOriginError
             If the message is ephemeral and the interaction was answered with a new message.
         StateOverflowError
@@ -579,6 +586,8 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         StateNotFoundError
             If an `InStore` view's record disappeared while the handler ran.
         """
+        if self._slot.replaced:
+            raise errors.NoViewError(self._meta.name, "rerender() after replace()")
         view, session = self._slot.view, self._slot.session
         if view is not None and session is not None:
             await self._commit(view, session, build_.plan(view.render(), self._meta))
