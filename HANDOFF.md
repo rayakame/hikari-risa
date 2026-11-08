@@ -14,6 +14,11 @@ notes for steps 1 and 2 are the August record and are kept as history: where the
 DESIGN disagree, DESIGN and this block win, and the two contracts they describe that
 step 3 replaced are marked *superseded* in place.
 
+**2026-11-08, error handlers (branch `error-handler`):** the maintainer decided the design question by question:
+`client.error_handler` on the client, for a failing handler, `load()`, hook or unreachable state; one `ClickFailure`
+argument, a `bool` result, several handlers by `priority`; no view state in its context; nothing logged once handled.
+Chapter 05 shows it, and DESIGN §13 records it. A per-view hook belongs with the open question of lightbulb-like hooks.
+
 **2026-11-07, library decisions (branch `library-decisions`):** the maintainer went through the open library questions one
 by one. A field's enum or `Literal` now counts by the kinds of its values, so a new value of a kind it already has is free. `Store.get` is gone, since
 `get_versioned` covers it; `delete` stays for `verify_store`. `load()` needs no `= risa.INJECTED` under pyright; hooks still

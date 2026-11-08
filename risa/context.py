@@ -42,11 +42,45 @@ if typing.TYPE_CHECKING:
     from risa.state import backend
 
 __all__ = (
+    "ClickFailure",
     "ComponentContext",
     "Context",
+    "ErrorHandler",
+    "FailureStage",
     "Response",
     "ResponseGate",
 )
+
+type ErrorHandler = collections.abc.Callable[
+    typing.Concatenate[ClickFailure, ...],
+    collections.abc.Awaitable[bool],
+]
+"""A function `Client.error_handler` registers: it takes a `ClickFailure`, then anything to inject."""
+
+
+class FailureStage(enum.StrEnum):
+    """Where a click failed, as `ClickFailure.stage` names it.
+
+    Attributes
+    ----------
+    HANDLER
+        The handler raised.
+    LOAD
+        The view's `load` raised, so the handler never ran.
+    ON_OUTDATED
+        `View.on_outdated` raised.
+    ON_STATE_MISSING
+        `View.on_state_missing` raised.
+    STATE
+        The view's state could not be reached before any of the bot's code ran: the store
+        failed or is missing, its lock timed out, or the codec's extra is not installed.
+    """
+
+    HANDLER = enum.auto()
+    LOAD = enum.auto()
+    ON_OUTDATED = enum.auto()
+    ON_STATE_MISSING = enum.auto()
+    STATE = enum.auto()
 
 
 class _InitialResponse(enum.StrEnum):
@@ -630,3 +664,24 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
             _InitialResponse.MESSAGE_CREATE,
         }
         return answered_elsewhere and hikari.MessageFlag.EPHEMERAL in self.message.flags
+
+
+class ClickFailure(msgspec.Struct, frozen=True):
+    """A click that failed, as the functions `Client.error_handler` registers receive it.
+
+    Attributes
+    ----------
+    ctx
+        The context of the click. It has no view state, as in `View.on_outdated`: answer
+        with `respond`, `edit` without interactive components or `replace`, and on a view
+        with durable fields `rerender()` raises `NoViewError`. `respond` continues what was
+        sent before the failure, as it would in the handler.
+    error
+        The exception.
+    stage
+        Where it was raised.
+    """
+
+    ctx: ComponentContext
+    error: Exception
+    stage: FailureStage

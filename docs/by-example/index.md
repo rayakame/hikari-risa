@@ -30,7 +30,7 @@ Twelve chapters that start with a single message and end with your own store. Re
 
 - [Answering in time](05-answering-in-time.md)
 
-    Answer within Discord's three seconds, even when the work takes longer.
+    Answer within Discord's three seconds, even when the work takes longer, and answer a click that failed.
 
 - [Dependency injection](06-dependency-injection.md)
 

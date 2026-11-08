@@ -448,3 +448,24 @@ id = "poll-outdated"
 label = "After a click on a retired button"
 text = "This button no longer works."
 ephemeral = true
+
+[[preview]]
+kind = "view"
+id = "forecast"
+example = "ch05_errors"
+view = "Forecast"
+fields = { city = "Berlin" }
+
+[[preview]]
+kind = "reply"
+id = "forecast-unavailable"
+label = "After a click on Refresh, while the weather service is down"
+text = "The weather service is not answering. Try again in a minute."
+ephemeral = true
+
+[[preview]]
+kind = "reply"
+id = "something-went-wrong"
+label = "After a click on Next city, which raises a KeyError"
+text = "Something went wrong."
+ephemeral = true
