@@ -83,6 +83,19 @@ def pytest(session: nox.Session) -> None:
     session.run("pytest", *session.posargs)
 
 
+@nox.session
+@nox.parametrize("resolution", ["lowest-direct", "highest"], ids=["lowest", "highest"])
+def compat(session: nox.Session, resolution: str) -> None:
+    # The lockfile holds hikari where lightbulb pins it, so this tests both ends of the declared ranges.
+    session.install("--resolution", resolution, "--group", "pytest", "--editable", ".[postgres,radixly,redis]")
+    session.run(
+        "python",
+        "-c",
+        "import hikari, linkd, msgspec; print(hikari.__version__, linkd.__version__, msgspec.__version__)",
+    )
+    session.run("pytest", *session.posargs)
+
+
 @nox.session(reuse_venv=True)
 def audit(session: nox.Session) -> None:
     # Scans uv.lock against the advisory databases. Requires uv >= 0.9; the

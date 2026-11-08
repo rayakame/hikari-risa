@@ -156,6 +156,29 @@ jobs:
 
       - run: uv run --group nox nox -s pytest
 
+  compat:
+    name: compat (${{ matrix.resolution }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - resolution: lowest
+            python-version: "3.12"
+          - resolution: highest
+            python-version: "3.15"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - run: uv run --group nox nox -s "compat(${{ matrix.resolution }})"
+
   build:
     name: build
     runs-on: ubuntu-latest
@@ -172,12 +195,13 @@ jobs:
       - run: uv build
 
       # Flat layout means a packaging mistake is invisible until install time.
-      # Assert the marker and the package actually made it into the wheel.
-      - name: Check wheel contents
+      # Assert the marker and the package made it into the wheel, and nothing else into the sdist.
+      - name: Check the distributions
         run: |
           uv run --no-project python - <<'PY'
           import glob
           import sys
+          import tarfile
           import zipfile
 
           wheel = glob.glob("dist/*.whl")[0]
@@ -186,6 +210,14 @@ jobs:
           if missing:
               sys.exit(f"missing from {wheel}: {missing}\ncontents: {names}")
           print(f"{wheel} OK")
+
+          sdist = glob.glob("dist/*.tar.gz")[0]
+          with tarfile.open(sdist) as archive:
+              top = {name.split("/")[1] for name in archive.getnames() if "/" in name}
+          allowed = {".gitignore", "LICENSE", "PKG-INFO", "README.md", "pyproject.toml", "risa"}
+          if top - allowed:
+              sys.exit(f"unexpected in {sdist}: {sorted(top - allowed)}")
+          print(f"{sdist} OK")
           PY
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

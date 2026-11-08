@@ -1,7 +1,7 @@
 # Contributing to hikari-risa
 
 `hikari-risa` is a component handler for [hikari](https://github.com/hikari-py/hikari), built
-Components V2 first. It will be published to PyPI and ships `py.typed`. This is a **library**, not
+Components V2 first. It is published to PyPI as `hikari-risa` and ships `py.typed`. This is a **library**, not
 an application: the public API surface and its type annotations are the product.
 
 ## Commands
@@ -11,12 +11,15 @@ Everything runs through `uv` and `nox`. Do not `pip install` anything.
 ```sh
 uv run --group nox nox            # reformat, ruff, slotscheck, pyright, pytest, audit, docs
 uv run --group nox nox -s ruff    # a single session
+uv run --group nox nox -s compat  # the tests at the oldest and newest versions the dependency ranges allow
 uv run --group pytest pytest -q   # fast inner loop while iterating
 uv lock                           # after ANY dependency change
 uv lock --upgrade                 # periodically; plain `uv lock` never bumps existing pins
 ```
 
-`uv.lock` is committed. The nox sessions run `uv sync --locked`, so a stale lockfile fails CI.
+`uv.lock` is committed. The nox sessions run `uv sync --locked`, so a stale lockfile fails CI. The lockfile holds hikari
+where lightbulb pins it, which is why CI also runs `compat`: it installs without the lockfile, once at the lowest
+versions of the direct dependencies and once at the highest.
 
 The `audit` session runs `uv audit`, which needs **uv >= 0.9** (the subcommand is still behind
 `--preview-features audit-command`). Because `nox[uv]` puts uv in the lockfile, the project's
@@ -56,8 +59,8 @@ The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 
 The site is versioned and published to the `gh-pages` branch by `.github/workflows/docs.yml`. A push to
 main replaces `main/`; a published release replaces its minor folder (`0.1/`), and `stable/` when it is the
-newest release. Release tags are `vX.Y.Z` with no suffix, and GitHub pre-releases are not published. Until the first
-release, `main` carries the `stable` alias in `versions.json`, so no page shows the outdated banner.
+newest release. Release tags are `vX.Y.Z` with no suffix, and GitHub pre-releases are not published. With no release
+published, `main` carries the `stable` alias in `versions.json`, so no page shows the outdated banner.
 `tools/docs/publish.py` places a built version and keeps `versions.json` and the root redirect.
 
 A pull request from a branch of this repository also gets a preview. `.github/workflows/docs-preview.yml` places it under
@@ -85,6 +88,15 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 - Work on a branch; `main` only moves through pull requests.
 - Pull requests are squash-merged, so the PR title becomes the commit subject on `main`.
 - Never skip hooks with `--no-verify`.
+
+## Releasing
+
+1. Raise the version in `pyproject.toml` and `risa/_about.py`, which a test holds equal, run `uv lock`, and merge it.
+2. Publish a GitHub release on that commit, tagged `v` and the version, such as `v1.2.0`.
+
+`.github/workflows/publish.yml` builds the package, checks the tag against it and uploads it to PyPI through trusted
+publishing from the `pypi` environment, so no token is stored anywhere. `docs.yml` publishes the release's docs. A
+GitHub pre-release publishes neither.
 
 ## Toolchain
 

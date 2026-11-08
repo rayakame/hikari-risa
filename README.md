@@ -31,19 +31,18 @@ class Counter(risa.View):
 
 ## Install
 
-hikari-risa is not on PyPI yet. Until its first release, install it from GitHub:
+risa runs on Python 3.12 to 3.15.
 
 ```sh
-uv add git+https://github.com/rayakame/hikari-risa
-pip install git+https://github.com/rayakame/hikari-risa
+uv add hikari-risa
+pip install hikari-risa
 ```
 
-From the first release on, it is `uv add hikari-risa` or `pip install hikari-risa`. Extras:
-`hikari-risa[redis]`, `hikari-risa[postgres]` and `hikari-risa[radixly]`.
+Extras: `hikari-risa[redis]`, `hikari-risa[postgres]` and `hikari-risa[radixly]`.
 
 ## Documentation
 
-<https://rayakame.github.io/hikari-risa/>. Until the first release it shows the docs of `main`.
+<https://rayakame.github.io/hikari-risa/>
 
 ## License
 
