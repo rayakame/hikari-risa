@@ -930,7 +930,6 @@ message. risa's ``rerender``/``edit`` always land on the component's message:
 | Call | Nothing sent | After defer (update) | After defer (thinking) or respond() |
 |---|---|---|---|
 | ``respond()`` | initial `MESSAGE_CREATE` | webhook `execute()` | first after thinking: `edit_initial_response()`; otherwise webhook `execute()` |
-
 | ``rerender()`` / ``edit()`` | initial `MESSAGE_UPDATE` | `edit_initial_response()` | REST edit of the origin message |
 | ``replace()`` | initial `MESSAGE_UPDATE` | `edit_initial_response()` | REST edit of the origin message |
 | ``defer()`` | initial `DEFERRED_*` | `AlreadyRespondedError` | `AlreadyRespondedError` |
