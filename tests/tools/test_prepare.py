@@ -34,7 +34,10 @@ def _tree(tmp_path: pathlib.Path) -> pathlib.Path:
     (tmp_path / "assets" / "logo-light.svg").write_bytes(b"<svg light/>")
     (tmp_path / "docs" / "examples").mkdir(parents=True)
     (tmp_path / "docs" / "examples" / "previews.toml").write_text("")
-    (tmp_path / "pyproject.toml").write_text('[[tool.towncrier.type]]\ndirectory = "feature"\nname = "Features"\n')
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.towncrier]\nstart_string = "<!-- towncrier release notes start -->\\n"\n\n'
+        '[[tool.towncrier.type]]\ndirectory = "feature"\nname = "Features"\n'
+    )
     (tmp_path / "CHANGELOG.md").write_text("# Changelog\n\n<!-- towncrier release notes start -->\n\n## 1.0.0\n")
     return tmp_path
 

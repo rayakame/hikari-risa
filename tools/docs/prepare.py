@@ -54,8 +54,8 @@ def prepare(root: pathlib.Path) -> None:
     ------
     RenderError
         If an example cannot be rendered.
-    FragmentNameError
-        If a file in ``changes/`` is not a fragment towncrier would read.
+    ChangelogError
+        If the changelog page cannot be rendered.
     """
     images = root / "docs" / "assets" / "images"
     shutil.rmtree(images, ignore_errors=True)

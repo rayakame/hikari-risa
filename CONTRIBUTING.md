@@ -92,15 +92,19 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 - Pull requests are squash-merged, so the PR title becomes the commit subject on `main`.
 - Never skip hooks with `--no-verify`.
 - A pull request that changes what users of risa see adds a fragment to `changes/`, named after its number and the kind
-  of change, such as `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`. It holds a
-  sentence or two written for users, and towncrier adds the link to the pull request. `changelog.yml` asks for one when
-  `risa/` changes, unless the pull request has the label `skip-changelog`, and the docs build refuses a misnamed
-  fragment, which towncrier would leave out without a word.
+  of change, such as `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`, and a second
+  entry of one kind takes a counter, `71.feature.1.md`. It holds one paragraph written for users, and towncrier adds
+  the link to the pull request. The same text reaches the docs and the GitHub release notes, so a fragment has no
+  list, quote, heading or code block, which the docs would break apart, and its links are `https://` addresses;
+  names go in backticks. `changelog.yml` asks for a fragment named after the pull request when it changes `risa/`
+  beyond the version, unless it has the label `skip-changelog`. The docs build refuses a fragment that breaks these
+  rules, since towncrier would leave a misnamed one out without a word.
 
 ## Releasing
 
 1. Raise the version in `pyproject.toml` and `risa/_about.py`, which a test holds equal, and run `uv lock`. Move the
    fragments into `CHANGELOG.md` with `uv run --group changelog towncrier build --version 1.2.0 --yes`, and merge it.
+   The section of 1.0.0 was written by hand, so this step starts with the release after it.
 2. Publish a GitHub release on that commit, tagged `v` and the version, such as `v1.2.0`, with the version's section of
    `CHANGELOG.md` as its notes.
 
