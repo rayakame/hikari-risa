@@ -514,7 +514,7 @@ wheels = [
 
 [[package]]
 name = "hikari-risa"
-version = "0.0.1"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "hikari" },
@@ -584,7 +584,7 @@ requires-dist = [
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = "~=0.32" },
     { name = "hikari", specifier = "~=2.5" },
     { name = "linkd", specifier = "~=0.6" },
-    { name = "msgspec", specifier = "~=0.21" },
+    { name = "msgspec", specifier = "~=0.22" },
     { name = "radixly", marker = "extra == 'radixly'", specifier = "~=1.0" },
     { name = "redis", marker = "extra == 'redis'", specifier = "~=8.0" },
 ]

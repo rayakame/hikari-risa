@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rayakame/hikari-risa/main/assets/web/banner.webp" alt="hikari-risa" width="100%">
+  <img src="https://raw.githubusercontent.com/rayakame/hikari-risa/a14722c65c6df514d463402cde7f7f48d133bd66/assets/web/banner.webp" alt="hikari-risa" width="100%">
 </p>
 
 # Components V2 views for hikari, with state that survives restarts.
@@ -31,19 +31,18 @@ class Counter(risa.View):
 
 ## Install
 
-hikari-risa is not on PyPI yet. Until its first release, install it from GitHub:
+risa runs on Python 3.12 to 3.15.
 
 ```sh
-uv add git+https://github.com/rayakame/hikari-risa
-pip install git+https://github.com/rayakame/hikari-risa
+uv add hikari-risa
+pip install hikari-risa
 ```
 
-From the first release on, it is `uv add hikari-risa` or `pip install hikari-risa`. Extras:
-`hikari-risa[redis]`, `hikari-risa[postgres]` and `hikari-risa[radixly]`.
+Extras: `hikari-risa[redis]`, `hikari-risa[postgres]` and `hikari-risa[radixly]`.
 
 ## Documentation
 
-<https://rayakame.github.io/hikari-risa/>. Until the first release it shows the docs of `main`.
+<https://rayakame.github.io/hikari-risa/>
 
 ## License
 

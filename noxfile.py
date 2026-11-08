@@ -19,7 +19,11 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import itertools
+import json
 import os
+import pathlib
+import tomllib
 import typing
 
 import nox
@@ -80,6 +84,31 @@ def pyright(session: nox.Session) -> None:
 def pytest(session: nox.Session) -> None:
     sync(session, groups=["pytest"], self=True)
 
+    session.run("pytest", *session.posargs)
+
+
+def declared_floors() -> dict[str, str]:
+    with pathlib.Path("pyproject.toml").open("rb") as file:
+        project = tomllib.load(file)["project"]
+    requirements = [*project["dependencies"], *itertools.chain.from_iterable(project["optional-dependencies"].values())]
+    return dict(requirement.split("~=", 1) for requirement in requirements)
+
+
+@nox.session
+@nox.parametrize(("python", "resolution"), [("3.12", "lowest-direct"), ("3.15", "highest")], ids=["lowest", "highest"])
+def compat(session: nox.Session, resolution: str) -> None:
+    # The lockfile holds hikari where lightbulb pins it, so this tests both ends of the declared ranges.
+    session.install("--resolution", resolution, "--group", "pytest", "--editable", ".[postgres,radixly,redis]")
+    floors = declared_floors()
+    script = "import importlib.metadata as m, json, sys; print(json.dumps({n: m.version(n) for n in sys.argv[1:]}))"
+    output = session.run("python", "-c", script, *floors, silent=True)
+    installed: dict[str, str] = json.loads(str(output))
+    session.log(", ".join(f"{name} {version}" for name, version in installed.items()))
+    if resolution == "lowest-direct":
+        # Another group's pin, such as lightbulb's on hikari, would otherwise lift a floor unnoticed.
+        missed = {name: version for name, version in installed.items() if version != f"{floors[name]}.0"}
+        if missed:
+            session.error(f"the lowest resolution missed the declared floors: {missed}")
     session.run("pytest", *session.posargs)
 
 

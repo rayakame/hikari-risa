@@ -156,6 +156,51 @@ jobs:
 
       - run: uv run --group nox nox -s pytest
 
+  compat:
+    name: compat (${{ matrix.resolution }})
+    runs-on: ubuntu-latest
+    # The Redis tests also run on fakeredis; the Postgres tests run only against this server.
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+      postgres:
+        image: postgres:18-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      RISA_TEST_REDIS_URL: redis://localhost:6379/0
+      RISA_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [lowest, highest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The session picks its own Python for each resolution; this one only runs nox.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - run: uv run --group nox nox -s "compat(${{ matrix.resolution }})"
+
   build:
     name: build
     runs-on: ubuntu-latest
@@ -172,21 +217,7 @@ jobs:
       - run: uv build
 
       # Flat layout means a packaging mistake is invisible until install time.
-      # Assert the marker and the package actually made it into the wheel.
-      - name: Check wheel contents
-        run: |
-          uv run --no-project python - <<'PY'
-          import glob
-          import sys
-          import zipfile
-
-          wheel = glob.glob("dist/*.whl")[0]
-          names = zipfile.ZipFile(wheel).namelist()
-          missing = [n for n in ("risa/py.typed", "risa/__init__.py", "risa/errors.py") if n not in names]
-          if missing:
-              sys.exit(f"missing from {wheel}: {missing}\ncontents: {names}")
-          print(f"{wheel} OK")
-          PY
+      - run: uv run --no-project python -m tools.check_dist dist
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

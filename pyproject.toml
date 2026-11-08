@@ -1,6 +1,6 @@
 [project]
 name = "hikari-risa"
-version = "0.0.1"
+version = "1.0.0"
 description = "A component handler for hikari with first-class Components V2 support."
 readme = "README.md"
 authors = [
@@ -11,7 +11,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.16"
 keywords = ["hikari", "discord", "components", "ui"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -19,12 +19,13 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
+    "Topic :: Communications :: Chat",
     "Typing :: Typed",
 ]
 dependencies = [
     "hikari~=2.5",
     "linkd~=0.6",
-    "msgspec~=0.21",
+    "msgspec~=0.22",
 ]
 
 [project.optional-dependencies]
@@ -39,15 +40,20 @@ redis = [
 ]
 
 [project.urls]
+Documentation = "https://rayakame.github.io/hikari-risa/"
 Repository = "https://github.com/rayakame/hikari-risa"
 Issues = "https://github.com/rayakame/hikari-risa/issues"
+Changelog = "https://github.com/rayakame/hikari-risa/releases"
 
 [build-system]
-requires = ["hatchling>=1.14"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["risa"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["risa"]
 
 [dependency-groups]
 docs = [

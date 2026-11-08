@@ -1,7 +1,7 @@
 # Contributing to hikari-risa
 
 `hikari-risa` is a component handler for [hikari](https://github.com/hikari-py/hikari), built
-Components V2 first. It will be published to PyPI and ships `py.typed`. This is a **library**, not
+Components V2 first. It is published to PyPI as `hikari-risa` and ships `py.typed`. This is a **library**, not
 an application: the public API surface and its type annotations are the product.
 
 ## Commands
@@ -11,12 +11,15 @@ Everything runs through `uv` and `nox`. Do not `pip install` anything.
 ```sh
 uv run --group nox nox            # reformat, ruff, slotscheck, pyright, pytest, audit, docs
 uv run --group nox nox -s ruff    # a single session
+uv run --group nox nox -s compat  # the tests at the oldest and newest versions the dependency ranges allow
 uv run --group pytest pytest -q   # fast inner loop while iterating
 uv lock                           # after ANY dependency change
 uv lock --upgrade                 # periodically; plain `uv lock` never bumps existing pins
 ```
 
-`uv.lock` is committed. The nox sessions run `uv sync --locked`, so a stale lockfile fails CI.
+`uv.lock` is committed. The nox sessions run `uv sync --locked`, so a stale lockfile fails CI. The lockfile holds hikari
+where lightbulb pins it, which is why CI also runs `compat`: it installs without the lockfile, once at the lowest
+versions of the direct dependencies and once at the highest.
 
 The `audit` session runs `uv audit`, which needs **uv >= 0.9** (the subcommand is still behind
 `--preview-features audit-command`). Because `nox[uv]` puts uv in the lockfile, the project's
@@ -55,9 +58,9 @@ The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
 
 The site is versioned and published to the `gh-pages` branch by `.github/workflows/docs.yml`. A push to
-main replaces `main/`; a published release replaces its minor folder (`0.1/`), and `stable/` when it is the
-newest release. Release tags are `vX.Y.Z` with no suffix, and GitHub pre-releases are not published. Until the first
-release, `main` carries the `stable` alias in `versions.json`, so no page shows the outdated banner.
+main replaces `main/`; a published release, once it is on PyPI, replaces its minor folder (`1.0/`), and `stable/` when it is the
+newest release. Release tags are `vX.Y.Z` with no suffix, and GitHub pre-releases are not published. With no release
+published, `main` carries the `stable` alias in `versions.json`, so no page shows the outdated banner.
 `tools/docs/publish.py` places a built version and keeps `versions.json` and the root redirect.
 
 A pull request from a branch of this repository also gets a preview. `.github/workflows/docs-preview.yml` places it under
@@ -85,6 +88,15 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 - Work on a branch; `main` only moves through pull requests.
 - Pull requests are squash-merged, so the PR title becomes the commit subject on `main`.
 - Never skip hooks with `--no-verify`.
+
+## Releasing
+
+1. Raise the version in `pyproject.toml` and `risa/_about.py`, which a test holds equal, run `uv lock`, and merge it.
+2. Publish a GitHub release on that commit, tagged `v` and the version, such as `v1.2.0`.
+
+`.github/workflows/publish.yml` builds the package, checks its contents and the tag against it, and uploads it to PyPI
+through trusted publishing from the `pypi` environment, so no token is stored anywhere. Then it calls `docs.yml` for
+the release's docs, so they never name a version PyPI lacks. A GitHub pre-release publishes neither.
 
 ## Toolchain
 
@@ -221,10 +233,10 @@ docs/               site pages, stylesheets, fonts
   stylesheets/      the theme (risa.css), the Discord frame (discord.css) and the diagrams (diagrams.css)
 overrides/          theme template overrides for the site
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
-tools/              optimize_images, docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
+tools/              optimize_images, check_dist (what the wheel and sdist hold), docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
-noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / audit / docs
+noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / compat / audit / docs
 ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
 
