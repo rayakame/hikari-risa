@@ -46,11 +46,12 @@ def problems(dist: pathlib.Path) -> collections.abc.Sequence[str]:
     sdists = sorted(dist.glob("*.tar.gz"))
     if len(wheels) != 1 or len(sdists) != 1:
         return [f"{dist} should hold one wheel and one sdist, not {[path.name for path in (*wheels, *sdists)]}"]
+    metadata = "-".join(wheels[0].name.split("-")[:2]) + ".dist-info/"
     with zipfile.ZipFile(wheels[0]) as wheel:
-        in_wheel = [name for name in wheel.namelist() if not name.endswith("/")]
+        in_wheel = [name for name in wheel.namelist() if not name.endswith("/") and not name.startswith(metadata)]
+    root = sdists[0].name.removesuffix(".tar.gz") + "/"
     with tarfile.open(sdists[0]) as sdist:
-        in_sdist = [member.name.partition("/")[2] for member in sdist.getmembers() if member.isfile()]
-    in_wheel = [name for name in in_wheel if not name.split("/")[0].endswith(".dist-info")]
+        in_sdist = [member.name.removeprefix(root) for member in sdist.getmembers() if member.isfile()]
     return [
         *_compare(wheels[0].name, in_wheel, _PACKAGE_NEEDS, frozenset()),
         *_compare(sdists[0].name, in_sdist, _SDIST_NEEDS, _SDIST_MAY_HOLD),

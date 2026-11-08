@@ -86,6 +86,18 @@ def test_a_wheel_without_the_typing_marker_or_with_a_stray_file_is_named(tmp_pat
     ]
 
 
+def test_another_projects_metadata_or_a_wrong_sdist_folder_is_named(tmp_path: pathlib.Path) -> None:
+    _wheel(tmp_path, (*_GOOD_WHEEL, "other-0.1.dist-info/METADATA"))
+    with tarfile.open(tmp_path / "hikari_risa-1.0.0.tar.gz", "w:gz") as sdist:
+        for name in (*[f"hikari_risa-1.0.0/{name}" for name in _GOOD_SDIST], "other-0.1/README.md"):
+            sdist.addfile(tarfile.TarInfo(name), io.BytesIO())
+
+    assert check_dist.problems(tmp_path) == [
+        "hikari_risa-1.0.0-py3-none-any.whl holds other-0.1.dist-info/METADATA",
+        "hikari_risa-1.0.0.tar.gz holds other-0.1/README.md",
+    ]
+
+
 def test_a_missing_sdist_is_named(tmp_path: pathlib.Path) -> None:
     _wheel(tmp_path, _GOOD_WHEEL)
 
