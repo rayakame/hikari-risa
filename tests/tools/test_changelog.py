@@ -137,7 +137,7 @@ def test_the_command_line_fails_a_pull_request_without_its_fragment(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     root = _root(tmp_path)
-    (root / "changed").write_text("risa/view.py\ndocs/index.md\n")
+    (root / "changed").write_text("risa/über view.py\ndocs/index.md\n", encoding="utf-8")
     monkeypatch.chdir(root)
     monkeypatch.setattr(sys, "argv", ["changelog", "--pull-request", "71", "--changed", "changed"])
 

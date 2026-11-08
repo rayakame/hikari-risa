@@ -190,7 +190,9 @@ def main() -> None:
     if arguments.release is not None:
         found = release_problems(root, arguments.release)
     else:
-        changed: list[str] = [] if arguments.changed is None else arguments.changed.read_text(encoding="utf-8").split()
+        changed: list[str] = (
+            [] if arguments.changed is None else arguments.changed.read_text(encoding="utf-8").splitlines()
+        )
         found = problems(root, pull_request=arguments.pull_request, changed=changed)
     for problem in found:
         _LOGGER.error(problem)
