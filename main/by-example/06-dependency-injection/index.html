@@ -2783,9 +2783,9 @@ parameters, so <code>load()</code> reads what it draws.</p>
 <p>A parameter is injected if it has an annotation and either no default or the default
 <a href="../../api/di/#risa.di.INJECTED"><code>risa.INJECTED</code></a>. Any other default stays as it is. <code>*args</code>, <code>**kwargs</code> and positional-only
 parameters are left alone. A parameter with no annotation gets nothing, so the click fails with a <code>TypeError</code>.</p>
-<p><code>risa.INJECTED</code> tells your type checker that nobody has to pass the parameter. A <code>load()</code> <a href="../07-fresh-data/#a-leaderboard">needs it</a>,
-and so does a function of your own that you call with no arguments. In a handler it also marks a wire type as injected:
-<code>limit: int = risa.INJECTED</code>.</p>
+<p><code>risa.INJECTED</code> tells your type checker that nobody has to pass the parameter. <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a>,
+<code>on_state_missing</code> and a function of your own that you call with no arguments need it. In a handler it also marks a wire type as
+injected: <code>limit: int = risa.INJECTED</code>.</p>
 <h2 id="injection-context">Injection context<a class="headerlink" href="#injection-context" title="Permanent link">&para;</a></h2>
 <p>An injected function needs an open context when it runs. risa opens <code>DEFAULT</code> and <code>COMPONENT</code> around <code>load()</code>, the handler
 and the hooks of a click, and <code>DEFAULT</code> around the <code>load()</code> in <code>client.build</code>. A function called from inside those has them

@@ -2670,8 +2670,9 @@ keeps what it saved through <code>rerender()</code> or <code>edit()</code> befor
 
         <p>Fill the view's props before it renders.</p>
 <p>risa awaits it before the first send and on every click, after restoring the durable
-state and before the handler runs. Its parameters are injected, as a handler's are. A strict type
-checker needs the default <code>risa.INJECTED</code> on them, since <code>load</code> overrides a method that takes none.</p>
+state and before the handler runs. Its parameters are injected, as a handler's are.
+An override of another view's <code>load</code> that adds parameters needs <code>= risa.INJECTED</code> on
+them for a type checker, as any override that adds parameters would.</p>
 
 
     </div>
@@ -2698,11 +2699,12 @@ checker needs the default <code>risa.INJECTED</code> on them, since <code>load</
 
         <p>Answer a click on a component this view can no longer route.</p>
 <p>The component's handler was retired by a version bump, its wire parameters
-changed without one, or its state was written by durable fields the view no
-longer has. The default does nothing, so the click fails on the user's side, and
-risa logs it. Override it to answer the user, or to replace the dead message with
-<code>ctx.edit(...)</code>. Its parameters are injected, as a handler's are, and <code>ctx</code> has
-no view state.</p>
+changed without one, it carries an enum value the enum no longer has or fewer
+arguments than the handler now takes, or its state was written by durable fields
+the view no longer has. The default does nothing, so the click fails on the user's
+side, and risa logs it. Override it to answer the user, or to replace the dead
+message with <code>ctx.edit(...)</code> or <code>ctx.replace(...)</code>. Its parameters are injected, as
+a handler's are, and <code>ctx</code> has no view state.</p>
 <p>To answer clicks on one retired handler differently, keep a method with its id,
 version and wire parameters whose body says the component is outdated. It routes
 like any handler, and nothing is logged.</p>

@@ -2096,9 +2096,12 @@ state that won, so the handler can apply its change once more.</p>
 </span><span id="__span-1-11">            <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
 </span></code></pre></div>
 <p><code>_first_vote</code> runs again on the record that won, so someone whose vote is already in gets "You already voted."</p>
+<p>If a process with other fields won, say during a deploy, this process cannot read the record. <code>ctx.rerender()</code> then raises
+<a href="../../api/errors/#risa.errors.StateUnreadableError"><code>StateUnreadableError</code></a>, which this <code>except</code> lets through: the handler
+fails, risa logs it, and the vote is lost. Discord shows the click as failed, unless auto-defer answered it first.</p>
 <p>The retry is one attempt. If it conflicts too, <code>rerender()</code> raises again, risa logs the error and that click fails.</p>
-<p>Without the <code>except</code>, the handler fails: risa logs the error, the click fails in Discord, and the message shows what the
-winner wrote. A handler that changes a field and never calls <code>rerender()</code> cannot catch anything, so risa logs a <code>WARNING</code>
+<p>Without the <code>except</code>, the handler fails: risa logs the error, Discord shows the click as failed unless auto-defer answered
+it first, and the message shows what the winner wrote. A handler that changes a field and never calls <code>rerender()</code> cannot catch anything, so risa logs a <code>WARNING</code>
 and drops the change.</p>
 <details class="example">
 <summary>Full file</summary>

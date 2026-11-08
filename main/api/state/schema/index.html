@@ -2931,6 +2931,9 @@ stops short of those added since.</p>
     <div class="doc doc-contents ">
 
         <p>Describe a field type by its structure, for the schema fingerprint.</p>
+<p>An enum or <code>Literal</code> counts by the kinds of its values, so a new value of a kind it already
+has leaves old state readable, and a removed one fails only for the state that holds it. A
+<code>Literal</code> that gains a kind, or loses its last value of one, changes the shape.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

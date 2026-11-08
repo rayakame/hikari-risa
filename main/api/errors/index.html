@@ -1885,6 +1885,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#risa.errors.StateUnreadableError" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        StateUnreadableError
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#risa.errors.StoreConformanceError" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2237,6 +2248,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         StateOverflowError
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.errors.StateUnreadableError" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        StateUnreadableError
       </span>
     </span>
   </a>
@@ -3248,8 +3270,8 @@ follow a silent <code>defer()</code>.</p>
 
 
         <p>Raised when an operation needs the view's state, but the context has none.</p>
-<p>That is the case in <code>on_outdated</code> and <code>on_state_missing</code>, and in a context kept past
-the end of its dispatch.</p>
+<p>That is the case in <code>on_outdated</code> and <code>on_state_missing</code>, after <code>ctx.replace</code> gave the
+message to another view, and in a context kept past the end of its dispatch.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -3606,8 +3628,8 @@ and routes the click to <code>View.on_outdated</code>. Bump the version in
 
         <p>Raised when another process wrote a view's state first.</p>
 <p>By the time it is raised, the view already holds the state that won, so the handler
-can apply its change again on top of it. The exception is a winning record that cannot
-be read: risa logs that and the view keeps its own state.</p>
+can apply its change again on top of it. A record that cannot be read raises
+<code>StateUnreadableError</code> instead.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -3916,6 +3938,70 @@ be read: risa logs that and the view keeps its own state.</p>
           <div class="doc-md-description">
             <p>The bytes each durable field takes, by name, in declaration order. What they leave
 of <code>needed</code> is risa's own framing.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.errors.StateUnreadableError" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">StateUnreadableError</span>
+
+
+<a href="#risa.errors.StateUnreadableError" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">StateUnreadableError</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="            StateError (risa.errors.StateError)" href="./#risa.errors.StateError">StateError</a></code></p>
+
+
+
+        <p>Raised when another process wrote a view's state first, in a form this code cannot read.</p>
+<p>It can happen during a deploy, when a process with other fields wins the race. The view
+keeps its own state, the change is lost, and another attempt in this click raises again.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.errors.StateUnreadableError.key">key</span></code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The store key of the state.</p>
           </div>
         </li>
     </ul>

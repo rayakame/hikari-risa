@@ -910,10 +910,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-seven-methods" class="md-nav__link">
+  <a href="#the-six-methods" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The seven methods
+        The six methods
       </span>
     </span>
   </a>
@@ -1771,10 +1771,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-seven-methods" class="md-nav__link">
+  <a href="#the-six-methods" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The seven methods
+        The six methods
       </span>
     </span>
   </a>
@@ -1918,9 +1918,9 @@
 
 
 <h1 id="writing-your-own-store">Writing your own store<a class="headerlink" href="#writing-your-own-store" title="Permanent link">&para;</a></h1>
-<p class="risa-lead">A store is seven methods. Write them against what you already run, and <code>verify_store</code> tells you whether risa can rely on
+<p class="risa-lead">A store is six methods. Write them against what you already run, and <code>verify_store</code> tells you whether risa can rely on
 them.</p>
-<h2 id="the-seven-methods">The seven methods<a class="headerlink" href="#the-seven-methods" title="Permanent link">&para;</a></h2>
+<h2 id="the-six-methods">The six methods<a class="headerlink" href="#the-six-methods" title="Permanent link">&para;</a></h2>
 <p><a href="../../api/store/protocol/#risa.store.protocol.Store"><code>risa.Store</code></a> is a protocol, and the reference has each method in
 full.</p>
 <table>
@@ -1932,12 +1932,8 @@ full.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>get(key)</code></td>
-<td>Return the bytes last written, unchanged, or <code>None</code> if the entry is missing or expired</td>
-</tr>
-<tr>
 <td><code>get_versioned(key)</code></td>
-<td>The same, with the entry's version, as a <code>risa.VersionedEntry</code></td>
+<td>Return the bytes last written, unchanged, with the entry's version, as a <code>risa.VersionedEntry</code>, or <code>None</code> if the entry is missing or expired</td>
 </tr>
 <tr>
 <td><code>put(key, value, *, ttl)</code></td>
@@ -2043,110 +2039,106 @@ its own for this, as <code>RedisStore</code> has a Lua script and <code>Postgres
 </span><span id="__span-3-32">        <span class="bp">self</span><span class="o">.</span><span class="n">_locks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Lock</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span id="__span-3-33">        <span class="bp">self</span><span class="o">.</span><span class="n">_versions</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </span><span id="__span-3-34">
-</span><span id="__span-3-35">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-35">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_versioned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">risa</span><span class="o">.</span><span class="n">VersionedEntry</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-3-36">        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-</span><span id="__span-3-37">        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">entry</span><span class="o">.</span><span class="n">data</span>
-</span><span id="__span-3-38">
-</span><span id="__span-3-39">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_versioned</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">risa</span><span class="o">.</span><span class="n">VersionedEntry</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-40">        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-</span><span id="__span-3-41">        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-42">            <span class="k">return</span> <span class="kc">None</span>
-</span><span id="__span-3-43">        <span class="k">return</span> <span class="n">risa</span><span class="o">.</span><span class="n">VersionedEntry</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">entry</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">entry</span><span class="o">.</span><span class="n">version</span><span class="p">)</span>
-</span><span id="__span-3-44">
-</span><span id="__span-3-45">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ttl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-46">        <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_entry</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ttl</span><span class="p">)</span>
-</span><span id="__span-3-47">
-</span><span id="__span-3-48">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">put_if_version</span><span class="p">(</span>
-</span><span id="__span-3-49">        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-3-50">        <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="__span-3-51">        <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
-</span><span id="__span-3-52">        <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-3-53">        <span class="n">expected</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-</span><span id="__span-3-54">        <span class="n">ttl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-3-55">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-56">        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-</span><span id="__span-3-57">        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">entry</span><span class="o">.</span><span class="n">version</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
-</span><span id="__span-3-58">            <span class="k">return</span> <span class="kc">None</span>
-</span><span id="__span-3-59">        <span class="n">written</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_entry</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ttl</span><span class="p">)</span>
-</span><span id="__span-3-60">        <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">written</span>
-</span><span id="__span-3-61">        <span class="k">return</span> <span class="n">written</span><span class="o">.</span><span class="n">version</span>
-</span><span id="__span-3-62">
-</span><span id="__span-3-63">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-64">        <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span id="__span-3-65">
-</span><span id="__span-3-66">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">touch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ttl</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-67">        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-</span><span id="__span-3-68">        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-69">            <span class="n">entry</span><span class="o">.</span><span class="n">expires_at</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">ttl</span>
-</span><span id="__span-3-70">
-</span><span id="__span-3-71">    <span class="nd">@contextlib</span><span class="o">.</span><span class="n">asynccontextmanager</span>
-</span><span id="__span-3-72">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">lock</span><span class="p">(</span>
-</span><span id="__span-3-73">        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-3-74">        <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="__span-3-75">        <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-3-76">        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">DEFAULT_LOCK_TIMEOUT</span><span class="p">,</span>
-</span><span id="__span-3-77">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">collections</span><span class="o">.</span><span class="n">abc</span><span class="o">.</span><span class="n">AsyncGenerator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
-</span><span id="__span-3-78">        <span class="n">lock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_locks</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Lock</span><span class="p">())</span>
-</span><span id="__span-3-79">        <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-3-80">            <span class="k">async</span> <span class="k">with</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">timeout</span><span class="p">):</span>
-</span><span id="__span-3-81">                <span class="k">await</span> <span class="n">lock</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
-</span><span id="__span-3-82">        <span class="k">except</span> <span class="ne">TimeoutError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="__span-3-83">            <span class="k">raise</span> <span class="n">risa</span><span class="o">.</span><span class="n">LockTimeoutError</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-</span><span id="__span-3-84">        <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-3-85">            <span class="k">yield</span>
-</span><span id="__span-3-86">        <span class="k">finally</span><span class="p">:</span>
-</span><span id="__span-3-87">            <span class="n">lock</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
-</span><span id="__span-3-88">
-</span><span id="__span-3-89">    <span class="k">def</span><span class="w"> </span><span class="nf">_live</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Entry</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-90">        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-</span><span id="__span-3-91">        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">entry</span><span class="o">.</span><span class="n">expires_at</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-92">            <span class="k">return</span> <span class="n">entry</span>
-</span><span id="__span-3-93">        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">expires_at</span> <span class="o">&gt;</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">():</span>
-</span><span id="__span-3-94">            <span class="k">return</span> <span class="n">entry</span>
-</span><span id="__span-3-95">        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-</span><span id="__span-3-96">        <span class="k">return</span> <span class="kc">None</span>
+</span><span id="__span-3-37">        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-38">            <span class="k">return</span> <span class="kc">None</span>
+</span><span id="__span-3-39">        <span class="k">return</span> <span class="n">risa</span><span class="o">.</span><span class="n">VersionedEntry</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">entry</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">entry</span><span class="o">.</span><span class="n">version</span><span class="p">)</span>
+</span><span id="__span-3-40">
+</span><span id="__span-3-41">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ttl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-42">        <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_entry</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ttl</span><span class="p">)</span>
+</span><span id="__span-3-43">
+</span><span id="__span-3-44">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">put_if_version</span><span class="p">(</span>
+</span><span id="__span-3-45">        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-3-46">        <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-3-47">        <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+</span><span id="__span-3-48">        <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-3-49">        <span class="n">expected</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-3-50">        <span class="n">ttl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-3-51">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-52">        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+</span><span id="__span-3-53">        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">entry</span><span class="o">.</span><span class="n">version</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
+</span><span id="__span-3-54">            <span class="k">return</span> <span class="kc">None</span>
+</span><span id="__span-3-55">        <span class="n">written</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_entry</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ttl</span><span class="p">)</span>
+</span><span id="__span-3-56">        <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">written</span>
+</span><span id="__span-3-57">        <span class="k">return</span> <span class="n">written</span><span class="o">.</span><span class="n">version</span>
+</span><span id="__span-3-58">
+</span><span id="__span-3-59">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-60">        <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span id="__span-3-61">
+</span><span id="__span-3-62">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">touch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ttl</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-63">        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+</span><span id="__span-3-64">        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-65">            <span class="n">entry</span><span class="o">.</span><span class="n">expires_at</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">ttl</span>
+</span><span id="__span-3-66">
+</span><span id="__span-3-67">    <span class="nd">@contextlib</span><span class="o">.</span><span class="n">asynccontextmanager</span>
+</span><span id="__span-3-68">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">lock</span><span class="p">(</span>
+</span><span id="__span-3-69">        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-3-70">        <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-3-71">        <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-3-72">        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">DEFAULT_LOCK_TIMEOUT</span><span class="p">,</span>
+</span><span id="__span-3-73">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">collections</span><span class="o">.</span><span class="n">abc</span><span class="o">.</span><span class="n">AsyncGenerator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+</span><span id="__span-3-74">        <span class="n">lock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_locks</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Lock</span><span class="p">())</span>
+</span><span id="__span-3-75">        <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-3-76">            <span class="k">async</span> <span class="k">with</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">timeout</span><span class="p">):</span>
+</span><span id="__span-3-77">                <span class="k">await</span> <span class="n">lock</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+</span><span id="__span-3-78">        <span class="k">except</span> <span class="ne">TimeoutError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="__span-3-79">            <span class="k">raise</span> <span class="n">risa</span><span class="o">.</span><span class="n">LockTimeoutError</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+</span><span id="__span-3-80">        <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-3-81">            <span class="k">yield</span>
+</span><span id="__span-3-82">        <span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-3-83">            <span class="n">lock</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+</span><span id="__span-3-84">
+</span><span id="__span-3-85">    <span class="k">def</span><span class="w"> </span><span class="nf">_live</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Entry</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-86">        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+</span><span id="__span-3-87">        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">entry</span><span class="o">.</span><span class="n">expires_at</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-88">            <span class="k">return</span> <span class="n">entry</span>
+</span><span id="__span-3-89">        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">expires_at</span> <span class="o">&gt;</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">():</span>
+</span><span id="__span-3-90">            <span class="k">return</span> <span class="n">entry</span>
+</span><span id="__span-3-91">        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entries</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+</span><span id="__span-3-92">        <span class="k">return</span> <span class="kc">None</span>
+</span><span id="__span-3-93">
+</span><span id="__span-3-94">    <span class="k">def</span><span class="w"> </span><span class="nf">_new_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">ttl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Entry</span><span class="p">:</span>
+</span><span id="__span-3-95">        <span class="n">expires_at</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">ttl</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">ttl</span>
+</span><span id="__span-3-96">        <span class="k">return</span> <span class="n">_Entry</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_versions</span><span class="p">),</span> <span class="n">expires_at</span><span class="p">)</span>
 </span><span id="__span-3-97">
-</span><span id="__span-3-98">    <span class="k">def</span><span class="w"> </span><span class="nf">_new_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">ttl</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Entry</span><span class="p">:</span>
-</span><span id="__span-3-99">        <span class="n">expires_at</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">ttl</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">ttl</span>
-</span><span id="__span-3-100">        <span class="k">return</span> <span class="n">_Entry</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_versions</span><span class="p">),</span> <span class="n">expires_at</span><span class="p">)</span>
+</span><span id="__span-3-98">
+</span><span id="__span-3-99"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_dict_store</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-100">    <span class="k">await</span> <span class="n">verify_store</span><span class="p">(</span><span class="n">DictStore</span><span class="p">())</span>
 </span><span id="__span-3-101">
 </span><span id="__span-3-102">
-</span><span id="__span-3-103"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_dict_store</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-104">    <span class="k">await</span> <span class="n">verify_store</span><span class="p">(</span><span class="n">DictStore</span><span class="p">())</span>
-</span><span id="__span-3-105">
+</span><span id="__span-3-103"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"tally"</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InStore</span><span class="p">(</span><span class="n">ttl</span><span class="o">=</span><span class="mi">3600</span><span class="p">))</span>
+</span><span id="__span-3-104"><span class="k">class</span><span class="w"> </span><span class="nc">Tally</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-3-105">    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span id="__span-3-106">
-</span><span id="__span-3-107"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"tally"</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InStore</span><span class="p">(</span><span class="n">ttl</span><span class="o">=</span><span class="mi">3600</span><span class="p">))</span>
-</span><span id="__span-3-108"><span class="k">class</span><span class="w"> </span><span class="nc">Tally</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
-</span><span id="__span-3-109">    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="__span-3-110">
-</span><span id="__span-3-111">    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ui</span><span class="o">.</span><span class="n">Layout</span><span class="p">:</span>
-</span><span id="__span-3-112">        <span class="k">return</span> <span class="n">ui</span><span class="o">.</span><span class="n">Row</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Count: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
-</span><span id="__span-3-113">
-</span><span id="__span-3-114">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
-</span><span id="__span-3-115">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-116">        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span id="__span-3-117">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
-</span><span id="__span-3-118">
-</span><span id="__span-3-119">
-</span><span id="__span-3-120"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-121">    <span class="n">bot</span> <span class="o">=</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">(</span>
-</span><span id="__span-3-122">        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DISCORD_TOKEN"</span><span class="p">],</span>
-</span><span id="__span-3-123">        <span class="n">intents</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">ALL_UNPRIVILEGED</span> <span class="o">|</span> <span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">MESSAGE_CONTENT</span><span class="p">,</span>
-</span><span id="__span-3-124">    <span class="p">)</span>
-</span><span id="__span-3-125">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="n">DictStore</span><span class="p">())</span>
-</span><span id="__span-3-126">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Tally</span><span class="p">)</span>
-</span><span id="__span-3-127">
-</span><span id="__span-3-128">    <span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
-</span><span id="__span-3-129">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-130">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!tally"</span><span class="p">:</span>
-</span><span id="__span-3-131">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">Tally</span><span class="p">())</span>
-</span><span id="__span-3-132">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">)</span>
-</span><span id="__span-3-133">
-</span><span id="__span-3-134">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span><span id="__span-3-135">
-</span><span id="__span-3-136">
-</span><span id="__span-3-137"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
-</span><span id="__span-3-138">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-3-107">    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ui</span><span class="o">.</span><span class="n">Layout</span><span class="p">:</span>
+</span><span id="__span-3-108">        <span class="k">return</span> <span class="n">ui</span><span class="o">.</span><span class="n">Row</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Count: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
+</span><span id="__span-3-109">
+</span><span id="__span-3-110">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
+</span><span id="__span-3-111">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-112">        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span id="__span-3-113">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
+</span><span id="__span-3-114">
+</span><span id="__span-3-115">
+</span><span id="__span-3-116"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-117">    <span class="n">bot</span> <span class="o">=</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">(</span>
+</span><span id="__span-3-118">        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DISCORD_TOKEN"</span><span class="p">],</span>
+</span><span id="__span-3-119">        <span class="n">intents</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">ALL_UNPRIVILEGED</span> <span class="o">|</span> <span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">MESSAGE_CONTENT</span><span class="p">,</span>
+</span><span id="__span-3-120">    <span class="p">)</span>
+</span><span id="__span-3-121">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="n">DictStore</span><span class="p">())</span>
+</span><span id="__span-3-122">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Tally</span><span class="p">)</span>
+</span><span id="__span-3-123">
+</span><span id="__span-3-124">    <span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
+</span><span id="__span-3-125">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-126">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!tally"</span><span class="p">:</span>
+</span><span id="__span-3-127">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">Tally</span><span class="p">())</span>
+</span><span id="__span-3-128">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">)</span>
+</span><span id="__span-3-129">
+</span><span id="__span-3-130">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-3-131">
+</span><span id="__span-3-132">
+</span><span id="__span-3-133"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-3-134">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 </details>
 <h2 id="test-it">Test it<a class="headerlink" href="#test-it" title="Permanent link">&para;</a></h2>

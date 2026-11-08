@@ -1645,6 +1645,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#risa.context.ComponentContext.replace" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        replace
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#risa.context.ComponentContext.rerender" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2082,6 +2093,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#risa.context.ComponentContext.replace" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        replace
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#risa.context.ComponentContext.rerender" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2468,9 +2490,10 @@
 </span><span id="__span-0-3">    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-4">    <span class="n">rest</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.api.RESTClient" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient">RESTClient</a></span><span class="p">,</span>
 </span><span id="__span-0-5">    <span class="n">meta</span><span class="p">:</span> <span class="n"><span title="risa.internal.registry.ViewMeta">ViewMeta</span></span><span class="p">,</span>
-</span><span id="__span-0-6">    <span class="n">gate</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            ResponseGate (risa.context.ResponseGate)" href="./#risa.context.ResponseGate">ResponseGate</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-7">    <span class="n">slot</span><span class="p">:</span> <span class="n"><span title="risa.context.ViewSlot">ViewSlot</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-8"><span class="p">)</span>
+</span><span id="__span-0-6">    <span class="n">build</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.Snowflake" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.Snowflake">Snowflake</a></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Awaitable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Awaitable">Awaitable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            Rendered (risa.ui.build.Rendered)" href="../ui/build/#risa.ui.build.Rendered">Rendered</a></span><span class="p">]],</span>
+</span><span id="__span-0-7">    <span class="n">gate</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            ResponseGate (risa.context.ResponseGate)" href="./#risa.context.ResponseGate">ResponseGate</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n">slot</span><span class="p">:</span> <span class="n"><span title="risa.context.ViewSlot">ViewSlot</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9"><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2620,7 +2643,8 @@ can be clicked any more. Like <code>rerender()</code>, it saves the view's state
             –
           <div class="doc-md-description">
             <p>If the layout has interactive components and the view has durable fields, but this
-context has no view state, as in <code>on_outdated</code> and <code>on_state_missing</code>.</p>
+context has no view state, as in <code>on_outdated</code> and <code>on_state_missing</code>, or if
+<code>replace()</code> gave the message to another view.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2641,8 +2665,90 @@ context has no view state, as in <code>on_outdated</code> and <code>on_state_mis
               <code><a class="autorefs autorefs-internal" title="            StateConflictError (risa.errors.StateConflictError)" href="../errors/#risa.errors.StateConflictError">StateConflictError</a></code>
             –
           <div class="doc-md-description">
-            <p>If another process saved the view's state first. The view then holds that state,
-unless that record cannot be read, which risa logs.</p>
+            <p>If another process saved the view's state first. The view then holds that state.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateUnreadableError (risa.errors.StateUnreadableError)" href="../errors/#risa.errors.StateUnreadableError">StateUnreadableError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If another process saved the view's state first, in a form this code cannot read.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.context.ComponentContext.replace" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">replace</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#risa.context.ComponentContext.replace" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">replace</span><span class="p">(</span><span class="n">view</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Turn the message into another view, which answers its clicks from here on.</p>
+<p>It builds <code>view</code> as <code>Client.build</code> does, so a view in a store gets a record of its own.
+This view's state is not saved, also not when the handler returns, and its record stays
+until its <code>ttl</code> runs out. If the message cannot be edited, the new view's record stays
+the same way and this view keeps the message. Afterwards <code>rerender()</code> and <code>edit()</code> of
+this context raise <code>NoViewError</code>, since the message is no longer this view's; <code>edit</code>
+only ever shows this view's own components.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>view</code></b>
+              (<code><a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The view to show, an instance of a registered class.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            EphemeralOriginError (risa.errors.EphemeralOriginError)" href="../errors/#risa.errors.EphemeralOriginError">EphemeralOriginError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the message is ephemeral and the interaction was answered with a new message.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            NotAViewError (risa.errors.NotAViewError)" href="../errors/#risa.errors.NotAViewError">NotAViewError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the view's class was never registered.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateOverflowError (risa.errors.StateOverflowError)" href="../errors/#risa.errors.StateOverflowError">StateOverflowError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If an <code>InMessage</code> view's state does not fit its components.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            ViewDeclarationError (risa.errors.ViewDeclarationError)" href="../errors/#risa.errors.ViewDeclarationError">ViewDeclarationError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the view keeps its state in a store this client does not have.</p>
           </div>
         </li>
     </ul>
@@ -2683,7 +2789,8 @@ failure; call it yourself, before any <code>respond()</code>, where a failure mu
             –
           <div class="doc-md-description">
             <p>If the view has durable fields but this context has no view state, as in
-<code>on_outdated</code> and <code>on_state_missing</code>.</p>
+<code>on_outdated</code> and <code>on_state_missing</code>, or if <code>replace()</code> gave the message to
+another view.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2705,8 +2812,14 @@ failure; call it yourself, before any <code>respond()</code>, where a failure mu
             –
           <div class="doc-md-description">
             <p>If another process saved the view's state first. The view then holds that state,
-unless that record cannot be read, which risa logs. Otherwise the handler can
-apply its change again and rerender.</p>
+so the handler can apply its change again and rerender.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateUnreadableError (risa.errors.StateUnreadableError)" href="../errors/#risa.errors.StateUnreadableError">StateUnreadableError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If another process saved the view's state first, in a form this code cannot read.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3140,7 +3253,8 @@ that the next <code>respond()</code> takes the place of.</p>
 
         <p>Send a message in answer to the interaction.</p>
 <p>The first response answers the interaction itself; every later one is a follow-up
-message. Apart from <code>ephemeral</code>, the parameters are those of hikari's
+message. After a thinking message, the first one replaces it, and keeps its visibility
+whatever <code>ephemeral</code> and <code>tts</code> say. Apart from <code>ephemeral</code>, the parameters are those of hikari's
 <a class="autorefs autorefs-external" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient.create_interaction_response"><code>create_interaction_response</code></a>
 and <a class="autorefs autorefs-external" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient.execute_webhook"><code>execute_webhook</code></a>, which describe them
 in full.</p>

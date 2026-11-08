@@ -1362,17 +1362,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#risa.store.redis.RedisStore.get" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        get
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#risa.store.redis.RedisStore.get_versioned" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1890,17 +1879,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#risa.store.redis.RedisStore.get" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        get
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#risa.store.redis.RedisStore.get_versioned" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2322,57 +2300,7 @@ than <code>lease</code>.</p>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
           –
           <div class="doc-md-description">
-            <p>The entry's key, as for <code>get</code>.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="risa.store.redis.RedisStore.get" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">get</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-async"><code>async</code></small>
-  </span>
-
-<a href="#risa.store.redis.RedisStore.get" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">get</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#bytes">bytes</a></span> <span class="o">|</span> <span class="kc">None</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Return the data under <code>key</code>, or <code>None</code> if there is none or it has expired.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>key</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>The entry's key, an opaque string. risa's are <code>{prefix}:1:{hex}</code>, and it passes
-the one key of a view's record to every method, <code>lock</code> included.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#bytes">bytes</a> | None</code>
-          –
-          <div class="doc-md-description">
-            <p>The bytes last written, or <code>None</code>.</p>
+            <p>The entry's key, as for <code>get_versioned</code>.</p>
           </div>
         </li>
     </ul>
@@ -2409,7 +2337,8 @@ the one key of a view's record to every method, <code>lock</code> included.</p>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
           –
           <div class="doc-md-description">
-            <p>The entry's key, as for <code>get</code>.</p>
+            <p>The entry's key, an opaque string. risa's are <code>{prefix}:1:{hex}</code>, and it passes
+the one key of a view's record to every method, <code>lock</code> included.</p>
           </div>
         </li>
     </ul>
@@ -2533,7 +2462,7 @@ Holding one key does not make another wait, and the key needs no entry.</p>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
           –
           <div class="doc-md-description">
-            <p>The entry's key, as for <code>get</code>.</p>
+            <p>The entry's key, as for <code>get_versioned</code>.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2541,7 +2470,7 @@ Holding one key does not make another wait, and the key needs no entry.</p>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#bytes">bytes</a></code>)
           –
           <div class="doc-md-description">
-            <p>The bytes to keep. <code>get</code> returns them unchanged, whatever they hold, empty included.</p>
+            <p>The bytes to keep. <code>get_versioned</code> returns them unchanged, whatever they hold, empty included.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2591,7 +2520,7 @@ version, exactly one succeeds. <code>ttl</code> works as in <code>put</code>.</p
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
           –
           <div class="doc-md-description">
-            <p>The entry's key, as for <code>get</code>.</p>
+            <p>The entry's key, as for <code>get_versioned</code>.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2669,7 +2598,7 @@ different version, in which case nothing was written.</p>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
           –
           <div class="doc-md-description">
-            <p>The entry's key, as for <code>get</code>.</p>
+            <p>The entry's key, as for <code>get_versioned</code>.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">

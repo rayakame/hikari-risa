@@ -2007,7 +2007,7 @@ tells a client to answer for the view, once at startup.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">)</span>
 </span><span id="__span-1-2"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Welcome</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Without <code>add_view</code> the message still sends, but its clicks fail in Discord. A client made with
+<p>Without <code>add_view</code> the message still sends, but its clicks fail in Discord, and <code>client.build</code> logs a warning once. A client made with
 <code>risa.client_from_app(bot, use_global=True)</code> needs no <code>add_view</code>: it answers every view whose module has been imported.</p>
 <h2 id="send-it">Send it<a class="headerlink" href="#send-it" title="Permanent link">&para;</a></h2>
 <p><a href="../../api/client/#risa.client.Client.build"><code>client.build</code></a> renders a view and returns the result, ready to send. How

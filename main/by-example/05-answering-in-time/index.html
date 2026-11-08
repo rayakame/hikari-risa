@@ -1977,7 +1977,7 @@ bot's token, and it stays valid for 15 minutes.</p>
 <p>Auto-defer acknowledges the click in the handler's place. An acknowledgement counts as the first answer, so the click
 does not fail at 3 seconds, and the real answer can come later. The 2 seconds are the client's <code>auto_defer_delay</code>.</p>
 <h2 id="which-message">Which message<a class="headerlink" href="#which-message" title="Permanent link">&para;</a></h2>
-<p>Three calls answer a click, and they differ in which message they touch.</p>
+<p>Four calls answer a click, and they differ in which message they touch.</p>
 <table>
 <thead>
 <tr>
@@ -1995,6 +1995,11 @@ does not fail at 3 seconds, and the real answer can come later. The 2 seconds ar
 <tr>
 <td><a href="../../api/context/#risa.context.ComponentContext.edit"><code>ctx.edit(layout)</code></a></td>
 <td>Replaces the clicked message</td>
+<td><code>UPDATE</code></td>
+</tr>
+<tr>
+<td><a href="../../api/context/#risa.context.ComponentContext.replace"><code>ctx.replace(view)</code></a></td>
+<td>Turns the clicked message into another view</td>
 <td><code>UPDATE</code></td>
 </tr>
 <tr>

@@ -1955,8 +1955,8 @@ has no store for the view. A client made with
 with an <code>ERROR</code> in your log.</p>
 <h2 id="ttl"><code>ttl</code><a class="headerlink" href="#ttl" title="Permanent link">&para;</a></h2>
 <p><code>ttl</code> is how many seconds a record lives untouched. Every click restarts the clock, even one that changes nothing, so
-only a poll nobody clicks for a week expires. <code>ttl=None</code> keeps a record forever, including one that a deleted message or
-a failed send leaves behind.</p>
+only a poll nobody clicks for a week expires. <code>ttl=None</code> keeps a record forever, including one that a deleted message, a
+view you ended or a failed send leaves behind.</p>
 <p>The message stays as it is when the time runs out, and the next click runs
 <a href="../../api/view/#risa.view.View.on_state_missing"><code>on_state_missing</code></a>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="nd">@classmethod</span>
