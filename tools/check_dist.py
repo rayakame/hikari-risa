@@ -34,9 +34,10 @@ if typing.TYPE_CHECKING:
 __all__ = ("problems",)
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("tools.check_dist")
-_WHEEL_NEEDS: typing.Final = ("risa/__init__.py", "risa/errors.py", "risa/py.typed")
+_PACKAGE_NEEDS: typing.Final = ("risa/__init__.py", "risa/errors.py", "risa/py.typed")
+_SDIST_NEEDS: typing.Final = ("LICENSE", "PKG-INFO", "README.md", "pyproject.toml", *_PACKAGE_NEEDS)
 # hatch skips what .gitignore names but not .git/info/exclude, so a local build can pack private files.
-_SDIST_HOLDS: typing.Final = frozenset({".gitignore", "LICENSE", "PKG-INFO", "README.md", "pyproject.toml", "risa"})
+_SDIST_MAY_HOLD: typing.Final = frozenset({*_SDIST_NEEDS, ".gitignore"})
 
 
 def problems(dist: pathlib.Path) -> collections.abc.Sequence[str]:
@@ -45,16 +46,31 @@ def problems(dist: pathlib.Path) -> collections.abc.Sequence[str]:
     sdists = sorted(dist.glob("*.tar.gz"))
     if len(wheels) != 1 or len(sdists) != 1:
         return [f"{dist} should hold one wheel and one sdist, not {[path.name for path in (*wheels, *sdists)]}"]
-    found: list[str] = []
     with zipfile.ZipFile(wheels[0]) as wheel:
-        names = set(wheel.namelist())
-    found.extend(f"{wheels[0].name} lacks {name}" for name in _WHEEL_NEEDS if name not in names)
-    stray = {name.split("/")[0] for name in names} - {"risa"}
-    found.extend(f"{wheels[0].name} holds {name}" for name in sorted(stray) if not name.endswith(".dist-info"))
+        in_wheel = [name for name in wheel.namelist() if not name.endswith("/")]
     with tarfile.open(sdists[0]) as sdist:
-        top = {name.split("/")[1] for name in sdist.getnames() if "/" in name}
-    found.extend(f"{sdists[0].name} holds {name}" for name in sorted(top - _SDIST_HOLDS))
+        in_sdist = [member.name.partition("/")[2] for member in sdist.getmembers() if member.isfile()]
+    in_wheel = [name for name in in_wheel if not name.split("/")[0].endswith(".dist-info")]
+    return [
+        *_compare(wheels[0].name, in_wheel, _PACKAGE_NEEDS, frozenset()),
+        *_compare(sdists[0].name, in_sdist, _SDIST_NEEDS, _SDIST_MAY_HOLD),
+    ]
+
+
+def _compare(
+    archive: str,
+    files: collections.abc.Sequence[str],
+    needs: collections.abc.Sequence[str],
+    may_hold: frozenset[str],
+) -> list[str]:
+    present = set(files)
+    found = [f"{archive} lacks {name}" for name in needs if name not in present]
+    found.extend(f"{archive} holds {name}" for name in sorted(present - may_hold) if not _in_package(name))
     return found
+
+
+def _in_package(name: str) -> bool:
+    return name.startswith("risa/") and (name.endswith(".py") or name == "risa/py.typed")
 
 
 def main() -> None:

@@ -58,7 +58,7 @@ The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
 
 The site is versioned and published to the `gh-pages` branch by `.github/workflows/docs.yml`. A push to
-main replaces `main/`; a published release replaces its minor folder (`1.0/`), and `stable/` when it is the
+main replaces `main/`; a published release, once it is on PyPI, replaces its minor folder (`1.0/`), and `stable/` when it is the
 newest release. Release tags are `vX.Y.Z` with no suffix, and GitHub pre-releases are not published. With no release
 published, `main` carries the `stable` alias in `versions.json`, so no page shows the outdated banner.
 `tools/docs/publish.py` places a built version and keeps `versions.json` and the root redirect.
@@ -94,9 +94,9 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 1. Raise the version in `pyproject.toml` and `risa/_about.py`, which a test holds equal, run `uv lock`, and merge it.
 2. Publish a GitHub release on that commit, tagged `v` and the version, such as `v1.2.0`.
 
-`.github/workflows/publish.yml` builds the package, checks the tag against it and uploads it to PyPI through trusted
-publishing from the `pypi` environment, so no token is stored anywhere. `docs.yml` publishes the release's docs. A
-GitHub pre-release publishes neither.
+`.github/workflows/publish.yml` builds the package, checks its contents and the tag against it, and uploads it to PyPI
+through trusted publishing from the `pypi` environment, so no token is stored anywhere. Then it calls `docs.yml` for
+the release's docs, so they never name a version PyPI lacks. A GitHub pre-release publishes neither.
 
 ## Toolchain
 

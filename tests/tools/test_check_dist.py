@@ -43,13 +43,9 @@ def _sdist(dist: pathlib.Path, names: collections.abc.Sequence[str]) -> None:
             sdist.addfile(tarfile.TarInfo(f"hikari_risa-1.0.0/{name}"), io.BytesIO())
 
 
-_GOOD_WHEEL: typing.Final = (
-    "risa/__init__.py",
-    "risa/errors.py",
-    "risa/py.typed",
-    "hikari_risa-1.0.0.dist-info/METADATA",
-)
-_GOOD_SDIST: typing.Final = ("PKG-INFO", "pyproject.toml", "README.md", "LICENSE", ".gitignore", "risa/__init__.py")
+_PACKAGE: typing.Final = ("risa/__init__.py", "risa/errors.py", "risa/py.typed", "risa/state/schema.py")
+_GOOD_WHEEL: typing.Final = (*_PACKAGE, "hikari_risa-1.0.0.dist-info/METADATA")
+_GOOD_SDIST: typing.Final = ("PKG-INFO", "pyproject.toml", "README.md", "LICENSE", ".gitignore", *_PACKAGE)
 
 
 def test_a_wheel_and_an_sdist_holding_the_package_pass(tmp_path: pathlib.Path) -> None:
@@ -59,23 +55,34 @@ def test_a_wheel_and_an_sdist_holding_the_package_pass(tmp_path: pathlib.Path) -
     assert check_dist.problems(tmp_path) == []
 
 
-def test_a_private_file_in_the_sdist_is_named(tmp_path: pathlib.Path) -> None:
+def test_a_private_file_in_the_sdist_is_named_at_any_depth(tmp_path: pathlib.Path) -> None:
     _wheel(tmp_path, _GOOD_WHEEL)
-    _sdist(tmp_path, (*_GOOD_SDIST, ".notes/HANDOFF.md", "CLAUDE.md"))
+    _sdist(tmp_path, (*_GOOD_SDIST, ".notes/HANDOFF.md", "CLAUDE.md", "risa/CLAUDE.md"))
 
     assert check_dist.problems(tmp_path) == [
-        "hikari_risa-1.0.0.tar.gz holds .notes",
+        "hikari_risa-1.0.0.tar.gz holds .notes/HANDOFF.md",
         "hikari_risa-1.0.0.tar.gz holds CLAUDE.md",
+        "hikari_risa-1.0.0.tar.gz holds risa/CLAUDE.md",
     ]
 
 
-def test_a_wheel_without_the_typing_marker_or_with_a_stray_package_is_named(tmp_path: pathlib.Path) -> None:
-    _wheel(tmp_path, (*[name for name in _GOOD_WHEEL if name != "risa/py.typed"], "tests/__init__.py"))
+def test_an_sdist_without_its_readme_is_named(tmp_path: pathlib.Path) -> None:
+    _wheel(tmp_path, _GOOD_WHEEL)
+    _sdist(tmp_path, [name for name in _GOOD_SDIST if name != "README.md"])
+
+    assert check_dist.problems(tmp_path) == ["hikari_risa-1.0.0.tar.gz lacks README.md"]
+
+
+def test_a_wheel_without_the_typing_marker_or_with_a_stray_file_is_named(tmp_path: pathlib.Path) -> None:
+    _wheel(
+        tmp_path, (*[name for name in _GOOD_WHEEL if name != "risa/py.typed"], "risa/.notes/HANDOFF.md", "tests/a.py")
+    )
     _sdist(tmp_path, _GOOD_SDIST)
 
     assert check_dist.problems(tmp_path) == [
         "hikari_risa-1.0.0-py3-none-any.whl lacks risa/py.typed",
-        "hikari_risa-1.0.0-py3-none-any.whl holds tests",
+        "hikari_risa-1.0.0-py3-none-any.whl holds risa/.notes/HANDOFF.md",
+        "hikari_risa-1.0.0-py3-none-any.whl holds tests/a.py",
     ]
 
 

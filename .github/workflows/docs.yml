@@ -3,8 +3,8 @@ name: Docs
 on:
   push:
     branches: [main]
-  release:
-    types: [published]
+  # publish.yml calls this for a release once PyPI has it, so the docs never name a version nobody can install.
+  workflow_call:
   workflow_dispatch:
 
 permissions:
