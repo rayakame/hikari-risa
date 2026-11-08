@@ -20,7 +20,7 @@
 """The `custom_id` layout, and the converters wire arguments travel through.
 
 Every interactive component risa renders carries one `custom_id` of at most 100
-characters, laid out as (DESIGN §6.1):
+characters, laid out as:
 
 ```text
 ver:1  codec:1  cookie:6  handler:2  idx:1  frag_len:1  fragment  [fingerprint:2 frames]

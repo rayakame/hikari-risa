@@ -50,10 +50,6 @@ build-backend = "hatchling.build"
 packages = ["risa"]
 
 [dependency-groups]
-bot = [
-    "hikari-lightbulb==3.2.6",
-    "python-dotenv>=1.2.2",
-]
 docs = [
     {include-group = "ruff"},
     "griffe-inherited-docstrings==1.1.4",
@@ -70,10 +66,13 @@ nox = [
 images = [
     "pillow==13.0.0",
 ]
+lightbulb = [
+    "hikari-lightbulb==3.2.6",
+]
 pyright = [
     "asyncpg-stubs==0.32.0",
     "pyright==1.1.414",
-    {include-group = "bot"},
+    {include-group = "lightbulb"},
 ]
 ruff = [
     "ruff==0.17.4",
@@ -103,7 +102,7 @@ strict-imports = true
 # generates for them, so every Struct in the package reports a false positive.
 
 [tool.pyright]
-include = ["risa", "tests", "testbot", "tools", "docs/examples"]
+include = ["risa", "tests", "tools", "docs/examples"]
 exclude = [
     "**/__init__.py"
 ]
