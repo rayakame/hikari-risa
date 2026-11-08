@@ -48,9 +48,6 @@ ignore = [
     "S101",
     "PLR2004",
 ]
-"testbot/**" = [
-    "ALL"
-]
 
 [lint.pylint]
 max-args = 8

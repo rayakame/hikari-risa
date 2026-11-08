@@ -4,9 +4,6 @@
 Components V2 first. It will be published to PyPI and ships `py.typed`. This is a **library**, not
 an application: the public API surface and its type annotations are the product.
 
-`DESIGN.md` is the authority on where the library is going and why. `HANDOFF.md` records
-where the work stands right now.
-
 ## Commands
 
 Everything runs through `uv` and `nox`. Do not `pip install` anything.
@@ -111,7 +108,7 @@ Most of these are enforced by ruff `ALL`; they are listed so that code is compli
 time rather than after the lint output.
 
 - **Every `.py` file starts with the 19-line MIT header.** Copy it verbatim from an existing
-  file. This includes test files, `test_bots/` and `__init__.py`.
+  file. This includes test files and `__init__.py`.
 - **`from __future__ import annotations` is a required import** in every module.
 - **One import per line.** `force-single-line = true`: no `from x import a, b`.
 - **Every module has a docstring, and so does all of the public API, kept short.** numpy
@@ -222,14 +219,11 @@ docs/               site pages, stylesheets, fonts
   examples/         the example files the pages show, and previews.toml, the list of their previews
   javascripts/      the script behind the landing page's counter, which fills its frame and works out each custom_id
   stylesheets/      the theme (risa.css), the Discord frame (discord.css) and the diagrams (diagrams.css)
-  specs/            the design of the site
 overrides/          theme template overrides for the site
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
 tools/              optimize_images, docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
-testbot/            manual test bot against a real Discord app (see testbot/README.md)
-test_bots/          one-off probe scripts against the live API
 noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / audit / docs
 ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
@@ -240,18 +234,6 @@ modules do not take a leading underscore.
 
 ## Design direction
 
-Built so far: the `custom_id` codec (cookies, handler tokens, the chunk-framed layout, wire
-args with their signature fingerprint), the view registry, the handler machinery (`@handler`
-with id/version/defer, zero-argument and argument-carrying `bind()`), `@register` with the
-handler census, the complete V2 node layer with the build pass, the response surface
-(`respond`/`defer`/`acknowledge`, `rerender()`/`edit(layout)`, the auto-defer watchdog), and
-the dual-placement state architecture: `InMessage` and `InStore` views, their sessions,
-`on_outdated` and `on_state_missing`, `MemoryStore`, `RedisStore`, `PostgresStore`, the
-`verify_store` conformance kit, and docstrings for the whole public API. On a REST bot, risa shares hikari's single component-listener
-slot with whatever listener held it before. Modals are designed (DESIGN §9 and the spec it
-points to) and wait for hikari to parse Discord's new modal components. DESIGN §15 holds the
-build order and the 1.0 roadmap.
-
 - **Components V2 is the model; V1 falls out of it.** V1 is just a tree whose top level
   contains only action rows. There is one tree type and one layout pass. Do not hard-wire the
   5x5 grid into the type surface; that is precisely what stops miru, flare and lightbulb from
@@ -260,20 +242,20 @@ build order and the 1.0 roadmap.
   accessory button, and modal inputs are interactive. The tree is flattened to a sparse set of
   interactive leaves at build time and routed against a flat dict. Tree depth costs nothing at
   runtime.
-- **State placement is per view** (DESIGN §7.1). `InMessage` (the default) serializes the
+- **State placement is per view.** `InMessage` (the default) serializes the
   durable fields into the spare custom_id characters of the rendered components and reads
   them back from `interaction.message`: zero infrastructure, restart-proof,
   capacity-bounded. `InStore` keeps one record in a pluggable, developer-chosen `Store`
   behind a replicated random key: unbounded, expirable, multi-process-correct with a
   distributed store. Fields are durable by default; `risa.Prop[T]` marks per-dispatch props
   refilled in `load()`. Handler code is identical under both placements.
-- **`custom_id` wire format** (DESIGN §6.1):
+- **`custom_id` wire format:**
   `[ver:1][codec:1][cookie:6][handler:2][idx:1][frag_len:1][fragment][fingerprint ‖ args]` within
   Discord's 100-character limit. The fragment is the component's slice of the state anchor
   (inline blob or store key, led by a 1-char placement tag). The cookie hashes the view name
   *and* its schema version, the handler token hashes the handler id *and* its version, and
   the 2-char fingerprint catches a signature edited without a version bump: schema,
-  signature and placement changes all fail closed (§6.4, §7.1). Unrecognised `custom_id`s
+  signature and placement changes all fail closed. Unrecognised `custom_id`s
   are ignored silently so risa can coexist with other handlers; a recognised one that
   resolves to nothing is logged, since that means a genuine routing failure.
 - **Dependency injection is linkd**, so a manager can be shared with lightbulb. Handlers are

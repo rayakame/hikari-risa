@@ -72,7 +72,7 @@ MESSAGE_HEADER_LENGTH: typing.Final[int] = 1 + TOTAL_WIDTH + SCHEMA_FP_LENGTH + 
 MAX_TOTAL: typing.Final[int] = 256**TOTAL_WIDTH - 1
 MAX_SEQ: typing.Final[int] = 256**SEQ_WIDTH - 1
 
-KEY_BYTES: typing.Final[int] = 12  # 96 bits, §7.6
+KEY_BYTES: typing.Final[int] = 12  # 96 bits
 STORE_ANCHOR_LENGTH: typing.Final[int] = 1 + KEY_BYTES
 
 
