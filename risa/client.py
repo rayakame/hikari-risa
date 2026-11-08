@@ -156,6 +156,7 @@ class Client(abc.ABC):
         "_rest",
         "_stateless",
         "_stored",
+        "_unanswered_warned",
         "_use_global",
     )
 
@@ -189,6 +190,7 @@ class Client(abc.ABC):
         self._in_message = message.MessageBackend()
         self._stateless = stateless.StatelessBackend()
         self._memory_warned: set[str] = set()
+        self._unanswered_warned: set[str] = set()
 
         if Client in self._di.registry_for(di_.Contexts.DEFAULT):
             _LOGGER.warning(
@@ -205,6 +207,7 @@ class Client(abc.ABC):
             self._backend_for,
             auto_defer=auto_defer,
             auto_defer_delay=auto_defer_delay,
+            build=self._build_over,
         )
 
     @property
@@ -260,6 +263,7 @@ class Client(abc.ABC):
         plan = build_.plan(view.render(), meta)
         if not plan.interactive:
             return build_.Rendered(plan.emit(b""))
+        self._warn_if_unanswered(meta)
         state = self._require_backend(meta)
         anchor = state.first_anchor(meta=meta, view=view)
         builders = plan.emit(anchor)
@@ -291,6 +295,21 @@ class Client(abc.ABC):
         _LOGGER.debug("registering view %s to client", meta.name)
         self._registry.register(meta)
         return cls
+
+    async def _build_over(self, view: view_.View, message_id: hikari.Snowflake) -> build_.Rendered:
+        rendered = await self.build(view)
+        # The new state starts at sequence 0, so a later commit remembered for the message would win over it.
+        self._in_message.forget(message_id)
+        return rendered
+
+    def _warn_if_unanswered(self, meta: registry.ViewMeta) -> None:
+        if self._resolve(meta.cookie) is None and meta.cookie not in self._unanswered_warned:
+            self._unanswered_warned.add(meta.cookie)
+            _LOGGER.warning(
+                "view %s was built, but this client does not answer its clicks: pass the class to"
+                " client.add_view, or make the client with use_global=True",
+                meta.name,
+            )
 
     def _check_store(self, meta: registry.ViewMeta) -> None:
         state = meta.state

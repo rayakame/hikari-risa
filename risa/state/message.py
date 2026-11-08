@@ -182,7 +182,8 @@ class MessageSession(backend.StateSession):
         if values is None:
             _LOGGER.warning(
                 "interaction %s routes to view %s, but the state in message %s does not decode under its"
-                " own fingerprint; the components may be forged or corrupted",
+                " own fingerprint: a value of an enum or Literal field may have been removed, or the"
+                " components are forged or corrupted",
                 self._interaction.id,
                 self._meta.name,
                 self._interaction.message.id,
@@ -244,6 +245,11 @@ class MessageBackend(backend.StateBackend):
         if committed is not None:
             self._cache.move_to_end((message_id, cookie))
         return committed
+
+    def forget(self, message_id: hikari.Snowflake) -> None:
+        """Drop every commit remembered for a message, of whichever view."""
+        for key in [key for key in self._cache if key[0] == message_id]:
+            del self._cache[key]
 
     def remember(self, message_id: hikari.Snowflake, cookie: str, committed: anchor.MessageAnchor) -> None:
         """Remember a commit as the latest for the view `cookie` on a message."""

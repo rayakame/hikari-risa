@@ -64,7 +64,7 @@ class TouchCreates(memory.MemoryStore):
 
     @typing.override
     async def touch(self, key: str, *, ttl: float) -> None:
-        if await self.get(key) is None:
+        if await self.get_versioned(key) is None:
             await super().put(key, b"", ttl=ttl)
         await super().touch(key, ttl=ttl)
 
@@ -79,11 +79,6 @@ class TrimsTrailingZeros(memory.MemoryStore):
 
 class Distant(memory.MemoryStore):
     __slots__ = ()
-
-    @typing.override
-    async def get(self, key: str) -> bytes | None:
-        await asyncio.sleep(LATENCY)
-        return await super().get(key)
 
     @typing.override
     async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:

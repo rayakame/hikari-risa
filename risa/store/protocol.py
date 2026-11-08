@@ -65,28 +65,14 @@ class Store(typing.Protocol):
 
     __slots__ = ()
 
-    async def get(self, key: str) -> bytes | None:
-        """Return the data under `key`, or `None` if there is none or it has expired.
-
-        Parameters
-        ----------
-        key
-            The entry's key, an opaque string. risa's are `{prefix}:1:{hex}`, and it passes
-            the one key of a view's record to every method, `lock` included.
-
-        Returns
-        -------
-        :
-            The bytes last written, or `None`.
-        """
-
     async def get_versioned(self, key: str) -> VersionedEntry | None:
         """Return the data and version under `key`, or `None` if there is none or it has expired.
 
         Parameters
         ----------
         key
-            The entry's key, as for `get`.
+            The entry's key, an opaque string. risa's are `{prefix}:1:{hex}`, and it passes
+            the one key of a view's record to every method, `lock` included.
 
         Returns
         -------
@@ -103,9 +89,9 @@ class Store(typing.Protocol):
         Parameters
         ----------
         key
-            The entry's key, as for `get`.
+            The entry's key, as for `get_versioned`.
         value
-            The bytes to keep. `get` returns them unchanged, whatever they hold, empty included.
+            The bytes to keep. `get_versioned` returns them unchanged, whatever they hold, empty included.
         ttl
             Seconds the entry lives, counted from this write and fractions included. `None`
             gives it no expiry, which also clears the expiry an earlier write set.
@@ -120,7 +106,7 @@ class Store(typing.Protocol):
         Parameters
         ----------
         key
-            The entry's key, as for `get`.
+            The entry's key, as for `get_versioned`.
         value
             The bytes to keep if the write goes through.
         expected
@@ -144,7 +130,7 @@ class Store(typing.Protocol):
         Parameters
         ----------
         key
-            The entry's key, as for `get`.
+            The entry's key, as for `get_versioned`.
         """
 
     async def touch(self, key: str, *, ttl: float) -> None:
@@ -155,7 +141,7 @@ class Store(typing.Protocol):
         Parameters
         ----------
         key
-            The entry's key, as for `get`.
+            The entry's key, as for `get_versioned`.
         ttl
             Seconds the entry now lives, counted from this call and replacing the expiry it
             had.

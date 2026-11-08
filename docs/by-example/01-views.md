@@ -47,7 +47,7 @@ tells a client to answer for the view, once at startup.
 --8<-- "ch01_welcome.py:register"
 ```
 
-Without `add_view` the message still sends, but its clicks fail in Discord. A client made with
+Without `add_view` the message still sends, but its clicks fail in Discord, and `client.build` logs a warning once. A client made with
 `risa.client_from_app(bot, use_global=True)` needs no `add_view`: it answers every view whose module has been imported.
 
 ## Send it

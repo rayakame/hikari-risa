@@ -375,6 +375,10 @@ class EnumConverter(ArgConverter):
         except ValueError:
             return None
 
+    def reads(self, data: bytes) -> bool:
+        """Whether `data` holds a value of the enum's kind, whichever members the enum has now."""
+        return self._inner.decode(data) is not None
+
 
 def _enum_converter(enum_cls: type[enum.Enum]) -> EnumConverter:
     value_types: set[type[object]] = {type(member.value) for member in enum_cls}

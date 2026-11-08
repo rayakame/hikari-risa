@@ -186,7 +186,6 @@ def _click(ids: typing.Sequence[str], index: int, *, user: int = 777) -> unittes
     interaction.custom_id = ids[index]
     interaction.user = unittest.mock.Mock(id=hikari.Snowflake(user))
     interaction.member = None
-    interaction.edit_initial_response = unittest.mock.AsyncMock()
     interaction.message = unittest.mock.Mock(
         spec=hikari.Message,
         id=hikari.Snowflake(1),
@@ -277,16 +276,20 @@ async def test_the_kept_class_of_chapter_10_keeps_an_old_poll_at_its_version() -
 
 
 @pytest.mark.usefixtures("own_registry")
-async def test_the_upgrade_of_chapter_10_moves_an_old_poll_and_counts_the_click() -> None:
+async def test_the_upgrade_of_chapter_10_moves_an_old_poll_and_counts_the_click(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     store = risa.MemoryStore()
     ids = await _poll_at_version_2(store)
     module = _load("ch10_poll_upgraded")
     client = _poll_client(store, module.Poll, module.OldPoll)
-    interaction = _click(ids, 0)
+    caplog.clear()
 
-    await _process(client, interaction)
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await _process(client, _click(ids, 0))
 
-    components = interaction.edit_initial_response.await_args.kwargs["components"]
+    assert not caplog.records
+    components = _answer(client)
     assert "Yes: 4" in str(components[0].build()[0])
     assert "No: 2" in str(components[0].build()[0])
 
@@ -306,11 +309,26 @@ async def test_the_upgrade_of_chapter_10_counts_nobody_twice() -> None:
     ids = await _poll_at_version_2(store)
     module = _load("ch10_poll_upgraded")
     client = _poll_client(store, module.Poll, module.OldPoll)
-    interaction = _click(ids, 0, user=1)
 
-    await _process(client, interaction)
+    await _process(client, _click(ids, 0, user=1))
 
-    assert "Yes: 3" in str(interaction.edit_initial_response.await_args.kwargs["components"][0].build()[0])
+    assert "Yes: 3" in str(_answer(client)[0].build()[0])
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_base_class_of_chapter_10_answers_every_older_version() -> None:
+    first = _load("ch08_poll")
+    version_1 = _ids((await _client().build(first.Poll(question="q"))).components)
+    registry.global_registry().clear()
+    store = risa.MemoryStore()
+    version_2 = await _poll_at_version_2(store)
+    module = _load("ch10_poll_retired")
+    client = _poll_client(store, module.Poll, module.PollV1, module.PollV2)
+
+    for ids in (version_1, version_2):
+        _rest(client).create_interaction_response.reset_mock()
+        await _process(client, _click(ids, 0))
+        assert _rest(client).create_interaction_response.await_args.args[3] == "This button no longer works."
 
 
 @pytest.mark.usefixtures("own_registry")
@@ -596,3 +614,62 @@ async def test_a_click_of_chapter_11_finds_no_record_on_a_process_with_its_own_m
     await _process(other, _click(ids, 0, user=1))
 
     assert "This poll has expired." in str(_answer(other)[0].build()[0])
+
+
+class RacingStore(risa.MemoryStore):
+    __slots__ = ("armed",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.armed = False
+
+    @typing.override
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        if self.armed:
+            self.armed = False
+            await self.put(key, b"written by a newer process", ttl=ttl)
+        return await super().put_if_version(key, value, expected=expected, ttl=ttl)
+
+
+@risa.register(name="examples-racing", state=risa.InStore(ttl=60))
+class RacingPoll(risa.View):
+    yes: int = 0
+    voters: list[int] = msgspec.field(default_factory=list[int])
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.vote_yes, label=f"Yes: {self.yes}"))
+
+    @risa.handler
+    async def vote_yes(self, ctx: risa.ComponentContext) -> None:
+        if not await self._first_vote(ctx):
+            return
+        self.yes += 1
+        try:
+            await ctx.rerender()
+        except risa.StateConflictError:
+            if await self._first_vote(ctx):
+                self.yes += 1
+                await ctx.rerender()
+
+    async def _first_vote(self, ctx: risa.ComponentContext) -> bool:
+        if ctx.user.id in self.voters:
+            await ctx.respond("You already voted.", ephemeral=True)
+            return False
+        self.voters.append(ctx.user.id)
+        return True
+
+
+async def test_a_winner_of_chapter_11_that_cannot_be_read_fails_the_click_with_no_false_answer(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    store = RacingStore()
+    client = _poll_client(store, RacingPoll)
+    ids = _ids((await client.build(RacingPoll(yes=5, voters=_FIVE_VOTERS))).components)
+    store.armed = True
+    caplog.clear()
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await _process(client, _click(ids, 0, user=777))
+
+    _rest(client).create_interaction_response.assert_not_awaited()
+    assert "StateUnreadableError" in caplog.text

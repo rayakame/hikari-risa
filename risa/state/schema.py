@@ -382,18 +382,21 @@ def _render(info: msgspec.inspect.Type, open_structs: set[int]) -> str:  # ruff:
     if isinstance(info, msgspec.inspect.UnionType):
         return f"union({','.join(sorted(_render(item, open_structs) for item in info.types))})"
     if isinstance(info, msgspec.inspect.EnumType | msgspec.inspect.LiteralType):
-        return f"{_kind(info)}({','.join(sorted(_members(info)))})"
+        return f"{_kind(info)}({','.join(sorted(_value_kinds(info)))})"
     return _kind(info)
 
 
-def _members(info: msgspec.inspect.EnumType | msgspec.inspect.LiteralType) -> collections.abc.Iterable[str]:
-    if isinstance(info, msgspec.inspect.EnumType):
-        return (str(member.value) for member in info.cls)
-    return (repr(value) for value in info.values)
+def _value_kinds(info: msgspec.inspect.EnumType | msgspec.inspect.LiteralType) -> set[str]:
+    values = (member.value for member in info.cls) if isinstance(info, msgspec.inspect.EnumType) else info.values
+    return {type(value).__name__ for value in values}
 
 
 def structural_type_id(annotation: object) -> str:
     """Describe a field type by its structure, for the schema fingerprint.
+
+    An enum or `Literal` counts by the kinds of its values, so a new value of a kind it already
+    has leaves old state readable, and a removed one fails only for the state that holds it. A
+    `Literal` that gains a kind, or loses its last value of one, changes the shape.
 
     Parameters
     ----------

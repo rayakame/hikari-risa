@@ -19,7 +19,7 @@ On a click, risa holds what the id says against the code running now, in this or
 <ol class="risa-flow risa-flow--4">
 <li class="risa-flow__step"><span class="risa-flow__n">1</span><strong>The view</strong><span>Its <code>name</code> and <code>version</code>. With no class at that version, the click fails in Discord and none of your code runs.</span></li>
 <li class="risa-flow__step"><span class="risa-flow__n">2</span><strong>The handler</strong><span>Its <code>handler_id</code> and <code>version</code>. With no such method, <code>on_outdated</code> runs.</span></li>
-<li class="risa-flow__step"><span class="risa-flow__n">3</span><strong>The arguments</strong><span>Their types, then their values. With other types, <code>on_outdated</code> runs. A value that cannot be read fails in Discord.</span></li>
+<li class="risa-flow__step"><span class="risa-flow__n">3</span><strong>The arguments</strong><span>Their types, then their values. With other types, or an enum value that is gone, <code>on_outdated</code> runs.</span></li>
 <li class="risa-flow__step"><span class="risa-flow__n">4</span><strong>The state</strong><span>The fields that wrote it. If they no longer fit, <code>on_outdated</code> runs. If a store has lost the record, <code>on_state_<wbr>missing</code> runs.</span></li>
 </ol>
 
@@ -40,6 +40,7 @@ Old buttons keep working through all of these:
 | A field's default, or a default added to a field | State that holds the field keeps its value, and state saved before the field existed gets the current default |
 | A [`risa.Prop`](07-fresh-data.md), added, changed or removed | Props are not saved |
 | A field from `int` to `hikari.Snowflake` | Both are saved the same way |
+| A value added to a field's `enum.Enum`, or to a `Literal` of the same kinds of values | risa compares only whether the values are `int`, `str` or `None` |
 | An enum member's name, if its value stays | risa saves the value |
 | `ttl` | An old record takes it at its next click, or `None` at its next save |
 | The [codec](08-where-state-lives.md#another-codec) | An old message takes it at its next rerender, as long as risa can still read the old one |
@@ -76,18 +77,23 @@ fails on its next vote.
 | A field: removed, renamed, reordered or retyped | `on_outdated` | `ERROR` |
 | A field added anywhere but the end, or with no default | `on_outdated` | `ERROR` |
 | A field made a `risa.Prop` | `on_outdated` | `ERROR` |
-| A field's `enum.Enum` or `Literal` gains or changes a value, or its nested struct changes | `on_outdated` | `ERROR` |
+| A value removed from a field's `enum.Enum` or `Literal`, or changed | `on_outdated`, only for messages that hold it | `WARNING` |
+| A field's `Literal` gains a kind of value, or loses its last value of one | `on_outdated` | `ERROR` |
+| A field's nested struct changes | `on_outdated` | `ERROR` |
 | `InMessage` to `InStore`, or back | `on_outdated` | `ERROR` |
 | Another store, or another `key_prefix` | `on_state_missing` | `WARNING`, or `DEBUG` once you override it |
 | Less room in a message: more state, or fewer buttons to hold it | The handler runs, and `rerender()` raises `StateOverflowError` | `ERROR` |
 | A method renamed or deleted, or its `version` raised with no method left at the old one | `on_outdated` | `WARNING`, or `DEBUG` once you override it |
 | A handler's arguments: added, removed or retyped | `on_outdated` | `ERROR` |
 | A codec old messages use: its extra removed, or [your own](08-where-state-lives.md#another-codec) no longer registered | Fails in Discord | `ERROR` for the extra, nothing for your own |
-| A bound enum member removed, or its value changed | Fails in Discord | `WARNING` |
-| An argument's default removed, from a button that left the argument out | Fails in Discord | `ERROR` |
+| A bound enum member removed, or its value changed | `on_outdated` | `WARNING` |
+| An argument's default removed, from a button that left the argument out | `on_outdated` | `ERROR` |
 
 `on_outdated` and `on_state_missing` do nothing until you override them, so without that, a click that reaches them fails
 in Discord too.
+
+An enum with a `_missing_` method decides itself what a removed value becomes, in a field and in an argument. The handler
+then runs with the member it returns, and `on_outdated` stays out of it.
 
 The `ERROR` lines on fields and arguments usually mean a forgotten `version`, and they tell you to raise it. hikari logs
 at `INFO` by default, so you see no line for a raised `version` until you turn `DEBUG` on.
@@ -95,8 +101,8 @@ at `INFO` by default, so you see no line for a raised `version` until you turn `
 ### What risa cannot see
 
 risa compares names and types. If `price: int` held cents and now holds euros, every check passes, and your handler reads
-old cents as euros. An argument that keeps its type and changes its meaning is the same. Raise the `version` yourself
-when a meaning changes.
+old cents as euros. An argument that keeps its type and changes its meaning is the same, and so are two enum members that
+swap their values. Raise the `version` yourself when a meaning changes.
 
 ### In a message or in a store
 
@@ -141,7 +147,6 @@ Many breaking changes have a free form that reaches the same goal:
 | Instead of | Do this |
 |---|---|
 | Renaming or retyping a field | Keep it, add the new one at the end with a default, and read both |
-| A new value in a field's enum | Save the value in a plain `int` or `str` field, before you need the new one |
 | Renaming a method | [Pin its `handler_id`](#renaming-a-method) |
 | Changing a handler's arguments | [Keep a method at the old version](#changing-its-arguments) |
 
@@ -175,8 +180,13 @@ version 1 in [Where state lives](08-where-state-lives.md):
 --8<-- "previews/poll-outdated.html"
 
 The old state is out of reach here. To replace the message, so nobody clicks it again, call
-`ctx.edit(ui.TextDisplay("..."))` instead. Each old version needs a class of its own, and they can share the method through a
-base class.
+`ctx.edit(ui.TextDisplay("..."))` instead.
+
+Each old version needs a class of its own, and a base class can hold the answer once:
+
+```python
+--8<-- "ch10_poll_retired.py:retired"
+```
 
 ### Close the old message
 
@@ -233,7 +243,8 @@ You now maintain two polls: a bug fix may have to go in both, for as long as the
 ### Upgrade the old message
 
 If the old state converts to the new, let the next click do it. These handlers build a version 3 poll from the version 2
-state, count the vote, and replace the message.
+state and count the vote. [`ctx.replace`](../api/context.md#risa.context.ComponentContext.replace) then turns the message
+into that poll.
 
 ```python
 --8<-- "ch10_poll_upgraded.py:upgrade"
@@ -241,11 +252,12 @@ state, count the vote, and replace the message.
 
 --8<-- "previews/poll-upgraded.html"
 
-- **Replacing the message.** `ctx.edit` takes only the buttons of the view that was clicked, and raises
-  [`LayoutError`](../api/errors.md#risa.errors.LayoutError) for another's. So the handler acknowledges the click and
-  edits the message through hikari.
-- **The new state.** In a store, `client.build` writes a new record under a new key, and the old one expires with its
-  `ttl`. In a message, `client.build` raises `StateOverflowError` if the new state does not fit the new buttons.
+- **`ctx.edit` cannot do this.** It takes only the buttons of the view that was clicked, and raises
+  [`LayoutError`](../api/errors.md#risa.errors.LayoutError) for another's.
+- **The old view stops here.** Its state is not saved, and `ctx.rerender()` and `ctx.edit()` raise
+  [`NoViewError`](../api/errors.md#risa.errors.NoViewError).
+- **The new state.** In a store, `ctx.replace` writes a new record under a new key, and the old one expires with its
+  `ttl`. In a message, it raises `StateOverflowError` if the new state does not fit the new buttons.
 - **Messages nobody clicks.** risa keeps no list of the messages it sent, so one that gets no click stays at version 2.
   It still needs this class when someone clicks it next.
 - **Two clicks at once.** Both start from the same old state, and the second replaces the first with only its own vote.
@@ -346,13 +358,15 @@ If both changed, raise the view's. The class you keep at the old version holds t
 ## `on_outdated`
 
 [`View.on_outdated`](../api/view.md#risa.view.View.on_outdated) answers a click that reaches a class but cannot run: its
-handler has gone, its arguments changed, or the state no longer fits the fields.
+handler has gone, its arguments changed, or the state no longer fits the fields. Data that looks broken, such as an id
+that does not parse, stays away from it: the click fails in Discord, and risa logs a line.
 
 - **It belongs to the class the button reaches.** That class is the one at the button's `name` and `version`, which is
   why a raised view `version` needs a class at the old one.
 - **`ctx` has no view.** `ctx.respond` and a `ctx.edit` with nothing to click work, and `ctx.rerender()` raises
   [`NoViewError`](../api/errors.md#risa.errors.NoViewError).
-- **Its parameters are injected**, as a [handler's](06-dependency-injection.md#where-injection-works) are.
+- **Its parameters are injected**, as a [handler's](06-dependency-injection.md#where-injection-works) are. Your type
+  checker wants `= risa.INJECTED` on them, since the base method takes only `ctx`.
 - **Auto-defer does not cover it.** Answer within the three seconds Discord gives you.
 - **By default it does nothing.** The click fails in Discord. Overriding it also lowers a `WARNING` about a missing
   handler to `DEBUG`.

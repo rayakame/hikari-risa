@@ -53,9 +53,12 @@ def _other(key: str) -> str:
     return f"{key}:other"
 
 
+async def _data(store: protocol.Store, key: str) -> bytes | None:
+    entry = await store.get_versioned(key)
+    return None if entry is None else entry.data
+
+
 async def _missing_keys_read_as_nothing(store: protocol.Store, key: str) -> str | None:
-    if (found := await store.get(key)) is not None:
-        return f"get on a missing key returned {found!r}, not None"
     if (versioned := await store.get_versioned(key)) is not None:
         return f"get_versioned on a missing key returned {versioned!r}, not None"
     return None
@@ -64,8 +67,6 @@ async def _missing_keys_read_as_nothing(store: protocol.Store, key: str) -> str 
 async def _bytes_round_trip_unchanged(store: protocol.Store, key: str) -> str | None:
     for sample in _SAMPLES:
         await store.put(key, sample, ttl=None)
-        if (found := await store.get(key)) != sample:
-            return f"put {sample!r}, but get returned {found!r}"
         versioned = await store.get_versioned(key)
         if versioned is None or versioned.data != sample:
             return f"put {sample!r}, but get_versioned returned {versioned!r}"
@@ -118,7 +119,7 @@ async def _a_stale_cas_is_refused(store: protocol.Store, key: str) -> str | None
 async def _a_cas_on_a_missing_key_is_refused(store: protocol.Store, key: str) -> str | None:
     if (written := await store.put_if_version(key, b"one", expected=1, ttl=None)) is not None:
         return f"put_if_version on a missing key returned {written}, not None"
-    if await store.get(key) is not None:
+    if await _data(store, key) is not None:
         return "a refused put_if_version on a missing key created the entry"
     return None
 
@@ -138,7 +139,7 @@ async def _racing_cas_writes_have_one_winner(store: protocol.Store, key: str) ->
     winners = [value for value, version in zip(contenders, written, strict=True) if version is not None]
     if len(winners) != 1:
         return f"{len(winners)} of {_RACERS} racing put_if_version calls on one version won"
-    if (found := await store.get(key)) != winners[0]:
+    if (found := await _data(store, key)) != winners[0]:
         return f"the winning write was {winners[0]!r}, but the entry holds {found!r}"
     return None
 
@@ -146,8 +147,8 @@ async def _racing_cas_writes_have_one_winner(store: protocol.Store, key: str) ->
 async def _delete_removes_the_entry(store: protocol.Store, key: str) -> str | None:
     await store.put(key, b"one", ttl=None)
     await store.delete(key)
-    if (found := await store.get(key)) is not None:
-        return f"get still returned {found!r} after delete"
+    if (found := await _data(store, key)) is not None:
+        return f"get_versioned still returned {found!r} after delete"
     await store.delete(key)
     return None
 
@@ -155,7 +156,7 @@ async def _delete_removes_the_entry(store: protocol.Store, key: str) -> str | No
 async def _an_entry_expires_after_its_ttl(store: protocol.Store, key: str) -> str | None:
     await store.put(key, b"one", ttl=_SHORT_TTL)
     await asyncio.sleep(_LAPSE)
-    if await store.get(key) is not None:
+    if await _data(store, key) is not None:
         return f"an entry put with ttl={_SHORT_TTL} was still there after {_LAPSE}s"
     await store.put(key, b"two", ttl=None)
     current = await store.get_versioned(key)
@@ -163,7 +164,7 @@ async def _an_entry_expires_after_its_ttl(store: protocol.Store, key: str) -> st
         return "an entry written with put could not be read back with get_versioned"
     await store.put_if_version(key, b"three", expected=current.version, ttl=_SHORT_TTL)
     await asyncio.sleep(_LAPSE)
-    if await store.get(key) is not None:
+    if await _data(store, key) is not None:
         return f"an entry written by put_if_version with ttl={_SHORT_TTL} was still there after {_LAPSE}s"
     return None
 
@@ -172,7 +173,7 @@ async def _a_put_without_ttl_clears_the_expiry(store: protocol.Store, key: str) 
     await store.put(key, b"one", ttl=_GRACE_TTL)
     await store.put(key, b"two", ttl=None)
     await asyncio.sleep(_GRACE_LAPSE)
-    if await store.get(key) != b"two":
+    if await _data(store, key) != b"two":
         return "put with ttl=None kept the expiry of the write before it"
     return None
 
@@ -184,7 +185,7 @@ async def _a_cas_without_ttl_clears_the_expiry(store: protocol.Store, key: str) 
         return "an entry written with put could not be read back with get_versioned"
     await store.put_if_version(key, b"two", expected=current.version, ttl=None)
     await asyncio.sleep(_GRACE_LAPSE)
-    if await store.get(key) != b"two":
+    if await _data(store, key) != b"two":
         return "put_if_version with ttl=None kept the expiry of the write before it"
     return None
 
@@ -204,7 +205,7 @@ async def _touch_keeps_an_entry_alive(store: protocol.Store, key: str) -> str | 
 
 async def _touching_a_missing_key_creates_nothing(store: protocol.Store, key: str) -> str | None:
     await store.touch(key, ttl=_LONG_TTL)
-    if (found := await store.get(key)) is not None:
+    if (found := await _data(store, key)) is not None:
         return f"touch on a missing key created an entry holding {found!r}"
     return None
 

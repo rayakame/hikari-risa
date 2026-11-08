@@ -110,8 +110,8 @@ class StoredSession(backend.StateSession):
     TTL, and does nothing under `ttl=None`. A lost compare-and-set adopts the state that won
     as the new baseline and raises `StateConflictError`, so the handler can apply its change
     again and commit on top. A record that is gone, or a winner that cannot be read,
-    detaches the session instead and raises `StateNotFoundError` or `StateConflictError`, so
-    nothing more commits against a dead baseline. `close` restarts the TTL if nothing has
+    detaches the session instead and raises `StateNotFoundError` or `StateUnreadableError`
+    without adopting anything, so nothing more commits against a dead baseline. `close` restarts the TTL if nothing has
     yet, then releases the lock.
     """
 
@@ -274,7 +274,8 @@ class StoredSession(backend.StateSession):
         if values is None:
             _LOGGER.warning(
                 "interaction %s routes to view %s, but the entry under %r does not decode under its own"
-                " fingerprint; the entry is corrupted",
+                " fingerprint: a value of an enum or Literal field may have been removed, or the entry is"
+                " corrupted",
                 self._interaction.id,
                 self._meta.name,
                 key,
@@ -309,7 +310,7 @@ class StoredSession(backend.StateSession):
             return self._detached()
         values = self._unpack(key, entry.data)
         if values is None:
-            self._detached = functools.partial(errors.StateConflictError, key, expected=expected, found=entry.version)
+            self._detached = functools.partial(errors.StateUnreadableError, key)
             return self._detached()
         self._meta.schema.adopt(view, backend.hydrate(self._meta, values))
         self._version = entry.version

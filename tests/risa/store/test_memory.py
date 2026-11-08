@@ -44,6 +44,11 @@ def clocked() -> tuple[memory.MemoryStore, Clock]:
     return memory.MemoryStore(clock=clock), clock
 
 
+async def data_of(store: memory.MemoryStore, key: str) -> bytes | None:
+    entry = await store.get_versioned(key)
+    return None if entry is None else entry.data
+
+
 def warnings_in(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
     return [record for record in caplog.records if record.levelno == logging.WARNING]
 
@@ -69,13 +74,13 @@ async def test_a_value_survives_the_round_trip() -> None:
 
     await store.put("k", b"value", ttl=None)
 
-    assert await store.get("k") == b"value"
+    assert await data_of(store, "k") == b"value"
 
 
 async def test_an_unknown_key_reads_as_nothing() -> None:
     store = memory.MemoryStore()
 
-    assert await store.get("missing") is None
+    assert await data_of(store, "missing") is None
     assert await store.get_versioned("missing") is None
 
 
@@ -93,7 +98,7 @@ async def test_bytes_come_back_byte_identical(value: bytes) -> None:
 
     await store.put("k", value, ttl=None)
 
-    assert await store.get("k") == value
+    assert await data_of(store, "k") == value
 
 
 # ---- versions ------------------------------------------------------------
@@ -173,7 +178,7 @@ async def test_a_record_past_its_deadline_is_gone() -> None:
 
     clock.now = 10.5
 
-    assert await store.get("k") is None
+    assert await data_of(store, "k") is None
 
 
 async def test_a_record_exactly_at_its_deadline_is_gone() -> None:
@@ -182,7 +187,7 @@ async def test_a_record_exactly_at_its_deadline_is_gone() -> None:
 
     clock.now = 10.0
 
-    assert await store.get("k") is None
+    assert await data_of(store, "k") is None
 
 
 async def test_a_record_with_no_ttl_never_expires() -> None:
@@ -191,7 +196,7 @@ async def test_a_record_with_no_ttl_never_expires() -> None:
 
     clock.now = 1e12
 
-    assert await store.get("k") == b"value"
+    assert await data_of(store, "k") == b"value"
 
 
 async def test_an_expired_record_is_forgotten_rather_than_hidden() -> None:
@@ -224,7 +229,7 @@ async def test_touch_keeps_a_record_alive() -> None:
     await store.touch("k", ttl=10.0)
     clock.now = 15.0
 
-    assert await store.get("k") == b"value"
+    assert await data_of(store, "k") == b"value"
 
 
 async def test_touch_changes_neither_the_data_nor_the_version() -> None:
@@ -252,9 +257,9 @@ async def test_writing_past_the_bound_drops_the_least_recently_used() -> None:
 
     await store.put("c", b"c", ttl=None)
 
-    assert await store.get("a") is None
-    assert await store.get("b") == b"b"
-    assert await store.get("c") == b"c"
+    assert await data_of(store, "a") is None
+    assert await data_of(store, "b") == b"b"
+    assert await data_of(store, "c") == b"c"
 
 
 async def test_a_read_counts_as_use() -> None:
@@ -262,11 +267,11 @@ async def test_a_read_counts_as_use() -> None:
     await store.put("a", b"a", ttl=None)
     await store.put("b", b"b", ttl=None)
 
-    await store.get("a")
+    await data_of(store, "a")
     await store.put("c", b"c", ttl=None)
 
-    assert await store.get("a") == b"a"
-    assert await store.get("b") is None
+    assert await data_of(store, "a") == b"a"
+    assert await data_of(store, "b") is None
 
 
 async def test_the_capacity_warning_fires_once(caplog: pytest.LogCaptureFixture) -> None:

@@ -1590,6 +1590,281 @@ async def test_unreadable_frames_never_reach_the_hook(caplog: pytest.LogCaptureF
     assert not OUTDATED_CALLS
 
 
+class Shade(enum.Enum):
+    LIGHT = 1
+    DARK = 2
+
+
+class ShadeGrown(enum.Enum):
+    LIGHT = 1
+    DARK = 2
+    BLACK = 3
+
+
+class ShadeWithoutLight(enum.Enum):
+    DARK = 2
+
+
+SHADED_CALLS: list[str] = []
+
+
+async def shaded_click(cls: type[risa.View], interaction: unittest.mock.Mock) -> risa.GatewayEnabledClient:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(cls)
+    SHADED_CALLS.clear()
+    await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    return built
+
+
+@risa.register(name="client-shaded")
+class Shaded(risa.View):
+    shade: Shade = Shade.LIGHT
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.go))
+
+    @risa.handler
+    async def go(self, _ctx: risa.ComponentContext) -> None:
+        SHADED_CALLS.append(self.shade.name)
+
+
+@pytest.fixture
+def replaced_shaded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(registry, "_GLOBAL_REGISTRY", registry.Registry())
+
+
+@pytest.mark.usefixtures("replaced_shaded")
+async def test_a_value_added_to_an_enum_field_leaves_old_messages_working() -> None:
+    old = interaction_on(Shaded(shade=Shade.DARK), Shaded().render())
+
+    @risa.register(name="client-shaded")
+    class Grown(risa.View):
+        shade: ShadeGrown = ShadeGrown.LIGHT
+
+        @risa.handler
+        async def go(self, _ctx: risa.ComponentContext) -> None:
+            SHADED_CALLS.append(self.shade.name)
+
+    await shaded_click(Grown, old)
+
+    assert SHADED_CALLS == ["DARK"]
+
+
+class ShadeMapped(enum.Enum):
+    DARK = 2
+
+    @classmethod
+    @typing.override
+    def _missing_(cls, value: object) -> ShadeMapped:
+        return cls.DARK
+
+
+@pytest.mark.usefixtures("replaced_shaded")
+async def test_an_enum_field_with_missing_maps_a_removed_value_itself() -> None:
+    old = interaction_on(Shaded(shade=Shade.LIGHT), Shaded().render())
+
+    @risa.register(name="client-shaded")
+    class Mapped(risa.View):
+        shade: ShadeMapped = ShadeMapped.DARK
+
+        @risa.handler
+        async def go(self, _ctx: risa.ComponentContext) -> None:
+            SHADED_CALLS.append(self.shade.name)
+
+    await shaded_click(Mapped, old)
+
+    assert SHADED_CALLS == ["DARK"]
+
+
+@pytest.mark.usefixtures("replaced_shaded")
+async def test_a_value_removed_from_an_enum_field_reaches_the_hook_only_for_messages_that_hold_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    holds_it = interaction_on(Shaded(shade=Shade.LIGHT), Shaded().render())
+    holds_another = interaction_on(Shaded(shade=Shade.DARK), Shaded().render())
+
+    @risa.register(name="client-shaded")
+    class Shrunk(risa.View):
+        shade: ShadeWithoutLight = ShadeWithoutLight.DARK
+
+        @risa.handler
+        async def go(self, _ctx: risa.ComponentContext) -> None:
+            SHADED_CALLS.append(self.shade.name)
+
+        @classmethod
+        @typing.override
+        async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+            SHADED_CALLS.append("outdated")
+
+    await shaded_click(Shrunk, holds_another)
+    assert SHADED_CALLS == ["DARK"]
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await shaded_click(Shrunk, holds_it)
+
+    assert SHADED_CALLS == ["outdated"]
+    assert "a value of an enum or Literal field may have been removed" in caplog.text
+
+
+HOOKED_CALLS: list[str] = []
+
+
+@risa.register(name="client-hooked")
+class Hooked(risa.View):
+    @risa.handler
+    async def pick(self, _ctx: risa.ComponentContext, weather: Weather) -> None:  # ruff:ignore[no-self-use]
+        HOOKED_CALLS.append(weather.name)
+
+    @risa.handler
+    async def count(self, _ctx: risa.ComponentContext, amount: int) -> None:  # ruff:ignore[no-self-use]
+        HOOKED_CALLS.append(str(amount))
+
+    @risa.handler
+    async def pair(self, _ctx: risa.ComponentContext, first: int, second: int) -> None:  # ruff:ignore[no-self-use]
+        HOOKED_CALLS.append(f"{first} {second}")
+
+    @risa.handler
+    async def mixed(self, _ctx: risa.ComponentContext, weather: Weather, amount: int) -> None:  # ruff:ignore[no-self-use]
+        HOOKED_CALLS.append(f"{weather.name} {amount}")
+
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        HOOKED_CALLS.append("outdated")
+
+
+async def click_hooked(token: str, tail: str) -> None:
+    HOOKED_CALLS.clear()
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Hooked)
+    await built._process_interaction(interaction_with(encoded_id_for(Hooked, handler=token, tail=tail)))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+async def test_a_bound_enum_value_that_was_removed_reaches_the_hook(caplog: pytest.LogCaptureFixture) -> None:
+    gone = codec.pack_frames([codecs.BASE85.encode(codec.IntConverter(int).encode(99))])
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await click_hooked(Hooked.pick.token, Hooked.pick.signature.fingerprint + gone)
+
+    assert HOOKED_CALLS == ["outdated"]
+    assert "could not be decoded" in caplog.text
+
+
+async def test_an_argument_default_that_was_removed_reaches_the_hook(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await click_hooked(Hooked.count.token, Hooked.count.signature.fingerprint)
+
+    assert HOOKED_CALLS == ["outdated"]
+    assert "bump the handler version" in caplog.text
+
+
+async def test_too_few_arguments_reach_the_hook_only_when_the_ones_given_can_be_read(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    readable = codec.pack_frames([codecs.BASE85.encode(codec.IntConverter(int).encode(1))])
+    unreadable = codec.pack_frames([codecs.BASE85.encode(b"")])
+
+    await click_hooked(Hooked.pair.token, Hooked.pair.signature.fingerprint + readable)
+    assert HOOKED_CALLS == ["outdated"]
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await click_hooked(Hooked.pair.token, Hooked.pair.signature.fingerprint + unreadable)
+
+    assert not HOOKED_CALLS
+    assert "could not be decoded" in caplog.text
+
+
+async def test_a_removed_enum_value_reaches_the_hook_only_when_every_other_argument_can_be_read(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    gone = codecs.BASE85.encode(codec.IntConverter(int).encode(99))
+    readable = codecs.BASE85.encode(codec.IntConverter(int).encode(1))
+    unreadable = codecs.BASE85.encode(b"")
+
+    await click_hooked(Hooked.mixed.token, Hooked.mixed.signature.fingerprint + codec.pack_frames([gone, readable]))
+    assert HOOKED_CALLS == ["outdated"]
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await click_hooked(
+            Hooked.mixed.token, Hooked.mixed.signature.fingerprint + codec.pack_frames([gone, unreadable])
+        )
+
+    assert not HOOKED_CALLS
+
+
+async def test_a_value_its_converter_cannot_read_never_reaches_the_hook(caplog: pytest.LogCaptureFixture) -> None:
+    garbage = codec.pack_frames([codecs.BASE85.encode(b"")])
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await click_hooked(Hooked.count.token, Hooked.count.signature.fingerprint + garbage)
+
+    assert not HOOKED_CALLS
+    assert "could not be decoded" in caplog.text
+
+
+async def test_too_many_frames_never_reach_the_hook(caplog: pytest.LogCaptureFixture) -> None:
+    one = codecs.BASE85.encode(codec.IntConverter(int).encode(1))
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await click_hooked(Hooked.count.token, Hooked.count.signature.fingerprint + codec.pack_frames([one, one]))
+
+    assert not HOOKED_CALLS
+    assert "accepts at most" in caplog.text
+
+
+@risa.register(name="client-counted")
+class Counted(risa.View):
+    total: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add, label=str(self.total)))
+
+    @risa.handler
+    async def add(self, ctx: risa.ComponentContext) -> None:
+        self.total += 1
+        await ctx.rerender()
+
+
+@risa.register(name="client-paid")
+class ClientReceipt(risa.View):
+    def render(self) -> ui.Layout:  # ruff:ignore[no-self-use]
+        return ui.TextDisplay("Paid.")
+
+
+async def test_building_a_view_this_client_does_not_answer_warns_once(caplog: pytest.LogCaptureFixture) -> None:
+    built = risa.client_from_app(gateway_app())
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await built.build(Counted())
+        await built.build(Counted())
+
+    warned = [record for record in caplog.records if "does not answer its clicks" in record.getMessage()]
+    assert len(warned) == 1
+    assert "client-counted" in warned[0].getMessage()
+
+
+@pytest.mark.parametrize("use_global", [False, True])
+async def test_a_view_this_client_answers_builds_without_a_warning(
+    use_global: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = risa.client_from_app(gateway_app(), use_global=use_global)
+    if not use_global:
+        built.add_view(Counted)
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await built.build(Counted())
+
+    assert "does not answer its clicks" not in caplog.text
+
+
+async def test_a_view_with_nothing_to_click_builds_without_a_warning(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await risa.client_from_app(gateway_app()).build(ClientReceipt())
+
+    assert "does not answer its clicks" not in caplog.text
+
+
 async def test_an_unknown_cookie_never_reaches_any_hook() -> None:
     built = outdated_client(Gracious)
 
@@ -2119,7 +2394,7 @@ async def test_build_of_a_stored_view_writes_its_record_first() -> None:
     fragment = codecs.BASE85.decode(codec.parse_custom_id(ids[0]).fragment)  # type: ignore[union-attr]
     located = anchor.StoreAnchor.parse(fragment)
     assert located is not None
-    assert await store.get(f"test:1:{located.token}") is not None
+    assert await store.get_versioned(f"test:1:{located.token}") is not None
 
 
 async def test_build_of_a_view_whose_store_is_missing_names_the_fix() -> None:
@@ -2226,7 +2501,9 @@ async def test_a_race_lost_by_the_end_of_dispatch_commit_is_logged_and_discarded
         RIVAL_WRITES.clear()
 
     assert "the change was discarded" in caplog.text
-    assert await store.get(key) == b"another process"
+    entry = await store.get_versioned(key)
+    assert entry is not None
+    assert entry.data == b"another process"
 
 
 async def test_a_failing_unlock_after_a_good_click_still_acknowledges(caplog: pytest.LogCaptureFixture) -> None:
@@ -2394,3 +2671,240 @@ async def test_without_the_old_class_a_click_reaches_no_view_and_no_hook(caplog:
     rest_of(built).create_interaction_response.assert_not_awaited()
     assert not CurrentPoll.outdated
     assert "this client has no view for it" in caplog.text
+
+
+@risa.register(name="client-replaced-from-hook")
+class ReplacedFromHook(risa.View):
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        await ctx.replace(Counted())
+
+
+REPLACED_CALLS: list[str] = []
+
+
+@risa.register(name="client-replacement", state=risa.InStore(ttl=60))
+class Replacement(risa.View):
+    total: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add, label=f"Total: {self.total}"))
+
+    @risa.handler
+    async def add(self, ctx: risa.ComponentContext) -> None:
+        REPLACED_CALLS.append(f"replacement at {self.total}")
+        await ctx.acknowledge()
+
+
+@risa.register(name="client-replacing", state=risa.InStore(ttl=60))
+class Replacing(risa.View):
+    voters: list[int] = msgspec.field(default_factory=list[int])
+
+    def render(self) -> ui.Layout:
+        return ui.Row(
+            ui.Button(self.plain),
+            ui.Button(self.after_thinking),
+            ui.Button(self.after_respond),
+            ui.Button(self.changed_itself),
+            ui.Button(self.then_rerenders),
+        )
+
+    @risa.handler
+    async def plain(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Replacement(total=1))
+
+    @risa.handler
+    async def after_thinking(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.defer(thinking=True)
+        await ctx.replace(Replacement(total=2))
+
+    @risa.handler
+    async def after_respond(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.respond("hi")
+        await ctx.replace(Replacement(total=3))
+
+    @risa.handler
+    async def changed_itself(self, ctx: risa.ComponentContext) -> None:
+        self.voters.append(5)
+        await ctx.replace(Replacement(total=4))
+
+    @risa.handler
+    async def then_rerenders(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Replacement(total=5))
+        with pytest.raises(risa.NoViewError):
+            await ctx.rerender()
+        REPLACED_CALLS.append("rerender refused")
+
+
+async def replacing_client() -> tuple[risa.Client, risa.MemoryStore, list[str]]:
+    store = risa.MemoryStore()
+    built = stored_client(store)
+    built.add_view(Replacing)
+    built.add_view(Replacement)
+    REPLACED_CALLS.clear()
+    return built, store, ids_of((await built.build(Replacing(voters=[1]))).components)
+
+
+def answered_labels(call: unittest.mock._Call) -> str:  # type: ignore[reportPrivateUsage]
+    return str([builder.build()[0] for builder in call.kwargs["components"]])
+
+
+async def test_replace_turns_the_message_into_another_view_that_then_answers() -> None:
+    built, _, ids = await replacing_client()
+
+    await built._process_interaction(click(ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    answer = rest_of(built).create_interaction_response.await_args
+    assert answer.args[2] is hikari.ResponseType.MESSAGE_UPDATE
+    assert "Total: 1" in answered_labels(answer)
+
+    await built._process_interaction(click(ids_of(answer.kwargs["components"]), 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert REPLACED_CALLS == ["replacement at 1"]
+
+
+@pytest.mark.parametrize(("button", "expected"), [(1, "Total: 2"), (2, "Total: 3")])
+async def test_replace_lands_on_the_clicked_message_after_another_answer(button: int, expected: str) -> None:
+    built, _, ids = await replacing_client()
+    rest_of(built).execute_webhook.return_value = unittest.mock.Mock(id=hikari.Snowflake(2))
+
+    await built._process_interaction(click(ids, button))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert expected in answered_labels(rest_of(built).edit_message.await_args)
+
+
+async def test_replace_leaves_the_old_state_as_it_was_and_logs_nothing(caplog: pytest.LogCaptureFixture) -> None:
+    built, store, ids = await replacing_client()
+    (old_key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    before = await store.get_versioned(old_key)
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await built._process_interaction(click(ids, 3))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert not caplog.records
+    after = await store.get_versioned(old_key)
+    assert before is not None
+    assert after is not None
+    assert after.data == before.data
+    assert len(store._entries) == 2  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+async def test_a_rerender_after_replace_is_refused() -> None:
+    built, _, ids = await replacing_client()
+
+    await built._process_interaction(click(ids, 4))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert REPLACED_CALLS == ["rerender refused"]
+
+
+async def test_replace_runs_from_on_outdated() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(ReplacedFromHook)
+    built.add_view(Counted)
+
+    await built._process_interaction(interaction_with(encoded_id_for(ReplacedFromHook, handler="zz")))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert "'label': '0'" in answered_labels(rest_of(built).create_interaction_response.await_args)
+
+
+AGAIN_SEEN: list[str] = []
+
+
+@risa.register(name="client-again")
+class Again(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(
+            ui.Button(self.add, label=str(self.count)),
+            ui.Button(self.reset),
+            ui.Button(self.away),
+            ui.Button(self.show),
+        )
+
+    @risa.handler
+    async def add(self, ctx: risa.ComponentContext) -> None:
+        self.count += 1
+        await ctx.rerender()
+
+    @risa.handler
+    async def reset(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Again(count=50))
+
+    @risa.handler
+    async def away(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Away())
+
+    @risa.handler
+    async def show(self, _ctx: risa.ComponentContext) -> None:
+        AGAIN_SEEN.append(f"count {self.count}")
+
+
+@risa.register(name="client-away")
+class Away(risa.View):
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.back), ui.Button(self.then_rerender), ui.Button(self.then_edit))
+
+    @risa.handler
+    async def back(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Again(count=100))
+
+    @risa.handler
+    async def then_rerender(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Again())
+        with pytest.raises(risa.NoViewError):
+            await ctx.rerender()
+        AGAIN_SEEN.append("rerender refused")
+
+    @risa.handler
+    async def then_edit(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Again())
+        with pytest.raises(risa.NoViewError):
+            await ctx.edit(ui.TextDisplay("Closed."))
+        AGAIN_SEEN.append("edit refused")
+
+
+async def again_client() -> tuple[risa.Client, list[str]]:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Again)
+    built.add_view(Away)
+    AGAIN_SEEN.clear()
+    return built, ids_of((await built.build(Again())).components)
+
+
+async def click_and_follow(built: risa.Client, ids: list[str], index: int) -> list[str]:
+    await built._process_interaction(click(ids, index))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    return ids_of(rest_of(built).create_interaction_response.await_args.kwargs["components"])
+
+
+async def test_replace_with_the_same_view_shows_the_new_state_on_the_next_click() -> None:
+    built, ids = await again_client()
+
+    ids = await click_and_follow(built, ids, 0)
+    ids = await click_and_follow(built, ids, 1)
+    await click_and_follow(built, ids, 3)
+
+    assert AGAIN_SEEN == ["count 50"]
+
+
+async def test_a_view_that_comes_back_through_replace_shows_its_new_state() -> None:
+    built, ids = await again_client()
+
+    ids = await click_and_follow(built, ids, 0)
+    ids = await click_and_follow(built, ids, 2)
+    ids = await click_and_follow(built, ids, 0)
+    await click_and_follow(built, ids, 3)
+
+    assert AGAIN_SEEN == ["count 100"]
+
+
+@pytest.mark.parametrize(("button", "expected"), [(1, "rerender refused"), (2, "edit refused")])
+async def test_the_view_that_called_replace_cannot_answer_again(button: int, expected: str) -> None:
+    built, ids = await again_client()
+
+    ids = await click_and_follow(built, ids, 2)
+    await built._process_interaction(click(ids, button))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert [expected] == AGAIN_SEEN

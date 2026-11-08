@@ -155,11 +155,6 @@ class RedisStore(protocol.Store):
         )
 
     @typing.override
-    async def get(self, key: str) -> bytes | None:
-        await self._inspect()
-        return _bytes_or_none(await self._client.hget(_state_key(key), "d"))
-
-    @typing.override
     async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
         await self._inspect()
         data, version = await self._client.hmget(_state_key(key), ["d", "v"])

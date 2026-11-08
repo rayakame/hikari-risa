@@ -267,9 +267,9 @@ A parameter is injected if it has an annotation and either no default or the def
 [`risa.INJECTED`](../api/di.md#risa.di.INJECTED). Any other default stays as it is. `*args`, `**kwargs` and positional-only
 parameters are left alone. A parameter with no annotation gets nothing, so the click fails with a `TypeError`.
 
-`risa.INJECTED` tells your type checker that nobody has to pass the parameter. A `load()` [needs it](07-fresh-data.md#a-leaderboard),
-and so does a function of your own that you call with no arguments. In a handler it also marks a wire type as injected:
-`limit: int = risa.INJECTED`.
+`risa.INJECTED` tells your type checker that nobody has to pass the parameter. [`on_outdated`](10-changing-a-view-safely.md#on_outdated),
+`on_state_missing` and a function of your own that you call with no arguments need it. In a handler it also marks a wire type as
+injected: `limit: int = risa.INJECTED`.
 
 ## Injection context
 

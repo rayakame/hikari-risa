@@ -79,19 +79,14 @@ class OldPoll(risa.View):
     note: str = ""
 
     @risa.handler
-    async def vote_yes(self, ctx: risa.ComponentContext, client: risa.Client) -> None:
-        await self._upgrade(ctx, client, "Yes")
+    async def vote_yes(self, ctx: risa.ComponentContext) -> None:
+        await self._upgrade(ctx, "Yes")
 
     @risa.handler
-    async def vote_no(self, ctx: risa.ComponentContext, client: risa.Client) -> None:
-        await self._upgrade(ctx, client, "No")
+    async def vote_no(self, ctx: risa.ComponentContext) -> None:
+        await self._upgrade(ctx, "No")
 
-    async def _upgrade(
-        self,
-        ctx: risa.ComponentContext,
-        client: risa.Client,
-        option: str,
-    ) -> None:
+    async def _upgrade(self, ctx: risa.ComponentContext, option: str) -> None:
         poll = Poll(
             question=self.question,
             votes={"Yes": self.yes, "No": self.no},
@@ -101,8 +96,7 @@ class OldPoll(risa.View):
         if ctx.user.id not in poll.voters:
             poll.voters.append(ctx.user.id)
             poll.votes[option] += 1
-        await ctx.acknowledge()
-        await ctx.interaction.edit_initial_response(**await client.build(poll))
+        await ctx.replace(poll)
         # --8<-- [end:upgrade]
 
     @classmethod

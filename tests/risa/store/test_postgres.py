@@ -36,6 +36,11 @@ from risa.store import testing
 _LEASE = 1.0
 
 
+async def data_of(store: postgres.PostgresStore, key: str) -> bytes | None:
+    entry = await store.get_versioned(key)
+    return None if entry is None else entry.data
+
+
 def fresh_key() -> str:
     return f"risa:test:{secrets.token_hex(8)}"
 
@@ -64,7 +69,7 @@ async def test_a_whole_second_ttl_is_accepted(postgres_pool: asyncpg.Pool, postg
     await store.put(key, b"one", ttl=30 * 86400)
     await store.touch(key, ttl=60)
 
-    assert await store.get(key) == b"one"
+    assert await data_of(store, key) == b"one"
 
 
 async def test_the_tables_are_created_on_first_use(
@@ -73,7 +78,7 @@ async def test_the_tables_are_created_on_first_use(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with caplog.at_level(logging.INFO, logger="risa"):
-        assert await postgres.PostgresStore(postgres_pool, table=postgres_table).get(fresh_key()) is None
+        assert await postgres.PostgresStore(postgres_pool, table=postgres_table).get_versioned(fresh_key()) is None
 
     assert await postgres_pool.fetchval("SELECT to_regclass($1) IS NOT NULL", postgres_table)
     assert await postgres_pool.fetchval("SELECT to_regclass($1) IS NOT NULL", f"{postgres_table}_lease")
@@ -85,7 +90,7 @@ async def test_tables_that_already_exist_are_used_as_they_are(
     postgres_table: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    await postgres.PostgresStore(postgres_pool, table=postgres_table).get(fresh_key())
+    await postgres.PostgresStore(postgres_pool, table=postgres_table).get_versioned(fresh_key())
 
     with caplog.at_level(logging.INFO, logger="risa"):
         await postgres.PostgresStore(postgres_pool, table=postgres_table).put(fresh_key(), b"one", ttl=None)
@@ -142,7 +147,7 @@ async def test_a_lapsed_lease_left_by_a_crashed_process_is_deleted(
     postgres_table: str,
 ) -> None:
     store = postgres.PostgresStore(postgres_pool, table=postgres_table)
-    await store.get(fresh_key())
+    await store.get_versioned(fresh_key())
     await postgres_pool.execute(
         f"INSERT INTO \"{postgres_table}_lease\" VALUES ($1, 'crashed', now() - interval '1 second')",  # ruff:ignore[hardcoded-sql-expression]
         fresh_key(),
@@ -160,13 +165,13 @@ async def test_a_failing_sweep_is_logged_and_the_write_still_lands(
 ) -> None:
     store = postgres.PostgresStore(postgres_pool, table=postgres_table)
     key = fresh_key()
-    await store.get(key)
+    await store.get_versioned(key)
     await postgres_pool.execute(f'DROP TABLE "{postgres_table}_lease"')
 
     with caplog.at_level(logging.WARNING, logger="risa"):
         await store.put(key, b"one", ttl=None)
 
-    assert await store.get(key) == b"one"
+    assert await data_of(store, key) == b"one"
     (warning,) = [record.getMessage() for record in caplog.records]
     assert "expired view state" in warning
 
@@ -222,7 +227,7 @@ async def test_a_crashed_holder_is_taken_over_once_its_lease_lapses(
 ) -> None:
     store = postgres.PostgresStore(postgres_pool, table=postgres_table)
     key = fresh_key()
-    await store.get(key)
+    await store.get_versioned(key)
     await postgres_pool.execute(
         f"INSERT INTO \"{postgres_table}_lease\" VALUES ($1, 'crashed', now() + interval '0.2 second')",  # ruff:ignore[hardcoded-sql-expression]
         key,
@@ -287,7 +292,7 @@ async def test_a_blocked_lease_table_cannot_stretch_the_lock_timeout(
     postgres_table: str,
 ) -> None:
     store = postgres.PostgresStore(postgres_pool, table=postgres_table)
-    await store.get(fresh_key())
+    await store.get_versioned(fresh_key())
 
     async with postgres_pool.acquire() as connection, connection.transaction():
         await connection.execute(f'LOCK TABLE "{postgres_table}_lease" IN ACCESS EXCLUSIVE MODE')

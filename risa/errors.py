@@ -56,6 +56,7 @@ __all__ = (
     "StateError",
     "StateNotFoundError",
     "StateOverflowError",
+    "StateUnreadableError",
     "StoreConformanceError",
     "StoreUnavailableError",
     "ViewDeclarationError",
@@ -397,8 +398,8 @@ class NotAViewError(RisaError):
 class NoViewError(RisaError):
     """Raised when an operation needs the view's state, but the context has none.
 
-    That is the case in `on_outdated` and `on_state_missing`, and in a context kept past
-    the end of its dispatch.
+    That is the case in `on_outdated` and `on_state_missing`, after `ctx.replace` gave the
+    message to another view, and in a context kept past the end of its dispatch.
 
     Attributes
     ----------
@@ -413,7 +414,8 @@ class NoViewError(RisaError):
         self.attempted: str = attempted
         super().__init__(
             f"{attempted} on view {view_name!r} needs the view's state, but this context has none - it"
-            " belongs to on_outdated or on_state_missing, or to a dispatch that has already ended;"
+            " belongs to on_outdated or on_state_missing, to a message ctx.replace gave to another"
+            " view, or to a dispatch that has already ended;"
             " answer with ctx.edit(layout) using a tree without interactive components, or with"
             " ctx.respond(...)",
         )
@@ -505,8 +507,8 @@ class StateConflictError(StateError):
     """Raised when another process wrote a view's state first.
 
     By the time it is raised, the view already holds the state that won, so the handler
-    can apply its change again on top of it. The exception is a winning record that cannot
-    be read: risa logs that and the view keeps its own state.
+    can apply its change again on top of it. A record that cannot be read raises
+    `StateUnreadableError` instead.
 
     Attributes
     ----------
@@ -526,6 +528,23 @@ class StateConflictError(StateError):
             f"state for key {key!r} was written concurrently: this handler read version {expected},"
             f" the store holds version {found}; the write was rejected",
         )
+
+
+class StateUnreadableError(StateError):
+    """Raised when another process wrote a view's state first, in a form this code cannot read.
+
+    It can happen during a deploy, when a process with other fields wins the race. The view
+    keeps its own state, the change is lost, and another attempt in this click raises again.
+
+    Attributes
+    ----------
+    key
+        The store key of the state.
+    """
+
+    def __init__(self, key: str) -> None:
+        self.key: str = key
+        super().__init__(f"state for key {key!r} was written concurrently in a form this code cannot read")
 
 
 class LockTimeoutError(StateError):
