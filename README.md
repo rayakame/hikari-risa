@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rayakame/hikari-risa/main/assets/web/banner.webp" alt="hikari-risa" width="100%">
+  <img src="https://raw.githubusercontent.com/rayakame/hikari-risa/a14722c65c6df514d463402cde7f7f48d133bd66/assets/web/banner.webp" alt="hikari-risa" width="100%">
 </p>
 
 # Components V2 views for hikari, with state that survives restarts.

@@ -84,7 +84,7 @@ def pytest(session: nox.Session) -> None:
 
 
 @nox.session
-@nox.parametrize("resolution", ["lowest-direct", "highest"], ids=["lowest", "highest"])
+@nox.parametrize(("python", "resolution"), [("3.12", "lowest-direct"), ("3.15", "highest")], ids=["lowest", "highest"])
 def compat(session: nox.Session, resolution: str) -> None:
     # The lockfile holds hikari where lightbulb pins it, so this tests both ends of the declared ranges.
     session.install("--resolution", resolution, "--group", "pytest", "--editable", ".[postgres,radixly,redis]")

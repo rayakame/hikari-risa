@@ -46,7 +46,7 @@ Issues = "https://github.com/rayakame/hikari-risa/issues"
 Changelog = "https://github.com/rayakame/hikari-risa/releases"
 
 [build-system]
-requires = ["hatchling>=1.14"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

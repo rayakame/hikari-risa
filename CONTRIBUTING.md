@@ -58,7 +58,7 @@ The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
 
 The site is versioned and published to the `gh-pages` branch by `.github/workflows/docs.yml`. A push to
-main replaces `main/`; a published release replaces its minor folder (`0.1/`), and `stable/` when it is the
+main replaces `main/`; a published release replaces its minor folder (`1.0/`), and `stable/` when it is the
 newest release. Release tags are `vX.Y.Z` with no suffix, and GitHub pre-releases are not published. With no release
 published, `main` carries the `stable` alias in `versions.json`, so no page shows the outdated banner.
 `tools/docs/publish.py` places a built version and keeps `versions.json` and the root redirect.
@@ -233,10 +233,10 @@ docs/               site pages, stylesheets, fonts
   stylesheets/      the theme (risa.css), the Discord frame (discord.css) and the diagrams (diagrams.css)
 overrides/          theme template overrides for the site
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
-tools/              optimize_images, docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
+tools/              optimize_images, check_dist (what the wheel and sdist hold), docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
-noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / audit / docs
+noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / compat / audit / docs
 ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
 
