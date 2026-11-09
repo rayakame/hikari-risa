@@ -20,19 +20,22 @@ Add hikari-risa to your bot's project. It runs on Python 3.12 to 3.15, and you i
 This also installs what risa depends on: hikari, linkd and msgspec. `uv add` needs a project to add to, so run
 `uv init` first if you have no `pyproject.toml` yet.
 
-Print the version to check that it worked:
+Run `hikari-risa` to check that it worked. It prints the version of risa, where it is installed and the versions of
+Python and of what risa installs; paste that into a bug report.
 
 === "uv"
 
     ```sh
-    uv run python -c "import risa; print(risa.__version__)"
+    uv run hikari-risa
     ```
 
 === "pip"
 
     ```sh
-    python -c "import risa; print(risa.__version__)"
+    hikari-risa
     ```
+
+`python -m risa` does the same, and `hikari-risa --version` prints only the version.
 
 ## Extras
 

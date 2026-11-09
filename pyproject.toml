@@ -39,6 +39,9 @@ redis = [
     "redis~=8.0",
 ]
 
+[project.scripts]
+hikari-risa = "risa.__main__:main"
+
 [project.urls]
 Documentation = "https://rayakame.github.io/hikari-risa/"
 Repository = "https://github.com/rayakame/hikari-risa"
