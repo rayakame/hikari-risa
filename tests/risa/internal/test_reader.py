@@ -135,6 +135,28 @@ def test_foreign_ids_and_link_buttons_are_skipped() -> None:
     assert reader.fragments(message, cookie=POLL) == {0: b"ab"}
 
 
+def test_a_leaf_without_a_custom_id_is_skipped() -> None:
+    thumbnail = hikari.ThumbnailComponent(
+        type=hikari.ComponentType.THUMBNAIL,
+        id=0,
+        media=hikari.MediaResource(
+            resource=hikari.files.ensure_resource("https://example.com/a.png"),
+            width=None,
+            height=None,
+            content_type=None,
+            loading_state=None,
+        ),
+        description=None,
+        is_spoiler=False,
+    )
+    beside = hikari.SectionComponent(
+        type=hikari.ComponentType.SECTION, id=0, components=[text("art")], accessory=thumbnail
+    )
+    message = [beside, row(button(custom_id(0, b"ab")))]
+
+    assert reader.fragments(message, cookie=POLL) == {0: b"ab"}
+
+
 def test_another_views_components_are_skipped() -> None:
     message = [
         row(button(custom_id(0, b"poll-0")), button(custom_id(1, b"poll-1"))),

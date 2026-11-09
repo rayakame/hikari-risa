@@ -224,6 +224,159 @@ class OneRacingCasRaises(memory.MemoryStore):
             self.in_flight -= 1
 
 
+class SwallowsErrors:
+    __slots__ = ("_held",)
+
+    def __init__(self, held: contextlib.AbstractAsyncContextManager[None]) -> None:
+        self._held = held
+
+    async def __aenter__(self) -> None:
+        await self._held.__aenter__()
+
+    async def __aexit__(self, *exc: object) -> bool:
+        await self._held.__aexit__(None, None, None)
+        return True
+
+
+class LeaksOnError:
+    __slots__ = ("_held", "_kept")
+
+    def __init__(
+        self,
+        held: contextlib.AbstractAsyncContextManager[None],
+        kept: list[contextlib.AbstractAsyncContextManager[None]],
+    ) -> None:
+        self._held = held
+        self._kept = kept
+
+    async def __aenter__(self) -> None:
+        await self._held.__aenter__()
+
+    async def __aexit__(self, exc_type: type[BaseException] | None, *exc: object) -> None:
+        if exc_type is None:
+            await self._held.__aexit__(None, None, None)
+        else:
+            # Kept alive, or the collector would close it and release the lock after all.
+            self._kept.append(self._held)
+
+
+class ForgetsEverything(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
+        del key
+        return None
+
+
+class InventsMissingKeysAndSharesOneLock(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
+        found = await super().get_versioned(key)
+        return protocol.VersionedEntry(data=b"", version=0) if found is None else found
+
+    @typing.override
+    def lock(
+        self,
+        key: str,
+        *,
+        timeout: float = protocol.DEFAULT_LOCK_TIMEOUT,
+    ) -> contextlib.AbstractAsyncContextManager[None]:
+        del key
+        return super().lock("one lock for every key", timeout=timeout)
+
+
+class VersionsNeverMove(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def put(self, key: str, value: bytes, *, ttl: float | None) -> None:
+        self._write(key, value, version=1, ttl=ttl)
+
+    @typing.override
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        current = await self.get_versioned(key)
+        if current is None or current.version != expected:
+            return None
+        self._write(key, value, version=expected, ttl=ttl)
+        return expected
+
+
+class RefusesEveryCasAndTouch(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        del key, value, expected, ttl
+        return None
+
+    @typing.override
+    async def touch(self, key: str, *, ttl: float) -> None:
+        del key, ttl
+
+
+class CasWritesBackwardsAndTouchWrites(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        del ttl
+        current = await self.get_versioned(key)
+        if current is None:
+            self._write(key, value, version=1, ttl=None)
+            return 1
+        if current.version != expected:
+            return None
+        self._write(key, value[::-1], version=expected + 1, ttl=None)
+        return expected + 1
+
+    @typing.override
+    async def touch(self, key: str, *, ttl: float) -> None:
+        current = await self.get_versioned(key)
+        if current is not None:
+            self._write(key, current.data, version=current.version + 1, ttl=ttl)
+
+
+class RefusedCasStillWritesAndLockSwallowsErrors(memory.MemoryStore):
+    __slots__ = ()
+
+    @typing.override
+    async def put_if_version(self, key: str, value: bytes, *, expected: int, ttl: float | None) -> int | None:
+        current = await self.get_versioned(key)
+        if current is None or current.version != expected:
+            await self.put(key, value, ttl=ttl)
+            return None
+        return await super().put_if_version(key, value, expected=expected, ttl=ttl)
+
+    @typing.override
+    def lock(
+        self,
+        key: str,
+        *,
+        timeout: float = protocol.DEFAULT_LOCK_TIMEOUT,
+    ) -> contextlib.AbstractAsyncContextManager[None]:
+        return SwallowsErrors(super().lock(key, timeout=timeout))
+
+
+class LockLeaksWhenItsHolderRaises(memory.MemoryStore):
+    __slots__ = ("_leaked",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._leaked: list[contextlib.AbstractAsyncContextManager[None]] = []
+
+    @typing.override
+    def lock(
+        self,
+        key: str,
+        *,
+        timeout: float = protocol.DEFAULT_LOCK_TIMEOUT,
+    ) -> contextlib.AbstractAsyncContextManager[None]:
+        return LeaksOnError(super().lock(key, timeout=timeout), self._leaked)
+
+
 async def failures_of(store: protocol.Store) -> collections.abc.Sequence[str]:
     with pytest.raises(risa.StoreConformanceError) as caught:
         await testing.verify_store(store)
@@ -349,3 +502,56 @@ async def test_the_kit_leaves_nothing_behind() -> None:
     await testing.verify_store(store)
 
     assert store.live == set()
+
+
+@pytest.mark.parametrize(
+    ("broken", "caught"),
+    [
+        (
+            ForgetsEverything,
+            {
+                "writes_change_the_version",
+                "a_current_cas_wins",
+                "a_stale_cas_is_refused",
+                "racing_cas_writes_have_one_winner",
+                "an_entry_expires_after_its_ttl",
+                "a_cas_without_ttl_clears_the_expiry",
+            },
+        ),
+        (
+            InventsMissingKeysAndSharesOneLock,
+            {"missing_keys_read_as_nothing", "delete_removes_the_entry", "independent_keys_do_not_block_each_other"},
+        ),
+        (VersionsNeverMove, {"writes_change_the_version", "a_current_cas_wins"}),
+        (
+            RefusesEveryCasAndTouch,
+            {"a_current_cas_wins", "a_cas_without_ttl_clears_the_expiry", "touch_keeps_an_entry_alive"},
+        ),
+        (
+            CasWritesBackwardsAndTouchWrites,
+            {
+                "a_current_cas_wins",
+                "a_cas_on_a_missing_key_is_refused",
+                "racing_cas_writes_have_one_winner",
+                "an_entry_expires_after_its_ttl",
+                "touch_keeps_an_entry_alive",
+            },
+        ),
+        (
+            RefusedCasStillWritesAndLockSwallowsErrors,
+            {
+                "a_stale_cas_is_refused",
+                "a_cas_on_a_missing_key_is_refused",
+                "a_lock_is_released_when_its_holder_raises",
+            },
+        ),
+        (LockLeaksWhenItsHolderRaises, {"a_lock_is_released_when_its_holder_raises"}),
+    ],
+    ids=lambda value: value.__name__ if isinstance(value, type) else "",
+)
+async def test_each_check_catches_the_store_it_was_written_against(
+    broken: type[memory.MemoryStore], caught: set[str]
+) -> None:
+    failed = {failure.split(":")[0] for failure in await failures_of(broken())}
+
+    assert caught <= failed

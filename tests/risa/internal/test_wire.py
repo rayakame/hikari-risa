@@ -53,6 +53,11 @@ def test_fixed_width_packing_sorts_like_the_numbers() -> None:
     assert packed == sorted(packed)
 
 
+def test_a_negative_width_is_refused() -> None:
+    with pytest.raises(ValueError, match="width"):
+        wire.largest_value(-1)
+
+
 def test_a_value_that_does_not_fit_is_refused() -> None:
     with pytest.raises(ValueError, match="does not fit"):
         wire.pack_uint(wire.largest_value(1) + 1, 1)
