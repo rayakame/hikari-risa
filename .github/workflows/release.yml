@@ -49,7 +49,7 @@ jobs:
           ACTOR: ${{ github.actor }}
           ACTOR_ID: ${{ github.actor_id }}
         run: |
-          version=$(uv version --short)
+          version=$(uv version --short --color never)
           git switch --create "release/$version"
           git add --all
           git -c user.name="$ACTOR" -c user.email="$ACTOR_ID+$ACTOR@users.noreply.github.com" commit --message "Release $version"
