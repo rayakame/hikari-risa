@@ -1,0 +1,1541 @@
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/inter/InterVariable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../assets/fonts/inter/InterVariable-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/jetbrains-mono/JetBrainsMono-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/jetbrains-mono/JetBrainsMono-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/jetbrains-mono/JetBrainsMono-BoldItalic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/zen-kaku-gothic-new/ZenKakuGothicNew-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("../assets/fonts/zen-kaku-gothic-new/ZenKakuGothicNew-Black.woff2") format("woff2");
+}
+
+:root {
+  --md-text-font: "Inter";
+  --md-code-font: "JetBrains Mono";
+  --risa-display-font: "Zen Kaku Gothic New", "Inter", sans-serif;
+  --risa-header-height: 2.8rem;
+}
+
+@media screen and (min-width: 60em) {
+  :root {
+    --risa-header-height: 3.2rem;
+  }
+}
+
+[data-md-color-scheme="risa-night"] {
+  color-scheme: dark;
+
+  --md-default-bg-color: #200836;
+  --md-default-bg-color--light: rgba(32, 8, 54, 0.54);
+  --md-default-bg-color--lighter: rgba(32, 8, 54, 0.26);
+  --md-default-bg-color--lightest: rgba(32, 8, 54, 0.07);
+  --md-default-fg-color: #ece2f6;
+  --md-default-fg-color--light: #b7a3cc;
+  --md-default-fg-color--lighter: #8d79a6;
+  --md-default-fg-color--lightest: rgba(233, 218, 249, 0.09);
+
+  --md-primary-fg-color: #f680a1;
+  --md-primary-fg-color--light: #f9a6be;
+  --md-primary-fg-color--dark: #b64f8c;
+  --md-primary-bg-color: #200836;
+  --md-primary-bg-color--light: rgba(32, 8, 54, 0.7);
+  --md-accent-fg-color: #f680a1;
+  --md-accent-fg-color--transparent: rgba(246, 128, 161, 0.11);
+  --md-accent-bg-color: #200836;
+  --md-accent-bg-color--light: rgba(32, 8, 54, 0.7);
+
+  --md-typeset-color: #ece2f6;
+  --md-typeset-a-color: #f680a1;
+  --md-typeset-kbd-color: #150524;
+  --md-typeset-kbd-accent-color: #2c1145;
+  --md-typeset-kbd-border-color: #2c1145;
+  --md-typeset-mark-color: rgba(246, 128, 161, 0.3);
+  --md-typeset-table-color: rgba(233, 218, 249, 0.09);
+  --md-typeset-table-color--light: rgba(233, 218, 249, 0.03);
+
+  --md-code-bg-color: #150524;
+  --md-code-bg-color--light: rgba(21, 5, 36, 0.9);
+  --md-code-bg-color--lighter: rgba(21, 5, 36, 0.54);
+
+  --md-admonition-fg-color: #ece2f6;
+
+  --md-shadow-z1: 0 0.2rem 0.5rem #0000000d, 0 0 0.05rem #ffffff1a;
+  --md-shadow-z2: 0 0.2rem 0.5rem #00000040, 0 0 0.05rem #ffffff59;
+  --md-shadow-z3: 0 0.5rem 2rem #0006, 0 0 0.05rem #00000059;
+
+  --color-foreground: 236 226 246;
+  --color-background: 32 8 54;
+  --color-background-subtle: 21 5 36;
+  --color-backdrop: 18 3 31;
+
+  --risa-rule-color: rgba(233, 218, 249, 0.09);
+  --risa-card-bg: #150524;
+  --risa-inline-code-color: var(--md-code-fg-color);
+  --risa-inline-code-bg: var(--md-code-bg-color);
+  --risa-heading-color: #ffffff;
+  --risa-pink: #f680a1;
+  --risa-dot-color: rgba(246, 128, 161, 0.5);
+  --risa-sticker-edge: #12031f;
+  --risa-warning-fg-color: #f5b74e;
+  --risa-banner-bg-color: #2a1d24;
+  --risa-banner-border-color: rgba(245, 183, 78, 0.35);
+  --risa-banner-fg-color: #f0dce6;
+}
+
+[data-md-color-scheme="risa-banner"] {
+  color-scheme: light;
+
+  --md-default-bg-color: #f3eaf8;
+  --md-default-bg-color--light: rgba(243, 234, 248, 0.7);
+  --md-default-bg-color--lighter: rgba(243, 234, 248, 0.3);
+  --md-default-bg-color--lightest: rgba(243, 234, 248, 0.12);
+  --md-default-fg-color: #2a1238;
+  --md-default-fg-color--light: #5b3f70;
+  --md-default-fg-color--lighter: #7d6093;
+  --md-default-fg-color--lightest: rgba(63, 8, 97, 0.1);
+
+  --md-primary-fg-color: #b02c60;
+  --md-primary-fg-color--light: #f680a1;
+  --md-primary-fg-color--dark: #3f0861;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+  --md-accent-fg-color: #b02c60;
+  --md-accent-fg-color--transparent: rgba(176, 44, 96, 0.1);
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-typeset-color: #2a1238;
+  --md-typeset-a-color: #b02c60;
+  --md-typeset-kbd-color: rgba(255, 255, 255, 0.6);
+  --md-typeset-kbd-accent-color: #ffffff;
+  --md-typeset-kbd-border-color: rgba(63, 8, 97, 0.2);
+  --md-typeset-mark-color: rgba(246, 128, 161, 0.3);
+  --md-typeset-table-color: rgba(63, 8, 97, 0.1);
+  --md-typeset-table-color--light: rgba(63, 8, 97, 0.035);
+
+  --md-code-bg-color: #2a0a40;
+  --md-code-bg-color--light: rgba(42, 10, 64, 0.9);
+  --md-code-bg-color--lighter: rgba(42, 10, 64, 0.54);
+
+  --md-admonition-fg-color: #2a1238;
+
+  --color-foreground: 42 18 56;
+  --color-background: 243 234 248;
+  --color-background-subtle: 236 224 244;
+  --color-backdrop: 236 224 244;
+
+  --risa-rule-color: rgba(63, 8, 97, 0.1);
+  --risa-card-bg: rgba(255, 255, 255, 0.35);
+  --risa-inline-code-color: #3f0861;
+  --risa-inline-code-bg: rgba(63, 8, 97, 0.07);
+  --risa-heading-color: #3f0861;
+  /* Never as text: it is 3.5:1 on the page, hence the darker link pink. */
+  --risa-pink: #d24d82;
+  --risa-dot-color: rgba(214, 70, 130, 0.35);
+  --risa-sticker-edge: rgba(63, 8, 97, 0.3);
+  --risa-warning-fg-color: #8a5a12;
+  --risa-banner-bg-color: #f6e3cf;
+  --risa-banner-border-color: rgba(138, 90, 18, 0.35);
+  --risa-banner-fg-color: #2a1238;
+}
+
+[data-md-color-scheme="risa-night"],
+[data-md-color-scheme="risa-banner"] {
+  --md-code-fg-color: #eadcf5;
+  --md-code-hl-color: #f680a1;
+  --md-code-hl-color--light: rgba(246, 128, 161, 0.12);
+  --md-code-hl-keyword-color: #ff8fb5;
+  --md-code-hl-function-color: #ffd479;
+  --md-code-hl-string-color: #a8ecc0;
+  --md-code-hl-number-color: #ffb38a;
+  --md-code-hl-comment-color: #9281ab;
+  --md-code-hl-name-color: var(--md-code-fg-color);
+  --md-code-hl-special-color: #c9a7ff;
+  --md-code-hl-constant-color: var(--md-code-fg-color);
+  --md-code-hl-operator-color: var(--md-code-fg-color);
+  --md-code-hl-punctuation-color: var(--md-code-fg-color);
+  --md-code-hl-generic-color: var(--md-code-fg-color);
+  --md-code-hl-variable-color: var(--md-code-fg-color);
+  --risa-code-decorator-color: #c9a7ff;
+  --risa-warning-rule-color: #f5b74e;
+}
+
+/* The theme's logo rules are more specific than a scheme selector. */
+[data-md-color-scheme="risa-night"] :is(.risa-logo__banner, .risa-brand__banner),
+[data-md-color-scheme="risa-banner"] :is(.risa-logo__night, .risa-brand__night) {
+  display: none !important;
+}
+
+.md-header {
+  color: var(--md-default-fg-color--light);
+  background-color: var(--md-default-bg-color);
+  box-shadow: 0 0.05rem 0 var(--risa-rule-color);
+  backdrop-filter: none;
+}
+
+.md-header__inner {
+  height: var(--risa-header-height);
+  padding: 0 0.6rem;
+}
+
+.md-header__button[for="__drawer"] {
+  order: -1;
+}
+
+.md-header__option {
+  order: 1;
+}
+
+.md-header__source {
+  display: none;
+}
+
+.md-header__button.md-logo {
+  display: block;
+  padding: 0;
+  margin: 0;
+}
+
+/* The logo's artboard leaves a wide margin around the glyphs. */
+.md-header__button.md-logo img {
+  width: 3rem;
+  height: 3rem;
+  margin: -0.6rem -0.5rem -0.6rem -0.55rem;
+}
+
+.md-header__title {
+  height: var(--risa-header-height);
+  margin-right: 0.4rem;
+  margin-left: 0.4rem;
+  font-family: var(--risa-display-font);
+  font-size: 0.95rem;
+  line-height: var(--risa-header-height);
+  color: var(--risa-heading-color);
+  letter-spacing: -0.015em;
+}
+
+@media screen and (min-width: 60em) {
+  .md-header__button.md-logo img {
+    width: 3.7rem;
+    height: 3.7rem;
+    margin: -0.8rem -0.7rem -0.8rem -0.7rem;
+  }
+
+  .md-header__title {
+    font-size: 1.05rem;
+  }
+}
+
+.md-header__topic {
+  align-items: center;
+  height: 100%;
+}
+
+.risa-wordmark {
+  color: inherit;
+}
+
+.md-header__topic:first-child {
+  font-weight: 900;
+}
+
+.md-header__topic + .md-header__topic {
+  display: none;
+}
+
+.md-header__title--active .md-header__topic {
+  z-index: auto;
+  pointer-events: auto;
+  opacity: 1;
+  transform: none;
+}
+
+.md-version {
+  position: relative;
+  height: auto;
+  font-family: var(--risa-display-font);
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+[dir="ltr"] .md-version__current {
+  margin-right: 0;
+  margin-left: 0.6rem;
+}
+
+.md-version__current {
+  top: 0;
+  padding: 0.05rem 0.4rem;
+  color: var(--md-default-fg-color--light);
+  border: 0.05rem solid var(--risa-rule-color);
+  border-radius: 0.2rem;
+  transition: border-color 0.25s;
+}
+
+.md-version__current:hover,
+.md-version:focus-within .md-version__current {
+  border-color: var(--md-default-fg-color--lighter);
+}
+
+.md-version__current::after {
+  display: none;
+}
+
+.md-version__alias {
+  color: var(--md-default-fg-color--lighter);
+  opacity: 1;
+}
+
+.md-version__current .md-version__alias {
+  display: none;
+}
+
+.md-version__list {
+  top: 100%;
+  left: 0;
+  margin: 0.3rem 0 0 0.6rem;
+  font-family: var(--md-text-font-family);
+  font-size: 0.7rem;
+  font-weight: 400;
+  background-color: var(--md-default-bg-color);
+  border: 0.05rem solid var(--risa-rule-color);
+  border-radius: 0.2rem;
+  box-shadow: var(--md-shadow-z1);
+}
+
+.md-version__link:focus,
+.md-version__link:hover {
+  color: var(--risa-heading-color);
+}
+
+.md-header .md-header__option .md-header__button,
+.md-header .md-header__button[for="__search"],
+.md-header .md-header__button[for="__drawer"] {
+  padding: 0.4rem;
+  margin: 0 0 0 0.2rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-header .md-header__button[for="__drawer"] {
+  margin: 0 0.3rem 0 -0.2rem;
+}
+
+.md-header .md-header__option .md-header__button svg,
+.md-header .md-header__button[for="__search"] svg,
+.md-header .md-header__button[for="__drawer"] svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+@media screen and (min-width: 60em) {
+  .md-search__button {
+    width: 11.5rem;
+    height: 1.7rem;
+    color: var(--md-default-fg-color--lighter);
+    background-color: transparent;
+    border: 0.05rem solid var(--risa-rule-color);
+    border-radius: 0.3rem;
+  }
+
+  .md-search__button:focus,
+  .md-search__button:hover {
+    color: var(--md-default-fg-color--light);
+    background-color: transparent;
+    border-color: var(--md-default-fg-color--lighter);
+  }
+
+  .md-search__button::before {
+    top: 0.33rem;
+    width: 0.85rem;
+    height: 0.85rem;
+    background-color: var(--md-default-fg-color--lighter);
+  }
+
+  .md-search__button::after {
+    top: 0.33rem;
+    color: var(--md-default-fg-color--lighter);
+    background: transparent;
+  }
+}
+
+/* Below this the wordmark and the version tag would not fit beside the two icons. */
+@media screen and (max-width: 22.5em) {
+  .md-header__title {
+    margin-left: 0.3rem;
+    font-size: 0.85rem;
+  }
+
+  [dir="ltr"] .md-version__current {
+    margin-left: 0.4rem;
+  }
+
+  .md-header .md-header__option .md-header__button,
+  .md-header .md-header__button[for="__search"] {
+    padding: 0.3rem;
+    margin-left: 0;
+  }
+}
+
+/* The theme removes most outlines and leaves the rest to the browser's own colour. */
+html :is(a, button, summary, [tabindex]):focus-visible {
+  outline: 0.1rem solid var(--risa-pink);
+  outline-offset: 0.1rem;
+}
+
+/* Both sit inside the theme's overflow clip, which an outer ring would lose. */
+html :is(.md-nav--primary .md-nav__link, .md-version__link):focus-visible {
+  outline-offset: -0.1rem;
+}
+
+/* After a reload no palette radio is checked and Tab lands on the first, whose own label may be hidden. */
+html .md-header__option:has(.md-option:focus-visible) label:not([hidden]) {
+  outline: 0.1rem solid var(--risa-pink);
+  outline-offset: 0.1rem;
+}
+
+.md-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.md-main__inner {
+  flex-grow: 1;
+  width: 100%;
+  margin-top: 0;
+}
+
+.md-sidebar--primary .risa-brand {
+  display: block;
+  margin: 0 0 0.6rem -0.3rem;
+}
+
+.md-sidebar--primary .risa-brand img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary {
+    top: var(--risa-header-height);
+  }
+
+  [dir="ltr"] .md-sidebar--primary .md-sidebar__inner {
+    padding-left: 0.6rem;
+  }
+
+  [dir="ltr"] .md-sidebar--primary:not([hidden]) ~ .md-content {
+    border-left: 0.05rem solid var(--risa-rule-color);
+  }
+
+  [dir="ltr"] .md-sidebar--primary:not([hidden]) ~ .md-content > .md-path {
+    margin-left: 1.95rem;
+  }
+
+  [dir="ltr"] .md-sidebar--primary:not([hidden]) ~ .md-content > .md-content__inner {
+    margin-left: 2.2rem;
+  }
+}
+
+@media screen and (min-width: 60em) {
+  .md-sidebar--secondary {
+    top: var(--risa-header-height);
+  }
+}
+
+@media screen and (max-width: 76.234375em) {
+  [dir="ltr"] .md-sidebar--primary {
+    left: -12.5rem;
+  }
+
+  .md-sidebar--primary {
+    top: 0;
+    height: 100%;
+    background-color: var(--md-default-bg-color);
+    backdrop-filter: none;
+    border-right: 0.05rem solid var(--risa-rule-color);
+    border-radius: 0;
+  }
+
+  .md-sidebar--primary .md-sidebar__inner {
+    padding: 1.1rem 0.6rem 1.6rem 0.8rem;
+  }
+
+  .md-nav--primary {
+    margin: 0;
+  }
+
+  .md-nav--primary > .md-nav__title[for="__drawer"] {
+    display: none;
+  }
+
+  .md-nav__source {
+    margin: 0 0 0.4rem 0.05rem;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .md-nav__source:focus,
+  .md-nav__source:hover {
+    background-color: transparent;
+  }
+
+  .md-nav__source .md-source {
+    padding: 0;
+    color: var(--md-default-fg-color--light);
+  }
+}
+
+.md-nav--primary .md-nav__link {
+  padding: 0.2rem 0 0.2rem 0.6rem;
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  border-left: 0.15rem solid transparent;
+  border-radius: 0;
+}
+
+/* A package's row wraps its link and toggle in an outer .md-nav__link, which must not indent them twice. */
+.md-nav--primary .md-nav__container {
+  padding: 0;
+  border-left: 0;
+}
+
+.md-nav--primary .md-nav__container > .md-nav__link[for] {
+  padding-right: 0.4rem;
+  padding-left: 0.4rem;
+  border-left: 0;
+}
+
+.md-nav--primary .md-nav__link[for]:focus:not(.md-nav__link--active),
+.md-nav--primary .md-nav__link[for]:hover:not(.md-nav__link--active),
+.md-nav--primary .md-nav__link[href]:focus:not(.md-nav__link--active),
+.md-nav--primary .md-nav__link[href]:hover:not(.md-nav__link--active) {
+  color: var(--risa-heading-color);
+  background-color: transparent;
+}
+
+.md-nav--primary .md-nav__item .md-nav__link--active,
+.md-nav--primary .md-nav__item .md-nav__link--active code {
+  font-weight: 600;
+  color: var(--risa-heading-color);
+  background: none;
+}
+
+.md-nav--primary .md-nav__item .md-nav__link--active {
+  border-left-color: var(--risa-pink);
+}
+
+/* Home and each section's header are the same thing: a link on the top level. */
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link[href],
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__container > .md-nav__link[href] {
+  padding-left: 0;
+  font-family: var(--risa-display-font);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--risa-heading-color);
+  border-left: 0;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link[href]:is(:focus, :hover, .md-nav__link--active),
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__container > .md-nav__link[href]:is(:focus, :hover, .md-nav__link--active) {
+  color: var(--md-typeset-a-color);
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item--section {
+  margin-top: 0.8rem;
+}
+
+/* The rail the active page's bar sits on. */
+[dir="ltr"] .md-nav--primary > .md-nav__list > .md-nav__item--section > .md-nav > .md-nav__list {
+  margin-left: 0;
+  border-left: 0.05rem solid var(--risa-rule-color);
+}
+
+[dir="ltr"] .md-nav--primary > .md-nav__list > .md-nav__item--section > .md-nav > .md-nav__list > .md-nav__item > :is(.md-nav__link, .md-nav__container) {
+  margin-left: -0.05rem;
+}
+
+.md-nav--secondary .md-nav__title {
+  font-family: var(--risa-display-font);
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--md-default-fg-color--lighter);
+}
+
+.md-nav--secondary .md-nav__link {
+  color: var(--md-default-fg-color--light);
+  border-radius: 0.2rem;
+}
+
+.md-nav--secondary .md-nav__link[for]:focus,
+.md-nav--secondary .md-nav__link[for]:hover,
+.md-nav--secondary .md-nav__link[href]:focus,
+.md-nav--secondary .md-nav__link[href]:hover,
+.md-nav--secondary .md-nav__link--active {
+  color: var(--risa-heading-color);
+}
+
+.md-content {
+  position: relative;
+  isolation: isolate;
+}
+
+.md-content::before,
+.risa-hero__art::before {
+  position: absolute;
+  pointer-events: none;
+  content: "";
+  background-image: radial-gradient(var(--risa-dot-color) 0.12rem, transparent 0.145rem);
+  background-size: 0.65rem 0.65rem;
+}
+
+/* Painted under the content's own layer, so code blocks and text cover it. */
+.md-content::before {
+  top: 0;
+  right: 0;
+  z-index: -1;
+  width: 16rem;
+  height: 6rem;
+  background-position: right top;
+  mask-image: radial-gradient(circle at 100% 0%, #000, transparent 70%);
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-content::before {
+    width: 11rem;
+    height: 4.5rem;
+  }
+}
+
+.md-content__inner {
+  padding-top: 1.3rem;
+}
+
+/* Padding and matching negative margins keep a focus ring clear of the theme's overflow clip. */
+.md-path {
+  padding: 1.2rem 0.25rem 0.25rem;
+  margin: 0 0.55rem -0.25rem;
+  color: var(--md-default-fg-color--lighter);
+}
+
+.md-path:not([hidden]) + .md-content__inner {
+  padding-top: 0.6rem;
+}
+
+.md-typeset .risa-lead,
+.md-typeset .doc-contents.first > p:first-child {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6 {
+  color: var(--risa-heading-color);
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  font-family: var(--risa-display-font);
+  font-weight: 900;
+}
+
+.md-typeset h1 {
+  margin: 0 0 0.4em;
+  font-size: 2.6667em;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.md-typeset h2 {
+  font-size: 1.4667em;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset h3 {
+  font-size: 1.2em;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-typeset h1 {
+    font-size: 2.1333em;
+  }
+}
+
+/* Code surfaces stay dark in both schemes, so the page's foreground shades are swapped inside them. */
+.md-typeset .highlight {
+  --md-default-bg-color: var(--md-code-bg-color);
+  --md-default-fg-color: var(--md-code-fg-color);
+  --md-default-fg-color--light: #b7a3cc;
+  --md-default-fg-color--lighter: #9281ab;
+  --md-default-fg-color--lightest: rgba(233, 218, 249, 0.09);
+  --md-accent-fg-color: #f680a1;
+  --md-typeset-a-color: #f680a1;
+
+  color: var(--md-code-fg-color);
+}
+
+.md-typeset .highlight :is(.nd, .nd + .o, .nd + .o + .n) {
+  color: var(--risa-code-decorator-color);
+}
+
+.md-typeset pre > code {
+  border-radius: 0.3rem;
+}
+
+.md-typeset .highlight .md-code__button {
+  color: var(--md-default-fg-color--lighter);
+}
+
+.md-typeset .highlight .md-code__button:is(:hover, .focus-visible) {
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset :not(pre) > code:not(.highlight) {
+  color: var(--risa-inline-code-color);
+  background-color: var(--risa-inline-code-bg);
+}
+
+/* The theme's break-word lets a table squeeze a type name in its first column onto two lines. */
+.md-typeset td:first-child > code {
+  word-break: normal;
+}
+
+.md-typeset code.doc-symbol,
+.md-typeset .doc-label code {
+  --risa-inline-code-color: var(--md-default-fg-color--light);
+  --risa-inline-code-bg: transparent;
+
+  padding: 0;
+  font-family: var(--md-text-font-family);
+  font-size: 0.68rem;
+  font-style: italic;
+  font-weight: 400;
+  vertical-align: baseline;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* The theme's opacity on <small> takes the word below 4.5:1 on the Banner tone. */
+.md-typeset .doc-label {
+  opacity: 1;
+}
+
+.md-typeset .doc-label-module-attribute,
+.md-typeset .doc-label-class-attribute,
+.md-typeset .doc-label-instance-attribute,
+.md-typeset .doc-label-property {
+  display: none;
+}
+
+/* griffe calls a property an attribute with a label, and the heading should say what it is. */
+.md-content .doc-heading:has(.doc-label-property) > code.doc-symbol-attribute::after {
+  content: "property";
+}
+
+.md-typeset .doc-signature .md-code__nav {
+  display: none;
+}
+
+.md-typeset .risa-error .md-code__nav {
+  display: none;
+}
+
+.md-typeset .doc-section-item > code {
+  --risa-inline-code-bg: transparent;
+
+  padding: 0;
+}
+
+/* The handler's template leaves a space between a default and the closing parenthesis. */
+.md-typeset .doc-section-item > code + code {
+  margin-right: -0.25em;
+}
+
+[data-md-color-scheme="risa-banner"] .md-nav code {
+  color: inherit;
+  background-color: rgba(63, 8, 97, 0.07);
+}
+
+div.doc-contents:not(.first) {
+  border-left-color: var(--risa-rule-color);
+}
+
+.md-dialog {
+  border-radius: 0.3rem;
+}
+
+/* [class] to outrank the theme, which fills each admonition type on its own. */
+.md-typeset .admonition[class],
+.md-typeset details,
+.md-typeset details[class] {
+  padding: 0.1rem 0 0.1rem 0.8rem;
+  font-size: inherit;
+  background-color: transparent;
+  border: 0;
+  border-left: 0.15rem solid var(--md-default-fg-color--lighter);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.md-typeset .admonition > :first-child,
+.md-typeset details > :first-child {
+  margin-top: 0;
+}
+
+html .md-typeset .admonition > :last-child,
+html .md-typeset details > :last-child {
+  margin-bottom: 0;
+}
+
+[dir="ltr"] .md-typeset .admonition-title,
+[dir="ltr"] .md-typeset summary {
+  padding-left: 0;
+}
+
+[dir="ltr"] .md-typeset .admonition-title {
+  padding-right: 0;
+}
+
+.md-typeset .admonition-title,
+.md-typeset summary {
+  margin: 0;
+  font-family: var(--risa-display-font);
+  font-weight: 900;
+  color: var(--risa-heading-color);
+  background: none;
+}
+
+.md-typeset details:not([open]) > summary {
+  margin-bottom: 0;
+}
+
+.md-typeset .admonition-title::before,
+.md-typeset summary::before {
+  display: none;
+}
+
+.md-typeset details[class] > summary::after {
+  color: var(--md-default-fg-color--lighter);
+}
+
+/* The title runs into the text, so it reads best as a short sentence: "Try it." */
+.md-typeset .admonition > .admonition-title,
+.md-typeset .admonition > .admonition-title + p {
+  display: inline;
+}
+
+.md-typeset .admonition.tip[class],
+.md-typeset details.tip {
+  border-left-color: var(--risa-pink);
+}
+
+.md-typeset .admonition.warning[class],
+.md-typeset details.warning {
+  border-left-color: var(--risa-warning-rule-color);
+}
+
+.md-typeset .warning > .admonition-title,
+.md-typeset .warning > summary {
+  color: var(--risa-warning-fg-color);
+}
+
+.md-typeset .admonition.miru[class],
+.md-typeset details.miru {
+  font-size: 0.9em;
+  color: var(--md-default-fg-color--light);
+  border-left-color: var(--risa-rule-color);
+}
+
+.md-typeset .miru > .admonition-title,
+.md-typeset .miru > summary {
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .tabbed-labels > label {
+  font-family: var(--risa-display-font);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.js .md-typeset .tabbed-labels::before {
+  background: var(--risa-pink);
+}
+
+.md-top,
+.md-sidebar--secondary .md-sidebar-button {
+  background-color: var(--md-default-bg-color);
+  backdrop-filter: none;
+  border: 0.05rem solid var(--risa-rule-color);
+  border-radius: 0.3rem;
+  box-shadow: none;
+}
+
+.md-top:focus,
+.md-top:hover,
+.md-sidebar--secondary .md-sidebar-button:focus,
+.md-sidebar--secondary .md-sidebar-button:hover {
+  color: var(--risa-heading-color);
+  background-color: var(--md-default-bg-color);
+  border-color: var(--md-default-fg-color--lighter);
+}
+
+.md-footer {
+  color: var(--md-default-fg-color--lighter);
+  background-color: var(--md-default-bg-color);
+  border-top: 0.05rem solid var(--risa-rule-color);
+}
+
+.md-footer-meta {
+  background-color: transparent;
+}
+
+.md-footer-meta__inner {
+  padding: 0 0.8rem;
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-footer-meta__inner {
+    padding: 0 0.6rem;
+  }
+}
+
+.md-copyright {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.7rem 0;
+  margin: 0;
+  font-size: 0.625rem;
+  color: var(--md-default-fg-color--lighter);
+}
+
+.md-footer-meta.md-typeset a {
+  text-decoration: none;
+}
+
+html .md-footer-meta.md-typeset a:not(:focus, :hover) {
+  color: inherit;
+}
+
+.md-footer-meta.md-typeset a:focus,
+.md-footer-meta.md-typeset a:hover {
+  color: var(--risa-heading-color);
+}
+
+[data-md-component="outdated"] .md-banner--warning {
+  color: var(--risa-banner-fg-color);
+  background-color: var(--risa-banner-bg-color);
+  border-bottom: 0.05rem solid var(--risa-banner-border-color);
+}
+
+[data-md-component="outdated"] .md-banner--warning a {
+  color: var(--risa-warning-fg-color);
+  text-decoration: underline;
+}
+
+.md-main__inner:has(.risa-hero) {
+  max-width: none;
+}
+
+.md-content:has(.risa-hero)::before,
+.md-content__inner:has(.risa-hero)::before {
+  display: none;
+}
+
+.md-content__inner:has(.risa-hero) {
+  --risa-home-gutter: max(2.4rem, calc(50% - 28.1rem));
+
+  padding-top: 0;
+  margin: 0;
+}
+
+.risa-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22rem minmax(0, 1fr);
+  column-gap: 1.5rem;
+  padding-inline: var(--risa-home-gutter);
+  overflow: hidden;
+  border-bottom: 0.05rem solid var(--risa-rule-color);
+}
+
+.risa-hero__copy {
+  position: relative;
+  z-index: 1;
+  padding: 3.5rem 0 2.6rem;
+}
+
+/* The logo's artboard leaves a wide margin around the glyphs. */
+.md-typeset .risa-hero__logo {
+  margin: -3.6rem 0 -4.1rem -2.6rem;
+}
+
+.risa-hero__logo img {
+  display: block;
+  width: 12.5rem;
+  height: 12.5rem;
+}
+
+.md-typeset .risa-hero h1 {
+  margin: 0;
+  font-size: clamp(2.3rem, 13.5vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: -0.0235em;
+}
+
+.md-typeset .risa-hero .headerlink {
+  display: none;
+}
+
+.md-typeset .risa-hero__tagline {
+  max-width: 21rem;
+  margin: 0.8rem 0 1.3rem;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--md-default-fg-color--light);
+  text-wrap: pretty;
+}
+
+.md-typeset .risa-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.1rem;
+  align-items: center;
+  margin: 0;
+  font-family: var(--risa-display-font);
+  font-size: 0.8rem;
+}
+
+.md-typeset .risa-hero__actions a {
+  text-decoration: none;
+}
+
+.md-typeset a.risa-hero__start {
+  padding: 0.5rem 1rem;
+  font-weight: 900;
+  color: #150524;
+  background-color: var(--risa-pink);
+  border-radius: 0.2rem;
+  transition:
+    color 125ms,
+    background-color 125ms;
+}
+
+.md-typeset a.risa-hero__start:focus,
+.md-typeset a.risa-hero__start:hover {
+  color: var(--md-default-bg-color);
+  background-color: var(--risa-heading-color);
+}
+
+.md-typeset :is(.risa-hero__example, .risa-miru__link) {
+  padding-bottom: 0.1rem;
+  font-weight: 500;
+  color: var(--risa-heading-color);
+  text-decoration: none;
+  border-bottom: 0.1rem solid var(--risa-pink);
+}
+
+/* Shrinks just enough to keep the URL on one line down to a 320 px phone. */
+.md-typeset .risa-hero__install {
+  margin: 1.1rem 0 0;
+  font-family: var(--md-code-font-family);
+  font-size: clamp(0.55rem, 3.4vw, 0.65rem);
+  line-height: 1.5;
+  color: var(--md-default-fg-color--lighter);
+}
+
+.risa-hero__install::before {
+  content: "$ ";
+}
+
+.md-typeset .risa-hero__install code {
+  --risa-inline-code-color: var(--md-default-fg-color);
+  --risa-inline-code-bg: none;
+
+  padding: 0;
+  font-size: inherit;
+}
+
+.risa-hero__art {
+  --risa-sticker-width: min(100%, 25rem);
+
+  position: relative;
+}
+
+/* Anchored to the sticker rather than the page, so the field stays behind Risa on any screen. */
+.risa-hero__art::before {
+  top: 0;
+  right: -18rem;
+  bottom: 0;
+  left: -5rem;
+  mask-image: radial-gradient(circle 17.2rem at calc(100% - 25rem) 48%, #000, rgba(0, 0, 0, 0.55) 55%, transparent);
+}
+
+.risa-hero__art img {
+  position: absolute;
+  top: 0.9rem;
+  right: 0;
+  width: var(--risa-sticker-width);
+  filter: drop-shadow(0.6rem 0.6rem 0 var(--risa-sticker-edge));
+  transform: rotate(-4deg);
+}
+
+.risa-why {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.7rem;
+  padding: 2rem var(--risa-home-gutter) 1.7rem;
+}
+
+.md-typeset .risa-why p {
+  margin: 0;
+  font-size: 0.725rem;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+  text-wrap: pretty;
+}
+
+.risa-why strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-family: var(--risa-display-font);
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: var(--risa-heading-color);
+}
+
+.md-typeset .risa-miru {
+  padding: 0 var(--risa-home-gutter) 1.7rem;
+  margin: 0;
+  font-size: 0.725rem;
+  color: var(--md-default-fg-color--light);
+}
+
+@media screen and (max-width: 59.984375em) {
+  .md-content__inner:has(.risa-hero) {
+    --risa-home-gutter: 0.8rem;
+  }
+
+  .risa-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .risa-hero__art {
+    --risa-sticker-width: min(76vw, 20rem);
+
+    grid-row: 1;
+    height: calc(var(--risa-sticker-width) * 0.9 + 0.7rem);
+    margin-inline: calc(-1 * var(--risa-home-gutter));
+    overflow: hidden;
+    border-bottom: 0.05rem solid var(--risa-rule-color);
+  }
+
+  .risa-hero__art::before {
+    right: 0;
+    left: 0;
+    mask-image: radial-gradient(circle 11rem at 50% 45%, #000, rgba(0, 0, 0, 0.55) 55%, transparent);
+  }
+
+  .risa-hero__art img {
+    top: 0.7rem;
+    left: 0;
+    margin-inline: auto;
+  }
+
+  .risa-hero__copy {
+    padding: 2.2rem 0 2rem;
+  }
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-typeset .risa-hero__logo {
+    margin: -2.6rem 0 -3rem -1.9rem;
+  }
+
+  .risa-hero__logo img {
+    width: 9rem;
+    height: 9rem;
+  }
+
+  .risa-hero__art img {
+    filter: drop-shadow(0.4rem 0.4rem 0 var(--risa-sticker-edge));
+  }
+
+  .risa-why {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.2rem;
+  }
+}
+
+.risa-live {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1.4rem;
+  align-items: start;
+  padding-block: 0.3rem 3rem;
+  padding-inline: var(--risa-home-gutter);
+}
+
+.md-typeset .risa-live > .highlight,
+.md-typeset .risa-live > .highlight pre {
+  margin: 0;
+}
+
+/* The theme's own padding of a code block, so that the tint reaches both of its edges. */
+.risa-live__tint {
+  margin-inline: -1.25em;
+  padding-inline: 1.25em;
+  animation: risa-live-tint 0.9s ease-out;
+}
+
+@keyframes risa-live-tint {
+  from,
+  35% {
+    background-color: var(--md-code-hl-color--light);
+  }
+
+  to {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .risa-live__tint {
+    animation: none;
+    background-color: var(--md-code-hl-color--light);
+  }
+}
+
+.risa-live__value {
+  user-select: none;
+}
+
+/* The theme reads a block's innerText for its copy button, and the value is not part of the source. */
+[data-md-copying] .risa-live__value {
+  display: none;
+}
+
+.risa-live__side {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.md-typeset .risa-live__id {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  font-family: var(--md-code-font-family);
+  font-size: 0.6rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.risa-live__id-label {
+  margin-right: 0.3rem;
+  color: var(--md-default-fg-color--lighter);
+}
+
+/* The link colour, because the pink of Banner tone is never used as text. */
+.risa-live__changed {
+  color: var(--md-typeset-a-color);
+}
+
+.md-typeset .risa-live__note {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.725rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.no-js .risa-live__note {
+  display: none;
+}
+
+@media screen and (max-width: 59.984375em) {
+  .risa-live {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The "In Discord" block is the lower half of the code block above it. */
+.md-typeset .highlight:has(+ .risa-result) {
+  margin-bottom: 0;
+}
+
+.md-typeset .highlight:has(+ .risa-result) pre {
+  margin-bottom: 0;
+}
+
+.md-typeset .highlight:has(+ .risa-result) pre > code {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.md-typeset .risa-result {
+  --md-default-fg-color--light: #b7a3cc;
+  --md-typeset-a-color: #f680a1;
+
+  margin: 0 0 1em;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px dashed rgba(233, 218, 249, 0.14);
+  border-radius: 0 0 0.3rem 0.3rem;
+  color: var(--md-code-fg-color);
+  background: var(--md-code-bg-color);
+}
+
+.md-typeset .highlight + .risa-result {
+  margin-top: 0;
+}
+
+.md-typeset .risa-result:has(+ .risa-result) {
+  border-radius: 0;
+}
+
+.md-typeset .risa-result + .risa-result {
+  margin-top: -1em;
+}
+
+.md-typeset .risa-result > .risa-result__label {
+  margin: 0 0 0.5rem;
+  color: #f680a1;
+  font-family: "Zen Kaku Gothic New", var(--md-text-font-family), sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* On a phone the theme runs a top-level code block to both screen edges, and its lower half has to follow. */
+@media screen and (max-width: 44.984375em) {
+  .md-content__inner > .risa-result {
+    margin-inline: -0.8rem;
+    border-radius: 0;
+  }
+}
+
+.md-typeset .risa-error {
+  margin: 0;
+}
+
+.md-typeset .risa-error code {
+  padding: 0;
+  color: #ff8fb5;
+  background: none;
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* An overview page: a section's pages, each one a link as a whole. */
+.md-typeset .risa-overview {
+  counter-reset: risa-chapter;
+}
+
+.md-typeset .risa-overview > ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+[dir="ltr"] .md-typeset .risa-overview > ul > li {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  background: var(--risa-card-bg);
+  border: 1px solid var(--risa-rule-color);
+  border-radius: 0.3rem;
+  transition: border-color 125ms;
+}
+
+.md-typeset .risa-overview > ul > li:has(a:is(:hover, :focus-visible)) {
+  border-color: var(--risa-pink);
+}
+
+.md-typeset .risa-overview > ul > li > p {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .risa-overview > ul > li code {
+  padding: 0;
+  color: inherit;
+  background: none;
+}
+
+.md-typeset .risa-overview > ul > li > p:first-child {
+  font-size: 0.8rem;
+}
+
+.md-typeset .risa-overview > ul > li > p:first-child > a {
+  font-family: var(--risa-display-font);
+  font-weight: 700;
+  color: var(--risa-heading-color);
+  text-decoration: none;
+}
+
+.md-typeset .risa-overview > ul > li > p:first-child > a::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  border-radius: inherit;
+}
+
+.md-typeset .risa-overview > ul > li > p:first-child > a:focus-visible {
+  outline: none;
+}
+
+.md-typeset .risa-overview > ul > li > p:first-child > a:focus-visible::after {
+  outline: 0.1rem solid var(--risa-pink);
+  outline-offset: 0.1rem;
+}
+
+[dir="ltr"] .md-typeset .risa-overview--numbered > ul > li {
+  padding-left: 2.5rem;
+  counter-increment: risa-chapter;
+}
+
+.md-typeset .risa-overview--numbered > ul > li::before {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.85rem;
+  font-family: var(--risa-display-font);
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1.5;
+  color: var(--md-typeset-a-color);
+  content: counter(risa-chapter, decimal-leading-zero);
+}
+
+.md-typeset .risa-overview--rows > ul {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+[dir="ltr"] .md-typeset .risa-overview--rows > ul > li {
+  grid-template-columns: 12.5rem minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--risa-rule-color);
+  border-radius: 0;
+}
+
+.md-typeset .risa-overview--rows > ul > li > p:first-child > a {
+  font-family: var(--md-code-font-family);
+  font-size: 0.75rem;
+}
+
+.md-typeset .risa-overview--rows > ul > li:has(.risa-overview__sub) > p:first-child > a {
+  font-weight: 400;
+  color: var(--md-default-fg-color);
+}
+
+/* A module of a package sits under it, and its description keeps the column. */
+[dir="ltr"] .md-typeset .risa-overview--rows > ul > li:has(.risa-overview__sub) {
+  grid-template-columns: 11.7rem minmax(0, 1fr);
+  padding-left: 0.8rem;
+}
+
+.md-typeset .risa-overview--rows > ul > li:has(a:is(:hover, :focus-visible)) > p:first-child > a {
+  color: var(--md-typeset-a-color);
+}
+
+@media screen and (max-width: 59.984375em) {
+  .md-typeset .risa-overview:not(.risa-overview--rows) > ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .md-typeset .risa-overview:not(.risa-overview--rows) > ul > li:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-typeset .risa-overview:not(.risa-overview--rows) > ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [dir="ltr"] .md-typeset .risa-overview--rows > ul > li,
+  [dir="ltr"] .md-typeset .risa-overview--rows > ul > li:has(.risa-overview__sub) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.1rem;
+  }
+}
