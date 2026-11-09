@@ -44,7 +44,7 @@ _ART: typing.Final[collections.abc.Sequence[str]] = (
     r" / /  / (__  ) /_/ / ",
     r"/_/  /_/____/\__,_/  ",
 )
-# 256-colour codes from pink to violet, one per line of the art, that read on dark and light terminals.
+# 256-colour codes that read on dark and light terminals.
 _ART_COLOURS: typing.Final[collections.abc.Sequence[str]] = ("38;5;205", "38;5;206", "38;5;170", "38;5;134", "38;5;98")
 _PINK: typing.Final[str] = "38;5;205"
 _BOLD: typing.Final[str] = "1"
@@ -53,6 +53,17 @@ _LABEL_WIDTH: typing.Final[int] = 10
 _EXTRA: typing.Final[re.Pattern[str]] = re.compile(r"""extra\s*==\s*["']([^"']+)["']""")
 
 type _Paint = collections.abc.Callable[[str, str], str]
+
+
+def _section(
+    paint: _Paint, label: str, rows: collections.abc.Sequence[collections.abc.Sequence[str]]
+) -> collections.abc.Iterator[str]:
+    # The last column goes unpadded, so it may carry colour codes without breaking the alignment.
+    widths = [max(len(row[column]) for row in rows) for column in range(len(rows[0]) - 1)] if rows else []
+    for index, row in enumerate(rows):
+        cells = [cell.ljust(width) for cell, width in zip(row, widths, strict=False)]
+        heading = paint((label if index == 0 else "").ljust(_LABEL_WIDTH), _PINK)
+        yield f"  {heading}{'  '.join([*cells, row[-1]])}"
 
 
 def _report(*, colour: bool) -> collections.abc.Iterator[str]:
@@ -93,17 +104,6 @@ def _report(*, colour: bool) -> collections.abc.Iterator[str]:
     yield from _section(paint, "issues", [(urls["Issues"],)])
 
 
-def _section(
-    paint: _Paint, label: str, rows: collections.abc.Sequence[collections.abc.Sequence[str]]
-) -> collections.abc.Iterator[str]:
-    # The last column goes unpadded, so it may carry colour codes without breaking the alignment.
-    widths = [max(len(row[column]) for row in rows) for column in range(len(rows[0]) - 1)] if rows else []
-    for index, row in enumerate(rows):
-        cells = [cell.ljust(width) for cell, width in zip(row, widths, strict=False)]
-        heading = paint((label if index == 0 else "").ljust(_LABEL_WIDTH), _PINK)
-        yield f"  {heading}{'  '.join([*cells, row[-1]])}"
-
-
 def main() -> None:
     """Print the versions of risa, of Python and of the packages risa installs."""
     parser = argparse.ArgumentParser(
@@ -115,7 +115,10 @@ def main() -> None:
     colour = (
         sys.stdout.isatty() and os.name != "nt" and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
     )
-    sys.stdout.write("\n".join(_report(colour=colour)) + "\n")
+    report = "\n".join(_report(colour=colour)) + "\n"
+    # Before 3.15 a Windows pipe writes in the ANSI code page, which may lack a character of the path.
+    encoding = sys.stdout.encoding or "utf-8"
+    sys.stdout.write(report.encode(encoding, "backslashreplace").decode(encoding))
 
 
 if __name__ == "__main__":

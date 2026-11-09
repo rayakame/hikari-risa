@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import io
+import os
 import pathlib
 import sys
 import typing
@@ -80,6 +81,7 @@ def test_an_extra_names_itself_and_says_when_it_is_missing(
 
 def test_a_pipe_gets_no_colour(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
 
     assert not any("\x1b[" in line for line in _run(monkeypatch, capsys))
 
@@ -99,7 +101,21 @@ def test_a_terminal_gets_colour_unless_no_color_is_set(
 
     risa.__main__.main()
 
-    assert ("\x1b[" in terminal.getvalue()) is coloured
+    assert ("\x1b[" in terminal.getvalue()) is (coloured and os.name != "nt")
+
+
+def test_a_character_the_output_cannot_encode_is_escaped(monkeypatch: pytest.MonkeyPatch) -> None:
+    buffer = io.BytesIO()
+    monkeypatch.setattr(sys, "argv", ["hikari-risa"])
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(buffer, encoding="ascii"))
+    monkeypatch.setattr(risa, "__file__", "/home/j\u00fcrgen/risa/__init__.py")
+
+    risa.__main__.main()
+    sys.stdout.flush()
+
+    assert ["location", "/home/j\\xfcrgen/risa"] in [
+        line.split(None, 1) for line in buffer.getvalue().decode().splitlines()
+    ]
 
 
 def test_version_prints_only_the_version(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
