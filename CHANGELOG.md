@@ -4,7 +4,7 @@ What changed in each release of hikari-risa.
 
 <!-- towncrier release notes start -->
 
-## 1.0.0 (2026-11-08)
+## 1.0.0 (2026-11-09)
 
 The first release of hikari-risa, a component handler for [hikari](https://github.com/hikari-py/hikari) built for Components V2. It runs on Python 3.12 to 3.15 with hikari 2.5 or a later 2.x release.
 
