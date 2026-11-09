@@ -89,10 +89,19 @@ class InStore(msgspec.Struct, frozen=True):
     store
         Which of the client's stores holds the state: `"default"` for the client's
         `store=`, or a key of its `stores=`.
+    adopt
+        Take over the messages the view sent while it kept its state in the message. It
+        needs the same `version`, and durable fields that can still read the old state. The
+        first click on such a message moves its state into a record, which lives `ttl` like
+        any other, and every later click on the message reads the record. Once the record
+        has expired, the next click takes the state over again if the message still holds
+        it. A message nobody clicks keeps its state. Without `adopt`, a click on a message
+        nobody took over goes to `on_outdated`.
     """
 
     ttl: float | None
     store: str = DEFAULT_STORE
+    adopt: bool = False
 
     @property
     def codec(self) -> codecs.Codec:

@@ -44,6 +44,8 @@ __all__ = (
     "DEFAULT_MAX_CACHED",
     "MessageBackend",
     "MessageSession",
+    "read_anchor",
+    "unpack_anchor",
 )
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.state.message")
@@ -90,13 +92,24 @@ class MessageSession(backend.StateSession):
 
     @typing.override
     async def restore(self) -> backend.Restored | backend.Unreadably:
-        read = self._read()
+        read = read_anchor(self._meta, self._interaction, self._cookie)
+        if isinstance(read, anchor.StoreAnchor | anchor.TakenOverAnchor):
+            _LOGGER.error(
+                "interaction %s routes to view %s, which keeps its state in the message, but message %s"
+                " points at a store record: the placement was switched without bumping version=%d; bump"
+                " the version to retire these components",
+                self._interaction.id,
+                self._meta.name,
+                self._interaction.message.id,
+                self._meta.version,
+            )
+            return backend.Unreadably.OUTDATED
         if read is None:
             return backend.Unreadably.OUTDATED
         cached = self._backend.cached(self._interaction.message.id, self._cookie)
         if cached is not None and _newer(cached.seq, read.seq):
             read = cached
-        values = self._unpack(read)
+        values = unpack_anchor(self._meta, self._interaction, read)
         if values is None:
             return backend.Unreadably.OUTDATED
         view = backend.hydrate(self._meta, values)
@@ -129,66 +142,6 @@ class MessageSession(backend.StateSession):
             msg = "settle() needs a restore() before it"
             raise RuntimeError(msg)
         return self._meta.schema.pack_view(view) != self._baseline
-
-    def _read(self) -> anchor.MessageAnchor | None:
-        found = reader.fragments(self._interaction.message.components, cookie=self._cookie)
-        if isinstance(found, errors.CodecUnavailableError):
-            raise found
-        if found is None:
-            self._torn()
-            return None
-        if _unwritten(found):
-            return anchor.MessageAnchor(self._meta.schema.empty_fingerprint, 0, b"")
-        raw = anchor.gather(found)
-        parsed = None if raw is None else anchor.parse(raw)
-        if isinstance(parsed, anchor.StoreAnchor):
-            _LOGGER.error(
-                "interaction %s routes to view %s, which keeps its state in the message, but message %s"
-                " carries a store key: the placement was switched without bumping version=%d; bump the"
-                " version to retire these components",
-                self._interaction.id,
-                self._meta.name,
-                self._interaction.message.id,
-                self._meta.version,
-            )
-            return None
-        if parsed is None:
-            self._torn()
-        return parsed
-
-    def _torn(self) -> None:
-        _LOGGER.warning(
-            "interaction %s routes to view %s, but its state could not be reassembled from message %s;"
-            " the message was edited by something other than risa, or its components were forged",
-            self._interaction.id,
-            self._meta.name,
-            self._interaction.message.id,
-        )
-
-    def _unpack(self, read: anchor.MessageAnchor) -> collections.abc.Sequence[object] | None:
-        schema = self._meta.schema
-        if not schema.accepts(read.schema_fp):
-            _LOGGER.error(
-                "interaction %s routes to view %s, but message %s was written by durable fields this code"
-                " no longer accepts: a field was removed, reordered, retyped, or added without a default,"
-                " without bumping version=%d; bump the version to retire these components",
-                self._interaction.id,
-                self._meta.name,
-                self._interaction.message.id,
-                self._meta.version,
-            )
-            return None
-        values = schema.unpack(read.schema_fp, read.payload)
-        if values is None:
-            _LOGGER.warning(
-                "interaction %s routes to view %s, but the state in message %s does not decode under its"
-                " own fingerprint: a value of an enum or Literal field may have been removed, or the"
-                " components are forged or corrupted",
-                self._interaction.id,
-                self._meta.name,
-                self._interaction.message.id,
-            )
-        return values
 
 
 class MessageBackend(backend.StateBackend):
@@ -257,6 +210,80 @@ class MessageBackend(backend.StateBackend):
         self._cache.move_to_end((message_id, cookie))
         while len(self._cache) > self._max_cached:
             self._cache.popitem(last=False)
+
+
+def read_anchor(
+    meta: registry.ViewMeta,
+    interaction: hikari.ComponentInteraction,
+    cookie: str,
+) -> anchor.MessageAnchor | anchor.StoreAnchor | anchor.TakenOverAnchor | None:
+    """Reassemble the anchor of the view `cookie` from the clicked message.
+
+    Returns
+    -------
+    MessageAnchor | StoreAnchor | TakenOverAnchor | None
+        The anchor in whichever dialect the message holds it, or `None` after a warning that
+        it holds none.
+
+    Raises
+    ------
+    CodecUnavailableError
+        If a component is written in a codec this process cannot decode.
+    """
+    found = reader.fragments(interaction.message.components, cookie=cookie)
+    if isinstance(found, errors.CodecUnavailableError):
+        raise found
+    if found is None:
+        _log_torn(meta, interaction)
+        return None
+    if _unwritten(found):
+        return anchor.MessageAnchor(meta.schema.empty_fingerprint, 0, b"")
+    raw = anchor.gather(found)
+    parsed = None if raw is None else anchor.parse(raw)
+    if parsed is None:
+        _log_torn(meta, interaction)
+    return parsed
+
+
+def unpack_anchor(
+    meta: registry.ViewMeta,
+    interaction: hikari.ComponentInteraction,
+    read: anchor.MessageAnchor,
+) -> collections.abc.Sequence[object] | None:
+    """Return the durable values a message anchor holds, or log why it cannot be read and return `None`."""
+    schema = meta.schema
+    if not schema.accepts(read.schema_fp):
+        _LOGGER.error(
+            "interaction %s routes to view %s, but message %s was written by durable fields this code"
+            " no longer accepts: a field was removed, reordered, retyped, or added without a default,"
+            " without bumping version=%d; bump the version to retire these components",
+            interaction.id,
+            meta.name,
+            interaction.message.id,
+            meta.version,
+        )
+        return None
+    values = schema.unpack(read.schema_fp, read.payload)
+    if values is None:
+        _LOGGER.warning(
+            "interaction %s routes to view %s, but the state in message %s does not decode under its"
+            " own fingerprint: a value of an enum or Literal field may have been removed, or the"
+            " components are forged or corrupted",
+            interaction.id,
+            meta.name,
+            interaction.message.id,
+        )
+    return values
+
+
+def _log_torn(meta: registry.ViewMeta, interaction: hikari.ComponentInteraction) -> None:
+    _LOGGER.warning(
+        "interaction %s routes to view %s, but its state could not be reassembled from message %s;"
+        " the message was edited by something other than risa, or its components were forged",
+        interaction.id,
+        meta.name,
+        interaction.message.id,
+    )
 
 
 def _unwritten(found: collections.abc.Mapping[int, bytes]) -> bool:
