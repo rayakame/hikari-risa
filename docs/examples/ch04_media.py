@@ -28,7 +28,7 @@ import hikari
 import risa
 from risa import ui
 
-_IMAGES = "https://rayakame.github.io/hikari-risa/main/assets/images"
+_IMAGES = "https://hikari-risa.rayakame.dev/main/assets/images"
 _BANNER = f"{_IMAGES}/banner.webp"
 _ART = f"{_IMAGES}/mascot-sticker.webp"
 

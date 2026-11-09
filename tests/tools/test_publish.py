@@ -64,7 +64,7 @@ def test_the_first_release_takes_the_stable_alias_away_from_main(tmp_path: pathl
     publish.publish(_site(tmp_path, "r"), target, version="v0.1.0")
 
     assert _versions(target) == [
-        {"version": "0.1", "title": "0.1", "aliases": ["stable"]},
+        {"version": "0.1.0", "title": "0.1.0", "aliases": ["stable"]},
         {"version": "main", "title": "main", "aliases": []},
     ]
 
@@ -83,57 +83,80 @@ def test_the_root_serves_the_404_of_the_default_version(tmp_path: pathlib.Path) 
     assert (target / "404.html").read_text() == "404-r"
 
 
+def test_the_root_carries_the_link_preview_of_the_default_version(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "pages"
+    target.mkdir()
+    preview = (
+        '<meta name="description" content="{0}">\n<meta property="og:title" content="{0}">\n'
+        '<meta name="twitter:card" content="summary_large_image">'
+    )
+    main = _site(tmp_path, "m")
+    (main / "index.html").write_text(f'<head>{preview.format("main")}<meta name="viewport" content="x"></head>')
+    release = _site(tmp_path, "r")
+    (release / "index.html").write_text(f"<head>{preview.format('release')}</head>")
+
+    publish.publish(main, target, version="main")
+    assert preview.format("main") in (target / "index.html").read_text()
+    assert "viewport" not in (target / "index.html").read_text()
+
+    publish.publish(release, target, version="v0.1.0")
+    assert preview.format("release") in (target / "index.html").read_text()
+    assert preview.format("main") not in (target / "index.html").read_text()
+
+
 def test_a_release_becomes_stable_and_the_root_points_at_stable(tmp_path: pathlib.Path) -> None:
     target = tmp_path / "pages"
     target.mkdir()
 
     publish.publish(_site(tmp_path, "r"), target, version="v0.2.1")
 
-    assert (target / "0.2" / "index.html").read_text() == "r"
+    assert (target / "0.2.1" / "index.html").read_text() == "r"
     assert (target / "stable" / "index.html").read_text() == "r"
     assert 'content="0; url=stable/"' in (target / "index.html").read_text()
-    assert _versions(target) == [{"version": "0.2", "title": "0.2", "aliases": ["stable"]}]
+    assert _versions(target) == [{"version": "0.2.1", "title": "0.2.1", "aliases": ["stable"]}]
 
 
-def test_a_patch_release_replaces_its_minor_folder(tmp_path: pathlib.Path) -> None:
+def test_a_patch_release_gets_a_folder_of_its_own_and_replaces_stable(tmp_path: pathlib.Path) -> None:
     target = tmp_path / "pages"
     target.mkdir()
     publish.publish(_site(tmp_path, "old"), target, version="v0.2.0")
-    (target / "0.2" / "stale.html").write_text("stale")
+    (target / "stable" / "stale.html").write_text("stale")
 
     publish.publish(_site(tmp_path, "new"), target, version="v0.2.1")
 
-    assert (target / "0.2" / "index.html").read_text() == "new"
-    assert not (target / "0.2" / "stale.html").exists()
+    assert (target / "0.2.0" / "index.html").read_text() == "old"
+    assert (target / "0.2.1" / "index.html").read_text() == "new"
     assert (target / "stable" / "index.html").read_text() == "new"
     assert not (target / "stable" / "stale.html").exists()
+    assert [entry["version"] for entry in _versions(target)] == ["0.2.1", "0.2.0"]
 
 
-def test_an_older_patch_published_after_a_newer_one_changes_nothing(tmp_path: pathlib.Path) -> None:
+def test_an_older_patch_published_later_does_not_take_stable(tmp_path: pathlib.Path) -> None:
     target = tmp_path / "pages"
     target.mkdir()
-    publish.publish(_site(tmp_path, "newer"), target, version="v0.2.3")
-    before = {path: path.read_bytes() for path in target.rglob("*") if path.is_file()}
+    publish.publish(_site(tmp_path, "newer"), target, version="v0.2.10")
 
-    publish.publish(_site(tmp_path, "older"), target, version="v0.2.1")
+    publish.publish(_site(tmp_path, "older"), target, version="v0.2.9")
 
-    assert {path: path.read_bytes() for path in target.rglob("*") if path.is_file()} == before
-    assert (target / "0.2" / "index.html").read_text() == "newer"
+    assert (target / "0.2.9" / "index.html").read_text() == "older"
     assert (target / "stable" / "index.html").read_text() == "newer"
+    assert [entry["version"] for entry in _versions(target)] == ["0.2.10", "0.2.9"]
 
 
 def test_republishing_the_same_patch_replaces_its_folder(tmp_path: pathlib.Path) -> None:
     target = tmp_path / "pages"
     target.mkdir()
     publish.publish(_site(tmp_path, "first"), target, version="v0.2.3")
+    (target / "0.2.3" / "stale.html").write_text("stale")
 
     publish.publish(_site(tmp_path, "again"), target, version="v0.2.3")
 
-    assert (target / "0.2" / "index.html").read_text() == "again"
+    assert (target / "0.2.3" / "index.html").read_text() == "again"
+    assert not (target / "0.2.3" / "stale.html").exists()
     assert (target / "stable" / "index.html").read_text() == "again"
 
 
-def test_an_older_release_published_later_does_not_take_stable(tmp_path: pathlib.Path) -> None:
+def test_an_older_minor_published_later_does_not_take_stable(tmp_path: pathlib.Path) -> None:
     target = tmp_path / "pages"
     target.mkdir()
     publish.publish(_site(tmp_path, "ten"), target, version="v0.10.0")
@@ -141,10 +164,10 @@ def test_an_older_release_published_later_does_not_take_stable(tmp_path: pathlib
     publish.publish(_site(tmp_path, "nine"), target, version="v0.9.5")
 
     assert (target / "stable" / "index.html").read_text() == "ten"
-    assert (target / "0.9" / "index.html").read_text() == "nine"
+    assert (target / "0.9.5" / "index.html").read_text() == "nine"
     assert _versions(target) == [
-        {"version": "0.10", "title": "0.10", "aliases": ["stable"]},
-        {"version": "0.9", "title": "0.9", "aliases": []},
+        {"version": "0.10.0", "title": "0.10.0", "aliases": ["stable"]},
+        {"version": "0.9.5", "title": "0.9.5", "aliases": []},
     ]
 
 
@@ -155,7 +178,7 @@ def test_versions_json_lists_releases_newest_first_then_main(tmp_path: pathlib.P
     publish.publish(_site(tmp_path, "b"), target, version="v0.1.0")
     publish.publish(_site(tmp_path, "c"), target, version="v0.2.0")
 
-    assert [entry["version"] for entry in _versions(target)] == ["0.2", "0.1", "main"]
+    assert [entry["version"] for entry in _versions(target)] == ["0.2.0", "0.1.0", "main"]
     assert _versions(target)[0]["aliases"] == ["stable"]
 
 
@@ -173,7 +196,7 @@ def test_republishing_main_replaces_only_main(tmp_path: pathlib.Path) -> None:
     assert (target / "main" / "index.html").read_text() == "m2"
     assert not (target / "main" / "stale.html").exists()
     assert marker.read_text() == "kept"
-    assert (target / "0.1" / "index.html").read_text() == "r"
+    assert (target / "0.1.0" / "index.html").read_text() == "r"
     assert 'url=stable/"' in (target / "index.html").read_text()
 
 
@@ -188,9 +211,9 @@ def test_a_pre_release_or_malformed_tag_is_refused(tmp_path: pathlib.Path, tag: 
     assert list(target.iterdir()) == []
 
 
-def test_release_folder_maps_a_tag_to_its_minor() -> None:
-    assert publish.release_folder("v0.2.1") == "0.2"
-    assert publish.release_folder("v10.14.0") == "10.14"
+def test_release_folder_is_the_version_of_the_tag() -> None:
+    assert publish.release_folder("v0.2.1") == "0.2.1"
+    assert publish.release_folder("v10.14.0") == "10.14.0"
 
 
 def test_a_missing_site_is_refused_and_leaves_the_target_untouched(tmp_path: pathlib.Path) -> None:
@@ -272,7 +295,7 @@ def test_publishing_a_version_keeps_the_previews_and_does_not_list_them(tmp_path
     publish.publish(_site(tmp_path, "r"), target, version="v0.1.0")
 
     assert (target / "pr" / "57" / "index.html").read_text() == "p"
-    assert [entry["version"] for entry in _versions(target)] == ["0.1", "main"]
+    assert [entry["version"] for entry in _versions(target)] == ["0.1.0", "main"]
 
 
 def test_removing_a_preview_keeps_the_others(tmp_path: pathlib.Path) -> None:
