@@ -97,6 +97,7 @@ slotscheck = [
 pytest = [
     {include-group = "images"},
     "asyncpg~=0.32",
+    "coverage==7.17.2",
     "fakeredis[lua]==2.40.0",
     "griffe-inherited-docstrings==1.1.4",
     "griffelib==2.4.1",
@@ -149,6 +150,16 @@ pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 reportUnnecessaryTypeIgnoreComment = "error"
+
+[tool.coverage.run]
+source = ["risa"]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    "if typing.TYPE_CHECKING:",
+    "@typing.overload",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

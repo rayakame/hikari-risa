@@ -85,7 +85,8 @@ def pyright(session: nox.Session) -> None:
 def pytest(session: nox.Session) -> None:
     sync(session, groups=["pytest"], self=True)
 
-    session.run("pytest", *session.posargs)
+    session.run("coverage", "run", "-m", "pytest", *session.posargs)
+    session.run("coverage", "xml", "--quiet")
 
 
 def declared_floors() -> dict[str, str]:
