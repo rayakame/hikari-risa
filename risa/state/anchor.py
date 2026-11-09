@@ -19,15 +19,17 @@
 # SOFTWARE.
 """The anchor: the bytes a message carries for its view's state.
 
-An anchor comes in two dialects, told apart by its first byte. A message anchor
+An anchor comes in three dialects, told apart by its first byte. A message anchor
 carries the state itself, `m | total:2 | schema fingerprint:3 | seq:3 | payload`; a
-store anchor carries only the key of a store record, `s | key:12`. The anchor is cut
-into fragments, one per interactive component in render order, each written into that
-component's `custom_id`.
+store anchor carries only the key of a store record, `s | key:12`; a taken-over anchor,
+`t`, carries nothing, since the key of its record derives from the message. The anchor
+is cut into fragments, one per interactive component in render order, each written into
+that component's `custom_id`.
 """
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 import typing
 
@@ -48,6 +50,7 @@ __all__ = (
     "MESSAGE_HEADER_LENGTH",
     "PLACEMENT_MESSAGE",
     "PLACEMENT_STORE",
+    "PLACEMENT_TAKEN_OVER",
     "SCHEMA_FP_LENGTH",
     "SEQ_WIDTH",
     "STORE_ANCHOR_LENGTH",
@@ -55,6 +58,7 @@ __all__ = (
     "MessageAnchor",
     "Slot",
     "StoreAnchor",
+    "TakenOverAnchor",
     "carve",
     "distribute",
     "gather",
@@ -64,6 +68,7 @@ __all__ = (
 
 PLACEMENT_MESSAGE: typing.Final[bytes] = b"m"
 PLACEMENT_STORE: typing.Final[bytes] = b"s"
+PLACEMENT_TAKEN_OVER: typing.Final[bytes] = b"t"
 
 TOTAL_WIDTH: typing.Final[int] = 2
 SCHEMA_FP_LENGTH: typing.Final[int] = 3
@@ -195,6 +200,24 @@ class StoreAnchor(msgspec.Struct, frozen=True):
         return PLACEMENT_STORE + self.key
 
 
+class TakenOverAnchor(msgspec.Struct, frozen=True):
+    """An anchor of a message whose state moved into a store when its view took it over.
+
+    It carries no key: the key derives from the message id Discord delivers with a click,
+    so every click on the message finds the same record, one that still carries the
+    message's own state too, and a `custom_id` cannot point at another message's record.
+    """
+
+    @staticmethod
+    def token(message_id: int, cookie: str) -> str:
+        """Return the key of the record a message's view `cookie` keeps, led by a `t` no `StoreAnchor` token has."""
+        return "t" + hashlib.blake2b(f"{message_id}:{cookie}".encode(), digest_size=KEY_BYTES).hexdigest()
+
+    def pack(self) -> bytes:  # ruff:ignore[no-self-use]
+        """Write the anchor out."""
+        return PLACEMENT_TAKEN_OVER
+
+
 def carve(
     anchor: bytes,
     capacities: collections.abc.Sequence[int],
@@ -269,11 +292,13 @@ def gather(fragments: collections.abc.Mapping[int, bytes]) -> bytes | None:
     return b"".join(parts)
 
 
-def parse(raw: bytes) -> MessageAnchor | StoreAnchor | None:
-    """Read an anchor of either dialect, or return `None` for one of neither."""
+def parse(raw: bytes) -> MessageAnchor | StoreAnchor | TakenOverAnchor | None:
+    """Read an anchor of any dialect, or return `None` for one of none."""
     head = raw[:1]
     if head == PLACEMENT_MESSAGE:
         return MessageAnchor.parse(raw)
     if head == PLACEMENT_STORE:
         return StoreAnchor.parse(raw)
+    if raw == PLACEMENT_TAKEN_OVER:
+        return TakenOverAnchor()
     return None

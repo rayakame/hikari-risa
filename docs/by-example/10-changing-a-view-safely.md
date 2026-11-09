@@ -43,6 +43,7 @@ Old buttons keep working through all of these:
 | A value added to a field's `enum.Enum`, or to a `Literal` of the same kinds of values | risa compares only whether the values are `int`, `str` or `None` |
 | An enum member's name, if its value stays | risa saves the value |
 | `ttl` | An old record takes it at its next click, or `None` at its next save |
+| `InMessage` to `InStore(adopt=True)`, with the same `version` | An old message moves its state into the store at its next click |
 | The [codec](08-where-state-lives.md#another-codec) | An old message takes it at its next rerender, as long as risa can still read the old one |
 | A handler's parameter names, its `defer`, or an injected parameter added | See [Changing a handler](#changing-a-handler) |
 
@@ -80,7 +81,7 @@ fails on its next vote.
 | A value removed from a field's `enum.Enum` or `Literal`, or changed | `on_outdated`, only for messages that hold it | `WARNING` |
 | A field's `Literal` gains a kind of value, or loses its last value of one | `on_outdated` | `ERROR` |
 | A field's nested struct changes | `on_outdated` | `ERROR` |
-| `InMessage` to `InStore`, or back | `on_outdated` | `ERROR` |
+| `InMessage` to `InStore` without `adopt=True`, or `InStore` to `InMessage` | `on_outdated` | `ERROR` |
 | Another store, or another `key_prefix` | `on_state_missing` | `WARNING`, or `DEBUG` once you override it |
 | Less room in a message: more state, or fewer buttons to hold it | The handler runs, and `rerender()` raises `StateOverflowError` | `ERROR` |
 | A method renamed or deleted, or its `version` raised with no method left at the old one | `on_outdated` | `WARNING`, or `DEBUG` once you override it |

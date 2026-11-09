@@ -33,6 +33,7 @@ from risa import errors
 from risa.internal import codec
 from risa.state import anchor as anchor_
 from risa.state import backend
+from risa.state import message
 from risa.state import placement as placement_
 from risa.state import serde
 from risa.store import protocol
@@ -59,7 +60,7 @@ KEY_LAYOUT: typing.Final[str] = "1"
 
 class _Target(msgspec.Struct, frozen=True):
     key: str
-    located: anchor_.StoreAnchor
+    located: anchor_.StoreAnchor | anchor_.TakenOverAnchor
 
 
 class KeyNamespace:
@@ -113,6 +114,12 @@ class StoredSession(backend.StateSession):
     detaches the session instead and raises `StateNotFoundError` or `StateUnreadableError`
     without adopting anything, so nothing more commits against a dead baseline. `close` restarts the TTL if nothing has
     yet, then releases the lock.
+
+    A click on a component that still carries the message's own state takes the key
+    `TakenOverAnchor` derives from the message. If no record is there yet, `restore` writes
+    one from the state in the message under `InStore(adopt=True)`, and routes the click to
+    `on_outdated` without it. The message keeps its components until a rerender writes the
+    taken-over anchor into them.
     """
 
     __slots__ = (
@@ -120,6 +127,7 @@ class StoredSession(backend.StateSession):
         "_baseline",
         "_component",
         "_detached",
+        "_from_message",
         "_held",
         "_interaction",
         "_meta",
@@ -148,13 +156,19 @@ class StoredSession(backend.StateSession):
         self._baseline: bytes | None = None
         self._detached: collections.abc.Callable[[], errors.StateError] | None = None
         self._refreshed = False
+        self._from_message = False
 
     @typing.override
     async def open(self) -> None:
         located = self._locate()
         if located is None:
             return
-        key = self._backend.namespace.for_click(located.token, self._interaction)
+        token = (
+            located.token
+            if isinstance(located, anchor_.StoreAnchor)
+            else anchor_.TakenOverAnchor.token(self._interaction.message.id, self._component.cookie)
+        )
+        key = self._backend.namespace.for_click(token, self._interaction)
         self._target = _Target(key=key, located=located)
         store = self._backend.store
         timeout = self._backend.lock_timeout
@@ -180,7 +194,7 @@ class StoredSession(backend.StateSession):
         store = self._backend.store
         entry = await _guarded(key, lambda: store.get_versioned(key))
         if entry is None:
-            return backend.Unreadably.MISSING
+            return await self._taken_over(key) if self._from_message else backend.Unreadably.MISSING
         values = self._unpack(key, entry.data)
         if values is None:
             return backend.Unreadably.OUTDATED
@@ -221,22 +235,15 @@ class StoredSession(backend.StateSession):
             return False
         return dirty
 
-    def _locate(self) -> anchor_.StoreAnchor | None:
+    def _locate(self) -> anchor_.StoreAnchor | anchor_.TakenOverAnchor | None:
         found = codec.decode_text(self._component.fragment, self._component.codec)
         if isinstance(found, errors.CodecUnavailableError):
             raise found
         if found is not None and (self._component.fragment_index != 0 or found[:1] in {b"", anchor_.PLACEMENT_MESSAGE}):
-            _LOGGER.error(
-                "interaction %s routes to view %s, which keeps its state in a store, but the component"
-                " carries no store key: the placement was switched without bumping version=%d; bump"
-                " the version to retire these components",
-                self._interaction.id,
-                self._meta.name,
-                self._meta.version,
-            )
-            return None
+            self._from_message = True
+            return anchor_.TakenOverAnchor()
         parsed = None if found is None else anchor_.parse(found)
-        if not isinstance(parsed, anchor_.StoreAnchor):
+        if not isinstance(parsed, anchor_.StoreAnchor | anchor_.TakenOverAnchor):
             _LOGGER.warning(
                 "interaction %s routes to view %s, but its component carries no readable store key;"
                 " the component may be forged or corrupted",
@@ -281,6 +288,48 @@ class StoredSession(backend.StateSession):
                 key,
             )
         return values
+
+    async def _taken_over(self, key: str) -> backend.Restored | backend.Unreadably:
+        if not self._placement.adopt:
+            _LOGGER.error(
+                "interaction %s routes to view %s, which keeps its state in a store, but the component"
+                " carries no store key: the placement was switched without bumping version=%d; bump"
+                " the version to retire these components, or take them over with InStore(adopt=True)",
+                self._interaction.id,
+                self._meta.name,
+                self._meta.version,
+            )
+            return backend.Unreadably.OUTDATED
+        read = message.read_anchor(self._meta, self._interaction, self._component.cookie)
+        if read is None:
+            return backend.Unreadably.OUTDATED
+        if not isinstance(read, anchor_.MessageAnchor):
+            # A stale component of a message already taken over, whose record is gone.
+            return backend.Unreadably.MISSING
+        values = message.unpack_anchor(self._meta, self._interaction, read)
+        if values is None:
+            return backend.Unreadably.OUTDATED
+        view = backend.hydrate(self._meta, values)
+        packed = self._meta.schema.pack_view(view)
+        store = self._backend.store
+        entry = _entry(self._meta, packed)
+        ttl = self._placement.ttl
+        # The store has no create-if-absent, so only a lapsed lease lets another process write between get and put.
+        await _guarded(key, lambda: store.put(key, entry, ttl=ttl))
+        written = await _guarded(key, lambda: store.get_versioned(key))
+        if written is None:
+            return backend.Unreadably.MISSING
+        _LOGGER.debug(
+            "interaction %s moved the state of view %s from message %s into the store under %r",
+            self._interaction.id,
+            self._meta.name,
+            self._interaction.message.id,
+            key,
+        )
+        self._version = written.version
+        self._baseline = packed
+        self._refreshed = True
+        return backend.Restored(view)
 
     def _restored(self) -> _Target:
         if self._target is None or self._baseline is None:
