@@ -20,13 +20,21 @@
 from __future__ import annotations
 
 import importlib.metadata
+import io
 import pathlib
 import sys
+import typing
 
 import pytest
 
 import risa
 import risa.__main__
+
+
+class _Terminal(io.StringIO):
+    @typing.override
+    def isatty(self) -> bool:
+        return True
 
 
 def _run(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], *args: str) -> list[str]:
@@ -35,21 +43,22 @@ def _run(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], *a
     return capsys.readouterr().out.splitlines()
 
 
-def test_the_first_line_names_the_version_and_where_risa_is(
+def test_the_report_names_the_version_and_where_risa_is(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     lines = _run(monkeypatch, capsys)
 
-    assert lines[0] == f"hikari-risa {risa.__version__} at {pathlib.Path(risa.__file__).parent}"
+    assert any(line.endswith(f"hikari-risa {risa.__version__}") for line in lines)
+    assert ["location", str(pathlib.Path(risa.__file__).parent)] in [line.split(None, 1) for line in lines]
 
 
 def test_each_dependency_shows_its_installed_version(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    lines = _run(monkeypatch, capsys)
+    rows = [line.split() for line in _run(monkeypatch, capsys)]
 
     for name in ("hikari", "linkd", "msgspec"):
-        assert f"{name} {importlib.metadata.version(name)}" in lines
+        assert [name, importlib.metadata.version(name)] in [row[-2:] for row in rows]
 
 
 def test_an_extra_names_itself_and_says_when_it_is_missing(
@@ -63,10 +72,34 @@ def test_an_extra_names_itself_and_says_when_it_is_missing(
         return installed(name)
 
     monkeypatch.setattr(importlib.metadata, "version", version)
-    lines = _run(monkeypatch, capsys)
+    rows = [line.split() for line in _run(monkeypatch, capsys)]
 
-    assert "radixly not installed (radixly extra)" in lines
-    assert f"redis {installed('redis')} (redis extra)" in lines
+    assert ["radixly", "radixly", "not", "installed"] in [row[-4:] for row in rows]
+    assert ["redis", "redis", installed("redis")] in [row[-3:] for row in rows]
+
+
+def test_a_pipe_gets_no_colour(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    assert not any("\x1b[" in line for line in _run(monkeypatch, capsys))
+
+
+@pytest.mark.parametrize(("no_color", "coloured"), [(None, True), ("1", False)])
+def test_a_terminal_gets_colour_unless_no_color_is_set(
+    monkeypatch: pytest.MonkeyPatch, no_color: str | None, *, coloured: bool
+) -> None:
+    terminal = _Terminal()
+    monkeypatch.setattr(sys, "argv", ["hikari-risa"])
+    monkeypatch.setattr(sys, "stdout", terminal)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    if no_color is None:
+        monkeypatch.delenv("NO_COLOR", raising=False)
+    else:
+        monkeypatch.setenv("NO_COLOR", no_color)
+
+    risa.__main__.main()
+
+    assert ("\x1b[" in terminal.getvalue()) is coloured
 
 
 def test_version_prints_only_the_version(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

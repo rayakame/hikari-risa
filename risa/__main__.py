@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import os
 import pathlib
 import platform
 import re
@@ -31,9 +32,76 @@ import typing
 
 import risa
 
+if typing.TYPE_CHECKING:
+    import collections.abc
+
 __all__ = ("main",)
 
+_ART: typing.Final[collections.abc.Sequence[str]] = (
+    r"         _           ",
+    r"   _____(_)________ _",
+    r"  / ___/ / ___/ __ `/",
+    r" / /  / (__  ) /_/ / ",
+    r"/_/  /_/____/\__,_/  ",
+)
+# 256-colour codes from pink to violet, one per line of the art, that read on dark and light terminals.
+_ART_COLOURS: typing.Final[collections.abc.Sequence[str]] = ("38;5;205", "38;5;206", "38;5;170", "38;5;134", "38;5;98")
+_PINK: typing.Final[str] = "38;5;205"
+_BOLD: typing.Final[str] = "1"
+_DIM: typing.Final[str] = "2"
+_LABEL_WIDTH: typing.Final[int] = 10
 _EXTRA: typing.Final[re.Pattern[str]] = re.compile(r"""extra\s*==\s*["']([^"']+)["']""")
+
+type _Paint = collections.abc.Callable[[str, str], str]
+
+
+def _report(*, colour: bool) -> collections.abc.Iterator[str]:
+    def paint(text: str, style: str) -> str:
+        return f"\x1b[{style}m{text}\x1b[0m" if colour else text
+
+    for line, style in zip(_ART[:-1], _ART_COLOURS, strict=False):
+        yield paint(line.rstrip(), style)
+    yield paint(_ART[-1], _ART_COLOURS[-1]) + paint(f"hikari-risa {risa.__version__}", _BOLD)
+
+    metadata = importlib.metadata.metadata("hikari-risa")
+    urls = dict(url.split(", ", 1) for url in metadata.get_all("Project-URL") or ())
+    required: list[collections.abc.Sequence[str]] = []
+    extras: list[collections.abc.Sequence[str]] = []
+    for requirement in importlib.metadata.requires("hikari-risa") or ():
+        name = re.split(r"[^\w.-]", requirement, maxsplit=1)[0]
+        try:
+            version = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            version = paint("not installed", _DIM)
+        if extra := _EXTRA.search(requirement):
+            extras.append((extra[1], name, version))
+        else:
+            required.append((name, version))
+
+    yield ""
+    yield paint(metadata["Summary"], _DIM)
+    yield ""
+    yield from _section(paint, "python", [(f"{platform.python_implementation()} {platform.python_version()}",)])
+    yield from _section(paint, "platform", [(platform.platform(),)])
+    yield from _section(paint, "location", [(str(pathlib.Path(risa.__file__).parent),)])
+    yield ""
+    yield from _section(paint, "requires", required)
+    yield ""
+    yield from _section(paint, "extras", extras)
+    yield ""
+    yield from _section(paint, "docs", [(urls["Documentation"],)])
+    yield from _section(paint, "issues", [(urls["Issues"],)])
+
+
+def _section(
+    paint: _Paint, label: str, rows: collections.abc.Sequence[collections.abc.Sequence[str]]
+) -> collections.abc.Iterator[str]:
+    # The last column goes unpadded, so it may carry colour codes without breaking the alignment.
+    widths = [max(len(row[column]) for row in rows) for column in range(len(rows[0]) - 1)] if rows else []
+    for index, row in enumerate(rows):
+        cells = [cell.ljust(width) for cell, width in zip(row, widths, strict=False)]
+        heading = paint((label if index == 0 else "").ljust(_LABEL_WIDTH), _PINK)
+        yield f"  {heading}{'  '.join([*cells, row[-1]])}"
 
 
 def main() -> None:
@@ -43,21 +111,11 @@ def main() -> None:
     )
     parser.add_argument("--version", action="version", version=f"hikari-risa {risa.__version__}")
     parser.parse_args()
-
-    lines = [
-        f"hikari-risa {risa.__version__} at {pathlib.Path(risa.__file__).parent}",
-        f"{platform.python_implementation()} {platform.python_version()} on {platform.platform()}",
-    ]
-    for requirement in importlib.metadata.requires("hikari-risa") or ():
-        name = re.split(r"[^\w.-]", requirement, maxsplit=1)[0]
-        try:
-            line = f"{name} {importlib.metadata.version(name)}"
-        except importlib.metadata.PackageNotFoundError:
-            line = f"{name} not installed"
-        if extra := _EXTRA.search(requirement):
-            line += f" ({extra[1]} extra)"
-        lines.append(line)
-    sys.stdout.write("\n".join(lines) + "\n")
+    # The classic Windows console prints escape codes as text.
+    colour = (
+        sys.stdout.isatty() and os.name != "nt" and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
+    )
+    sys.stdout.write("\n".join(_report(colour=colour)) + "\n")
 
 
 if __name__ == "__main__":
