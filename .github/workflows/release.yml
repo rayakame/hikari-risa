@@ -62,6 +62,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request'
       && github.event.pull_request.merged
+      && github.event.pull_request.base.ref == 'main'
       && startsWith(github.event.pull_request.head.ref, 'release/')
       && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
