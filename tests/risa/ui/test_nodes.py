@@ -134,6 +134,80 @@ def test_separator_defaults() -> None:
     assert payload["spacing"] == hikari.SpacingType.SMALL
 
 
+def test_a_file_builds_as_a_reference_to_its_attachment() -> None:
+    (built,) = build(ui.File(hikari.Bytes(b"minutes", "notes.txt"), spoiler=True))
+    payload, attachments = built.build()
+
+    assert payload["type"] == hikari.ComponentType.FILE
+    assert payload["file"] == {"url": "attachment://notes.txt"}
+    assert payload["spoiler"] is True
+    assert [attachment.filename for attachment in attachments] == ["notes.txt"]
+
+
+_TEXT = ui.TextDisplay("hi")
+_LINK = ui.LinkButton("https://example.com", label="Docs")
+_ITEM = ui.MediaGalleryItem("https://example.com/a.png", description="a", spoiler=True)
+_OPTION = ui.SelectOption("Ramen", "ramen", description="hot", emoji="🍜", default=True)
+
+
+@pytest.mark.parametrize(
+    ("node", "expected"),
+    [
+        pytest.param(_TEXT, {"content": "hi"}, id="TextDisplay"),
+        pytest.param(
+            ui.Separator(divider=False, spacing=hikari.SpacingType.LARGE),
+            {"divider": False, "spacing": hikari.SpacingType.LARGE},
+            id="Separator",
+        ),
+        pytest.param(
+            ui.Thumbnail("https://example.com/a.png", description="a", spoiler=True),
+            {"media": "https://example.com/a.png", "description": "a", "spoiler": True},
+            id="Thumbnail",
+        ),
+        pytest.param(
+            _ITEM, {"media": "https://example.com/a.png", "description": "a", "spoiler": True}, id="MediaGalleryItem"
+        ),
+        pytest.param(ui.MediaGallery(_ITEM), {"items": (_ITEM,)}, id="MediaGallery"),
+        pytest.param(ui.File("notes.txt", spoiler=True), {"file": "notes.txt", "spoiler": True}, id="File"),
+        pytest.param(ui.Row(_LINK), {"components": (_LINK,)}, id="Row"),
+        pytest.param(ui.Section(_TEXT, accessory=_LINK), {"text_displays": (_TEXT,), "accessory": _LINK}, id="Section"),
+        pytest.param(
+            ui.Container(_TEXT, accent_color=0xF680A1, spoiler=True),
+            {"children": (_TEXT,), "accent_color": 0xF680A1, "spoiler": True},
+            id="Container",
+        ),
+        pytest.param(
+            ui.Button(Panel().press, label="Go", emoji="🚀", style=hikari.ButtonStyle.DANGER, disabled=True),
+            {"label": "Go", "emoji": "🚀", "style": hikari.ButtonStyle.DANGER, "disabled": True},
+            id="Button",
+        ),
+        pytest.param(
+            ui.LinkButton("https://example.com", label="Docs", emoji="📖", disabled=True),
+            {"url": "https://example.com", "label": "Docs", "emoji": "📖", "disabled": True},
+            id="LinkButton",
+        ),
+        pytest.param(ui.PremiumButton(123, disabled=True), {"sku_id": 123, "disabled": True}, id="PremiumButton"),
+        pytest.param(
+            _OPTION,
+            {"label": "Ramen", "value": "ramen", "description": "hot", "emoji": "🍜", "default": True},
+            id="SelectOption",
+        ),
+        pytest.param(
+            ui.TextSelect(Panel().press, _OPTION, placeholder="Pick", min_values=0, max_values=1, disabled=True),
+            {"options": (_OPTION,), "placeholder": "Pick", "min_values": 0, "max_values": 1, "disabled": True},
+            id="TextSelect",
+        ),
+        pytest.param(
+            ui.ChannelSelect(Panel().press, channel_types=[hikari.ChannelType.GUILD_TEXT]),
+            {"channel_types": (hikari.ChannelType.GUILD_TEXT,)},
+            id="ChannelSelect",
+        ),
+    ],
+)
+def test_a_node_gives_back_what_it_was_built_with(node: object, expected: dict[str, object]) -> None:
+    assert {name: getattr(node, name) for name in expected} == expected
+
+
 def test_a_container_nests_its_children_in_order() -> None:
     (built,) = build(
         ui.Container(
