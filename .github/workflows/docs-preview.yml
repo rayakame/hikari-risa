@@ -77,5 +77,5 @@ jobs:
         with:
           body: >-
             Docs preview of ${{ github.event.pull_request.head.sha }} merged into its base branch:
-            https://rayakame.github.io/hikari-risa/pr/${{ github.event.pull_request.number }}/
+            https://hikari-risa.rayakame.dev/pr/${{ github.event.pull_request.number }}/
             (Pages needs about a minute to serve a new push.)

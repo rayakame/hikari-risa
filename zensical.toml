@@ -1,6 +1,6 @@
 [project]
 site_name = "hikari-risa"
-site_url = "https://rayakame.github.io/hikari-risa/"
+site_url = "https://hikari-risa.rayakame.dev/"
 site_description = "Components V2 views for hikari, with state that survives restarts."
 repo_url = "https://github.com/rayakame/hikari-risa"
 copyright = "MIT licensed"

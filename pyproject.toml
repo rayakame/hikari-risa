@@ -43,10 +43,10 @@ redis = [
 hikari-risa = "risa.__main__:main"
 
 [project.urls]
-Documentation = "https://rayakame.github.io/hikari-risa/"
+Documentation = "https://hikari-risa.rayakame.dev/"
 Repository = "https://github.com/rayakame/hikari-risa"
 Issues = "https://github.com/rayakame/hikari-risa/issues"
-Changelog = "https://rayakame.github.io/hikari-risa/stable/changelog/"
+Changelog = "https://hikari-risa.rayakame.dev/stable/changelog/"
 
 [build-system]
 requires = ["hatchling>=1.27"]

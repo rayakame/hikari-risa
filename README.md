@@ -42,7 +42,7 @@ Extras: `hikari-risa[redis]`, `hikari-risa[postgres]` and `hikari-risa[radixly]`
 
 ## Documentation
 
-<https://rayakame.github.io/hikari-risa/>
+<https://hikari-risa.rayakame.dev/>
 
 ## License
 
