@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import importlib.metadata
 import os
 import pathlib
@@ -51,8 +52,22 @@ _BOLD: typing.Final[str] = "1"
 _DIM: typing.Final[str] = "2"
 _LABEL_WIDTH: typing.Final[int] = 10
 _EXTRA: typing.Final[re.Pattern[str]] = re.compile(r"""extra\s*==\s*["']([^"']+)["']""")
+_STD_OUTPUT_HANDLE: typing.Final[int] = -11
+_ENABLE_VIRTUAL_TERMINAL_PROCESSING: typing.Final[int] = 0x0004
 
 type _Paint = collections.abc.Callable[[str, str], str]
+
+
+def _escape_codes_work() -> bool:
+    # A Windows console reads escape codes only once the program turns on virtual terminal processing.
+    if sys.platform != "win32":
+        return True
+    kernel32 = ctypes.WinDLL("kernel32")
+    handle = kernel32.GetStdHandle(_STD_OUTPUT_HANDLE)
+    mode = ctypes.c_uint32()
+    if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+        return False
+    return bool(kernel32.SetConsoleMode(handle, mode.value | _ENABLE_VIRTUAL_TERMINAL_PROCESSING))
 
 
 def _section(
@@ -111,9 +126,11 @@ def main() -> None:
     )
     parser.add_argument("--version", action="version", version=f"hikari-risa {risa.__version__}")
     parser.parse_args()
-    # The classic Windows console prints escape codes as text.
     colour = (
-        sys.stdout.isatty() and os.name != "nt" and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
+        sys.stdout.isatty()
+        and not os.environ.get("NO_COLOR")
+        and os.environ.get("TERM") != "dumb"
+        and _escape_codes_work()
     )
     report = "\n".join(_report(colour=colour)) + "\n"
     # Before 3.15 a Windows pipe writes in the ANSI code page, which may lack a character of the path.

@@ -19,11 +19,13 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import ctypes
 import importlib.metadata
 import io
-import os
 import pathlib
+import platform
 import sys
+import types
 import typing
 
 import pytest
@@ -79,6 +81,37 @@ def test_an_extra_names_itself_and_says_when_it_is_missing(
     assert ["redis", "redis", installed("redis")] in [row[-3:] for row in rows]
 
 
+def _windows_console(monkeypatch: pytest.MonkeyPatch, *, console: bool = True, enables: bool = True) -> list[int]:
+    modes: list[int] = []
+
+    def get_std_handle(_handle: int) -> int:
+        return 7
+
+    def get_console_mode(_handle: int, _mode: object) -> int:
+        return int(console)
+
+    def set_console_mode(_handle: int, mode: int) -> int:
+        modes.append(mode)
+        return int(enables)
+
+    def win_dll(_name: str) -> types.SimpleNamespace:
+        return types.SimpleNamespace(
+            GetStdHandle=get_std_handle, GetConsoleMode=get_console_mode, SetConsoleMode=set_console_mode
+        )
+
+    monkeypatch.setattr(ctypes, "WinDLL", win_dll, raising=False)
+    return modes
+
+
+def _coloured(monkeypatch: pytest.MonkeyPatch) -> bool:
+    terminal = _Terminal()
+    monkeypatch.setattr(sys, "argv", ["hikari-risa"])
+    monkeypatch.setattr(sys, "stdout", terminal)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    risa.__main__.main()
+    return "\x1b[" in terminal.getvalue()
+
+
 def test_a_pipe_gets_no_colour(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.setenv("TERM", "xterm-256color")
@@ -90,18 +123,35 @@ def test_a_pipe_gets_no_colour(monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
 def test_a_terminal_gets_colour_unless_no_color_is_set(
     monkeypatch: pytest.MonkeyPatch, no_color: str | None, *, coloured: bool
 ) -> None:
-    terminal = _Terminal()
-    monkeypatch.setattr(sys, "argv", ["hikari-risa"])
-    monkeypatch.setattr(sys, "stdout", terminal)
-    monkeypatch.setenv("TERM", "xterm-256color")
+    _windows_console(monkeypatch)
     if no_color is None:
         monkeypatch.delenv("NO_COLOR", raising=False)
     else:
         monkeypatch.setenv("NO_COLOR", no_color)
 
-    risa.__main__.main()
+    assert _coloured(monkeypatch) is coloured
 
-    assert ("\x1b[" in terminal.getvalue()) is (coloured and os.name != "nt")
+
+def test_a_windows_console_gets_colour_once_it_reads_escape_codes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(platform, "platform", lambda: "Windows-11-10.0.26100-SP0")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    modes = _windows_console(monkeypatch)
+
+    assert _coloured(monkeypatch)
+    assert modes == [0x0004]
+
+
+@pytest.mark.parametrize(("console", "enables"), [(False, True), (True, False)])
+def test_a_windows_console_that_cannot_read_escape_codes_stays_plain(
+    monkeypatch: pytest.MonkeyPatch, *, console: bool, enables: bool
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(platform, "platform", lambda: "Windows-11-10.0.26100-SP0")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    _windows_console(monkeypatch, console=console, enables=enables)
+
+    assert not _coloured(monkeypatch)
 
 
 def test_a_character_the_output_cannot_encode_is_escaped(monkeypatch: pytest.MonkeyPatch) -> None:
