@@ -36,14 +36,14 @@ _MAIN: typing.Final = "main"
 _STABLE: typing.Final = "stable"
 _PREVIEWS: typing.Final = "pr"
 _TAG: typing.Final = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
-_FOLDER: typing.Final = re.compile(r"(\d+)\.(\d+)")
-_RELEASE_TAG: typing.Final = ".release-tag"
+_FOLDER: typing.Final = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+_LINK_PREVIEW: typing.Final = re.compile(r'<meta (?:property="og:|name="twitter:|name="description")[^>]*>')
 _REDIRECT: typing.Final = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Redirecting</title>
-<link rel="canonical" href="{destination}/">
+{preview}<link rel="canonical" href="{destination}/">
 <meta http-equiv="refresh" content="0; url={destination}/">
 </head>
 <body>
@@ -54,26 +54,24 @@ _REDIRECT: typing.Final = """<!doctype html>
 
 
 def release_folder(tag: str) -> str:
-    """Return the folder a release tag is published under, such as ``0.2`` for ``v0.2.1``.
+    """Return the folder a release tag is published under, such as ``0.2.1`` for ``v0.2.1``.
 
     Returns
     -------
     str
-        The ``<major>.<minor>`` folder name.
+        The ``<major>.<minor>.<patch>`` folder name.
 
     Raises
     ------
     ValueError
         If the tag is not of the form ``v<major>.<minor>.<patch>``.
     """
-    major, minor, _ = _release_key(tag)
-    return f"{major}.{minor}"
+    major, minor, patch = _release_key(tag)
+    return f"{major}.{minor}.{patch}"
 
 
 def publish(site: pathlib.Path, target: pathlib.Path, *, version: str) -> None:
     """Place a built site into a gh-pages checkout and refresh its index files.
-
-    A release older than the patch its minor's folder already holds changes nothing.
 
     Parameters
     ----------
@@ -93,18 +91,12 @@ def publish(site: pathlib.Path, target: pathlib.Path, *, version: str) -> None:
     """
     folder = _MAIN if version == _MAIN else release_folder(version)
     _require_directory(site)
-    recorded = _recorded_tag(target / folder)
-    if recorded is not None and _release_key(recorded) > _release_key(version):
-        _LOGGER.warning("kept %s in %s, since %s is older", recorded, folder, version)
-        return
     target.mkdir(parents=True, exist_ok=True)
     _replace(site, target / folder)
-    if folder != _MAIN:
-        (target / folder / _RELEASE_TAG).write_text(version + "\n", encoding="utf-8")
 
     releases = sorted(
         (path.name for path in target.iterdir() if path.is_dir() and _FOLDER.fullmatch(path.name)),
-        key=_minor_key,
+        key=_folder_key,
         reverse=True,
     )
     if folder != _MAIN and releases[0] == folder:
@@ -119,7 +111,11 @@ def publish(site: pathlib.Path, target: pathlib.Path, *, version: str) -> None:
         entries.append({"version": _MAIN, "title": _MAIN, "aliases": [] if releases else [_STABLE]})
     (target / "versions.json").write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
     default = _STABLE if releases else _MAIN
-    (target / "index.html").write_text(_REDIRECT.format(destination=default), encoding="utf-8")
+    landing = target / default / "index.html"
+    # A link preview reads only the page it was given, since crawlers do not follow the refresh.
+    tags = _LINK_PREVIEW.findall(landing.read_text(encoding="utf-8")) if landing.is_file() else []
+    preview = "".join(f"{tag}\n" for tag in tags)
+    (target / "index.html").write_text(_REDIRECT.format(destination=default, preview=preview), encoding="utf-8")
     not_found = target / default / "404.html"
     if not_found.is_file():
         shutil.copyfile(not_found, target / "404.html")
@@ -137,7 +133,7 @@ def publish_preview(site: pathlib.Path, target: pathlib.Path, *, number: int) ->
     # Pages wants an entry file at the root, which the first published version replaces.
     root = target / "index.html"
     if not root.exists():
-        root.write_text(_REDIRECT.format(destination=_MAIN), encoding="utf-8")
+        root.write_text(_REDIRECT.format(destination=_MAIN, preview=""), encoding="utf-8")
     _LOGGER.info("published the preview of #%d", number)
 
 
@@ -168,11 +164,6 @@ def _replace(site: pathlib.Path, destination: pathlib.Path) -> None:
             shutil.rmtree(staging)
 
 
-def _recorded_tag(folder: pathlib.Path) -> str | None:
-    marker = folder / _RELEASE_TAG
-    return marker.read_text(encoding="utf-8").strip() if marker.is_file() else None
-
-
 def _release_key(tag: str) -> tuple[int, int, int]:
     match = _TAG.fullmatch(tag)
     if match is None:
@@ -181,9 +172,8 @@ def _release_key(tag: str) -> tuple[int, int, int]:
     return int(match[1]), int(match[2]), int(match[3])
 
 
-def _minor_key(folder: str) -> tuple[int, int]:
-    major, minor = folder.split(".")
-    return int(major), int(minor)
+def _folder_key(folder: str) -> tuple[int, int, int]:
+    return _release_key(f"v{folder}")
 
 
 def main() -> None:
