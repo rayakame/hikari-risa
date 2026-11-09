@@ -2403,6 +2403,10 @@ handler changed.</p>
 <td>An old record takes it at its next click, or <code>None</code> at its next save</td>
 </tr>
 <tr>
+<td><code>InMessage</code> to <code>InStore(adopt=True)</code>, with the same <code>version</code></td>
+<td>An old message moves its state into the store at its next click</td>
+</tr>
+<tr>
 <td>The <a href="../08-where-state-lives/#another-codec">codec</a></td>
 <td>An old message takes it at its next rerender, as long as risa can still read the old one</td>
 </tr>
@@ -2575,7 +2579,7 @@ Start the file below on the same Redis and click <strong>Yes</strong> on the old
 <td><code>ERROR</code></td>
 </tr>
 <tr>
-<td><code>InMessage</code> to <code>InStore</code>, or back</td>
+<td><code>InMessage</code> to <code>InStore</code> without <code>adopt=True</code>, or <code>InStore</code> to <code>InMessage</code></td>
 <td><code>on_outdated</code></td>
 <td><code>ERROR</code></td>
 </tr>

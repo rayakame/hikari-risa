@@ -1949,8 +1949,9 @@
 then in Redis.</p>
 <h2 id="moving-the-poll">Moving the poll<a class="headerlink" href="#moving-the-poll" title="Permanent link">&para;</a></h2>
 <p><a href="../../api/state/placement/#risa.state.placement.InStore"><code>risa.InStore</code></a> on <code>@risa.register</code> moves the view, and it takes
-<code>ttl</code>, in seconds. The handlers stay as they were. Polls already sent cannot follow, so <code>version</code> goes up, as
-<a href="../10-changing-a-view-safely/#what-breaks">Changing a view safely</a> explains.</p>
+<code>ttl</code>, in seconds. The handlers stay as they were. Polls already sent cannot follow on their own, so <code>version</code> goes up,
+as <a href="../10-changing-a-view-safely/#what-breaks">Changing a view safely</a> explains. To keep old polls working instead, leave
+<code>version</code> as it is and pass <code>adopt=True</code>: the first click on an old poll moves its votes into the store.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"poll"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InStore</span><span class="p">(</span><span class="n">ttl</span><span class="o">=</span><span class="n">WEEK</span><span class="p">))</span>
 </span><span id="__span-0-2"><span class="k">class</span><span class="w"> </span><span class="nc">Poll</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
 </span><span id="__span-0-3">    <span class="n">question</span><span class="p">:</span> <span class="nb">str</span>

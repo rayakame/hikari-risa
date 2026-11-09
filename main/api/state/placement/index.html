@@ -2224,7 +2224,7 @@ hold a key instead of the state, so they change only when a bound argument does.
 
   
       module-attribute
-   (risa.state.placement.DEFAULT_STORE)" href="./#risa.state.placement.DEFAULT_STORE">DEFAULT_STORE</a></span><span class="p">)</span>
+   (risa.state.placement.DEFAULT_STORE)" href="./#risa.state.placement.DEFAULT_STORE">DEFAULT_STORE</a></span><span class="p">,</span> <span class="n">adopt</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2259,6 +2259,20 @@ suits both a confirmation dialog and a role menu.</p>
           <div class="doc-md-description">
             <p>Which of the client's stores holds the state: <code>"default"</code> for the client's
 <code>store=</code>, or a key of its <code>stores=</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.state.placement.InStore.adopt">adopt</span></code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Take over the messages the view sent while it kept its state in the message. It
+needs the same <code>version</code>, and durable fields that can still read the old state. The
+first click on such a message moves its state into a record, which lives <code>ttl</code> like
+any other, and every later click on the message reads the record. Once the record
+has expired, the next click takes the state over again if the message still holds
+it. A message nobody clicks keeps its state. Without <code>adopt</code>, a click on a message
+nobody took over goes to <code>on_outdated</code>.</p>
           </div>
         </li>
     </ul>
