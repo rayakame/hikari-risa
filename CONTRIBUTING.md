@@ -95,6 +95,8 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
   and the kind of change, such as `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`.
   towncrier adds the link to the pull request. `changelog.yml` runs `towncrier check`, which a pull request users do not
   notice skips with the label `skip-changelog`.
+- The ruleset of `main` requires two checks: `ci-done`, which waits for every job of `ci.yml`, and `fragment`. A new
+  job in `ci.yml` goes into the `needs` of `ci-done`.
 
 ## Releasing
 
@@ -202,6 +204,7 @@ methods as pipeline stages in flow order, each followed by the leaf helpers it o
 risa/
   __init__.py       explicit re-exports of the public API (py.typed requires `as` form)
   _about.py         package metadata (__version__, __author__, ...)
+  __main__.py       the hikari-risa command and python -m risa: the versions a bug report needs
   binding.py        the functools.partial fiction: bind, Binding, HandlerBinder, resolve
   client.py         Client ABC + Gateway/Rest implementations, registry, transports
   codecs.py         the wire codecs: base85 built in, radixly through the [radixly] extra
@@ -248,7 +251,7 @@ docs/               site pages, stylesheets, fonts
 overrides/          theme template overrides for the site
 changes/            changelog fragments waiting for the next release
 CHANGELOG.md        every release's changes, which the docs show too
-assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
+assets/             the artwork, the social preview and the GitHub App's logo; web/ holds the optimized copies the site and README use
 tools/              optimize_images, check_dist (what the wheel and sdist hold), docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout

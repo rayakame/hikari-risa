@@ -223,3 +223,14 @@ jobs:
         with:
           name: dist
           path: dist/
+
+  # The ruleset of main requires this job alone, so the jobs above can change without touching it.
+  ci-done:
+    name: ci-done
+    needs: [format, lint, slots, typecheck, audit, docs, test, compat, build]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: for result in $RESULTS; do [ "$result" = success ] || exit 1; done
