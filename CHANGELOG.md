@@ -4,6 +4,14 @@ What changed in each release of hikari-risa.
 
 <!-- towncrier release notes start -->
 
+## 1.1.0 (2026-11-09)
+
+### Features
+
+- `InStore(adopt=True)` takes over the messages a view sent while it kept its state in the message: switch `state=` without raising the `version`, and the first click on an old message moves its state into the store. ([#75](https://github.com/rayakame/hikari-risa/pull/75))
+- `MemoryStore(warn=False)` turns off the warning `add_view` logs about a `MemoryStore`, for a bot that uses one on purpose. ([#76](https://github.com/rayakame/hikari-risa/pull/76))
+
+
 ## 1.0.0 (2026-11-09)
 
 The first release of hikari-risa, a component handler for [hikari](https://github.com/hikari-py/hikari) built for Components V2. It runs on Python 3.12 to 3.15 with hikari 2.5 or a later 2.x release.
