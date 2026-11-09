@@ -63,6 +63,9 @@ def _escape_codes_work() -> bool:
     if sys.platform != "win32":
         return True
     kernel32 = ctypes.WinDLL("kernel32")
+    kernel32.GetStdHandle.restype = ctypes.c_void_p
+    kernel32.GetConsoleMode.argtypes = (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32))
+    kernel32.SetConsoleMode.argtypes = (ctypes.c_void_p, ctypes.c_uint32)
     handle = kernel32.GetStdHandle(_STD_OUTPUT_HANDLE)
     mode = ctypes.c_uint32()
     if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
