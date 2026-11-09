@@ -17,7 +17,7 @@ env:
 jobs:
   build:
     name: build preview
-    # Forks and bots stay away from the write token; only a bump of what draws the site has pages worth a preview.
+    # Forks and bots stay away from the write token; only a release or a bump of what draws the site has pages worth a preview.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository
       && (github.event.pull_request.user.type != 'Bot'
@@ -25,7 +25,8 @@ jobs:
       || startsWith(github.event.pull_request.head.ref, 'renovate/zensical')
       || startsWith(github.event.pull_request.head.ref, 'renovate/griffe')
       || startsWith(github.event.pull_request.head.ref, 'renovate/mkdocstrings')
-      || startsWith(github.event.pull_request.head.ref, 'renovate/pygments'))
+      || startsWith(github.event.pull_request.head.ref, 'renovate/pygments')
+      || startsWith(github.event.pull_request.head.ref, 'release/'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

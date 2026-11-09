@@ -23,6 +23,7 @@ import itertools
 import json
 import os
 import pathlib
+import re
 import tomllib
 import typing
 
@@ -130,6 +131,22 @@ def docs(session: nox.Session) -> None:
     if os.environ.get("MIKE_DOCS_VERSION", "").startswith("pr/"):
         flags.append("--expect-noindex")
     session.run("python", "-m", "tools.docs.check_site", "site", *flags)
+
+
+@nox.session(reuse_venv=True)
+def release(session: nox.Session) -> None:
+    if len(session.posargs) != 1:
+        session.error("name the version: nox -s release -- 1.2.0")
+    sync(session, groups=["changelog"])
+
+    session.run("uv", "version", "--no-sync", *session.posargs, external=True)
+    with pathlib.Path("pyproject.toml").open("rb") as file:
+        version = tomllib.load(file)["project"]["version"]
+    about = pathlib.Path("risa/_about.py")
+    text = about.read_text(encoding="utf-8")
+    text = re.sub(r"(?m)^__version__: .*$", f'__version__: typing.Final[str] = "{version}"', text, count=1)
+    about.write_text(text, encoding="utf-8")
+    session.run("towncrier", "build", "--version", version, "--yes")
 
 
 # uv_sync taken from: https://github.com/hikari-py/hikari/blob/master/pipelines/nox.py#L46

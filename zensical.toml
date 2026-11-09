@@ -57,6 +57,7 @@ nav = [
     { "risa.errors" = "api/errors.md" },
     { "risa.view" = "api/view.md" },
   ] },
+  { "Changelog" = "changelog.md" },
 ]
 extra_css = ["stylesheets/risa.css", "stylesheets/diagrams.css", "stylesheets/discord.css"]
 extra_javascript = ["javascripts/live-preview.js"]
@@ -118,7 +119,7 @@ pymdownx.keys = {}
 pymdownx.magiclink = {}
 pymdownx.mark = {}
 pymdownx.smartsymbols = {}
-pymdownx.snippets.base_path = ["docs/examples", "docs/generated"]
+pymdownx.snippets.base_path = ["docs/examples", "docs/generated", "."]
 pymdownx.snippets.check_paths = true
 pymdownx.snippets.dedent_subsections = true
 pymdownx.superfences = {}

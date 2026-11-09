@@ -54,6 +54,8 @@ of each component, `content` on a `view` preview draws text above a view made of
 `add_view` warns about. The `live` kind draws the landing page's counter, whose script works out each `custom_id` itself;
 a test holds it against `client.build`, which needs `node` and skips without it outside CI.
 
+The changelog page shows `CHANGELOG.md`.
+
 The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
 
@@ -68,8 +70,9 @@ A pull request from a branch of this repository also gets a preview. `.github/wo
 when the pull request closes. A preview is missing from `versions.json`, so it shows no version selector and no outdated
 banner, and it asks search engines not to index it, which `check_site` checks in both directions. A fork gets no preview,
 because its code must not run beside a token that can write to `gh-pages`. Neither does a bot's bump, which can change the
-actions of that job, unless it bumps what draws the site, such as Zensical, or only the lockfile. The job that publishes
-takes its tools from the default branch, so a change to `tools/docs/publish.py` reaches a preview only after its merge.
+actions of that job, unless it bumps what draws the site, such as Zensical, or only the lockfile; the pull request of a
+release gets one too. The job that publishes takes its tools from the default branch, so a change to
+`tools/docs/publish.py` reaches a preview only after its merge.
 
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.
@@ -88,14 +91,25 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 - Work on a branch; `main` only moves through pull requests.
 - Pull requests are squash-merged, so the PR title becomes the commit subject on `main`.
 - Never skip hooks with `--no-verify`.
+- A pull request that changes what users of risa see adds a changelog fragment to `changes/`, named after its number
+  and the kind of change, such as `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`.
+  towncrier adds the link to the pull request. `changelog.yml` runs `towncrier check`, which a pull request users do not
+  notice skips with the label `skip-changelog`.
 
 ## Releasing
 
-1. Raise the version in `pyproject.toml` and `risa/_about.py`, which a test holds equal, run `uv lock`, and merge it.
-2. Publish a GitHub release on that commit, tagged `v` and the version, such as `v1.2.0`.
+1. Run the workflow Release from the Actions tab with the version, such as `1.2.0`. Through `nox -s release` it raises
+   the version in `pyproject.toml`, `uv.lock` and `risa/_about.py` and turns the fragments in `changes/` into the
+   version's section of `CHANGELOG.md`, then opens a pull request from `release/1.2.0`.
+2. Merge it. The workflow then publishes the GitHub release `v1.2.0` on the merge commit, with the version's section of
+   `CHANGELOG.md` as its notes.
+
+The workflow acts as a GitHub App with read and write access to contents and pull requests, whose client ID and private
+key are the secrets `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY`, since a pull request or release made with the
+default token starts no workflows.
 
 `.github/workflows/publish.yml` builds the package, checks its contents and the tag against it, and uploads it to PyPI
-through trusted publishing from the `pypi` environment, so no token is stored anywhere. Then it calls `docs.yml` for
+through trusted publishing from the `pypi` environment, so no PyPI token is stored anywhere. Then it calls `docs.yml` for
 the release's docs, so they never name a version PyPI lacks. A GitHub pre-release publishes neither.
 
 ## Toolchain
@@ -232,11 +246,13 @@ docs/               site pages, stylesheets, fonts
   javascripts/      the script behind the landing page's counter, which fills its frame and works out each custom_id
   stylesheets/      the theme (risa.css), the Discord frame (discord.css) and the diagrams (diagrams.css)
 overrides/          theme template overrides for the site
+changes/            changelog fragments waiting for the next release
+CHANGELOG.md        every release's changes, which the docs show too
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
 tools/              optimize_images, check_dist (what the wheel and sdist hold), docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
-noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / compat / audit / docs
+noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / compat / audit / docs / release
 ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
 
