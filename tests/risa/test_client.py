@@ -3706,3 +3706,54 @@ async def test_a_caught_overflow_that_render_can_carry_is_saved_when_the_handler
     assert saved_state(Thanks, built) == ([*voters, NEWCOMER],)
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
     assert "already overflowed" not in caplog.text
+
+
+PANTRY_SEEN: list[list[str]] = []
+
+
+@risa.register(name="client-pantry", state=risa.InStore(ttl=60.0, adopt=True))
+class Pantry(risa.View):
+    shelf: list[str] = msgspec.field(default_factory=list[str])
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.stock))
+
+    @risa.handler
+    async def stock(self, _ctx: risa.ComponentContext) -> None:
+        PANTRY_SEEN.append(list(self.shelf))
+        self.shelf.append("rice")
+
+
+def as_sent_in_the_message(view: Pantry, ids: list[str]) -> list[str]:
+    meta = registry.require_meta(Pantry)
+    raw = anchor.MessageAnchor(meta.schema.fingerprint, 0, meta.schema.pack_view(view)).pack()
+    pieces = anchor.carve(raw, [60] * len(ids), wire_codec=codecs.BASE85, view_name=meta.name)
+    sent: list[str] = []
+    for index, (custom_id, piece) in enumerate(zip(ids, pieces, strict=True)):
+        parsed = codec.parse_custom_id(custom_id)
+        assert parsed is not None
+        sent.append(msgspec.structs.replace(parsed, fragment_index=index, fragment=piece).encode())
+    return sent
+
+
+def anchor_in(custom_id: str) -> anchor.MessageAnchor | anchor.StoreAnchor | anchor.TakenOverAnchor | None:
+    parsed = codec.parse_custom_id(custom_id)
+    assert parsed is not None
+    found = codec.decode_text(parsed.fragment, parsed.codec)
+    assert isinstance(found, bytes)
+    return anchor.parse(found)
+
+
+async def test_a_view_moved_into_a_store_takes_over_a_message_it_sent_before() -> None:
+    built = stored_client()
+    built.add_view(Pantry)
+    old = as_sent_in_the_message(Pantry(shelf=["beans"]), ids_of((await built.build(Pantry())).components))
+    PANTRY_SEEN.clear()
+
+    await built._process_interaction(click(old, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    rewritten = ids_of(updated_with(built))
+    await built._process_interaction(click(rewritten, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    await built._process_interaction(click(old, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert anchor_in(rewritten[0]) == anchor.TakenOverAnchor()
+    assert PANTRY_SEEN == [["beans"], ["beans", "rice"], ["beans", "rice", "rice"]]

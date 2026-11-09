@@ -350,10 +350,15 @@ async def test_a_message_missing_its_trailing_components_reads_as_torn(caplog: p
     assert any("could not be reassembled" in line for line in records_at(caplog, logging.WARNING))
 
 
-async def test_a_store_key_in_a_message_view_is_a_placement_switch(caplog: pytest.LogCaptureFixture) -> None:
+@pytest.mark.parametrize(
+    "held", [anchor.StoreAnchor.mint().pack(), anchor.PLACEMENT_TAKEN_OVER], ids=["store", "taken-over"]
+)
+async def test_a_store_anchor_in_a_message_view_is_a_placement_switch(
+    held: bytes, caplog: pytest.LogCaptureFixture
+) -> None:
     caplog.set_level(logging.DEBUG, logger="risa")
 
-    restored = await session(message.MessageBackend(), carved(anchor.StoreAnchor.mint().pack())).restore()
+    restored = await session(message.MessageBackend(), carved(held)).restore()
 
     assert restored is backend.Unreadably.OUTDATED
     assert any("placement was switched" in line for line in records_at(caplog, logging.ERROR))
