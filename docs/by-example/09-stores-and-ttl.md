@@ -23,7 +23,7 @@ the buttons' ids as they are:
 
 --8<-- "previews/poll-stored-ids.html"
 
-## `MemoryStore`, for trying things out
+## `MemoryStore`
 
 A client gets its store from `store=`. [`risa.MemoryStore`](../api/store/memory.md#risa.store.memory.MemoryStore) needs
 nothing installed.
@@ -32,9 +32,19 @@ nothing installed.
 --8<-- "ch09_poll_memory.py:client"
 ```
 
-`add_view` warns you about it:
+It keeps the records in your bot's memory, and that has its price:
+
+- A restart loses every record, and a click on a poll sent before it runs [`on_state_missing`](#ttl).
+- Only the process that sent a poll holds its record, so a bot of [several processes](11-several-processes.md) misses
+  most clicks.
+- Past `max_entries`, 10,000 unless you pass another, each new record pushes out the one unused the longest.
+
+That is fine while you try things out, and for a bot of one process whose polls may reset when it restarts. `add_view`
+warns you about it:
 
 --8<-- "previews/poll-memory-warning.html"
+
+Once you choose it on purpose, `risa.MemoryStore(warn=False)` turns that warning off. The one at `max_entries` stays.
 
 A bot with several stores passes `stores={"votes": store}`, and the view names one with
 `risa.InStore(ttl=WEEK, store="votes")`.

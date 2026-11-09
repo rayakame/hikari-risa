@@ -2035,7 +2035,16 @@ def test_a_memory_store_behind_a_stored_view_warns_once_per_slot(caplog: pytest.
 
     warnings = [record for record in caplog.records if record.levelno == logging.WARNING]
     assert len(warnings) == 1
-    assert "MemoryStore" in warnings[0].getMessage()
+    assert "MemoryStore(warn=False)" in warnings[0].getMessage()
+
+
+def test_a_memory_store_chosen_on_purpose_does_not_warn(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="risa")
+    built = risa.client_from_app(gateway_app(), store=risa.MemoryStore(warn=False))
+
+    built.add_view(Ledger)
+
+    assert not [record for record in caplog.records if record.levelno == logging.WARNING]
 
 
 def test_a_store_of_the_users_own_does_not_warn(caplog: pytest.LogCaptureFixture) -> None:

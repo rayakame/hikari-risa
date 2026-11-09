@@ -162,7 +162,8 @@ inactivity, and every click restarts it.
 
 --8<-- "previews/question-expired.html"
 
-The client needs a store for this. A `MemoryStore` is for trying things out:
+The client needs a store for this. A `MemoryStore` needs nothing installed, and it forgets everything when the bot
+restarts:
 
 ```python
 --8<-- "coming_from_miru.py:client"
