@@ -867,10 +867,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#memorystore-for-trying-things-out" class="md-nav__link">
+  <a href="#memorystore" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>MemoryStore</code>, for trying things out
+        <code>MemoryStore</code>
       </span>
     </span>
   </a>
@@ -1809,10 +1809,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#memorystore-for-trying-things-out" class="md-nav__link">
+  <a href="#memorystore" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>MemoryStore</code>, for trying things out
+        <code>MemoryStore</code>
       </span>
     </span>
   </a>
@@ -1966,15 +1966,24 @@ as <a href="../10-changing-a-view-safely/#what-breaks">Changing a view safely</a
 the buttons' ids as they are:</p>
 <div class="risa-result"><p class="risa-result__label">What the buttons hold</p><div class="risa-ids"><p class="risa-ids__title">question = &#x27;Pizza on Friday?&#x27;, yes = 0, no = 0, voters = []</p><div class="risa-ids__row"><span class="risa-ids__name">Yes: 0</span><code><span class="risa-id-route">1aKxPkh7b=!3</span><span class="risa-id-state">b60si2qqVv8J#m}_5</span></code></div><div class="risa-ids__row"><span class="risa-ids__name">No: 0</span><code><span class="risa-id-route">1aKxPkh7SU!3</span><span class="risa-id-state">b60si2qqVv8J#m}_5</span></code></div><p class="risa-ids__title">question = &#x27;Pizza on Friday?&#x27;, yes = 1, no = 0, voters = [1298471056230400001]</p><div class="risa-ids__row"><span class="risa-ids__name">Yes: 1</span><code><span class="risa-id-route">1aKxPkh7b=!3</span><span class="risa-id-state">b60si2qqVv8J#m}_5</span></code></div><div class="risa-ids__row"><span class="risa-ids__name">No: 0</span><code><span class="risa-id-route">1aKxPkh7SU!3</span><span class="risa-id-state">b60si2qqVv8J#m}_5</span></code></div><p class="risa-ids__legend"><span class="risa-id-route">Yellow</span> routes the click to its view and handler. <span class="risa-id-state">Pink</span> is the key to the state in the store.</p></div></div>
 
-<h2 id="memorystore-for-trying-things-out"><code>MemoryStore</code>, for trying things out<a class="headerlink" href="#memorystore-for-trying-things-out" title="Permanent link">&para;</a></h2>
+<h2 id="memorystore"><code>MemoryStore</code><a class="headerlink" href="#memorystore" title="Permanent link">&para;</a></h2>
 <p>A client gets its store from <code>store=</code>. <a href="../../api/store/memory/#risa.store.memory.MemoryStore"><code>risa.MemoryStore</code></a> needs
 nothing installed.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">MemoryStore</span><span class="p">())</span>
 </span><span id="__span-1-2"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>add_view</code> warns you about it:</p>
-<div class="risa-result"><p class="risa-result__label">In your log at startup</p><pre class="risa-error"><code>view poll keeps its state in store &#x27;default&#x27;, which is a MemoryStore: the state lives in this process only, so it is lost on every restart, and on a REST bot with more than one process most clicks will not find it - use it for development only</code></pre></div>
+<p>It keeps the records in your bot's memory, and that has its price:</p>
+<ul>
+<li>A restart loses every record, and a click on a poll sent before it runs <a href="#ttl"><code>on_state_missing</code></a>.</li>
+<li>Only the process that sent a poll holds its record, so a bot of <a href="../11-several-processes/">several processes</a> misses
+  most clicks.</li>
+<li>Past <code>max_entries</code>, 10,000 unless you pass another, each new record pushes out the one unused the longest.</li>
+</ul>
+<p>That is fine while you try things out, and for a bot of one process whose polls may reset when it restarts. <code>add_view</code>
+warns you about it:</p>
+<div class="risa-result"><p class="risa-result__label">In your log at startup</p><pre class="risa-error"><code>view poll keeps its state in store &#x27;default&#x27;, which is a MemoryStore: the state lives in this process only, so it is lost on every restart, and on a REST bot with more than one process most clicks will not find it. Pass MemoryStore(warn=False) once this is intended</code></pre></div>
 
+<p>Once you choose it on purpose, <code>risa.MemoryStore(warn=False)</code> turns that warning off. The one at <code>max_entries</code> stays.</p>
 <p>A bot with several stores passes <code>stores={"votes": store}</code>, and the view names one with
 <code>risa.InStore(ttl=WEEK, store="votes")</code>.</p>
 <p><code>add_view</code> raises <a href="../../api/errors/#risa.errors.ViewDeclarationError"><code>ViewDeclarationError</code></a> at startup if the client
@@ -1998,7 +2007,7 @@ view you ended or a failed send leaves behind.</p>
 <code>ctx.edit</code> with a button does.</p>
 <details class="example">
 <summary>Full file</summary>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="sd">"""The poll in a store, a `MemoryStore` for trying things out."""</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="sd">"""The poll in a store: a `MemoryStore`, which needs nothing installed."""</span>
 </span><span id="__span-3-2">
 </span><span id="__span-3-3"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span id="__span-3-4">

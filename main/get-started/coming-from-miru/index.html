@@ -2220,7 +2220,8 @@ inactivity, and every click restarts it.</p>
 
 <div class="risa-result"><p class="risa-result__label">A click after the record expired</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>This question has expired.</p></div><div class="dc-eph"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg><span>Only you can see this</span><span>&middot;</span><a>Dismiss message</a></div></div></div></div>
 
-<p>The client needs a store for this. A <code>MemoryStore</code> is for trying things out:</p>
+<p>The client needs a store for this. A <code>MemoryStore</code> needs nothing installed, and it forgets everything when the bot
+restarts:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">MemoryStore</span><span class="p">())</span>
 </span><span id="__span-7-2"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Question</span><span class="p">)</span>
 </span></code></pre></div>
