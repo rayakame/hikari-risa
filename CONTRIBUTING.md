@@ -70,8 +70,9 @@ A pull request from a branch of this repository also gets a preview. `.github/wo
 when the pull request closes. A preview is missing from `versions.json`, so it shows no version selector and no outdated
 banner, and it asks search engines not to index it, which `check_site` checks in both directions. A fork gets no preview,
 because its code must not run beside a token that can write to `gh-pages`. Neither does a bot's bump, which can change the
-actions of that job, unless it bumps what draws the site, such as Zensical, or only the lockfile. The job that publishes
-takes its tools from the default branch, so a change to `tools/docs/publish.py` reaches a preview only after its merge.
+actions of that job, unless it bumps what draws the site, such as Zensical, or only the lockfile; the pull request of a
+release gets one too. The job that publishes takes its tools from the default branch, so a change to
+`tools/docs/publish.py` reaches a preview only after its merge.
 
 The Redis tests run against fakeredis everywhere. Set `RISA_TEST_REDIS_URL` (for example
 `redis://localhost:6379/0`) to run them against a real Redis as well; CI does.
@@ -90,19 +91,25 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 - Work on a branch; `main` only moves through pull requests.
 - Pull requests are squash-merged, so the PR title becomes the commit subject on `main`.
 - Never skip hooks with `--no-verify`.
-- A pull request adds a changelog fragment to `changes/`, named after its number and the kind of change, such as
-  `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`. towncrier adds the link to the pull
-  request. `changelog.yml` runs `towncrier check`; a pull request users do not notice takes the label `skip-changelog`.
+- A pull request that changes what users of risa see adds a changelog fragment to `changes/`, named after its number
+  and the kind of change, such as `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`.
+  towncrier adds the link to the pull request. `changelog.yml` runs `towncrier check`, which a pull request users do not
+  notice skips with the label `skip-changelog`.
 
 ## Releasing
 
-1. On a branch, run `uv run --group nox nox -s release -- 1.2.0`. It raises the version in `pyproject.toml`, `uv.lock`
-   and `risa/_about.py` and turns the fragments in `changes/` into the version's section of `CHANGELOG.md`. Merge it.
-2. Publish a GitHub release on that commit, tagged `v` and the version, such as `v1.2.0`, with the version's section of
+1. Run the workflow Release from the Actions tab with the version, such as `1.2.0`. Through `nox -s release` it raises
+   the version in `pyproject.toml`, `uv.lock` and `risa/_about.py` and turns the fragments in `changes/` into the
+   version's section of `CHANGELOG.md`, then opens a pull request from `release/1.2.0`.
+2. Merge it. The workflow then publishes the GitHub release `v1.2.0` on the merge commit, with the version's section of
    `CHANGELOG.md` as its notes.
 
+The workflow acts as a GitHub App with read and write access to contents and pull requests, whose client ID and private
+key are the secrets `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY`, since a pull request or release made with the
+default token starts no workflows.
+
 `.github/workflows/publish.yml` builds the package, checks its contents and the tag against it, and uploads it to PyPI
-through trusted publishing from the `pypi` environment, so no token is stored anywhere. Then it calls `docs.yml` for
+through trusted publishing from the `pypi` environment, so no PyPI token is stored anywhere. Then it calls `docs.yml` for
 the release's docs, so they never name a version PyPI lacks. A GitHub pre-release publishes neither.
 
 ## Toolchain
