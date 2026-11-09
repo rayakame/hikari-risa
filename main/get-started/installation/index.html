@@ -1920,19 +1920,21 @@
 </div>
 <p>This also installs what risa depends on: hikari, linkd and msgspec. <code>uv add</code> needs a project to add to, so run
 <code>uv init</code> first if you have no <code>pyproject.toml</code> yet.</p>
-<p>Print the version to check that it worked:</p>
+<p>Run <code>hikari-risa</code> to check that it worked. It prints the version of risa, where it is installed and the versions of
+Python and of what risa installs; paste that into a bug report.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">uv</label><label for="__tabbed_2_2">pip</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import risa; print(risa.__version__)"</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1">uv<span class="w"> </span>run<span class="w"> </span>hikari-risa
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1">python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import risa; print(risa.__version__)"</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1">hikari-risa
 </span></code></pre></div>
 </div>
 </div>
 </div>
+<p><code>python -m risa</code> does the same, and <code>hikari-risa --version</code> prints only the version.</p>
 <h2 id="extras">Extras<a class="headerlink" href="#extras" title="Permanent link">&para;</a></h2>
 <p>A view keeps its state in its message by default, and that needs nothing extra. Three extras add more:</p>
 <table>
