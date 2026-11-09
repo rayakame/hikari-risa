@@ -63,7 +63,7 @@ extra_css = ["stylesheets/risa.css", "stylesheets/diagrams.css", "stylesheets/di
 extra_javascript = ["javascripts/live-preview.js"]
 
 [project.extra]
-scope = "/hikari-risa/"
+scope = "/"
 
 [project.extra.version]
 provider = "mike"

@@ -86,7 +86,10 @@ def test_the_root_serves_the_404_of_the_default_version(tmp_path: pathlib.Path) 
 def test_the_root_carries_the_link_preview_of_the_default_version(tmp_path: pathlib.Path) -> None:
     target = tmp_path / "pages"
     target.mkdir()
-    preview = '<meta property="og:title" content="{}">\n<meta name="twitter:card" content="summary_large_image">'
+    preview = (
+        '<meta name="description" content="{0}">\n<meta property="og:title" content="{0}">\n'
+        '<meta name="twitter:card" content="summary_large_image">'
+    )
     main = _site(tmp_path, "m")
     (main / "index.html").write_text(f'<head>{preview.format("main")}<meta name="viewport" content="x"></head>')
     release = _site(tmp_path, "r")
