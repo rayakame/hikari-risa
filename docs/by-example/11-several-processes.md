@@ -89,7 +89,7 @@ Two people click **Yes** at the same moment on a poll at 5, so the right result 
 A click that finds no record runs [`on_state_missing`](09-stores-and-ttl.md#ttl). A REST bot with one process behaves like
 the gateway column. A gateway bot with split shards can miss a `MemoryStore`
 record too, when one process sends a message into a guild another process serves, and `add_view` warns about a
-`MemoryStore` at startup.
+`MemoryStore` at startup unless you made it with `warn=False`.
 
 In a message, one more thing holds on every bot: a vote changes the ids, so a click that reaches Discord after the first
 edit fails there, and the person has to click again. [In a store](08-where-state-lives.md#message-or-store) the ids stay.

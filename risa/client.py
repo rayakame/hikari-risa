@@ -376,12 +376,12 @@ class Client(abc.ABC):
         slot = self._stored.get(state.store)
         if slot is None:
             raise errors.ViewDeclarationError(meta.name, _missing_store(state.store))
-        if isinstance(slot.store, memory.MemoryStore) and state.store not in self._memory_warned:
+        if isinstance(slot.store, memory.MemoryStore) and slot.store.warn and state.store not in self._memory_warned:
             self._memory_warned.add(state.store)
             _LOGGER.warning(
                 "view %s keeps its state in store %r, which is a MemoryStore: the state lives in this"
                 " process only, so it is lost on every restart, and on a REST bot with more than one"
-                " process most clicks will not find it - use it for development only",
+                " process most clicks will not find it. Pass MemoryStore(warn=False) once this is intended",
                 meta.name,
                 state.store,
             )
@@ -649,7 +649,7 @@ def _missing_store(name: str) -> str:
     if name == placement_.DEFAULT_STORE:
         return (
             "it keeps its state in the default store, but this client has none; pass store=... to the"
-            " client - store=risa.MemoryStore() for development"
+            " client - store=risa.MemoryStore() needs nothing installed"
         )
     return (
         f"it keeps its state in store {name!r}, but this client has no store of that name; pass"

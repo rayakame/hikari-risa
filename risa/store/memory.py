@@ -54,9 +54,11 @@ class _Entry(msgspec.Struct):
 class MemoryStore(protocol.Store):
     """A store that keeps state in this process's memory.
 
-    Meant for development and tests: the state is lost on every restart, and other
-    processes cannot see it, so the client warns when an `InStore` view uses one. Past
-    `max_entries`, each new entry pushes out the least recently used one.
+    It needs nothing installed, but the state is lost on every restart, other processes
+    cannot see it, and past `max_entries` each new entry pushes out the least recently used
+    one. That suits development and tests, and a bot of one process whose views may forget
+    their state when it restarts. The client warns once when an `InStore` view uses one,
+    unless `warn=False`.
 
     Parameters
     ----------
@@ -64,21 +66,31 @@ class MemoryStore(protocol.Store):
         How many entries to keep.
     clock
         The monotonic clock, in seconds, that expiry is measured on.
+    warn
+        Whether the client warns at startup that the state lives in this process only. Pass
+        `False` once you choose this store on purpose; the warning at `max_entries` stays.
     """
 
-    __slots__ = ("_capacity_warned", "_clock", "_entries", "_locks", "_max_entries")
+    __slots__ = ("_capacity_warned", "_clock", "_entries", "_locks", "_max_entries", "_warn")
 
     def __init__(
         self,
         *,
         max_entries: int = DEFAULT_MAX_ENTRIES,
         clock: collections.abc.Callable[[], float] = time.monotonic,
+        warn: bool = True,
     ) -> None:
         self._entries: collections.OrderedDict[str, _Entry] = collections.OrderedDict()
         self._locks = locks.KeyedLocks()
         self._max_entries = max_entries
         self._clock = clock
         self._capacity_warned = False
+        self._warn = warn
+
+    @property
+    def warn(self) -> bool:
+        """Whether the client warns at startup that the state lives in this process only."""
+        return self._warn
 
     @typing.override
     async def get_versioned(self, key: str) -> protocol.VersionedEntry | None:
