@@ -6,6 +6,7 @@
   <a href="https://pypi.org/project/hikari-risa/"><img src="https://img.shields.io/pypi/v/hikari-risa" alt="PyPI"></a>
   <a href="https://pypi.org/project/hikari-risa/"><img src="https://img.shields.io/pypi/pyversions/hikari-risa" alt="Python versions"></a>
   <a href="https://github.com/rayakame/hikari-risa/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/rayakame/hikari-risa/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://codecov.io/gh/rayakame/hikari-risa"><img src="https://codecov.io/gh/rayakame/hikari-risa/branch/main/graph/badge.svg" alt="Coverage"></a>
   <a href="https://hikari-risa.rayakame.dev/"><img src="https://img.shields.io/badge/docs-hikari--risa.rayakame.dev-f680a1" alt="Docs"></a>
   <a href="https://github.com/microsoft/pyright"><img src="https://img.shields.io/badge/pyright-strict-blue" alt="pyright strict"></a>
   <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
