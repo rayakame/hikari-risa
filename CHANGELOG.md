@@ -1,7 +1,6 @@
 # Changelog
 
-What changed in each release of hikari-risa. The [documentation](https://rayakame.github.io/hikari-risa/stable/changelog/)
-shows the same list.
+What changed in each release of hikari-risa.
 
 <!-- towncrier release notes start -->
 

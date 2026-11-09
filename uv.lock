@@ -545,7 +545,6 @@ docs = [
     { name = "radixly" },
     { name = "redis" },
     { name = "ruff" },
-    { name = "towncrier" },
     { name = "zensical" },
 ]
 images = [
@@ -573,7 +572,6 @@ pytest = [
     { name = "pytest-asyncio" },
     { name = "radixly" },
     { name = "redis" },
-    { name = "towncrier" },
 ]
 ruff = [
     { name = "ruff" },
@@ -605,7 +603,6 @@ docs = [
     { name = "radixly", specifier = "~=1.0" },
     { name = "redis", specifier = "~=8.0" },
     { name = "ruff", specifier = "==0.17.4" },
-    { name = "towncrier", specifier = "==26.9.0" },
     { name = "zensical", specifier = "==0.1.0" },
 ]
 images = [{ name = "pillow", specifier = "==13.0.0" }]
@@ -627,7 +624,6 @@ pytest = [
     { name = "pytest-asyncio", specifier = "==1.4.1.post1" },
     { name = "radixly", specifier = "~=1.0" },
     { name = "redis", specifier = "~=8.0" },
-    { name = "towncrier", specifier = "==26.9.0" },
 ]
 ruff = [{ name = "ruff", specifier = "==0.17.4" }]
 slotscheck = [

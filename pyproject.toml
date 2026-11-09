@@ -60,7 +60,6 @@ changelog = [
     "towncrier==26.9.0",
 ]
 docs = [
-    {include-group = "changelog"},
     {include-group = "ruff"},
     "griffe-inherited-docstrings==1.1.4",
     "griffelib==2.4.1",
@@ -93,7 +92,6 @@ slotscheck = [
     "slotscheck==0.21.0",
 ]
 pytest = [
-    {include-group = "changelog"},
     {include-group = "images"},
     "asyncpg~=0.32",
     "fakeredis[lua]==2.40.0",

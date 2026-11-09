@@ -54,8 +54,7 @@ of each component, `content` on a `view` preview draws text above a view made of
 `add_view` warns about. The `live` kind draws the landing page's counter, whose script works out each `custom_id` itself;
 a test holds it against `client.build`, which needs `node` and skips without it outside CI.
 
-The changelog page is `CHANGELOG.md` with the fragments that wait in `changes/` above it as an Unreleased section, which
-`tools/docs/prepare.py` writes into `docs/generated/`.
+The changelog page shows `CHANGELOG.md`.
 
 The artwork in `assets/web/` is generated from the originals in `assets/`. Run
 `uv run --group images python -m tools.optimize_images` only when the artwork changes.
@@ -91,27 +90,20 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
 - Work on a branch; `main` only moves through pull requests.
 - Pull requests are squash-merged, so the PR title becomes the commit subject on `main`.
 - Never skip hooks with `--no-verify`.
-- A pull request that changes what users of risa see adds a fragment to `changes/`, named after its number and the kind
-  of change, such as `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`, and a second
-  entry of one kind takes a counter, `71.feature.1.md`. It holds a single line written for users, however long, and
-  towncrier adds the link to the pull request. The same text reaches the docs and the GitHub release notes, which
-  break at every newline, so a fragment is not a list item, quote, heading or code block, and its links are
-  `https://` addresses; names go in backticks. `changelog.yml` asks for a fragment named after the pull request when it changes `risa/`
-  beyond the version, unless it has the label `skip-changelog`. The docs build refuses a fragment that breaks these
-  rules, since towncrier would leave a misnamed one out without a word.
+- A pull request adds a changelog fragment to `changes/`, named after its number and the kind of change, such as
+  `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`. towncrier adds the link to the pull
+  request. `changelog.yml` runs `towncrier check`; a pull request users do not notice takes the label `skip-changelog`.
 
 ## Releasing
 
-1. Raise the version in `pyproject.toml` and `risa/_about.py`, which a test holds equal, and run `uv lock`. Move the
-   fragments into `CHANGELOG.md` with `uv run --group changelog towncrier build --version 1.2.0 --yes`, and merge it.
-   The section of 1.0.0 was written by hand, so this step starts with the release after it.
+1. On a branch, run `uv run --group nox nox -s release -- 1.2.0`. It raises the version in `pyproject.toml`, `uv.lock`
+   and `risa/_about.py` and turns the fragments in `changes/` into the version's section of `CHANGELOG.md`. Merge it.
 2. Publish a GitHub release on that commit, tagged `v` and the version, such as `v1.2.0`, with the version's section of
    `CHANGELOG.md` as its notes.
 
-`.github/workflows/publish.yml` checks that `CHANGELOG.md` has the version's section and no fragment still waits,
-builds the package, checks its contents and the tag against it, and uploads it to PyPI through trusted publishing from
-the `pypi` environment, so no token is stored anywhere. Then it calls `docs.yml` for the release's docs, so they never
-name a version PyPI lacks. A GitHub pre-release publishes neither.
+`.github/workflows/publish.yml` builds the package, checks its contents and the tag against it, and uploads it to PyPI
+through trusted publishing from the `pypi` environment, so no token is stored anywhere. Then it calls `docs.yml` for
+the release's docs, so they never name a version PyPI lacks. A GitHub pre-release publishes neither.
 
 ## Toolchain
 
@@ -250,10 +242,10 @@ overrides/          theme template overrides for the site
 changes/            changelog fragments waiting for the next release
 CHANGELOG.md        every release's changes, which the docs show too
 assets/             the artwork and the social preview; web/ holds the optimized copies the site and README use
-tools/              optimize_images, check_dist (what the wheel and sdist hold), changelog (check fragments, render the changelog page), docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
+tools/              optimize_images, check_dist (what the wheel and sdist hold), docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
-noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / compat / audit / docs
+noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / compat / audit / docs / release
 ruff.toml           lint + format config (NOT in pyproject.toml)
 ```
 
