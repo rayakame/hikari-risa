@@ -21,6 +21,9 @@ uv lock --upgrade                 # periodically; plain `uv lock` never bumps ex
 where lightbulb pins it, which is why CI also runs `compat`: it installs without the lockfile, once at the lowest
 versions of the direct dependencies and once at the highest.
 
+The `pytest` session measures the coverage of `risa/`, branches included, and CI sends each Python version's report to
+Codecov. `codecov.yml` keeps it informational: no comments on pull requests and no status that can fail.
+
 The `audit` session runs `uv audit`, which needs **uv >= 0.9** (the subcommand is still behind
 `--preview-features audit-command`). Because `nox[uv]` puts uv in the lockfile, the project's
 uv is pinned per-project and the copy in `.venv` shadows any global install. If `audit` fails
@@ -257,6 +260,7 @@ zensical.toml       the docs site configuration
 tests/              mirrors the package layout
 noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / compat / audit / docs / release
 ruff.toml           lint + format config (NOT in pyproject.toml)
+codecov.yml         how Codecov reports coverage: shown, never enforced
 ```
 
 Flat layout, not `src/`. Package config lives in `pyproject.toml` except ruff, which has its
