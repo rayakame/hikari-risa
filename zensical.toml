@@ -8,6 +8,7 @@ docs_dir = "docs"
 exclude_docs = "examples/\ngenerated/"
 nav = [
   { "Home" = "index.md" },
+  { "Changelog" = "changelog.md" },
   { "Get started" = [
     "get-started/index.md",
     "get-started/installation.md",
@@ -57,7 +58,6 @@ nav = [
     { "risa.errors" = "api/errors.md" },
     { "risa.view" = "api/view.md" },
   ] },
-  { "Changelog" = "changelog.md" },
 ]
 extra_css = ["stylesheets/risa.css", "stylesheets/diagrams.css", "stylesheets/discord.css"]
 extra_javascript = ["javascripts/live-preview.js"]

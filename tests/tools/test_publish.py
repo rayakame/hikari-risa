@@ -88,7 +88,8 @@ def test_the_root_carries_the_link_preview_of_the_default_version(tmp_path: path
     target.mkdir()
     preview = (
         '<meta name="description" content="{0}">\n<meta property="og:title" content="{0}">\n'
-        '<meta name="twitter:card" content="summary_large_image">'
+        '<meta name="twitter:card" content="summary_large_image">\n'
+        '<script id="discord:component-embed" type="application/json">{{"component":"{0}"}}</script>'
     )
     main = _site(tmp_path, "m")
     (main / "index.html").write_text(f'<head>{preview.format("main")}<meta name="viewport" content="x"></head>')
