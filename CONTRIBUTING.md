@@ -31,8 +31,8 @@ Without a periodic `uv lock --upgrade`, the lockfile silently rots and `audit` s
 on transitive dependencies.
 
 The `docs` session checks the API reference against the code (every public name on one page,
-everything public annotated), builds the documentation site (`zensical build --strict`) and
-checks its invariants. To preview it locally:
+everything public annotated), builds the documentation site (`zensical build --strict`), writes each
+page's Discord link preview into its head and checks its invariants. To preview it locally:
 
 ```sh
 uv run --group nox nox -s docs
@@ -252,7 +252,7 @@ overrides/          theme template overrides for the site
 changes/            changelog fragments waiting for the next release
 CHANGELOG.md        every release's changes, which the docs show too
 assets/             the artwork, the social preview and the GitHub App's logo; web/ holds the optimized copies the site and README use
-tools/              optimize_images, check_dist (what the wheel and sdist hold), docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
+tools/              optimize_images, check_dist (what the wheel and sdist hold), docs/prepare (stage artwork, draw previews), docs/manifest (read previews.toml), docs/render_example (build an example's views), docs/discord_html (draw a preview), docs/check_api (reference coverage and annotations), docs/griffe_structs (msgspec Struct signatures for the reference), docs/embeds (each page's Discord link preview, a risa view), docs/check_site (site invariants), docs/publish (place a version or a pull request's preview in gh-pages)
 zensical.toml       the docs site configuration
 tests/              mirrors the package layout
 noxfile.py          reformat / format-check / ruff / slotscheck / pyright / pytest / compat / audit / docs / release

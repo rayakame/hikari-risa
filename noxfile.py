@@ -127,6 +127,7 @@ def docs(session: nox.Session) -> None:
     session.run("python", "-m", "tools.docs.check_api")
     session.run("python", "-m", "tools.docs.prepare")
     session.run("zensical", "build", "--strict", "--clean")
+    session.run("python", "-m", "tools.docs.embeds", "site")
     flags = ["--require-inventory-links"] if os.environ.get("CI") else []
     if os.environ.get("MIKE_DOCS_VERSION", "").startswith("pr/"):
         flags.append("--expect-noindex")

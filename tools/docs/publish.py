@@ -37,7 +37,10 @@ _STABLE: typing.Final = "stable"
 _PREVIEWS: typing.Final = "pr"
 _TAG: typing.Final = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
 _FOLDER: typing.Final = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-_LINK_PREVIEW: typing.Final = re.compile(r'<meta (?:property="og:|name="twitter:|name="description")[^>]*>')
+_LINK_PREVIEW: typing.Final = re.compile(
+    r'<meta (?:property="og:|name="twitter:|name="description")[^>]*>'
+    r'|<script id="discord:component-embed"[^>]*>.*?</script>'
+)
 _REDIRECT: typing.Final = """<!doctype html>
 <html lang="en">
 <head>
