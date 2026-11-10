@@ -65,12 +65,14 @@ class Poll(risa.View):
 
     @risa.handler
     async def vote_yes(self, ctx: risa.ComponentContext) -> None:
-        self.yes += 1
+        if not self.closed:
+            self.yes += 1
         await ctx.rerender()
 
     @risa.handler
     async def vote_no(self, ctx: risa.ComponentContext) -> None:
-        self.no += 1
+        if not self.closed:
+            self.no += 1
         await ctx.rerender()
 
     @risa.handler(hooks=[author_only])
@@ -117,11 +119,14 @@ async def audit_last(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContex
 
 
 def make_client_that_audits_last(bot: hikari.GatewayBot) -> risa.GatewayEnabledClient:
-    return risa.client_from_app(
+    client = risa.client_from_app(
         bot,
         hooks=[audit_last],
         execution_step_order=[*risa.DEFAULT_EXECUTION_STEP_ORDER, LAST],
     )
+    client.add_view(Poll)
+    client.error_handler(not_the_author)
+    return client
     # --8<-- [end:order]
 
 

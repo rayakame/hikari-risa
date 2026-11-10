@@ -416,8 +416,9 @@ class NotAViewError(RisaError):
 class NoViewError(RisaError):
     """Raised when an operation needs the view's state, but the context has none.
 
-    That is the case in `on_outdated` and `on_state_missing`, after `ctx.replace` gave the
-    message to another view, and in a context kept past the end of its dispatch.
+    That is the case in `on_outdated`, `on_state_missing` and an error handler, in a hook
+    after something in the click failed, after `ctx.replace` gave the message to another
+    view, and in a context kept past the end of its dispatch.
 
     Attributes
     ----------
@@ -432,8 +433,9 @@ class NoViewError(RisaError):
         self.attempted: str = attempted
         super().__init__(
             f"{attempted} on view {view_name!r} needs the view's state, but this context has none - it"
-            " belongs to on_outdated or on_state_missing, to a message ctx.replace gave to another"
-            " view, or to a dispatch that has already ended;"
+            " belongs to on_outdated or on_state_missing, to an error handler, to a hook after a"
+            " failure in the click, to a message ctx.replace gave to another view, or to a dispatch"
+            " that has already ended;"
             " answer with ctx.edit(layout) using a tree without interactive components, or with"
             " ctx.respond(...)",
         )
