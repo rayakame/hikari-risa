@@ -19,9 +19,11 @@
 # SOFTWARE.
 """The path of one click, from `custom_id` to acknowledgement.
 
-route → state session `open` → `restore` (or `on_state_missing` / `on_outdated`) →
-`load()` → handler → the end-of-dispatch commit → `close` → acknowledge. The
-auto-defer watchdog runs beside it from the moment the click is routed.
+route → one dependency scope and pipeline for the click → state session `open` → `restore`
+→ the execution steps, where INVOKE is `load()`, the handler and the end-of-dispatch commit,
+or `on_outdated` / `on_state_missing` for a click without a view → the error handlers if
+anything failed → `close` → acknowledge. The auto-defer watchdog runs beside it from the
+moment the click is routed.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import enum
+import functools
 import logging
 import operator
 import typing
@@ -40,11 +43,11 @@ import msgspec
 from risa import context
 from risa import di as di_
 from risa import errors
+from risa import hooks as hooks_
 from risa import view as view_
 from risa.internal import codec
 from risa.internal import constants
 from risa.state import backend
-from risa.state import placement
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -57,8 +60,28 @@ __all__ = ("Dispatcher",)
 
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.dispatch")
 
+# What keeps a click from reaching its state without a bug: logged as one line, without a traceback.
+_ENVIRONMENT_ERRORS: typing.Final = (
+    errors.StoreUnavailableError,
+    errors.LockTimeoutError,
+    errors.CodecUnavailableError,
+    errors.ViewDeclarationError,
+)
+_STAGE_NAMES: typing.Final[collections.abc.Mapping[hooks_.FailureStage, str]] = {
+    hooks_.FailureStage.HANDLER: "the handler",
+    hooks_.FailureStage.LOAD: "load()",
+    hooks_.FailureStage.HOOK: "a hook",
+    hooks_.FailureStage.ON_OUTDATED: "on_outdated",
+    hooks_.FailureStage.ON_STATE_MISSING: "on_state_missing",
+    hooks_.FailureStage.STATE: "reaching its state",
+}
+
 type BackendResolver = collections.abc.Callable[[registry.ViewMeta], backend.StateBackend]
-type _InjectedErrorHandler = collections.abc.Callable[[context.ClickFailure], collections.abc.Awaitable[bool]]
+type _InjectedErrorHandler = collections.abc.Callable[
+    [hooks_.ExecutionPipeline, context.ComponentContext],
+    collections.abc.Awaitable[bool],
+]
+type _Invoke = collections.abc.Callable[[], collections.abc.Awaitable[None]]
 type ViewBuilder = collections.abc.Callable[[view_.View, hikari.Snowflake], collections.abc.Awaitable[build_.Rendered]]
 
 
@@ -77,15 +100,26 @@ class _Route(msgspec.Struct, frozen=True):
     unavailable: errors.CodecUnavailableError | None = None
 
 
-class _Click(msgspec.Struct, frozen=True):
+class _Click(msgspec.Struct):
+    """One routed click.
+
+    `failures` is the list the click's pipeline shows. `invoked` says whether the handler
+    returned without raising, and `saved` whether it left the state saved, so a change made
+    after it can be told apart.
+    """
+
     interaction: hikari.ComponentInteraction
     meta: registry.ViewMeta
     component: codec.CustomID
-    record: registry.HandlerRecord
+    record: registry.HandlerRecord | None
     decoded: collections.abc.Sequence[object]
     ctx: context.ComponentContext
     slot: context.ViewSlot
     gate: context.ResponseGate
+    failures: list[hooks_.Failure]
+    pipeline: hooks_.ExecutionPipeline
+    invoked: bool = False
+    saved: bool = False
 
 
 class Dispatcher:
@@ -108,6 +142,10 @@ class Dispatcher:
         Seconds after which the watchdog answers in a handler's place.
     build
         Builds a view for `ComponentContext.replace` over the message with the given id.
+    hooks
+        The client's hooks.
+    order
+        The execution steps, in the order they run.
     """
 
     __slots__ = (
@@ -117,11 +155,13 @@ class Dispatcher:
         "_build",
         "_di",
         "_error_handlers",
+        "_hooks",
+        "_order",
         "_resolve_view",
         "_rest",
     )
 
-    def __init__(
+    def __init__(  # ruff:ignore[too-many-arguments]
         self,
         rest: hikari.api.RESTClient,
         di: linkd.DependencyInjectionManager,
@@ -131,6 +171,8 @@ class Dispatcher:
         auto_defer: view_.AutoDefer,
         auto_defer_delay: float,
         build: ViewBuilder,
+        hooks: collections.abc.Sequence[hooks_.ExecutionHook[view_.View]],
+        order: collections.abc.Sequence[hooks_.ExecutionStep],
     ) -> None:
         self._rest = rest
         self._di = di
@@ -139,9 +181,11 @@ class Dispatcher:
         self._auto_defer = auto_defer
         self._auto_defer_delay = auto_defer_delay
         self._build = build
+        self._hooks = tuple(hooks)
+        self._order = tuple(order)
         self._error_handlers: list[tuple[int, int, _InjectedErrorHandler]] = []
 
-    def add_error_handler(self, handler: context.ErrorHandler, *, priority: int) -> None:
+    def add_error_handler(self, handler: hooks_.ErrorHandler, *, priority: int) -> None:
         """Run `handler` on failed clicks, higher `priority` first and in registration order within one."""
         injected = typing.cast("_InjectedErrorHandler", linkd.inject(handler))
         self._error_handlers.append((-priority, len(self._error_handlers), injected))
@@ -209,295 +253,161 @@ class Dispatcher:
             return
         gate.adopted = True
         slot = context.ViewSlot()
-        ctx = context.ComponentContext(
-            interaction,
-            rest=self._rest,
-            meta=route.meta,
-            build=self._build,
-            gate=gate,
-            slot=slot,
-        )
-        if route.unavailable is not None and route.handler is not None:
-            await self._codec_unavailable(ctx, route.meta, route.handler, route.unavailable)
-            return
-        if route.handler is None:
-            await self._run_hook(route.meta, route.meta.outdated, ctx, context.FailureStage.ON_OUTDATED)
-            return
+        failures: list[hooks_.Failure] = []
         click = _Click(
             interaction=interaction,
             meta=route.meta,
             component=route.component,
             record=route.handler,
             decoded=route.decoded,
-            ctx=ctx,
+            ctx=context.ComponentContext(
+                interaction,
+                rest=self._rest,
+                meta=route.meta,
+                build=self._build,
+                gate=gate,
+                slot=slot,
+            ),
             slot=slot,
             gate=gate,
+            failures=failures,
+            pipeline=hooks_.ExecutionPipeline(failures),
         )
-        await self._run_handler(click)
+        try:
+            async with self._scope(click):
+                await self._run(click, route.unavailable)
+        except Exception:
+            _LOGGER.exception("risa failed while answering interaction %s on view %s", interaction.id, route.meta.name)
 
-    async def _codec_unavailable(
-        self,
-        ctx: context.ComponentContext,
-        meta: registry.ViewMeta,
-        record: registry.HandlerRecord,
-        error: errors.CodecUnavailableError,
-    ) -> None:
-        if not await self._report_in_scope(ctx, error, context.FailureStage.STATE):
-            _log_codec_unavailable(ctx.interaction.id, meta, record, error)
+    async def _run(self, click: _Click, unavailable: errors.CodecUnavailableError | None) -> None:
+        if unavailable is not None:
+            _fail(click, hooks_.Failure(unavailable, hooks_.FailureStage.STATE))
+            await self._report(click)
+        elif click.record is None:
+            async with self._watchdog(click, click.meta.defer) as watchdog:
+                await self._run_steps(
+                    click, None, functools.partial(_fall_back, click, outdated=True, watchdog=watchdog)
+                )
+                await _stand_down(watchdog, click.gate)
+                await self._report(click)
+        else:
+            await self._run_handler(click, click.record)
 
-    async def _run_handler(self, click: _Click) -> None:
+    async def _run_handler(self, click: _Click, record: registry.HandlerRecord) -> None:
         try:
             state = self._backend_for(click.meta)
         except errors.ViewDeclarationError as missing:
-            if not await self._report_in_scope(click.ctx, missing, context.FailureStage.STATE):
-                _LOGGER.error(  # ruff:ignore[error-instead-of-exception]
-                    "interaction %s routes to view %s, which keeps its state in store %r, but this client has"
-                    " no store of that name; pass it to the client with store= or stores=",
-                    click.interaction.id,
-                    click.meta.name,
-                    click.meta.state.store if isinstance(click.meta.state, placement.InStore) else None,
-                )
+            _fail(click, hooks_.Failure(missing, hooks_.FailureStage.STATE))
+            await self._report(click)
             return
-        defer = click.record.defer if click.record.defer is not None else self._auto_defer
-        watchdog = (
-            None if defer is view_.AutoDefer.OFF else asyncio.create_task(self._auto_defer_task(click.ctx, defer))
-        )
-        try:
-            if await self._transact(state, click, watchdog) and defer is not view_.AutoDefer.OFF:
+        async with self._watchdog(click, record.defer) as watchdog:
+            if await self._transact(state, click, record, watchdog) and watchdog is not None:
                 await _stand_down(watchdog, click.gate)
                 await _acknowledge(click)
-        finally:
-            if watchdog is not None:
-                watchdog.cancel()
 
     async def _transact(
         self,
         state: backend.StateBackend,
         click: _Click,
+        record: registry.HandlerRecord,
         watchdog: asyncio.Task[None] | None,
     ) -> bool:
-        """Run a routed click inside its state session, and report whether it ran to the end.
+        """Run a routed click inside its state session, and report whether its handler ran through.
 
-        A failure to reach the state goes to the error handlers, or is logged at ERROR. A
-        failure after the state was read is logged, and the session is closed whatever happens.
+        The error handlers run before the session closes, and the session is closed whatever
+        happens.
 
         Returns
         -------
         bool
-            Whether the handler ran and nothing failed after it.
+            Whether the handler returned without raising, so the click is owed an
+            acknowledgement even if a hook after it failed.
         """
         session = state.session(meta=click.meta, component=click.component, interaction=click.interaction)
         try:
-            view = await self._reach(click, session, watchdog)
-            if view is None:
-                return False
-            return await self._within(click, session, view, watchdog)
-        except Exception:
-            await _stand_down(watchdog, click.gate)
-            _LOGGER.exception(
-                "the state session of view %s failed while answering interaction %s",
-                click.meta.name,
-                click.interaction.id,
-            )
-            return False
+            return await self._within(click, record, session, watchdog)
         finally:
             await _release(click, session)
             click.slot.view = None
             click.slot.session = None
 
-    async def _reach(
-        self,
-        click: _Click,
-        session: backend.StateSession,
-        watchdog: asyncio.Task[None] | None,
-    ) -> view_.View | None:
-        try:
-            await session.open()
-            return await self._hydrate(click, session, watchdog)
-        except (errors.StoreUnavailableError, errors.CodecUnavailableError, errors.LockTimeoutError) as exc:
-            await _stand_down(watchdog, click.gate)
-            if not await self._report_in_scope(click.ctx, exc, context.FailureStage.STATE):
-                _LOGGER.error(  # ruff:ignore[error-instead-of-exception]
-                    "interaction %s routes to view %s, but its state could not be reached: %s",
-                    click.interaction.id,
-                    click.meta.name,
-                    exc,
-                )
-            return None
-        except Exception as exc:
-            await _stand_down(watchdog, click.gate)
-            if not await self._report_in_scope(click.ctx, exc, context.FailureStage.STATE):
-                _LOGGER.exception(
-                    "the state session of view %s failed while answering interaction %s",
-                    click.meta.name,
-                    click.interaction.id,
-                )
-            return None
-
-    async def _hydrate(
-        self,
-        click: _Click,
-        session: backend.StateSession,
-        watchdog: asyncio.Task[None] | None,
-    ) -> view_.View | None:
-        restored = await session.restore()
-        if isinstance(restored, backend.Restored):
-            click.slot.view = restored.view
-            click.slot.session = session
-            return restored.view
-        await _stand_down(watchdog, click.gate)
-        if restored is backend.Unreadably.OUTDATED:
-            await self._run_hook(click.meta, click.meta.outdated, click.ctx, context.FailureStage.ON_OUTDATED)
-            return None
-        _LOGGER.log(
-            logging.DEBUG if click.meta.handles_state_missing else logging.WARNING,
-            "interaction %s routes to view %s, but its stored state is gone - expired, evicted or"
-            " deleted; override on_state_missing to answer the user",
-            click.interaction.id,
-            click.meta.name,
-        )
-        await self._run_hook(click.meta, click.meta.state_missing, click.ctx, context.FailureStage.ON_STATE_MISSING)
-        return None
-
     async def _within(
         self,
         click: _Click,
+        record: registry.HandlerRecord,
         session: backend.StateSession,
-        view: view_.View,
         watchdog: asyncio.Task[None] | None,
     ) -> bool:
-        if not await self._call(click, view, watchdog):
-            await _stand_down(watchdog, click.gate)
-            return False
-        if click.slot.view is not None:
-            await _commit_leftovers(click, session, view)
-        return True
-
-    async def _call(self, click: _Click, view: view_.View, watchdog: asyncio.Task[None] | None) -> bool:
-        async with self._scope(click.ctx):
-            if click.meta.loader is not None:
-                try:
-                    await click.meta.loader(view)
-                except Exception as exc:
-                    if await self._failed(click, watchdog, exc, context.FailureStage.LOAD):
-                        return False
-                    _LOGGER.exception(
-                        "load() of view %s failed while answering interaction %s, so handler %r (version %d) never ran",
-                        click.meta.name,
-                        click.interaction.id,
-                        click.record.handler_id,
-                        click.record.version,
-                    )
-                    return False
-            try:
-                await click.record.callback(view, click.ctx, *click.decoded)
-            except Exception as exc:
-                if await self._failed(click, watchdog, exc, context.FailureStage.HANDLER):
-                    return False
-                _LOGGER.exception(
-                    "handler %r (version %d) of view %s failed while answering interaction %s",
-                    click.record.handler_id,
-                    click.record.version,
-                    click.meta.name,
-                    click.interaction.id,
-                )
-                return False
-        return True
-
-    async def _failed(
-        self,
-        click: _Click,
-        watchdog: asyncio.Task[None] | None,
-        error: Exception,
-        stage: context.FailureStage,
-    ) -> bool:
-        """Hand a failure of the bot's code to the error handlers, and report whether one took it.
-
-        The watchdog stands down first, and the view leaves the context, so an error handler
-        answers the click itself and cannot save the state the failure left behind.
-
-        Returns
-        -------
-        bool
-            Whether an error handler returned `True`.
-        """
-        if not self._error_handlers:
-            return False
-        await _stand_down(watchdog, click.gate)
-        click.slot.view = None
-        click.slot.session = None
-        return await self._report(click.ctx, error, stage)
-
-    async def _run_hook(
-        self,
-        meta: registry.ViewMeta,
-        hook: registry.HookCallback | None,
-        ctx: context.ComponentContext,
-        stage: context.FailureStage,
-    ) -> None:
-        if hook is None:
-            return
-        try:
-            async with self._scope(ctx):
-                await self._hook_or_report(hook, ctx, stage)
-        except Exception:
-            _LOGGER.exception(
-                "%s of view %s failed while answering interaction %s",
-                stage,
-                meta.name,
-                ctx.interaction.id,
+        restored = await _reach(click, session)
+        if isinstance(restored, backend.Restored):
+            click.slot.view = restored.view
+            click.slot.session = session
+            invoke = functools.partial(_invoke, click, record, session, restored.view)
+            await self._run_steps(click, restored.view, invoke)
+            await _warn_if_unsaved(click, session, restored.view)
+        elif restored is not None:
+            outdated = restored is backend.Unreadably.OUTDATED
+            if not outdated:
+                _log_state_missing(click)
+            await self._run_steps(
+                click, None, functools.partial(_fall_back, click, outdated=outdated, watchdog=watchdog)
             )
+        if click.failures:
+            await _stand_down(watchdog, click.gate)
+            await self._report(click)
+        return click.invoked
 
-    async def _hook_or_report(
-        self,
-        hook: registry.HookCallback,
-        ctx: context.ComponentContext,
-        stage: context.FailureStage,
-    ) -> None:
-        try:
-            await hook(ctx)
-        except Exception as exc:
-            if not await self._report(ctx, exc, stage):
-                raise
+    async def _run_steps(self, click: _Click, view: view_.View | None, invoke: _Invoke) -> None:
+        own = click.record.hooks if click.record is not None else ()
+        attached = (*self._hooks, *click.meta.hooks, *own)
+        for step in self._order:
+            if step == hooks_.ExecutionSteps.INVOKE:
+                if not click.failures:
+                    await invoke()
+                continue
+            for hook in attached:
+                if hook.step == step and not (hook.skip_when_failed and click.failures):
+                    await _guard(
+                        click, hooks_.FailureStage.HOOK, functools.partial(_call_hook, click, hook, view), hook
+                    )
 
-    async def _report_in_scope(
-        self,
-        ctx: context.ComponentContext,
-        error: Exception,
-        stage: context.FailureStage,
-    ) -> bool:
-        if not self._error_handlers:
-            return False
-        handled = False
-        try:
-            async with self._scope(ctx):
-                handled = await self._report(ctx, error, stage)
-        except Exception:
-            _LOGGER.exception("the dependency scope of the error handlers of interaction %s failed", ctx.interaction.id)
-        return handled
-
-    async def _report(self, ctx: context.ComponentContext, error: Exception, stage: context.FailureStage) -> bool:
-        failure = context.ClickFailure(ctx=ctx, error=error, stage=stage)
+    async def _report(self, click: _Click) -> None:
+        """Run the error handlers on a click that failed, and log it if none dealt with it."""
+        if not click.failures:
+            return
         for _, _, handler in tuple(self._error_handlers):
             try:
-                if await handler(failure):
-                    return True
+                if await handler(click.pipeline, click.ctx):
+                    return
             except Exception:
-                _LOGGER.exception(
-                    "an error handler failed while handling a failure in %s of interaction %s",
-                    stage,
-                    ctx.interaction.id,
-                )
-        return False
+                _LOGGER.exception("an error handler failed while handling interaction %s", click.interaction.id)
+        _log_unhandled(click)
 
     @contextlib.asynccontextmanager
-    async def _scope(self, ctx: context.ComponentContext) -> collections.abc.AsyncGenerator[None]:
+    async def _watchdog(
+        self,
+        click: _Click,
+        defer: view_.AutoDefer | None,
+    ) -> collections.abc.AsyncGenerator[asyncio.Task[None] | None]:
+        resolved = defer if defer is not None else self._auto_defer
+        task = (
+            None if resolved is view_.AutoDefer.OFF else asyncio.create_task(self._auto_defer_task(click.ctx, resolved))
+        )
+        try:
+            yield task
+        finally:
+            if task is not None:
+                task.cancel()
+
+    @contextlib.asynccontextmanager
+    async def _scope(self, click: _Click) -> collections.abc.AsyncGenerator[None]:
         async with (
             self._di.enter_context(di_.Contexts.DEFAULT),
             self._di.enter_context(di_.Contexts.COMPONENT) as container,
         ):
-            container.add_value(context.ComponentContext, ctx)
-            container.add_value(hikari.ComponentInteraction, ctx.interaction)
+            container.add_value(context.ComponentContext, click.ctx)
+            container.add_value(hikari.ComponentInteraction, click.interaction)
+            container.add_value(hooks_.ExecutionPipeline, click.pipeline)
             yield
 
     async def _auto_defer_task(self, ctx: context.ComponentContext, defer: view_.AutoDefer) -> None:
@@ -510,6 +420,143 @@ class Dispatcher:
             _LOGGER.exception("auto-defer failed to acknowledge interaction %s", ctx.interaction.id)
 
 
+def _fail(click: _Click, failure: hooks_.Failure) -> None:
+    """Record a failure; from the first one on, the context has no view, so nothing half-changed is saved."""
+    click.failures.append(failure)
+    click.slot.view = None
+    click.slot.session = None
+
+
+async def _guard(
+    click: _Click,
+    stage: hooks_.FailureStage,
+    call: collections.abc.Callable[[], collections.abc.Awaitable[object]],
+    hook: hooks_.AnyHook | None = None,
+) -> bool:
+    """Await `call`, record what it raises as a failure of the click, and report whether it ran through.
+
+    Returns
+    -------
+    bool
+        Whether `call` returned without raising.
+    """
+    try:
+        await call()
+    except Exception as exc:  # ruff:ignore[blind-except]
+        _fail(click, hooks_.Failure(exc, stage, hook))
+        return False
+    return True
+
+
+async def _reach(click: _Click, session: backend.StateSession) -> backend.Restored | backend.Unreadably | None:
+    try:
+        await session.open()
+        return await session.restore()
+    except Exception as exc:  # ruff:ignore[blind-except]
+        _fail(click, hooks_.Failure(exc, hooks_.FailureStage.STATE))
+        return None
+
+
+def _log_state_missing(click: _Click) -> None:
+    _LOGGER.log(
+        logging.DEBUG if click.meta.handles_state_missing else logging.WARNING,
+        "interaction %s routes to view %s, but its stored state is gone - expired, evicted or"
+        " deleted; override on_state_missing to answer the user",
+        click.interaction.id,
+        click.meta.name,
+    )
+
+
+async def _call_hook(click: _Click, hook: hooks_.AnyHook, view: view_.View | None) -> None:
+    """Run a hook, unless it takes a view and the click has none.
+
+    Raises
+    ------
+    HookDeclarationError
+        If the hook's annotations cannot be resolved, or it takes a view of another class,
+        which `Client.add_view` catches first for every view added to a client.
+    """
+    view_type = hook.view_type
+    if view_type is not None and view is None:
+        return
+    if view_type is not None and not isinstance(view, view_type):
+        reason = f"it takes a {view_type.__name__}, but ran for view {click.meta.name!r}"
+        raise errors.HookDeclarationError(hook.name, reason)
+    await typing.cast("hooks_.ExecutionHook[view_.View]", hook)(click.pipeline, click.ctx, view)
+
+
+async def _invoke(
+    click: _Click,
+    record: registry.HandlerRecord,
+    session: backend.StateSession,
+    view: view_.View,
+) -> None:
+    loader = click.meta.loader
+    if loader is not None and not await _guard(click, hooks_.FailureStage.LOAD, functools.partial(loader, view)):
+        return
+    handle = functools.partial(record.callback, view, click.ctx, *click.decoded)
+    if await _guard(click, hooks_.FailureStage.HANDLER, handle):
+        click.invoked = True
+        click.saved = click.slot.view is None or await _commit_leftovers(click, session, view)
+
+
+async def _fall_back(click: _Click, *, outdated: bool, watchdog: asyncio.Task[None] | None = None) -> None:
+    await _stand_down(watchdog, click.gate)
+    callback = click.meta.outdated if outdated else click.meta.state_missing
+    stage = hooks_.FailureStage.ON_OUTDATED if outdated else hooks_.FailureStage.ON_STATE_MISSING
+    if callback is not None:
+        await _guard(click, stage, functools.partial(callback, click.ctx))
+
+
+async def _warn_if_unsaved(click: _Click, session: backend.StateSession, view: view_.View) -> None:
+    if not click.saved or click.slot.view is None:
+        return
+    try:
+        dirty = await session.settle(view)
+    except Exception:
+        _LOGGER.exception(
+            "settling the state of view %s after the hooks of interaction %s failed",
+            click.meta.name,
+            click.interaction.id,
+        )
+        return
+    if dirty:
+        _LOGGER.warning(
+            "interaction %s on view %s: a hook after the handler changed durable state without"
+            " ctx.rerender(), so the change was not saved",
+            click.interaction.id,
+            click.meta.name,
+        )
+
+
+def _describe(click: _Click, failure: hooks_.Failure) -> str:
+    if failure.hook is not None:
+        return f"hook {failure.hook.name!r} ({failure.hook.step.name})"
+    if failure.stage is hooks_.FailureStage.HANDLER and click.record is not None:
+        return f"handler {click.record.handler_id!r} (version {click.record.version})"
+    return _STAGE_NAMES[failure.stage]
+
+
+def _log_unhandled(click: _Click) -> None:
+    first = click.failures[0]
+    if first.stage is hooks_.FailureStage.STATE and isinstance(first.error, _ENVIRONMENT_ERRORS):
+        _LOGGER.error(
+            "interaction %s on view %s could not be answered: %s", click.interaction.id, click.meta.name, first.error
+        )
+        return
+    where = [_describe(click, failure) for failure in click.failures]
+    _LOGGER.error(
+        "interaction %s on view %s failed in %s",
+        click.interaction.id,
+        click.meta.name,
+        where[0] if len(where) == 1 else f"{', '.join(where[:-1])} and {where[-1]}",
+        exc_info=ExceptionGroup(
+            f"interaction {click.interaction.id} failed",
+            [failure.error for failure in click.failures],
+        ),
+    )
+
+
 def _log_caught_overflow(click: _Click) -> None:
     _LOGGER.debug(
         "interaction %s on view %s left a state that already overflowed in rerender() or edit(), which"
@@ -519,8 +566,8 @@ def _log_caught_overflow(click: _Click) -> None:
     )
 
 
-async def _commit_leftovers(click: _Click, session: backend.StateSession, view: view_.View) -> None:
-    """Save durable changes the handler made without rerendering.
+async def _commit_leftovers(click: _Click, session: backend.StateSession, view: view_.View) -> bool:
+    """Save durable changes the handler made without rerendering, and report whether the state is saved now.
 
     The commit is a plain `rerender()`. Nobody is left to raise to, so a failure is
     logged. A lost race discards the change. An `InStore` commit that fails after the
@@ -528,6 +575,11 @@ async def _commit_leftovers(click: _Click, session: backend.StateSession, view: 
     message behind, which the next click redraws. A state that overflowed earlier in the
     click, which the handler caught, is still tried, since `render()` may hold more than the
     layout that overflowed; if it fails again, only a DEBUG line is logged.
+
+    Returns
+    -------
+    bool
+        Whether the state was already saved or is saved now.
     """
     try:
         dirty = await session.settle(view)
@@ -537,16 +589,16 @@ async def _commit_leftovers(click: _Click, session: backend.StateSession, view: 
             click.meta.name,
             click.interaction.id,
         )
-        return
+        return False
     if not dirty:
-        return
+        return True
     caught = bool(click.slot.overflowed) and click.meta.schema.pack_view(view) in click.slot.overflowed
     try:
         await click.ctx.rerender()
     except errors.EphemeralOriginError:
         if caught:
             _log_caught_overflow(click)
-            return
+            return False
         _LOGGER.warning(
             "interaction %s on view %s left durable state unsaved, but the handler had already"
             " answered and the origin message is ephemeral, so the change could"
@@ -566,12 +618,15 @@ async def _commit_leftovers(click: _Click, session: backend.StateSession, view: 
     except Exception as exc:
         if caught and isinstance(exc, errors.StateOverflowError):
             _log_caught_overflow(click)
-            return
+            return False
         _LOGGER.exception(
             "interaction %s on view %s left durable state unsaved, and committing it at the end of the dispatch failed",
             click.interaction.id,
             click.meta.name,
         )
+    else:
+        return True
+    return False
 
 
 async def _release(click: _Click, session: backend.StateSession) -> None:

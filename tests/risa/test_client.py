@@ -1074,7 +1074,7 @@ async def test_an_unsatisfiable_dependency_is_contained(caplog: pytest.LogCaptur
     with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    assert "failed while answering" in caplog.text
+    assert "failed in handler" in caplog.text
     assert not DI_CALLS
 
 
@@ -1150,7 +1150,7 @@ async def test_a_default_dependency_cannot_name_a_component_one(caplog: pytest.L
     with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    assert "failed while answering" in caplog.text
+    assert "failed in handler" in caplog.text
     assert not DI_CALLS
 
 
@@ -1291,7 +1291,7 @@ async def test_a_broken_edit_layout_is_contained_as_a_handler_failure(
     with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    assert "failed while answering" in caplog.text
+    assert "failed in handler" in caplog.text
     rest_of(built).create_interaction_response.assert_not_called()
 
 
@@ -1889,7 +1889,7 @@ async def test_a_raising_hook_is_contained(caplog: pytest.LogCaptureFixture) -> 
     with caplog.at_level(logging.ERROR, logger="risa"):
         await built._process_interaction(interaction)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    assert "on_outdated of view client-sulky failed" in caplog.text
+    assert "on view client-sulky failed in on_outdated" in caplog.text
     assert len(OUTDATED_CALLS) == 1
 
 
@@ -2390,8 +2390,7 @@ async def test_a_failing_load_keeps_the_handler_from_running(caplog: pytest.LogC
         await built._process_interaction(click(ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert not STATE_CALLS
-    assert "load() of view client-unloadable failed" in caplog.text
-    assert "never ran" in caplog.text
+    assert "on view client-unloadable failed in load()" in caplog.text
 
 
 async def test_build_of_a_stored_view_writes_its_record_first() -> None:
@@ -2488,7 +2487,7 @@ async def test_a_global_view_whose_store_is_missing_is_an_error_at_click(caplog:
         await built._process_interaction(click(ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
     assert not STATE_CALLS
-    assert "no store of that name" in caplog.text
+    assert "but this client has none" in caplog.text
 
 
 async def test_a_race_lost_by_the_end_of_dispatch_commit_is_logged_and_discarded(
@@ -3001,9 +3000,9 @@ async def test_an_error_handler_answers_a_failed_handler_and_nothing_is_logged(
     built = erroring_client(Erroring)
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:
-        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
-        await failure.ctx.respond("Something went wrong.", ephemeral=True)
+    async def on_error(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+        FAILURES.append(f"{pipeline.failures[0].stage} {type(pipeline.failures[0].error).__name__}")
+        await ctx.respond("Something went wrong.", ephemeral=True)
         return True
 
     with caplog.at_level(logging.DEBUG, logger="risa"):
@@ -3018,7 +3017,7 @@ async def test_a_failure_no_error_handler_takes_is_logged_as_before(caplog: pyte
     built = erroring_client(Erroring)
 
     @built.error_handler
-    async def on_error(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+    async def on_error(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
         FAILURES.append("asked")
         return False
 
@@ -3026,14 +3025,16 @@ async def test_a_failure_no_error_handler_takes_is_logged_as_before(caplog: pyte
         await process(built, erroring_click())
 
     assert FAILURES == ["asked"]
-    assert "handler 'boom' (version 1) of view client-erroring failed" in caplog.text
+    assert "on view client-erroring failed in handler 'boom' (version 1)" in caplog.text
 
 
 async def test_error_handlers_run_by_priority_then_in_order_until_one_handles() -> None:
     built = erroring_client(Erroring)
 
-    def handler(name: str, *, handles: bool) -> collections.abc.Callable[[risa.ClickFailure], typing.Awaitable[bool]]:
-        async def on_error(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+    def handler(
+        name: str, *, handles: bool
+    ) -> collections.abc.Callable[[risa.ExecutionPipeline, risa.ComponentContext], typing.Awaitable[bool]]:
+        async def on_error(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
             FAILURES.append(name)
             return handles
 
@@ -3054,12 +3055,12 @@ async def test_an_error_handler_that_raises_is_logged_and_passes_on(caplog: pyte
     built = erroring_client(Erroring)
 
     @built.error_handler(priority=1)
-    async def broken(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+    async def broken(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
         msg = "in the error handler"
         raise ValueError(msg)
 
     @built.error_handler
-    async def fallback(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+    async def fallback(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
         FAILURES.append("fallback")
         return False
 
@@ -3068,19 +3069,19 @@ async def test_an_error_handler_that_raises_is_logged_and_passes_on(caplog: pyte
 
     assert FAILURES == ["fallback"]
     assert "ValueError: in the error handler" in caplog.text
-    assert "handler 'boom' (version 1) of view client-erroring failed" in caplog.text
+    assert "on view client-erroring failed in handler 'boom' (version 1)" in caplog.text
 
 
 async def test_an_error_handler_cannot_save_the_state_of_the_failed_view() -> None:
     built = erroring_client(Erroring)
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:
+    async def on_error(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
         with pytest.raises(risa.NoViewError):
-            await failure.ctx.rerender()
+            await ctx.rerender()
         with pytest.raises(risa.NoViewError):
-            await failure.ctx.edit(ui.Row(ui.Button(Erroring().boom)))
-        await failure.ctx.edit(ui.TextDisplay("This view broke."))
+            await ctx.edit(ui.Row(ui.Button(Erroring().boom)))
+        await ctx.edit(ui.TextDisplay("This view broke."))
         FAILURES.append("closed")
         return True
 
@@ -3095,8 +3096,8 @@ async def test_an_error_handler_after_an_answer_follows_up() -> None:
     rest_of(built).execute_webhook.return_value = unittest.mock.Mock(id=hikari.Snowflake(2))
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:
-        await failure.ctx.respond("That went wrong after all.")
+    async def on_error(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+        await ctx.respond("That went wrong after all.")
         return True
 
     await process(built, erroring_click(1))
@@ -3108,8 +3109,8 @@ async def test_a_failing_load_reaches_the_error_handler() -> None:
     built = erroring_client(FaultyLoad)
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
-        FAILURES.append(f"{failure.stage} {failure.error}")
+    async def on_error(pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{pipeline.failures[0].stage} {pipeline.failures[0].error}")
         return True
 
     await process(built, interaction_on(FaultyLoad(), FaultyLoad().render()))
@@ -3121,8 +3122,8 @@ async def test_a_failing_hook_reaches_the_error_handler(caplog: pytest.LogCaptur
     built = erroring_client(FaultyHook)
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
-        FAILURES.append(f"{failure.stage} {failure.error}")
+    async def on_error(pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{pipeline.failures[0].stage} {pipeline.failures[0].error}")
         return True
 
     with caplog.at_level(logging.DEBUG, logger="risa"):
@@ -3137,16 +3138,16 @@ async def test_state_out_of_reach_reaches_the_error_handler(caplog: pytest.LogCa
     ids = ids_of((await stored_client().build(Notebook())).components)
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:
-        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
-        await failure.ctx.respond("Try again in a moment.", ephemeral=True)
+    async def on_error(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+        FAILURES.append(f"{pipeline.failures[0].stage} {type(pipeline.failures[0].error).__name__}")
+        await ctx.respond("Try again in a moment.", ephemeral=True)
         return True
 
     with caplog.at_level(logging.ERROR, logger="risa"):
         await process(built, click(ids, 1))
 
     assert FAILURES == ["state StoreUnavailableError"]
-    assert "could not be reached" not in caplog.text
+    assert "could not be answered" not in caplog.text
 
 
 async def test_a_store_the_client_lacks_reaches_the_error_handler() -> None:
@@ -3154,8 +3155,8 @@ async def test_a_store_the_client_lacks_reaches_the_error_handler() -> None:
     ids = ids_of((await stored_client().build(Notebook())).components)
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
-        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
+    async def on_error(pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{pipeline.failures[0].stage} {type(pipeline.failures[0].error).__name__}")
         return True
 
     await process(built, click(ids, 1))
@@ -3169,7 +3170,7 @@ async def test_an_error_handler_gets_its_dependencies_injected() -> None:
     built.di.registry_for(risa.Contexts.DEFAULT).register_value(Database, database)
 
     @built.error_handler
-    async def on_error(_failure: risa.ClickFailure, db: Database) -> bool:  # ruff:ignore[unused-async]
+    async def on_error(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext, db: Database) -> bool:  # ruff:ignore[unused-async]
         FAILURES.append("injected" if db is database else "not injected")
         return True
 
@@ -3181,7 +3182,7 @@ async def test_an_error_handler_gets_its_dependencies_injected() -> None:
 def test_error_handler_returns_the_function_in_both_forms() -> None:
     built = erroring_client()
 
-    async def on_error(_failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
+    async def on_error(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
         return True
 
     assert built.error_handler(on_error) is on_error
@@ -3225,8 +3226,8 @@ async def test_a_failure_after_the_handler_stays_out_of_the_error_handlers(caplo
     built = with_teardown(erroring_client(Torn))
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
-        FAILURES.append(f"{failure.stage} {failure.error}")
+    async def on_error(pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{pipeline.failures[0].stage} {pipeline.failures[0].error}")
         return True
 
     with caplog.at_level(logging.ERROR, logger="risa"):
@@ -3259,8 +3260,8 @@ async def test_a_failing_on_state_missing_reaches_the_error_handler() -> None:
     built = erroring_client(MissingHook, store=risa.MemoryStore())
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
-        FAILURES.append(f"{failure.stage} {failure.error}")
+    async def on_error(pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{pipeline.failures[0].stage} {pipeline.failures[0].error}")
         return True
 
     await process(built, click(ids, 0))
@@ -3272,9 +3273,9 @@ async def test_the_watchdog_stands_down_before_the_error_handler_answers() -> No
     built = erroring_client(Erroring, auto_defer=risa.AutoDefer.UPDATE)
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:
+    async def on_error(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
         await asyncio.sleep(0.05)
-        await failure.ctx.respond("Something went wrong.", ephemeral=True)
+        await ctx.respond("Something went wrong.", ephemeral=True)
         return True
 
     await process(built, erroring_click())
@@ -3309,7 +3310,7 @@ async def test_an_error_handler_shares_the_dependencies_of_the_failed_handler() 
     built.di.registry_for(risa.Contexts.COMPONENT).register_factory(PerClick, make)
 
     @built.error_handler
-    async def on_error(_failure: risa.ClickFailure, per_click: PerClick) -> bool:  # ruff:ignore[unused-async]
+    async def on_error(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext, per_click: PerClick) -> bool:  # ruff:ignore[unused-async]
         FAILURES.append(str(id(per_click)))
         return True
 
@@ -3337,8 +3338,8 @@ async def test_a_component_written_in_a_codec_that_is_not_installed_reaches_the_
     built = erroring_client(DenseArgs)
 
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
-        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
+    async def on_error(pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{pipeline.failures[0].stage} {type(pipeline.failures[0].error).__name__}")
         return True
 
     def missing(name: str) -> object:
@@ -3375,8 +3376,8 @@ class LockedStore(risa.MemoryStore):
 
 async def state_failure(built: risa.Client, ids: list[str]) -> list[str]:
     @built.error_handler
-    async def on_error(failure: risa.ClickFailure) -> bool:  # ruff:ignore[unused-async]
-        FAILURES.append(f"{failure.stage} {type(failure.error).__name__}")
+    async def on_error(pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
+        FAILURES.append(f"{pipeline.failures[0].stage} {type(pipeline.failures[0].error).__name__}")
         return True
 
     await process(built, click(ids, 1))
@@ -3465,8 +3466,8 @@ async def codec_click_on_rest(*, with_handler: bool, monkeypatch: pytest.MonkeyP
     if with_handler:
 
         @built.error_handler
-        async def on_error(failure: risa.ClickFailure) -> bool:
-            await failure.ctx.respond("The poll cannot be read here.", ephemeral=True)
+        async def on_error(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+            await ctx.respond("The poll cannot be read here.", ephemeral=True)
             return True
 
     def missing(name: str) -> object:
@@ -3757,3 +3758,676 @@ async def test_a_view_moved_into_a_store_takes_over_a_message_it_sent_before() -
 
     assert anchor_in(rewritten[0]) == anchor.TakenOverAnchor()
     assert PANTRY_SEEN == [["beans"], ["beans", "rice"], ["beans", "rice", "rice"]]
+
+
+HOOKED: list[str] = []
+AUDIT = risa.ExecutionStep("AUDIT")
+
+
+def recorder(
+    step: risa.ExecutionStep,
+    label: str,
+    *,
+    raises: bool = False,
+    skip_when_failed: bool = False,
+) -> risa.ExecutionHook[risa.View]:
+    @risa.hook(step, skip_when_failed=skip_when_failed, name=label)
+    async def record(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> None:  # ruff:ignore[unused-async]
+        HOOKED.append(label)
+        if raises:
+            raise RuntimeError(label)
+
+    return record
+
+
+@risa.hook(risa.ExecutionSteps.PRE_INVOKE)
+async def sees_the_count(  # ruff:ignore[unused-async]
+    _pipeline: risa.ExecutionPipeline,
+    _ctx: risa.ComponentContext,
+    view: Stepped,
+) -> None:
+    HOOKED.append(f"typed {view.count} {view.note!r}")
+
+
+@risa.hook(risa.ExecutionSteps.POST_INVOKE)
+async def tries_to_save(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> None:
+    try:
+        await ctx.rerender()
+    except risa.NoViewError:
+        HOOKED.append("no view")
+
+
+@risa.register(
+    name="client-stepped",
+    hooks=[
+        recorder(risa.ExecutionSteps.CHECKS, "view check"),
+        sees_the_count,
+        recorder(risa.ExecutionSteps.POST_INVOKE, "view after"),
+    ],
+)
+class Stepped(risa.View):
+    count: int = 0
+    note: risa.Prop[str] = ""
+
+    async def load(self) -> None:
+        self.note = "loaded"
+        HOOKED.append("load")
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add), ui.Button(self.fail), ui.Button(self.inspect))
+
+    @risa.handler(hooks=[recorder(risa.ExecutionSteps.CHECKS, "handler check")])
+    async def add(self, _ctx: risa.ComponentContext) -> None:
+        HOOKED.append("handler")
+        self.count += 1
+
+    @risa.handler
+    async def fail(self, _ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        HOOKED.append("handler")
+        msg = "handler"
+        raise RuntimeError(msg)
+
+    @risa.handler
+    async def inspect(  # ruff:ignore[no-self-use]
+        self,
+        _ctx: risa.ComponentContext,
+        pipeline: risa.ExecutionPipeline,
+    ) -> None:
+        HOOKED.append(f"injected {pipeline.failed}")
+
+    @classmethod
+    @typing.override
+    async def on_outdated(cls, ctx: risa.ComponentContext) -> None:
+        HOOKED.append("on_outdated")
+
+
+@risa.hook(risa.ExecutionSteps.CHECKS)
+async def sees_the_store(  # ruff:ignore[unused-async]
+    _pipeline: risa.ExecutionPipeline,
+    _ctx: risa.ComponentContext,
+    _view: HookedStore,
+) -> None:
+    HOOKED.append("typed")
+
+
+@risa.register(name="client-stepped-store", state=risa.InStore(ttl=60.0), hooks=[sees_the_store])
+class HookedStore(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add))
+
+    @risa.handler(hooks=[recorder(risa.ExecutionSteps.CHECKS, "handler check")])
+    async def add(self, _ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        HOOKED.append("handler")
+
+    @classmethod
+    @typing.override
+    async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
+        HOOKED.append("on_state_missing")
+
+
+@risa.hook(risa.ExecutionSteps.POST_INVOKE)
+async def scribbles(  # ruff:ignore[unused-async]
+    _pipeline: risa.ExecutionPipeline,
+    _ctx: risa.ComponentContext,
+    view: Scribbled,
+) -> None:
+    view.count += 10
+
+
+@risa.register(name="client-scribbled", hooks=[scribbles])
+class Scribbled(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add))
+
+    @risa.handler
+    async def add(self, ctx: risa.ComponentContext) -> None:
+        self.count += 1
+        await ctx.rerender()
+
+
+@risa.hook(risa.ExecutionSteps.PRE_INVOKE)
+async def notes_the_dependency(  # ruff:ignore[unused-async]
+    _pipeline: risa.ExecutionPipeline,
+    _ctx: risa.ComponentContext,
+    per_click: PerClick,
+) -> None:
+    HOOKED.append(str(id(per_click)))
+
+
+@risa.register(name="client-shared", hooks=[notes_the_dependency])
+class Shared(risa.View):
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.go))
+
+    @risa.handler
+    async def go(self, _ctx: risa.ComponentContext, per_click: PerClick) -> None:  # ruff:ignore[no-self-use]
+        HOOKED.append(str(id(per_click)))
+
+
+@risa.hook(risa.ExecutionSteps.POST_INVOKE)
+async def scribbles_and_saves(
+    _pipeline: risa.ExecutionPipeline,
+    ctx: risa.ComponentContext,
+    view: Saved,
+) -> None:
+    view.count += 10
+    await ctx.rerender()
+
+
+@risa.register(name="client-saved", hooks=[scribbles_and_saves])
+class Saved(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add))
+
+    @risa.handler
+    async def add(self, ctx: risa.ComponentContext) -> None:
+        self.count += 1
+        await ctx.rerender()
+
+
+@risa.hook(risa.ExecutionSteps.CHECKS)
+async def cannot_be_resolved(
+    _pipeline: risa.ExecutionPipeline,
+    _ctx: risa.ComponentContext,
+    _view: risa.Nope,  # type: ignore[reportAttributeAccessIssue]
+) -> None: ...
+
+
+@risa.register(name="client-unresolvable", hooks=[typing.cast("risa.AnyHook", cannot_be_resolved)])
+class Unresolvable(risa.View):
+    count: int = 0
+
+
+@risa.register(name="client-lingering", state=risa.InStore(ttl=60.0))
+class Lingering(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add))
+
+    @risa.handler
+    async def add(self, _ctx: risa.ComponentContext) -> None: ...
+
+    @classmethod
+    @typing.override
+    async def on_state_missing(cls, ctx: risa.ComponentContext) -> None:
+        await asyncio.sleep(0.05)
+        HOOKED.append("lingering")
+
+
+@risa.register(name="client-mismatched", hooks=[sees_the_count])
+class Mismatched(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add))
+
+    @risa.handler
+    async def add(self, _ctx: risa.ComponentContext) -> None: ...
+
+
+def hooked_client(
+    *hooks: risa.ExecutionHook[risa.View],
+    order: collections.abc.Sequence[risa.ExecutionStep] = risa.DEFAULT_EXECUTION_STEP_ORDER,
+    store: risa.Store | None = None,
+    use_global: bool = False,
+    auto_defer: risa.AutoDefer = risa.AutoDefer.OFF,
+) -> risa.GatewayEnabledClient:
+    built = risa.client_from_app(
+        gateway_app(),
+        hooks=hooks,
+        execution_step_order=order,
+        store=store,
+        key_prefix="test",
+        use_global=use_global,
+        auto_defer=auto_defer,
+        auto_defer_delay=0.01,
+    )
+    if not use_global:
+        built.add_view(Stepped)
+        if store is not None:
+            built.add_view(HookedStore)
+    HOOKED.clear()
+    return built
+
+
+def hooked_click(button: int = 0, view: Stepped | None = None) -> unittest.mock.Mock:
+    return interaction_on(view or Stepped(), Stepped().render(), clicked=button)
+
+
+def failures_of(built: risa.Client) -> list[str]:
+    seen: list[str] = []
+
+    @built.error_handler
+    async def on_error(pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> bool:  # ruff:ignore[unused-async]
+        HOOKED.append("error handler")
+        seen.extend(
+            f"{failure.stage} {failure.hook.name if failure.hook else '-'} {type(failure.error).__name__}"
+            for failure in pipeline.failures
+        )
+        return True
+
+    return seen
+
+
+async def test_hooks_run_by_step_and_within_one_client_then_view_then_handler() -> None:
+    built = hooked_client(
+        recorder(risa.ExecutionSteps.CHECKS, "client check"),
+        recorder(risa.ExecutionSteps.PRE_INVOKE, "client before"),
+    )
+
+    await process(built, hooked_click(view=Stepped(count=2)))
+
+    assert HOOKED == [
+        "client check",
+        "view check",
+        "handler check",
+        "client before",
+        "typed 2 ''",
+        "load",
+        "handler",
+        "view after",
+    ]
+
+
+async def test_the_handler_is_saved_before_the_hooks_after_it_run() -> None:
+    built = hooked_client(recorder(risa.ExecutionSteps.POST_INVOKE, "client after", raises=True))
+
+    def saved(*_: object, **__: object) -> None:
+        HOOKED.append("saved")
+
+    rest_of(built).create_interaction_response.side_effect = saved
+    failures_of(built)
+
+    await process(built, hooked_click())
+
+    assert HOOKED[HOOKED.index("handler") :] == ["handler", "saved", "client after", "view after", "error handler"]
+
+
+async def test_a_failing_check_keeps_the_handler_from_running_and_the_other_hooks_run_on() -> None:
+    built = hooked_client(
+        recorder(risa.ExecutionSteps.CHECKS, "client check", raises=True),
+        recorder(risa.ExecutionSteps.COOLDOWNS, "cooldown", skip_when_failed=True),
+    )
+    seen = failures_of(built)
+
+    await process(built, hooked_click())
+
+    assert HOOKED == ["client check", "view check", "handler check", "typed 0 ''", "view after", "error handler"]
+    assert seen == ["hook client check RuntimeError"]
+
+
+async def test_failures_reach_the_error_handlers_once_in_the_order_they_happened() -> None:
+    built = hooked_client(recorder(risa.ExecutionSteps.POST_INVOKE, "client after", raises=True))
+    seen = failures_of(built)
+
+    await process(built, hooked_click(1))
+
+    assert seen == ["handler - RuntimeError", "hook client after RuntimeError"]
+    assert HOOKED.count("error handler") == 1
+
+
+async def test_after_a_failure_the_context_has_no_view_to_save() -> None:
+    built = hooked_client(tries_to_save)
+    failures_of(built)
+
+    await process(built, hooked_click(1))
+
+    assert "no view" in HOOKED
+
+
+async def test_a_handler_can_have_the_pipeline_injected() -> None:
+    built = hooked_client()
+
+    await process(built, hooked_click(2))
+
+    assert "injected False" in HOOKED
+
+
+async def test_a_step_of_your_own_runs_where_the_order_puts_it(caplog: pytest.LogCaptureFixture) -> None:
+    order = (risa.ExecutionSteps.CHECKS, risa.ExecutionSteps.INVOKE, AUDIT)
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        built = hooked_client(recorder(AUDIT, "audit"), order=order)
+
+    await process(built, hooked_click())
+
+    assert HOOKED == ["view check", "handler check", "load", "handler", "audit"]
+    assert "hook 'sees_the_count' of view client-stepped runs in step PRE_INVOKE" in caplog.text
+    assert "hook 'view after' of view client-stepped runs in step POST_INVOKE" in caplog.text
+
+
+async def test_an_outdated_click_runs_only_the_hooks_that_need_no_view() -> None:
+    built = hooked_client(recorder(risa.ExecutionSteps.CHECKS, "client check"))
+
+    await process(built, interaction_with(encoded_id_for(Stepped, handler="zz")))
+
+    assert HOOKED == ["client check", "view check", "on_outdated", "view after"]
+
+
+async def test_a_click_whose_state_is_gone_runs_the_hooks_of_its_handler_that_need_no_view() -> None:
+    ids = ids_of((await hooked_client(store=risa.MemoryStore()).build(HookedStore())).components)
+    built = hooked_client(recorder(risa.ExecutionSteps.POST_INVOKE, "client after"), store=risa.MemoryStore())
+
+    await process(built, click(ids, 0))
+
+    assert HOOKED == ["handler check", "on_state_missing", "client after"]
+
+
+@pytest.mark.parametrize(("store", "reason"), [(DownStore, "the store backing key"), (LockedStore, "timed out after")])
+async def test_a_click_that_cannot_reach_its_state_runs_no_hooks(
+    caplog: pytest.LogCaptureFixture,
+    store: type[risa.MemoryStore],
+    reason: str,
+) -> None:
+    ids = ids_of((await hooked_client(store=risa.MemoryStore()).build(HookedStore())).components)
+    built = hooked_client(recorder(risa.ExecutionSteps.POST_INVOKE, "client after"), store=store())
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await process(built, click(ids, 0))
+
+    assert HOOKED == []
+    (record,) = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert f"on view client-stepped-store could not be answered: {reason}" in record.getMessage()
+    assert record.exc_info is None
+
+
+async def test_an_unhandled_click_is_logged_once_with_every_failure(caplog: pytest.LogCaptureFixture) -> None:
+    built = hooked_client(
+        recorder(risa.ExecutionSteps.CHECKS, "client check", raises=True),
+        recorder(risa.ExecutionSteps.POST_INVOKE, "client after", raises=True),
+    )
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await process(built, hooked_click())
+
+    (record,) = [record for record in caplog.records if record.levelno >= logging.ERROR]
+    assert "failed in hook 'client check' (CHECKS) and hook 'client after' (POST_INVOKE)" in record.getMessage()
+    assert record.exc_info is not None
+    assert isinstance(record.exc_info[1], ExceptionGroup)
+    group = typing.cast("ExceptionGroup[Exception]", record.exc_info[1])
+    assert [str(error) for error in group.exceptions] == ["client check", "client after"]
+
+
+async def test_a_hook_after_the_handler_that_changes_the_state_is_warned_about(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Scribbled)
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await process(built, interaction_on(Scribbled(), Scribbled().render()))
+
+    assert "a hook after the handler changed durable state without ctx.rerender()" in caplog.text
+
+
+async def test_a_settle_that_breaks_after_the_save_is_logged(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    built = hooked_client()
+    settle = message.MessageSession.settle
+    calls: list[int] = []
+
+    async def breaks_the_second_time(session: message.MessageSession, view: risa.View) -> bool:
+        calls.append(1)
+        if len(calls) > 1:
+            msg = "settle broke"
+            raise RuntimeError(msg)
+        return await settle(session, view)
+
+    monkeypatch.setattr(message.MessageSession, "settle", breaks_the_second_time)
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        await process(built, hooked_click())
+
+    assert "settling the state of view client-stepped after the hooks of interaction" in caplog.text
+
+
+def sleeper(step: risa.ExecutionStep, label: str) -> risa.ExecutionHook[risa.View]:
+    @risa.hook(step, name=label)
+    async def sleep(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext) -> None:
+        await asyncio.sleep(0.05)
+        HOOKED.append(label)
+
+    return sleep
+
+
+def record_responses(built: risa.Client) -> None:
+    def respond(*args: object, **_: object) -> None:
+        HOOKED.append(str(args[2]))
+
+    rest_of(built).create_interaction_response.side_effect = respond
+
+
+async def test_auto_defer_answers_while_a_slow_hook_runs_before_the_handler() -> None:
+    built = hooked_client(sleeper(risa.ExecutionSteps.CHECKS, "slow"), auto_defer=risa.AutoDefer.UPDATE)
+    record_responses(built)
+
+    await process(built, hooked_click(2))
+
+    assert HOOKED[:2] == [str(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE), "slow"]
+
+
+async def test_auto_defer_answers_while_a_slow_hook_runs_before_a_fallback() -> None:
+    ids = ids_of((await hooked_client(store=risa.MemoryStore()).build(HookedStore())).components)
+    built = hooked_client(
+        sleeper(risa.ExecutionSteps.CHECKS, "slow"),
+        store=risa.MemoryStore(),
+        auto_defer=risa.AutoDefer.UPDATE,
+    )
+    record_responses(built)
+
+    await process(built, click(ids, 0))
+
+    assert [str(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE), "slow", "handler check", "on_state_missing"] == HOOKED
+
+
+async def test_auto_defer_answers_while_a_slow_hook_runs_before_on_outdated() -> None:
+    built = hooked_client(sleeper(risa.ExecutionSteps.CHECKS, "slow"), auto_defer=risa.AutoDefer.UPDATE)
+    record_responses(built)
+
+    await process(built, interaction_with(encoded_id_for(Stepped, handler="zz")))
+
+    assert [
+        str(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE),
+        "slow",
+        "view check",
+        "on_outdated",
+        "view after",
+    ] == HOOKED
+
+
+async def test_auto_defer_stands_down_before_a_slow_fallback() -> None:
+    sender = hooked_client(store=risa.MemoryStore())
+    sender.add_view(Lingering)
+    ids = ids_of((await sender.build(Lingering())).components)
+    built = hooked_client(store=risa.MemoryStore(), auto_defer=risa.AutoDefer.UPDATE)
+    built.add_view(Lingering)
+    record_responses(built)
+
+    await process(built, click(ids, 0))
+
+    assert HOOKED == ["lingering"]
+
+
+async def test_a_handler_that_ran_is_acknowledged_although_a_hook_after_it_failed() -> None:
+    built = hooked_client(
+        recorder(risa.ExecutionSteps.POST_INVOKE, "client after", raises=True),
+        auto_defer=risa.AutoDefer.UPDATE,
+    )
+
+    await process(built, hooked_click(2))
+
+    responses = [call.args[2] for call in rest_of(built).create_interaction_response.await_args_list]
+    assert responses == [hikari.ResponseType.DEFERRED_MESSAGE_UPDATE]
+
+
+async def test_a_click_whose_state_no_longer_fits_runs_the_hooks_of_its_handler_that_need_no_view() -> None:
+    built = hooked_client()
+
+    await process(built, interaction_with(encoded_id_for(Stepped, handler=Stepped.add.token)))
+
+    assert HOOKED == ["view check", "handler check", "on_outdated", "view after"]
+
+
+async def test_after_a_failing_hook_auto_defer_stands_down_and_nothing_is_acknowledged() -> None:
+    built = hooked_client(
+        recorder(risa.ExecutionSteps.CHECKS, "client check", raises=True),
+        auto_defer=risa.AutoDefer.UPDATE,
+    )
+
+    @built.error_handler
+    async def on_error(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+        await asyncio.sleep(0.05)
+        await ctx.respond("You cannot do that.", ephemeral=True)
+        return True
+
+    await process(built, hooked_click())
+
+    responses = [call.args[2] for call in rest_of(built).create_interaction_response.await_args_list]
+    assert responses == [hikari.ResponseType.MESSAGE_CREATE]
+
+
+async def test_a_hook_shares_the_dependencies_of_the_click_with_its_handler() -> None:
+    made: list[PerClick] = []
+
+    def make() -> PerClick:
+        made.append(PerClick())
+        return made[-1]
+
+    built = hooked_client()
+    built.add_view(Shared)
+    built.di.registry_for(risa.Contexts.COMPONENT).register_factory(PerClick, make)
+
+    await process(built, interaction_on(Shared(), Shared().render()))
+
+    assert len(made) == 1
+    assert [str(id(made[0]))] * 2 == HOOKED
+
+
+async def test_a_click_on_a_view_whose_store_the_client_lacks_runs_no_hooks() -> None:
+    ids = ids_of((await hooked_client(store=risa.MemoryStore()).build(HookedStore())).components)
+    built = hooked_client(recorder(risa.ExecutionSteps.CHECKS, "client check"), use_global=True)
+    seen = failures_of(built)
+
+    await process(built, click(ids, 0))
+
+    assert HOOKED == ["error handler"]
+    assert seen == ["state - ViewDeclarationError"]
+
+
+async def test_skip_when_failed_skips_a_hook_after_a_failed_handler() -> None:
+    built = hooked_client(
+        recorder(risa.ExecutionSteps.POST_INVOKE, "skipped", skip_when_failed=True),
+        recorder(risa.ExecutionSteps.POST_INVOKE, "kept"),
+    )
+    failures_of(built)
+
+    await process(built, hooked_click(1))
+
+    assert "skipped" not in HOOKED
+    assert "kept" in HOOKED
+
+
+async def test_a_hook_after_the_handler_that_rerenders_is_not_warned_about(caplog: pytest.LogCaptureFixture) -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Saved)
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await process(built, interaction_on(Saved(), Saved().render()))
+
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+    assert rest_of(built).edit_message.await_count + rest_of(built).edit_interaction_response.await_count >= 1
+
+
+async def test_a_failing_hook_keeps_on_outdated_from_running() -> None:
+    built = hooked_client(recorder(risa.ExecutionSteps.CHECKS, "client check", raises=True))
+    seen = failures_of(built)
+
+    await process(built, interaction_with(encoded_id_for(Stepped, handler="zz")))
+
+    assert HOOKED == ["client check", "view check", "view after", "error handler"]
+    assert seen == ["hook client check RuntimeError"]
+
+
+async def test_a_lightbulb_client_runs_its_hooks() -> None:
+    lightbulb = LightbulbStub(GatewayApp())
+    built = risa.client_from_lightbulb(
+        typing.cast("risa.LightbulbClient", lightbulb),
+        hooks=[recorder(risa.ExecutionSteps.CHECKS, "client check")],
+    )
+    built.add_view(Stepped)
+    HOOKED.clear()
+
+    await process(built, hooked_click())
+
+    assert HOOKED == ["client check", "view check", "handler check", "typed 0 ''", "load", "handler", "view after"]
+
+
+def test_add_view_refuses_a_hook_whose_annotations_cannot_be_resolved() -> None:
+    with pytest.raises(risa.HookDeclarationError, match="annotations cannot be resolved"):
+        risa.client_from_app(gateway_app()).add_view(Unresolvable)
+
+
+async def test_a_global_view_with_a_hook_outside_the_order_is_warned_about_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = hooked_client(order=(risa.ExecutionSteps.INVOKE,), use_global=True)
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await process(built, hooked_click())
+        await process(built, hooked_click())
+
+    assert caplog.text.count("hook 'view check' of view client-stepped runs in step CHECKS") == 1
+
+
+def test_add_view_refuses_a_hook_for_another_view() -> None:
+    with pytest.raises(risa.HookDeclarationError, match="it takes a Stepped, but runs for view 'client-mismatched'"):
+        risa.client_from_app(gateway_app()).add_view(Mismatched)
+
+
+def test_add_view_refuses_a_client_hook_for_another_view() -> None:
+    built = risa.client_from_app(
+        gateway_app(), hooks=typing.cast("list[risa.ExecutionHook[risa.View]]", [sees_the_count])
+    )
+
+    with pytest.raises(risa.HookDeclarationError, match="runs for view 'client-panel'"):
+        built.add_view(Panel)
+
+
+async def test_a_global_view_with_a_hook_for_another_view_fails_its_clicks() -> None:
+    built = hooked_client(use_global=True)
+    seen = failures_of(built)
+
+    await process(built, interaction_on(Mismatched(), Mismatched().render()))
+
+    assert seen == ["hook sees_the_count HookDeclarationError"]
+
+
+def test_a_client_hook_in_a_step_the_order_leaves_out_is_warned_about(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        risa.client_from_app(gateway_app(), hooks=[recorder(AUDIT, "audit")])
+
+    assert "hook 'audit' of the client runs in step AUDIT, which this client's execution_step_order leaves out" in (
+        caplog.text
+    )
+
+
+@pytest.mark.parametrize(
+    ("order", "message"),
+    [
+        ((risa.ExecutionSteps.CHECKS,), "must hold ExecutionSteps.INVOKE"),
+        ((risa.ExecutionSteps.INVOKE, risa.ExecutionSteps.CHECKS, risa.ExecutionStep("CHECKS")), "a step twice"),
+    ],
+)
+def test_an_order_without_invoke_or_with_a_step_twice_is_refused(
+    order: collections.abc.Sequence[risa.ExecutionStep],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        risa.client_from_app(gateway_app(), execution_step_order=order)

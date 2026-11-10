@@ -48,9 +48,10 @@ class ModalContainer(linkd.Container):
 class Contexts:
     """The linkd contexts risa dispatches in.
 
-    A handler runs inside `DEFAULT` with `COMPONENT` entered on top, so it can be
-    injected with anything registered in either. risa adds the `ComponentContext` and the
-    `hikari.ComponentInteraction` to `COMPONENT` for every click.
+    A click runs inside `DEFAULT` with `COMPONENT` entered on top, so its hooks, handler and
+    error handlers can be injected with anything registered in either. risa adds the
+    `ComponentContext`, the `hikari.ComponentInteraction` and the `ExecutionPipeline` to
+    `COMPONENT` for every click.
 
     Attributes
     ----------

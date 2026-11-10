@@ -45,6 +45,7 @@ ignore = [
     "DOC",
     "INP001",  # examples are scripts, not a package
     "PLR6301", # lightbulb's invoke is a method, and a page should not show a lint directive
+    "RUF029",  # a check that only raises awaits nothing, and a page should not show a lint directive
     "S101",
     "PLR2004",
 ]

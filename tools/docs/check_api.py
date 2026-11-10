@@ -66,6 +66,8 @@ _RISA_ONLY_CONSTRUCTORS: typing.Final[frozenset[str]] = frozenset(
         "risa.context.ComponentContext.__init__",
         "risa.context.Context.__init__",
         "risa.context.Response.__init__",
+        "risa.hooks.ExecutionHook.__init__",
+        "risa.hooks.ExecutionPipeline.__init__",
         "risa.state.schema.StateSchema.__init__",
         "risa.ui.build.BuildContext.__init__",
         "risa.ui.build.Rendered.__init__",

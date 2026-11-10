@@ -34,6 +34,7 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
     from risa import context
+    from risa import hooks as hooks_
     from risa.state import placement as placement_
     from risa.state import schema as schema_
     from risa.view import AutoDefer
@@ -83,6 +84,8 @@ class HandlerRecord(msgspec.Struct, frozen=True):
         Its own `AutoDefer`, already resolved against the view's.
     signature
         Its wire parameters.
+    hooks
+        The hooks `@risa.handler` attached to it.
     """
 
     callback: DispatchCallback
@@ -90,6 +93,7 @@ class HandlerRecord(msgspec.Struct, frozen=True):
     version: int
     defer: AutoDefer | None
     signature: codec.HandlerSignature
+    hooks: collections.abc.Sequence[hooks_.AnyHook] = ()
 
 
 class ViewMeta(msgspec.Struct, frozen=True):
@@ -97,7 +101,8 @@ class ViewMeta(msgspec.Struct, frozen=True):
 
     `handlers` maps routing tokens to handlers. `outdated`, `state_missing` and `loader`
     are `None` when the view does not override them; an overridden `on_outdated` or
-    `on_state_missing` also quiets the warning the click that reaches it would log.
+    `on_state_missing` also quiets the warning the click that reaches it would log. `hooks`
+    and `defer` are the ones `@risa.register` was given.
     """
 
     cls: type[View]
@@ -109,6 +114,8 @@ class ViewMeta(msgspec.Struct, frozen=True):
     outdated: HookCallback | None = None
     state_missing: HookCallback | None = None
     loader: LoadCallback | None = None
+    hooks: collections.abc.Sequence[hooks_.AnyHook] = ()
+    defer: AutoDefer | None = None
 
     @property
     def handles_outdated(self) -> bool:

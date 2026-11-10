@@ -114,6 +114,7 @@ risa registers these itself, so you can name them in any handler without registe
 |---|---|
 | [`risa.ComponentContext`](../api/context.md#risa.context.ComponentContext) | The click, the same object as `ctx`. A [factory](#values-and-factories) or a function further down uses this to reach it |
 | `hikari.ComponentInteraction` | The interaction behind the click, the same object as `ctx.interaction` |
+| [`risa.ExecutionPipeline`](../api/hooks.md#risa.hooks.ExecutionPipeline) | The click's run through its [hooks](13-hooks.md), with what has failed so far. In a handler it is empty, since a handler runs only when nothing failed |
 
 This handler uses the REST client to post in a log channel as well as answering the click:
 
@@ -143,7 +144,7 @@ The boxes sit one inside the other. The objects below are the ones from the shop
 <p class="risa-scope__items"><code>risa.Client</code> <code>hikari.api.RESTClient</code> <code>Prices</code> <code>Database</code></p>
 <div class="risa-scope risa-scope--inner">
 <p class="risa-scope__title"><code>COMPONENT</code> a new container for each click</p>
-<p class="risa-scope__items"><code>risa.ComponentContext</code> <code>hikari.ComponentInteraction</code> <code>Wallet</code></p>
+<p class="risa-scope__items"><code>risa.ComponentContext</code> <code>hikari.ComponentInteraction</code> <code>risa.ExecutionPipeline</code> <code>Wallet</code></p>
 <p class="risa-scope__note">A handler runs here. It looks in this box first, then in the one around it.</p>
 </div>
 </div>
@@ -259,7 +260,7 @@ when making `Memory` fails, where a plain union would fail the click.
 
 ## Where injection works
 
-Handlers, `load()`, [`on_state_missing`](09-stores-and-ttl.md#ttl), [`on_outdated`](10-changing-a-view-safely.md#on_outdated),
+Handlers, [hooks](13-hooks.md), `load()`, [`on_state_missing`](09-stores-and-ttl.md#ttl), [`on_outdated`](10-changing-a-view-safely.md#on_outdated),
 [error handlers](05-answering-in-time.md#when-something-fails) and factories have it without a decorator. For a function of your own, add `@linkd.inject`. `render()` takes no injected
 parameters, so `load()` reads what it draws.
 
@@ -273,9 +274,9 @@ injected: `limit: int = risa.INJECTED`.
 
 ## Injection context
 
-An injected function needs an open context when it runs. risa opens `DEFAULT` and `COMPONENT` around `load()`, the handler,
-the hooks and the error handlers of a click, and `DEFAULT` around the `load()` in `client.build`. A function called from inside those has them
-too, so you rarely need to think about this.
+An injected function needs an open context when it runs. risa opens `DEFAULT` and `COMPONENT` once around a whole click,
+its hooks, `load()`, the handler, the fallbacks and the error handlers, and `DEFAULT` around the `load()` in `client.build`.
+A function called from inside those has them too, so you rarely need to think about this.
 
 Anywhere else, such as in a hikari listener, open the context yourself, or the call raises
 `DependencyNotSatisfiableException`.
@@ -344,5 +345,5 @@ itself, so a handler that takes only those keeps working. A handler that names a
 ## Types have to exist at runtime
 
 linkd reads annotations while the bot runs, so a dependency's type has to be importable then. A type imported only under
-`if typing.TYPE_CHECKING:` makes `@risa.register` raise `HandlerSignatureError` for a handler, and `NameError` for a
-`load()` or a factory. Keep that import outside the block.
+`if typing.TYPE_CHECKING:` makes `@risa.register` raise `HandlerSignatureError` for a handler, `client.add_view` raise
+`HookDeclarationError` for a hook, and `NameError` for a `load()` or a factory. Keep that import outside the block.

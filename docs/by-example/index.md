@@ -5,7 +5,7 @@ hide:
 
 # By example
 
-Twelve chapters that start with a single message and end with your own store. Read them in order, or jump to the one you need.
+Thirteen chapters that start with a single message and end with hooks around every click. Read them in order, or jump to the one you need.
 {: .risa-lead }
 
 <div class="risa-overview risa-overview--numbered" markdown>
@@ -63,5 +63,9 @@ Twelve chapters that start with a single message and end with your own store. Re
 - [Writing your own store](12-writing-your-own-store.md)
 
     Write six methods against what you already run, and test them with `verify_store`.
+
+- [Hooks](13-hooks.md)
+
+    Check, limit or audit every click before and after its handler runs.
 
 </div>

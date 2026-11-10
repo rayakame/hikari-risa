@@ -69,10 +69,10 @@ class Forecast(risa.View):
 
 
 # --8<-- [start:expected]
-async def forecast_unavailable(failure: risa.ClickFailure) -> bool:
-    if not isinstance(failure.error, ForecastUnavailableError):
+async def forecast_unavailable(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+    if pipeline.find(ForecastUnavailableError) is None:
         return False
-    await failure.ctx.respond(
+    await ctx.respond(
         "The weather service is not answering. Try again in a minute.",
         ephemeral=True,
     )
@@ -81,8 +81,8 @@ async def forecast_unavailable(failure: risa.ClickFailure) -> bool:
 
 
 # --8<-- [start:everything]
-async def something_went_wrong(failure: risa.ClickFailure) -> bool:
-    await failure.ctx.respond("Something went wrong.", ephemeral=True)
+async def something_went_wrong(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+    await ctx.respond("Something went wrong.", ephemeral=True)
     return False
     # --8<-- [end:everything]
 

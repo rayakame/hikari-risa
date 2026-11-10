@@ -35,6 +35,7 @@ from risa import context
 from risa import di as di_
 from risa import dispatch as dispatch_
 from risa import errors
+from risa import hooks as hooks_
 from risa import view as view_
 from risa.internal import constants
 from risa.internal import registry
@@ -71,7 +72,7 @@ type _ComponentListener = interaction_server_.ListenerT[hikari.ComponentInteract
 
 
 class _ErrorHandlerDecorator(typing.Protocol):
-    def __call__[T: context.ErrorHandler](self, func: T, /) -> T: ...
+    def __call__[T: hooks_.ErrorHandler](self, func: T, /) -> T: ...
 
 
 @typing.runtime_checkable
@@ -106,6 +107,8 @@ class _LightbulbOptions(typing.TypedDict, total=False):
     store: protocol.Store | None
     stores: collections.abc.Mapping[str, protocol.Store]
     key_prefix: str | None
+    hooks: collections.abc.Sequence[hooks_.ExecutionHook[view_.View]]
+    execution_step_order: collections.abc.Sequence[hooks_.ExecutionStep]
 
 
 class _ClientOptions(_LightbulbOptions, total=False):
@@ -141,12 +144,18 @@ class Client(abc.ABC):
     key_prefix
         The prefix of every store key, `risa:{application id}` by default. Set it to
         fit a Redis ACL pattern, or to separate bots that share one store.
+    hooks
+        Hooks that run for clicks on every view, before the view's and the handler's in
+        each step. They take no view, or `View` itself.
+    execution_step_order
+        The steps of a click in the order they run, `DEFAULT_EXECUTION_STEP_ORDER` by
+        default. It holds `ExecutionSteps.INVOKE` once, and every other step at most once.
 
     Raises
     ------
     ValueError
-        If `key_prefix` is blank, or the default store is given both as `store` and in
-        `stores`.
+        If `key_prefix` is blank, the default store is given both as `store` and in
+        `stores`, or `execution_step_order` lacks `INVOKE` or holds a step twice.
     """
 
     __slots__ = (
@@ -154,8 +163,11 @@ class Client(abc.ABC):
         "_auto_defer_delay",
         "_di",
         "_dispatcher",
+        "_global_checked",
+        "_hooks",
         "_in_message",
         "_memory_warned",
+        "_order",
         "_registry",
         "_rest",
         "_stateless",
@@ -176,10 +188,22 @@ class Client(abc.ABC):
         store: protocol.Store | None = None,
         stores: collections.abc.Mapping[str, protocol.Store] | None = None,
         key_prefix: str | None = None,
+        hooks: collections.abc.Sequence[hooks_.ExecutionHook[view_.View]] = (),
+        execution_step_order: collections.abc.Sequence[hooks_.ExecutionStep] = hooks_.DEFAULT_EXECUTION_STEP_ORDER,
     ) -> None:
         if key_prefix is not None and not key_prefix.strip():
             msg = "key_prefix must not be blank; leave it out to namespace store keys by the application id"
             raise ValueError(msg)
+        if hooks_.ExecutionSteps.INVOKE not in execution_step_order:
+            msg = "execution_step_order must hold ExecutionSteps.INVOKE, the step that runs the handler"
+            raise ValueError(msg)
+        if len(set(execution_step_order)) != len(execution_step_order):
+            msg = "execution_step_order must not hold a step twice"
+            raise ValueError(msg)
+        self._order = tuple(execution_step_order)
+        self._hooks = tuple(hooks)
+        for hook in self._hooks:
+            self._warn_if_unordered(hook, "the client")
         self._di = di if di is not None else linkd.DependencyInjectionManager()
         self._registry = registry.Registry()
         self._rest = rest
@@ -195,6 +219,7 @@ class Client(abc.ABC):
         self._stateless = stateless.StatelessBackend()
         self._memory_warned: set[str] = set()
         self._unanswered_warned: set[str] = set()
+        self._global_checked: set[str] = set()
 
         if Client in self._di.registry_for(di_.Contexts.DEFAULT):
             _LOGGER.warning(
@@ -212,6 +237,8 @@ class Client(abc.ABC):
             auto_defer=auto_defer,
             auto_defer_delay=auto_defer_delay,
             build=self._build_over,
+            hooks=self._hooks,
+            order=self._order,
         )
 
     @property
@@ -275,37 +302,40 @@ class Client(abc.ABC):
         return build_.Rendered(builders)
 
     @typing.overload
-    def error_handler[T: context.ErrorHandler](self, func: T, /, *, priority: int = 0) -> T: ...
+    def error_handler[T: hooks_.ErrorHandler](self, func: T, /, *, priority: int = 0) -> T: ...
 
     @typing.overload
     def error_handler(self, /, *, priority: int = 0) -> _ErrorHandlerDecorator: ...
 
     def error_handler(
         self,
-        func: context.ErrorHandler | None = None,
+        func: hooks_.ErrorHandler | None = None,
         /,
         *,
         priority: int = 0,
-    ) -> context.ErrorHandler | _ErrorHandlerDecorator:
+    ) -> hooks_.ErrorHandler | _ErrorHandlerDecorator:
         """Register a function that answers clicks that failed.
 
         ```python
         @client.error_handler
-        async def on_error(failure: risa.ClickFailure) -> bool:
-            if isinstance(failure.error, risa.StoreUnavailableError):
-                await failure.ctx.respond("Try again in a moment.", ephemeral=True)
+        async def on_error(
+            pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext
+        ) -> bool:
+            if pipeline.find(risa.StoreUnavailableError) is not None:
+                await ctx.respond("Try again in a moment.", ephemeral=True)
                 return True
             return False
         ```
 
-        It runs when a handler, `load`, `View.on_outdated` or `View.on_state_missing` raises,
-        or when the view's state cannot be reached before them; `ClickFailure.stage` says
-        which. It returns `True` once it has dealt with the failure, and risa then logs
-        nothing. Otherwise the next one runs, and if none returns `True`, risa logs the
-        failure as it would without them. One that raises is logged and counts as `False`.
-        Its parameters after the first are injected, as a handler's are. It runs without
-        auto-defer, and Discord's three seconds count from the click, so a failure that comes
-        late, such as a lock timeout, may leave it no time unless auto-defer answered first.
+        It runs once a click is over, if anything in it failed: a hook, `load`, the handler,
+        `View.on_outdated` or `View.on_state_missing`, or reaching the view's state before
+        them. `pipeline.failures` lists what failed, in order. It returns `True` once it has
+        dealt with the click, and risa then logs nothing. Otherwise the next one runs, and if
+        none returns `True`, risa logs the failures. One that raises is logged and counts as
+        `False`. Its parameters after `ctx` are injected, as a handler's are. `ctx` has no view
+        state, so a half-changed view is never saved. It runs without auto-defer, and
+        Discord's three seconds count from the click, so a failure that comes late, such as a
+        lock timeout, may leave it no time unless auto-defer answered first.
 
         Parameters
         ----------
@@ -322,7 +352,7 @@ class Client(abc.ABC):
             The function, unchanged, or the decorator that registers one.
         """
 
-        def register[T: context.ErrorHandler](handler: T) -> T:
+        def register[T: hooks_.ErrorHandler](handler: T) -> T:
             self._dispatcher.add_error_handler(handler, priority=priority)
             return handler
 
@@ -347,9 +377,13 @@ class Client(abc.ABC):
             If the class was never registered.
         ViewDeclarationError
             If the view keeps its state in a store this client does not have.
+        HookDeclarationError
+            If a hook of the client, the view or a handler takes a view of another class, or
+            its annotations cannot be resolved.
         """
         meta = registry.require_meta(cls)
         self._check_store(meta)
+        self._check_hooks(meta)
         _LOGGER.debug("registering view %s to client", meta.name)
         self._registry.register(meta)
         return cls
@@ -367,6 +401,30 @@ class Client(abc.ABC):
                 "view %s was built, but this client does not answer its clicks: pass the class to"
                 " client.add_view, or make the client with use_global=True",
                 meta.name,
+            )
+
+    def _check_hooks(self, meta: registry.ViewMeta) -> None:
+        for hook in (*self._hooks, *_own_hooks(meta)):
+            view_type = hook.view_type
+            if view_type is not None and not issubclass(meta.cls, view_type):
+                reason = (
+                    f"it takes a {view_type.__name__}, but runs for view {meta.name!r}, a {meta.cls.__name__};"
+                    " attach it to that view or its handlers, or annotate its view parameter with a base of both"
+                )
+                raise errors.HookDeclarationError(hook.name, reason)
+        self._warn_of_unordered(meta)
+
+    def _warn_of_unordered(self, meta: registry.ViewMeta) -> None:
+        for hook in _own_hooks(meta):
+            self._warn_if_unordered(hook, f"view {meta.name}")
+
+    def _warn_if_unordered(self, hook: hooks_.AnyHook, owner: str) -> None:
+        if hook.step not in self._order:
+            _LOGGER.warning(
+                "hook %r of %s runs in step %s, which this client's execution_step_order leaves out, so it never runs",
+                hook.name,
+                owner,
+                hook.step.name,
             )
 
     def _check_store(self, meta: registry.ViewMeta) -> None:
@@ -415,6 +473,9 @@ class Client(abc.ABC):
         meta = self._registry.get(cookie)
         if meta is None and self._use_global:
             meta = registry.global_registry().get(cookie)
+            if meta is not None and meta.cookie not in self._global_checked:
+                self._global_checked.add(meta.cookie)
+                self._warn_of_unordered(meta)
         return meta
 
     async def _process_interaction(
@@ -655,3 +716,7 @@ def _missing_store(name: str) -> str:
         f"it keeps its state in store {name!r}, but this client has no store of that name; pass"
         f" stores={{{name!r}: ...}} to the client"
     )
+
+
+def _own_hooks(meta: registry.ViewMeta) -> list[hooks_.AnyHook]:
+    return [*meta.hooks, *(hook for record in meta.handlers.values() for hook in record.hooks)]

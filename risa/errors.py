@@ -43,6 +43,7 @@ __all__ = (
     "EphemeralOriginError",
     "HandlerNotCallableError",
     "HandlerSignatureError",
+    "HookDeclarationError",
     "LayoutError",
     "LockTimeoutError",
     "NoViewError",
@@ -282,6 +283,23 @@ class ViewDeclarationError(RisaError):
         self.view_name: str = view_name
         self.reason: str = reason
         super().__init__(f"view {view_name!r}: {reason}")
+
+
+class HookDeclarationError(RisaError):
+    """Raised when a hook is declared or attached in a way risa cannot run.
+
+    Attributes
+    ----------
+    hook_name
+        The hook at fault.
+    reason
+        What is wrong with it.
+    """
+
+    def __init__(self, hook_name: str, reason: str) -> None:
+        self.hook_name: str = hook_name
+        self.reason: str = reason
+        super().__init__(f"hook {hook_name!r}: {reason}")
 
 
 class DuplicateViewError(RisaError):
