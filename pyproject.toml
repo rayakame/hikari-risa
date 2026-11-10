@@ -79,7 +79,7 @@ images = [
     "pillow==13.0.0",
 ]
 lightbulb = [
-    "hikari-lightbulb==3.2.6",
+    "hikari-lightbulb==3.2.7",
 ]
 pyright = [
     "asyncpg-stubs==0.32.0",
