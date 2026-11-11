@@ -98,15 +98,11 @@ A hook fails the click by raising. Then:
   once anything in the click has failed, the handler included.
 - **If `INVOKE` has not run yet, it does not run**: not `load()`, not the handler, not a fallback.
 - **`POST_INVOKE` runs**, so a hook after the handler can release what one before it took.
-- **The view is gone from `ctx`.** From the first failure on, as in an error handler, `ctx.rerender()` on a view with
-  durable fields and `ctx.edit()` with something to click raise `NoViewError`, so a half-changed view is never saved. A
-  hook that takes the view still gets it to read.
+- **The view is gone from `ctx`**, as in an error handler. `ctx.rerender()` on a view with durable fields and
+  `ctx.edit()` with something to click raise `NoViewError`, so a half-changed view is never saved. A hook that takes the
+  view still gets it to read.
 - **The error handlers run once**, when the click is over. [`pipeline.failures`](../api/hooks.md#risa.hooks.ExecutionPipeline.failures)
-  lists every [`Failure`](../api/hooks.md#risa.hooks.Failure) in the order it happened, each with its exception, its
-  stage and the hook that raised it.
-
-If no error handler returns `True`, risa's log names the hook by its function name, or by the `name=` you give
-`@risa.hook`, which is also `failure.hook.name`.
+  lists every [`Failure`](../api/hooks.md#risa.hooks.Failure) in order, each with its exception, its stage and its hook.
 
 ## After the handler
 
@@ -131,12 +127,8 @@ The client runs `audit` after every click on every view:
 risa saves what the handler changed before `POST_INVOKE` begins, so a failing `audit` cannot cost a vote, and
 auto-defer still acknowledges the click.
 
-!!! warning "A hook can change the view's state."
-
-    - **After the handler**, the hook has to call `ctx.rerender()` to save it, which works only while nothing in the
-      click has failed. A change it leaves unsaved is lost, and if nothing in the click failed, risa logs a warning.
-    - **Before the handler**, the handler's save takes the change along. Keep that rare: the change is lost if a later
-      hook or the handler fails.
+A hook can change the view's state, which is rarely a good idea.
+[`ExecutionHook`](../api/hooks.md#risa.hooks.ExecutionHook) says when such a change is saved.
 
 ## With or without the view
 
@@ -158,18 +150,13 @@ hook without that parameter also runs on clicks that go to the view's fallbacks:
     A click cannot reach its state when the store is down, the lock timed out, a codec's extra is missing or the client
     lacks the view's store. It goes straight to the error handlers with a `STATE` failure.
 
-For a hook that takes the view:
-
-- **Annotate it with the class alone.** For `Poll | None`, `client.add_view` raises `HookDeclarationError`.
-- **Attach it where its view is.** A hook for one view class belongs on that view or its handlers, or annotate its view
-  parameter with a base class of every view it runs for. Your type checker refuses a `Poll` hook on the client, and
-  `client.add_view` raises `HookDeclarationError` for a hook that takes a view of another class. With `use_global=True`,
-  a view never passes through `add_view`, so there the hook fails each click with that error.
+Annotate the view parameter with the class alone, and attach the hook where its view is.
+[`@risa.hook`](../api/hooks.md#risa.hooks.hook) has both rules.
 
 Parameters after these are [injected](06-dependency-injection.md), as a handler's are, and their types have to
-[exist at runtime](06-dependency-injection.md#types-have-to-exist-at-runtime). risa also registers the pipeline for
-injection, so a factory, or a function the hook calls, can take `risa.ExecutionPipeline`. A handler can take it too, but
-there it is always empty: the handler runs only when nothing has failed.
+[exist at runtime](06-dependency-injection.md#types-have-to-exist-at-runtime). That includes the pipeline: a factory, or
+a function the hook calls, can take `risa.ExecutionPipeline`. A handler can too, but there it is always empty, since the
+handler runs only when nothing has failed.
 
 ## Steps of your own
 

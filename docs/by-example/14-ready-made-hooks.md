@@ -45,21 +45,15 @@ The checks run in the `CHECKS` step. Once anything in the click has failed, they
 | [`has_roles(...)`](../api/prefab.md#risa.prefab.has_roles) | The user has all of the roles, or one of them with `mode="any"` | `MissingRolesError` |
 | [`expires_after(seconds)`](../api/prefab.md#risa.prefab.expires_after) | The message was sent or last edited at most `seconds` ago | `ComponentExpiredError` |
 
-The permission and role checks turn a click in a direct message away. With `fail_in_dm=False` they let it through
-unchecked. The permission checks let an administrator through unless you pass `permit_admin=False`. `has_roles` needs at least
-one role and raises `HookDeclarationError` without.
-
-`owner_only` asks Discord for the owners on the first click and keeps them until the bot restarts.
-
-`invoker_only` reads the user from the interaction that sent the message. A message the bot posted by itself has none,
-and every click on it is turned away; the `!reward` listener in the full file sends such a message. For those, keep the
-user's id in a field and write the check yourself, as [Hooks](13-hooks.md#a-check) does.
-
-`expires_after` gives a view a lifetime without a store. The message carries when it was sent and last edited, and a
-`ctx.rerender()` is an edit, so the hour above starts over with every claim. Only an edit restarts it: a click that
-answers without `ctx.rerender()`, such as a claim with nothing left, does not. The buttons stay on the message, and a
-click on them raises `ComponentExpiredError`. For a view whose state lives in a store, [`ttl`](09-stores-and-ttl.md#ttl) restarts on
-every click and also removes the record.
+- **Permissions and roles.** These checks turn a click in a direct message away, or let it through unchecked with
+  `fail_in_dm=False`. The permission checks let an administrator through unless you pass `permit_admin=False`.
+- **`invoker_only`** reads the user from the interaction that sent the message. A message the bot posted by itself has
+  none, and every click on it is turned away. For those, keep the user's id in a field and write the check yourself, as
+  [Hooks](13-hooks.md#a-check) does.
+- **`expires_after`** gives a view a lifetime without a store. A `ctx.rerender()` is an edit, so the hour above starts
+  over with every claim. A click that answers without it, such as a claim with nothing left, does not restart it. The
+  buttons stay on the message, and a click on them raises `ComponentExpiredError`. For a view whose state lives in a
+  store, [`ttl`](09-stores-and-ttl.md#ttl) restarts on every click and also removes the record.
 
 ## Cooldowns
 
@@ -83,32 +77,32 @@ The bucket says which clicks count together:
 | `"message"` | Per message |
 | A function | Per value it returns for the context, an `int` or a `str`; it may be `async` |
 
-Each call without a store makes a cooldown of its own. `claim` above has one. The same hook object attached to two
-handlers counts their clicks together.
-
-Like the checks, a cooldown is skipped once anything has failed, so a click a check turned away costs no use. It counts
-every click it lets through, even one that fails afterwards or that a later cooldown turns away. A handler gives the
-use back through [`Cooldown`](../api/prefab.md#risa.prefab.Cooldown), which the cooldown registers for
-[injection](06-dependency-injection.md#what-risa-registers): `claim` calls `cooldown.undo()` when nothing is left.
-`reset()` gives the bucket all of its uses back, and `apply()` takes one more or raises `OnCooldownError`. `Cooldown`
-needs dependency injection.
+- **One hook object, one count.** Each call makes a cooldown of its own, and the same hook object attached to two
+  handlers counts their clicks together.
+- **A click that was turned away costs no use.** Like the checks, a cooldown is skipped once anything has failed.
+- **Every click it lets through counts**, even one that fails afterwards or that a later cooldown turns away.
+- **A handler can give the use back** through [`Cooldown`](../api/prefab.md#risa.prefab.Cooldown), which the cooldown
+  registers for [injection](06-dependency-injection.md#what-risa-registers): `claim` calls `cooldown.undo()` when
+  nothing is left. `reset()` gives the bucket all of its uses back, and `apply()` takes one more or raises
+  `OnCooldownError`.
 
 ## Counting in a store
 
-By default a cooldown counts in the memory of its process. A restart forgets it, each process of a
-[REST bot](11-several-processes.md) counts alone, and past 100,000 buckets at a time the one unused the longest is
-forgotten. Pass the name of one of the client's [stores](09-stores-and-ttl.md) and a key to count there:
+By default a cooldown counts in the memory of its process: a restart forgets it, and each process of a
+[REST bot](11-several-processes.md) counts alone. Pass the name of one of the client's [stores](09-stores-and-ttl.md)
+and a key to count there:
 
 ```python
 --8<-- "ch14_prefab.py:store"
 ```
 
 Put `DAILY` on `claim` in place of the cooldown above, and give the client a store with
-`risa.client_from_app(bot, store=...)`: `"default"` is that store's name. A name the client has no store for fails
-every click with `HookDeclarationError`, from the first click on. The key
-names this cooldown in the store, so every process finds the same count. Give each cooldown its own. `max_concurrency`
-takes both too. Counting in a store needs dependency injection, and a click fails with
-[`StoreUnavailableError`](../api/errors.md#risa.errors.StoreUnavailableError) while the store cannot be reached.
+`risa.client_from_app(bot, store=...)`: `"default"` is that store's name. `max_concurrency` takes both too.
+
+- **The key** names this cooldown in the store, so every process finds the same count. Give each cooldown its own.
+- **A name the client has no store for** fails every click with `HookDeclarationError`, from the first click on.
+- **While the store cannot be reached**, a click fails with
+  [`StoreUnavailableError`](../api/errors.md#risa.errors.StoreUnavailableError).
 
 ## Clicks that run at once
 
@@ -119,17 +113,15 @@ An export takes five seconds, and only one should run at a time:
 ```
 
 [`max_concurrency(1, "global")`](../api/prefab.md#risa.prefab.max_concurrency) returns two hooks: one takes a slot
-before the handler and raises `MaxConcurrencyReachedError` when none is free, the other gives it back in `POST_INVOKE`. Unpack
-both into the list, as `export` does. A `POST_INVOKE` hook of your own that should still count as running goes before
-them in the list.
+before the handler and raises `MaxConcurrencyReachedError` when none is free, the other gives it back in `POST_INVOKE`.
 
-`Export` has no durable fields on purpose. Within one process, risa runs the clicks on one message with durable state
-one after another, so a second click there waits for the first instead of being turned away, and it still has to
-answer within Discord's three seconds. Keep slow work on a view without durable state, or the limit only matters
-across messages.
-
-A slot that is never given back, for example because the bot stopped in the middle of a click, frees itself after 15
-minutes. A handler that runs longer than that loses its slot too, and another click may start beside it.
+- **Unpack both into the list**, as `export` does. A `POST_INVOKE` hook of your own that should still count as running
+  goes before them.
+- **Keep slow work on a view without durable state**, as `Export` is. Within one process, risa runs the clicks on one
+  message with durable state one after another, so a second click there waits for the first instead of being turned
+  away, and it still has to answer within Discord's three seconds. There the limit only matters across messages.
+- **A slot frees itself after 15 minutes** if it is never given back, for example because the bot stopped in the middle
+  of a click. A handler that runs longer than that loses its slot too, and another click may start beside it.
 
 ??? example "Full file"
 
