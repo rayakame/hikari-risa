@@ -81,30 +81,30 @@ class Export(risa.View):
         # --8<-- [end:export]
 
 
-# --8<-- [start:answer]
-async def turned_away(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
-    error = pipeline.find(risa.ClickRejectedError)
-    if error is None:
-        return False
-    if isinstance(error, risa.OnCooldownError):
-        text = f"Come back <t:{int(time.time() + error.remaining)}:R>."
-    elif isinstance(error, risa.ComponentExpiredError):
-        text = "This message has expired."
-    else:
-        text = "You cannot use this."
-    await ctx.respond(text, ephemeral=True)
-    return True
-    # --8<-- [end:answer]
+def add_error_handlers(client: risa.Client) -> None:
+    # --8<-- [start:answer]
+    @client.error_handler
+    async def turned_away(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+        error = pipeline.find(risa.ClickRejectedError)
+        if error is None:
+            return False
+        if isinstance(error, risa.OnCooldownError):
+            text = f"Come back <t:{int(time.time() + error.remaining)}:R>."
+        elif isinstance(error, risa.ComponentExpiredError):
+            text = "This message has expired."
+        else:
+            text = "You cannot use this."
+        await ctx.respond(text, ephemeral=True)
+        return True
+        # --8<-- [end:answer]
 
 
-# --8<-- [start:client]
 def make_client(bot: hikari.GatewayBot) -> risa.GatewayEnabledClient:
     client = risa.client_from_app(bot)
     client.add_view(Reward)
     client.add_view(Export)
-    client.error_handler(turned_away)
+    add_error_handlers(client)
     return client
-    # --8<-- [end:client]
 
 
 def main() -> None:

@@ -68,30 +68,25 @@ class Forecast(risa.View):
         # --8<-- [end:view]
 
 
-# --8<-- [start:expected]
-async def forecast_unavailable(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
-    if pipeline.find(ForecastUnavailableError) is None:
-        return False
-    await ctx.respond(
-        "The weather service is not answering. Try again in a minute.",
-        ephemeral=True,
-    )
-    return True
-    # --8<-- [end:expected]
-
-
-# --8<-- [start:everything]
-async def something_went_wrong(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
-    await ctx.respond("Something went wrong.", ephemeral=True)
-    return False
-    # --8<-- [end:everything]
-
-
-# --8<-- [start:register]
 def add_error_handlers(client: risa.Client) -> None:
-    client.error_handler(forecast_unavailable, priority=1)
-    client.error_handler(something_went_wrong, priority=-1)
-    # --8<-- [end:register]
+    # --8<-- [start:expected]
+    @client.error_handler(priority=1)
+    async def forecast_unavailable(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+        if pipeline.find(ForecastUnavailableError) is None:
+            return False
+        await ctx.respond(
+            "The weather service is not answering. Try again in a minute.",
+            ephemeral=True,
+        )
+        return True
+        # --8<-- [end:expected]
+
+    # --8<-- [start:everything]
+    @client.error_handler(priority=-1)
+    async def something_went_wrong(_pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+        await ctx.respond("Something went wrong.", ephemeral=True)
+        return False
+        # --8<-- [end:everything]
 
 
 def main() -> None:

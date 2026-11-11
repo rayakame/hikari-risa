@@ -30,12 +30,6 @@ Every exception these hooks raise to turn a click away derives from
 
 --8<-- "previews/reward-cooldown.html"
 
-`make_client` registers it:
-
-```python
---8<-- "ch14_prefab.py:client"
-```
-
 Without an error handler the click fails in Discord, and risa logs it as an error.
 
 ## Checks

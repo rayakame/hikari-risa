@@ -18,13 +18,14 @@ when the click may not go on:
 --8<-- "ch13_hooks.py:check"
 ```
 
-[`@risa.hook`](../api/hooks.md#risa.hooks.hook) makes `author_only` a hook. It takes the
-[`ExecutionPipeline`](../api/hooks.md#risa.hooks.ExecutionPipeline) of the click and the context, and because its third
-parameter is annotated `Poll`, it also gets the poll with its durable state. `@risa.handler(hooks=[...])` attaches it to
-`close` alone:
+[`@risa.hook`](../api/hooks.md#risa.hooks.hook) makes `author_only` a hook. It takes the click's
+[`ExecutionPipeline`](../api/hooks.md#risa.hooks.ExecutionPipeline) and the context. Its third parameter is annotated
+`Poll`, so it also gets the poll with its durable state.
+
+`@risa.handler(hooks=[...])` attaches it to `close` alone:
 
 ```python
---8<-- "ch13_hooks.py:view"
+--8<-- "ch13_hooks.py:attach"
 ```
 
 --8<-- "previews/closable-poll.html"
@@ -42,10 +43,12 @@ Without an error handler the click fails in Discord, and risa logs it. This one 
 
 --8<-- "previews/closable-poll-refused.html"
 
-[`pipeline.find`](../api/hooks.md#risa.hooks.ExecutionPipeline.find) returns the first exception of that type the click
-raised, or `None`. `client.error_handler(not_the_author)` registers it, as the client under
-[After the handler](#after-the-handler) does, and [Answering in time](05-answering-in-time.md#when-something-fails) covers
-the rest of what an error handler can do. When the author clicks, the check passes and `close` runs:
+- `@client.error_handler` registers `not_the_author` as an error handler.
+- [`pipeline.find`](../api/hooks.md#risa.hooks.ExecutionPipeline.find) returns the first exception of that type the
+  click raised, or `None`.
+- [Answering in time](05-answering-in-time.md#when-something-fails) covers the rest of what an error handler can do.
+
+When the author clicks, the check passes and `close` runs:
 
 --8<-- "previews/closable-poll-closed.html"
 
@@ -65,14 +68,14 @@ By default a click runs through six steps, in this order:
 <li class="risa-flow__step"><span class="risa-flow__n">6</span><strong><code>POST_INVOKE</code></strong><span>After the handler, even after a failure.</span></li>
 </ol>
 
-A step's name only says what it is meant for: risa runs every step's hooks the same way. `INVOKE` takes no hooks, and
-`@risa.hook` raises [`HookDeclarationError`](../api/errors.md#risa.errors.HookDeclarationError) for it. Within a step, the
-client's hooks run first, then the view's, then the handler's, each in the order of its list. A hook you attach in two
-places runs twice.
+A step's name only says what it is meant for: risa runs every step's hooks the same way.
 
-On a view with durable fields, hooks run after risa has read the state and taken its lock, so a check sees the fields as
-they are, and no other click on the message gets in between. Props are still at their defaults, because `load()` runs in
-`INVOKE`. Hooks count toward auto-defer's delay and Discord's three seconds, as the handler does.
+- **`INVOKE` takes no hooks.** `@risa.hook` raises
+  [`HookDeclarationError`](../api/errors.md#risa.errors.HookDeclarationError) for it.
+- **Hooks see the state, locked.** On a view with durable fields, hooks run after risa has read the state and taken its
+  lock, so a check sees the fields as they are, and no other click on the message gets in between.
+- **Props are still at their defaults**, because `load()` runs in `INVOKE`.
+- **Hooks take time.** They count toward auto-defer's delay and Discord's three seconds, as the handler does.
 
 ## Where a hook goes
 
@@ -84,34 +87,8 @@ they are, and no other click on the message gets in between. Props are still at 
 
 `client_from_lightbulb` takes `hooks=` too.
 
-## With or without the view
-
-A hook whose third parameter is annotated with a view class gets the view, and runs only on clicks that have one.
-Annotate it with the class alone: for `Poll | None`, `client.add_view` raises `HookDeclarationError`. A hook without that
-parameter also runs on clicks that go to the view's fallbacks:
-[`on_outdated`](10-changing-a-view-safely.md#on_outdated) for a component the view can no longer route, and
-[`on_state_missing`](09-stores-and-ttl.md#ttl) for a state that is gone. On such a click the fallback runs in place of
-`INVOKE`, without auto-defer. Which hooks run:
-
-| The click | Hooks without the view | Hooks that take the view |
-|---|---|---|
-| Reaches the view | The client's, the view's and the handler's | The client's, the view's and the handler's |
-| Its stored state is gone or no longer fits | The client's, the view's and the handler's | None |
-| Its handler was retired, or its wire arguments no longer fit | The client's and the view's | None |
-| Cannot reach its state | None | None |
-
-A click cannot reach its state when the store is down, the lock timed out, a codec's extra is missing or the client lacks
-the view's store. It goes straight to the error handlers with a `STATE` failure.
-
-A hook for one view class belongs on that view or its handlers, or annotate its view parameter with a base class of every
-view it runs for. Your type checker refuses a `Poll` hook on the client, and `client.add_view` raises
-`HookDeclarationError` for a hook that takes a view of another class. With `use_global=True`, a view never passes through
-`add_view`, so there the hook fails each click with that error.
-
-Parameters after these are [injected](06-dependency-injection.md), as a handler's are, and their types have to
-[exist at runtime](06-dependency-injection.md#types-have-to-exist-at-runtime). risa also registers the pipeline for
-injection, so a factory, or a function the hook calls, can take `risa.ExecutionPipeline`. A handler can take it too, but
-there it is always empty: the handler runs only when nothing has failed.
+Within a step, the client's hooks run first, then the view's, then the handler's, each in the order of its list. A hook
+you attach in two places runs twice.
 
 ## When a hook fails
 
@@ -139,22 +116,60 @@ The client runs `audit` after every click on every view:
 --8<-- "ch13_hooks.py:audit"
 ```
 
-`make_client` attaches `audit` to the client and registers `not_the_author`:
+`hooks=` on the client attaches it:
 
 ```python
 --8<-- "ch13_hooks.py:client"
 ```
 
-`pipeline.failed` says whether anything in the click has failed so far, `pipeline.any_hook_failed` whether a hook did,
-and `pipeline.invocation_failed` whether `load()`, the handler or a fallback did.
+| On the pipeline | Says whether |
+|---|---|
+| `pipeline.failed` | Anything in the click has failed so far |
+| `pipeline.any_hook_failed` | A hook did |
+| `pipeline.invocation_failed` | `load()`, the handler or a fallback did |
 
 risa saves what the handler changed before `POST_INVOKE` begins, so a failing `audit` cannot cost a vote, and
-auto-defer still acknowledges the click. A hook after
-the handler that changes the view's state has to call `ctx.rerender()` to save it, which works only while nothing in the
-click has failed. A change it leaves unsaved is lost, and if nothing in the click failed, risa logs a warning.
+auto-defer still acknowledges the click.
 
-Hooks may change the state before the handler too, and the handler's save takes their change along. Keep that rare: the
-change is lost if a later hook or the handler fails.
+!!! warning "A hook can change the view's state."
+
+    - **After the handler**, the hook has to call `ctx.rerender()` to save it, which works only while nothing in the
+      click has failed. A change it leaves unsaved is lost, and if nothing in the click failed, risa logs a warning.
+    - **Before the handler**, the handler's save takes the change along. Keep that rare: the change is lost if a later
+      hook or the handler fails.
+
+## With or without the view
+
+A hook whose third parameter is annotated with a view class gets the view, and runs only on clicks that have one. A
+hook without that parameter also runs on clicks that go to the view's fallbacks:
+[`on_outdated`](10-changing-a-view-safely.md#on_outdated) for a component the view can no longer route, and
+[`on_state_missing`](09-stores-and-ttl.md#ttl) for a state that is gone. On such a click the fallback runs in place of
+`INVOKE`, without auto-defer.
+
+??? note "Which hooks run on which click"
+
+    | The click | Hooks without the view | Hooks that take the view |
+    |---|---|---|
+    | Reaches the view | The client's, the view's and the handler's | The client's, the view's and the handler's |
+    | Its stored state is gone or no longer fits | The client's, the view's and the handler's | None |
+    | Its handler was retired, or its wire arguments no longer fit | The client's and the view's | None |
+    | Cannot reach its state | None | None |
+
+    A click cannot reach its state when the store is down, the lock timed out, a codec's extra is missing or the client
+    lacks the view's store. It goes straight to the error handlers with a `STATE` failure.
+
+For a hook that takes the view:
+
+- **Annotate it with the class alone.** For `Poll | None`, `client.add_view` raises `HookDeclarationError`.
+- **Attach it where its view is.** A hook for one view class belongs on that view or its handlers, or annotate its view
+  parameter with a base class of every view it runs for. Your type checker refuses a `Poll` hook on the client, and
+  `client.add_view` raises `HookDeclarationError` for a hook that takes a view of another class. With `use_global=True`,
+  a view never passes through `add_view`, so there the hook fails each click with that error.
+
+Parameters after these are [injected](06-dependency-injection.md), as a handler's are, and their types have to
+[exist at runtime](06-dependency-injection.md#types-have-to-exist-at-runtime). risa also registers the pipeline for
+injection, so a factory, or a function the hook calls, can take `risa.ExecutionPipeline`. A handler can take it too, but
+there it is always empty: the handler runs only when nothing has failed.
 
 ## Steps of your own
 
@@ -163,6 +178,8 @@ own after `POST_INVOKE`:
 
 ```python
 --8<-- "ch13_hooks.py:order"
+
+--8<-- "ch13_hooks.py:order-client"
 ```
 
 `execution_step_order` holds `INVOKE` once and every other step at most once, or the client raises `ValueError`. A hook
