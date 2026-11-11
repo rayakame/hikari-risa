@@ -405,7 +405,7 @@ class Client(abc.ABC):
 
     def _check_hooks(self, meta: registry.ViewMeta) -> None:
         for hook in (*self._hooks, *_own_hooks(meta)):
-            view_type = hook.view_type
+            view_type = hook.view_type_for(meta.cls)
             if view_type is not None and not issubclass(meta.cls, view_type):
                 reason = (
                     f"it takes a {view_type.__name__}, but runs for view {meta.name!r}, a {meta.cls.__name__};"

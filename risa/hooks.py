@@ -245,8 +245,31 @@ class ExecutionHook[V: view_.View]:
             If the hook's annotations cannot be resolved, or its view parameter is annotated
             with a union or wrapper around a view class.
         """
+        return self.view_type_for(None)
+
+    def view_type_for(self, cls: type[view_.View] | None) -> type[view_.View] | None:
+        """Return `view_type`, with `cls` standing in for a name its module has not bound yet.
+
+        `client.add_view` calls this, since as a decorator it gets the class before the module
+        that defines it has bound the name.
+
+        Parameters
+        ----------
+        cls
+            The view class being added, or `None`.
+
+        Returns
+        -------
+        :
+            The view class the hook takes, or `None` if it takes no view.
+
+        Raises
+        ------
+        HookDeclarationError
+            As for `view_type`.
+        """
         if self._view_type is _Unresolved.UNRESOLVED:
-            self._view_type = _resolve_view_type(self._func, self._name)
+            self._view_type = _resolve_view_type(self._func, self._name, cls)
         return self._view_type
 
     async def __call__(self, pipeline: ExecutionPipeline, ctx: context.ComponentContext, view: V | None, /) -> None:
@@ -325,12 +348,25 @@ class ExecutionPipeline:
         return None
 
 
+def _hints(
+    func: collections.abc.Callable[..., collections.abc.Awaitable[None]],
+    cls: type[view_.View] | None,
+) -> dict[str, object]:
+    try:
+        return typing.get_type_hints(func)
+    except NameError as exc:
+        if cls is None or exc.name != cls.__name__:
+            raise
+        return typing.get_type_hints(func, localns={cls.__name__: cls})
+
+
 def _resolve_view_type(
     func: collections.abc.Callable[..., collections.abc.Awaitable[None]],
     name: str,
+    cls: type[view_.View] | None,
 ) -> type[view_.View] | None:
     try:
-        hints = typing.get_type_hints(func)
+        hints = _hints(func, cls)
     except (NameError, AttributeError, SyntaxError, TypeError) as exc:
         reason = f"its annotations cannot be resolved: {exc}"
         raise errors.HookDeclarationError(name, reason) from exc

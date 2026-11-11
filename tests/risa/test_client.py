@@ -4374,6 +4374,20 @@ def test_add_view_refuses_a_hook_whose_annotations_cannot_be_resolved() -> None:
         risa.client_from_app(gateway_app()).add_view(Unresolvable)
 
 
+def test_add_view_as_a_decorator_resolves_a_hook_that_takes_the_view_below_it() -> None:
+    client = risa.client_from_app(gateway_app())
+
+    @risa.hook(risa.ExecutionSteps.CHECKS)
+    async def sees_the_late(_pipeline: risa.ExecutionPipeline, _ctx: risa.ComponentContext, _view: Late) -> None: ...
+
+    @client.add_view
+    @risa.register(name="client-late", hooks=[sees_the_late])
+    class Late(risa.View):
+        count: int = 0
+
+    assert sees_the_late.view_type is Late
+
+
 async def test_a_global_view_with_a_hook_outside_the_order_is_warned_about_once(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
