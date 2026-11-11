@@ -2282,7 +2282,7 @@ you attach in two places runs twice.</p>
   once anything in the click has failed, the handler included.</li>
 <li><strong>If <code>INVOKE</code> has not run yet, it does not run</strong>: not <code>load()</code>, not the handler, not a fallback.</li>
 <li><strong><code>POST_INVOKE</code> runs</strong>, so a hook after the handler can release what one before it took.</li>
-<li><strong>The view is gone from <code>ctx</code></strong>, as in an error handler. <code>ctx.rerender()</code> on a view with durable fields and
+<li><strong>The view is gone from <code>ctx</code></strong>, as in an error handler. On a view with durable fields, <code>ctx.rerender()</code> and
   <code>ctx.edit()</code> with something to click raise <code>NoViewError</code>, so a half-changed view is never saved. A hook that takes the
   view still gets it to read.</li>
 <li><strong>The error handlers run once</strong>, when the click is over. <a href="../../api/hooks/#risa.hooks.ExecutionPipeline.failures"><code>pipeline.failures</code></a>

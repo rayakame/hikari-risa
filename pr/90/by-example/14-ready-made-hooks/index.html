@@ -2280,8 +2280,8 @@ is allowed.</p>
 </tbody>
 </table>
 <ul>
-<li><strong>One hook object, one count.</strong> Each call makes a cooldown of its own, and the same hook object attached to two
-  handlers counts their clicks together.</li>
+<li><strong>One hook object, one count.</strong> Each call without a store makes a cooldown of its own, and the same hook object
+  attached to two handlers counts their clicks together.</li>
 <li><strong>A click that was turned away costs no use.</strong> Like the checks, a cooldown is skipped once anything has failed.</li>
 <li><strong>Every click it lets through counts</strong>, even one that fails afterwards or that a later cooldown turns away.</li>
 <li><strong>A handler can give the use back</strong> through <a href="../../api/prefab/#risa.prefab.Cooldown"><code>Cooldown</code></a>, which the cooldown
@@ -2320,7 +2320,7 @@ and a key to count there:</p>
 before the handler and raises <code>MaxConcurrencyReachedError</code> when none is free, the other gives it back in <code>POST_INVOKE</code>.</p>
 <ul>
 <li><strong>Unpack both into the list</strong>, as <code>export</code> does. A <code>POST_INVOKE</code> hook of your own that should still count as running
-  goes before them.</li>
+  goes before them in the list.</li>
 <li><strong>Keep slow work on a view without durable state</strong>, as <code>Export</code> is. Within one process, risa runs the clicks on one
   message with durable state one after another, so a second click there waits for the first instead of being turned
   away, and it still has to answer within Discord's three seconds. There the limit only matters across messages.</li>
