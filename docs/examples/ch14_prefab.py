@@ -77,7 +77,7 @@ class Export(risa.View):
     async def export(self, ctx: risa.ComponentContext) -> None:
         await ctx.defer(thinking=True, ephemeral=True)
         await asyncio.sleep(5)
-        await ctx.respond("The export is in your direct messages.")
+        await ctx.respond("The export is done.")
         # --8<-- [end:export]
 
 

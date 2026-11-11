@@ -144,8 +144,13 @@ class _Ledger:
         if self._store is not None:
             prefix = client.key_prefix or f"risa:{ctx.interaction.application_id}"
             key = f"{prefix}:hook:{self._hook}:{self._key}:{bucket}"
-        async with store.lock(key):
-            yield _Entry(store, key)
+        try:
+            async with store.lock(key):
+                yield _Entry(store, key)
+        except errors.RisaError:
+            raise
+        except Exception as exc:
+            raise errors.StoreUnavailableError(key, f"{type(exc).__name__}: {exc}") from exc
 
     def _store_for(self, client: client_.Client) -> protocol.Store:
         if self._store is None:
@@ -433,9 +438,10 @@ def has_roles(
                 raise errors.MissingRolesError(required)
             return
         missing = [role_id for role_id in required if role_id not in ctx.member.role_ids]
-        if mode == "any" and len(missing) == len(required):
-            raise errors.MissingRolesError(required)
-        if mode == "all" and missing:
+        if mode == "any":
+            if len(missing) == len(required):
+                raise errors.MissingRolesError(required)
+        elif missing:
             raise errors.MissingRolesError(missing)
 
     return check

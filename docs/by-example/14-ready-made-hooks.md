@@ -113,7 +113,8 @@ Put `DAILY` on `claim` in place of the cooldown above, and give the client a sto
 `risa.client_from_app(bot, store=...)`: `"default"` is that store's name. A name the client has no store for fails
 every click with `HookDeclarationError`, from the first click on. The key
 names this cooldown in the store, so every process finds the same count. Give each cooldown its own. `max_concurrency`
-takes both too. Counting in a store needs dependency injection, and a click fails while the store cannot be reached.
+takes both too. Counting in a store needs dependency injection, and a click fails with
+[`StoreUnavailableError`](../api/errors.md#risa.errors.StoreUnavailableError) while the store cannot be reached.
 
 ## Clicks that run at once
 
@@ -134,7 +135,7 @@ answer within Discord's three seconds. Keep slow work on a view without durable 
 across messages.
 
 A slot that is never given back, for example because the bot stopped in the middle of a click, frees itself after 15
-minutes.
+minutes. A handler that runs longer than that loses its slot too, and another click may start beside it.
 
 ??? example "Full file"
 

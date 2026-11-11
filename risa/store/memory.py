@@ -122,7 +122,8 @@ class MemoryStore(protocol.Store):
         if entry is None:
             _LOGGER.debug("state key %r is gone; nothing to keep alive", key)
             return
-        entry.expires_at = self._deadline(ttl)
+        entry.expires_at = self._clock() + ttl
+        self._soonest = min(self._soonest, entry.expires_at)
 
     @typing.override
     def lock(

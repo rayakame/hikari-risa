@@ -275,6 +275,12 @@ def test_has_roles_without_a_role_is_a_declaration_error(mode: typing.Literal["a
     assert caught.value.reason == "it needs at least one role"
 
 
+async def test_has_roles_treats_an_unknown_mode_as_all() -> None:
+    mode = typing.cast('typing.Literal["all"]', "al")
+    with pytest.raises(risa.MissingRolesError):
+        await run(risa.prefab.has_roles(1, 2, mode=mode), context(roles=[1]))
+
+
 async def test_has_roles_turns_a_direct_message_away_unless_told_otherwise() -> None:
     await run(risa.prefab.has_roles(1, fail_in_dm=False), context(guild=None))
     with pytest.raises(risa.MissingRolesError):
@@ -594,6 +600,21 @@ async def test_a_store_the_client_lacks_fails_the_click() -> None:
     assert [str(error) for error in errors] == [
         "hook 'fixed_window': it counts in the store 'redis', which the client was not given"
     ]
+
+
+async def test_a_store_that_fails_fails_the_click_as_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def down(_store: risa.MemoryStore, _key: str) -> None:  # ruff:ignore[unused-async]
+        raise ConnectionError
+
+    monkeypatch.setattr(risa.MemoryStore, "get_versioned", down)
+    built, errors = client_with(
+        risa.prefab.fixed_window(60, 1, "user", store="default", key="refresh"), store=risa.MemoryStore(warn=False)
+    )
+
+    await click(built, user=5)
+
+    assert [type(error) for error in errors] == [risa.StoreUnavailableError]
+    assert isinstance(errors[0].__cause__, ConnectionError)
 
 
 async def test_max_concurrency_turns_a_click_away_while_as_many_as_allowed_run() -> None:

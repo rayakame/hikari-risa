@@ -277,6 +277,20 @@ async def test_writing_past_the_bound_drops_what_has_expired_first(caplog: pytes
     assert not warnings_in(caplog)
 
 
+async def test_writing_past_the_bound_drops_what_a_touch_let_expire_first() -> None:
+    now = [0.0]
+    store = memory.MemoryStore(max_entries=2, clock=lambda: now[0])
+    await store.put("a", b"a", ttl=20)
+    await store.put("b", b"b", ttl=20)
+    await store.touch("b", ttl=5)
+    now[0] = 5
+
+    await store.put("c", b"c", ttl=20)
+
+    assert await data_of(store, "a") == b"a"
+    assert await data_of(store, "c") == b"c"
+
+
 async def test_writing_past_the_bound_drops_live_entries_once_nothing_has_expired() -> None:
     now = [0.0]
     store = memory.MemoryStore(max_entries=2, clock=lambda: now[0])
