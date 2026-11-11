@@ -720,6 +720,11 @@ async def test_the_poll_of_chapter_13_closes_only_for_its_author_and_audits_ever
     assert closed.args[2] is hikari.ResponseType.MESSAGE_UPDATE
     assert [record.getMessage().rsplit(" ", 1)[1] for record in caplog.records] == ["failed", "ran"]
 
+    ctx = unittest.mock.Mock(spec=risa.ComponentContext)
+    await module.test_author_only_lets_the_author_through(ctx)
+    with pytest.raises(module.NotTheAuthorError):
+        await module.author_only(risa.ExecutionPipeline(), ctx, module.Poll(question="?", author_id=1))
+
 
 @pytest.mark.usefixtures("own_registry")
 async def test_the_poll_of_chapter_08_answers_a_full_poll_and_logs_nothing(caplog: pytest.LogCaptureFixture) -> None:

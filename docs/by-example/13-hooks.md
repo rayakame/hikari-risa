@@ -143,7 +143,8 @@ The client runs `audit` after every click on every view:
 `pipeline.failed` says whether anything in the click has failed so far, `pipeline.any_hook_failed` whether a hook did,
 and `pipeline.invocation_failed` whether `load()`, the handler or a fallback did.
 
-risa saves what the handler changed before `POST_INVOKE` begins, so a failing `audit` cannot cost a vote. A hook after
+risa saves what the handler changed before `POST_INVOKE` begins, so a failing `audit` cannot cost a vote, and
+auto-defer still acknowledges the click. A hook after
 the handler that changes the view's state has to call `ctx.rerender()` to save it, which works only while nothing in the
 click has failed. A change it leaves unsaved is lost, and if nothing in the click failed, risa logs a warning.
 
@@ -161,6 +162,18 @@ own after `POST_INVOKE`:
 
 `execution_step_order` holds `INVOKE` once and every other step at most once, or the client raises `ValueError`. A hook
 in a step the order leaves out never runs, and risa logs a warning when the client is made or the view added.
+
+## Testing a hook
+
+A hook is callable, so a test can await it with a pipeline of its own. `ctx` is whatever stands in for the context in
+your tests, such as a mock:
+
+```python
+--8<-- "ch13_hooks.py:test"
+```
+
+`risa.ExecutionPipeline([risa.Failure(error, risa.FailureStage.HANDLER)])` makes a pipeline that has failed, for an error
+handler or a hook after the handler.
 
 ??? example "Full file"
 

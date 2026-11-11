@@ -70,7 +70,6 @@ _ENVIRONMENT_ERRORS: typing.Final = (
 _STAGE_NAMES: typing.Final[collections.abc.Mapping[hooks_.FailureStage, str]] = {
     hooks_.FailureStage.HANDLER: "the handler",
     hooks_.FailureStage.LOAD: "load()",
-    hooks_.FailureStage.HOOK: "a hook",
     hooks_.FailureStage.ON_OUTDATED: "on_outdated",
     hooks_.FailureStage.ON_STATE_MISSING: "on_state_missing",
     hooks_.FailureStage.STATE: "reaching its state",
@@ -285,9 +284,7 @@ class Dispatcher:
             await self._report(click)
         elif click.record is None:
             async with self._watchdog(click, click.meta.defer) as watchdog:
-                await self._run_steps(
-                    click, None, functools.partial(_fall_back, click, outdated=True, watchdog=watchdog)
-                )
+                await self._run_steps(click, None, functools.partial(_fall_back, click, watchdog, outdated=True))
                 await _stand_down(watchdog, click.gate)
                 await self._report(click)
         else:
@@ -349,9 +346,7 @@ class Dispatcher:
             outdated = restored is backend.Unreadably.OUTDATED
             if not outdated:
                 _log_state_missing(click)
-            await self._run_steps(
-                click, None, functools.partial(_fall_back, click, outdated=outdated, watchdog=watchdog)
-            )
+            await self._run_steps(click, None, functools.partial(_fall_back, click, watchdog, outdated=outdated))
         if click.failures:
             await _stand_down(watchdog, click.gate)
             await self._report(click)
@@ -500,7 +495,7 @@ async def _invoke(
         click.saved = click.slot.view is None or await _commit_leftovers(click, session, view)
 
 
-async def _fall_back(click: _Click, *, outdated: bool, watchdog: asyncio.Task[None] | None = None) -> None:
+async def _fall_back(click: _Click, watchdog: asyncio.Task[None] | None, *, outdated: bool) -> None:
     await _stand_down(watchdog, click.gate)
     callback = click.meta.outdated if outdated else click.meta.state_missing
     stage = hooks_.FailureStage.ON_OUTDATED if outdated else hooks_.FailureStage.ON_STATE_MISSING

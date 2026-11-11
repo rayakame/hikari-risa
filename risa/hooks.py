@@ -261,7 +261,8 @@ class ExecutionPipeline:
     """The run of one click, and what has failed in it so far.
 
     Every click risa answers has one. Hooks and error handlers receive it first; a handler,
-    `View.on_outdated` or `View.on_state_missing` can have it injected.
+    `View.on_outdated` or `View.on_state_missing` can have it injected. Make one yourself to
+    call a hook or an error handler in a test.
 
     ```python
     @client.error_handler
@@ -273,11 +274,16 @@ class ExecutionPipeline:
         await ctx.respond("You cannot interact with this.", ephemeral=True)
         return True
     ```
+
+    Parameters
+    ----------
+    failures
+        What has failed in the click so far, none by default.
     """
 
     __slots__ = ("_failures",)
 
-    def __init__(self, failures: collections.abc.Sequence[Failure]) -> None:
+    def __init__(self, failures: collections.abc.Sequence[Failure] = ()) -> None:
         self._failures = failures
 
     @property

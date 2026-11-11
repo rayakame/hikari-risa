@@ -130,6 +130,13 @@ def make_client_that_audits_last(bot: hikari.GatewayBot) -> risa.GatewayEnabledC
     # --8<-- [end:order]
 
 
+# --8<-- [start:test]
+async def test_author_only_lets_the_author_through(ctx: risa.ComponentContext) -> None:
+    poll = Poll(question="Pizza on Friday?", author_id=ctx.user.id)
+    await author_only(risa.ExecutionPipeline(), ctx, poll)
+    # --8<-- [end:test]
+
+
 def main() -> None:
     bot = hikari.GatewayBot(
         os.environ["DISCORD_TOKEN"],
