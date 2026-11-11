@@ -28,7 +28,7 @@ This page compares with miru 4.3.1. The main things miru has and risa does not a
 | `miru.Client(bot)` | `risa.client_from_app(bot)`, or `risa.client_from_lightbulb(lightbulb_client)` with lightbulb |
 | `client.start_view(view)` after each send | `client.add_view(MyView)` once at startup |
 | `respond("Hi", components=view)` | `respond(**await client.build(MyView()))` |
-| `timeout=`, 120 seconds by default | `InStore(ttl=...)`, and no expiry in the message |
+| `timeout=`, 120 seconds by default | `InStore(ttl=...)` or the hook `expires_after`, and no expiry without them |
 | `autodefer=True` by default, after 2 seconds | `AutoDefer.OFF` by default; set it on a handler, view or client |
 | `view_check(self, ctx)` that returns `False` | A [hook](../by-example/13-hooks.md) in `CHECKS` that raises, on the view with `@risa.register(hooks=[...])` |
 | alluka, with `@client.inject_dependencies` | linkd, with no decorator; [Dependency injection](../by-example/06-dependency-injection.md#name-it-as-a-parameter) says which parameters are injected |
@@ -153,7 +153,8 @@ view = TimeoutView(timeout=10.0)
 
 A risa view in the message has no timeout: it works as long as the message exists. For a lifetime, keep the state in a
 store with [`InStore`](../by-example/09-stores-and-ttl.md#ttl). `ttl` has no default. Like miru's timeout it counts seconds of
-inactivity, and every click restarts it.
+inactivity, and every click restarts it. A view that stays in the message gets a lifetime from the hook
+[`expires_after`](../by-example/14-ready-made-hooks.md#checks), which counts from the message's last edit.
 
 ```python title="risa"
 --8<-- "coming_from_miru.py:view"

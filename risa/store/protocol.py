@@ -71,8 +71,9 @@ class Store(typing.Protocol):
         Parameters
         ----------
         key
-            The entry's key, an opaque string. risa's are `{prefix}:1:{hex}`, and it passes
-            the one key of a view's record to every method, `lock` included.
+            The entry's key, an opaque string. A view's record is under `{prefix}:1:{hex}`,
+            the count of a ready-made hook under `{prefix}:hook:...`, and risa passes the one
+            key of an entry to every method, `lock` included.
 
         Returns
         -------
@@ -158,7 +159,7 @@ class Store(typing.Protocol):
         Parameters
         ----------
         key
-            The key to hold; risa passes the key of the record it is about to read and write.
+            The key to hold; risa passes the key of the entry it is about to read and write.
             Holding one key does not make another wait, and the key needs no entry.
         timeout
             Seconds to wait for the lock, fractions included, before raising

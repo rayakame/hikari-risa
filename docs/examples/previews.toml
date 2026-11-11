@@ -479,6 +479,20 @@ ephemeral = true
 
 [[preview]]
 kind = "view"
+id = "reward"
+example = "ch14_prefab"
+view = "Reward"
+fields = { claimed = 12 }
+
+[[preview]]
+kind = "reply"
+id = "reward-cooldown"
+label = "A second click on Claim the same day"
+text = "Come back in a day."
+ephemeral = true
+
+[[preview]]
+kind = "view"
 id = "closable-poll"
 example = "ch13_hooks"
 view = "Poll"

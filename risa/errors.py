@@ -33,10 +33,15 @@ from risa.internal import constants
 if typing.TYPE_CHECKING:
     import collections.abc
 
+    import hikari
+
 __all__ = (
     "AlreadyRespondedError",
     "ArgBindError",
+    "BotMissingPermissionsError",
+    "ClickRejectedError",
     "CodecUnavailableError",
+    "ComponentExpiredError",
     "CustomIdOverflowError",
     "DuplicateHandlerError",
     "DuplicateViewError",
@@ -46,9 +51,15 @@ __all__ = (
     "HookDeclarationError",
     "LayoutError",
     "LockTimeoutError",
+    "MaxConcurrencyReachedError",
+    "MissingPermissionsError",
+    "MissingRolesError",
     "NoViewError",
     "NotAHandlerError",
     "NotAViewError",
+    "NotInvokerError",
+    "NotOwnerError",
+    "OnCooldownError",
     "RisaError",
     "SerializationError",
     "SignatureMismatchError",
@@ -621,3 +632,136 @@ class StoreConformanceError(RisaError):
         listed = "".join(f"\n- {failure}" for failure in failures)
         checks = "check" if len(failures) == 1 else "checks"
         super().__init__(f"the store failed {len(failures)} conformance {checks}:{listed}")
+
+
+class ClickRejectedError(RisaError):
+    """Base class of what the hooks in `risa.prefab` raise to turn a click away.
+
+    An error handler that looks for it with `pipeline.find` answers every such click.
+    """
+
+
+class NotOwnerError(ClickRejectedError):
+    """Raised by `risa.prefab.owner_only` when the user does not own the bot.
+
+    Attributes
+    ----------
+    user_id
+        The user who clicked.
+    """
+
+    def __init__(self, user_id: hikari.Snowflake) -> None:
+        self.user_id: hikari.Snowflake = user_id
+        super().__init__(f"user {user_id} does not own this bot")
+
+
+class MissingPermissionsError(ClickRejectedError):
+    """Raised by `risa.prefab.has_permissions` when the user lacks a permission.
+
+    Attributes
+    ----------
+    missing
+        The required permissions the user lacks.
+    actual
+        The permissions the user has, none in a direct message.
+    """
+
+    def __init__(self, missing: hikari.Permissions, actual: hikari.Permissions) -> None:
+        self.missing: hikari.Permissions = missing
+        self.actual: hikari.Permissions = actual
+        super().__init__(f"the user lacks the permissions {missing}")
+
+
+class BotMissingPermissionsError(ClickRejectedError):
+    """Raised by `risa.prefab.bot_has_permissions` when the bot lacks a permission.
+
+    Attributes
+    ----------
+    missing
+        The required permissions the bot lacks.
+    actual
+        The permissions the bot has in the channel, none in a direct message.
+    """
+
+    def __init__(self, missing: hikari.Permissions, actual: hikari.Permissions) -> None:
+        self.missing: hikari.Permissions = missing
+        self.actual: hikari.Permissions = actual
+        super().__init__(f"the bot lacks the permissions {missing}")
+
+
+class MissingRolesError(ClickRejectedError):
+    """Raised by `risa.prefab.has_roles` when the user lacks the roles.
+
+    Attributes
+    ----------
+    role_ids
+        The missing roles with `mode="all"`; every required role with `mode="any"` or in a
+        direct message.
+    """
+
+    def __init__(self, role_ids: collections.abc.Sequence[hikari.Snowflake]) -> None:
+        self.role_ids: collections.abc.Sequence[hikari.Snowflake] = role_ids
+        super().__init__(f"the user lacks the roles {', '.join(str(role_id) for role_id in role_ids)}")
+
+
+class NotInvokerError(ClickRejectedError):
+    """Raised by `risa.prefab.invoker_only` when someone else clicks.
+
+    Attributes
+    ----------
+    user_id
+        The user who clicked.
+    invoker_id
+        The user whose interaction sent the message, or `None` if no interaction did.
+    """
+
+    def __init__(self, user_id: hikari.Snowflake, invoker_id: hikari.Snowflake | None) -> None:
+        self.user_id: hikari.Snowflake = user_id
+        self.invoker_id: hikari.Snowflake | None = invoker_id
+        sender = "no interaction sent the message" if invoker_id is None else f"user {invoker_id} sent the message"
+        super().__init__(f"user {user_id} may not click here: {sender}")
+
+
+class ComponentExpiredError(ClickRejectedError):
+    """Raised by `risa.prefab.expires_after` when the message has gone unedited for too long.
+
+    Attributes
+    ----------
+    age
+        Seconds since the message was sent or last edited.
+    lifetime
+        Seconds the hook allows.
+    """
+
+    def __init__(self, age: float, lifetime: float) -> None:
+        self.age: float = age
+        self.lifetime: float = lifetime
+        super().__init__(f"the message was last edited {age:.0f}s ago, and its components expire after {lifetime:g}s")
+
+
+class OnCooldownError(ClickRejectedError):
+    """Raised by a cooldown of `risa.prefab` when its bucket has no use left.
+
+    Attributes
+    ----------
+    remaining
+        Seconds until the bucket has a use again.
+    """
+
+    def __init__(self, remaining: float) -> None:
+        self.remaining: float = remaining
+        super().__init__(f"on cooldown for another {remaining:.1f}s")
+
+
+class MaxConcurrencyReachedError(ClickRejectedError):
+    """Raised by `risa.prefab.max_concurrency` when its bucket already runs as many clicks as it may.
+
+    Attributes
+    ----------
+    limit
+        How many clicks may run at once.
+    """
+
+    def __init__(self, limit: int) -> None:
+        self.limit: int = limit
+        super().__init__(f"{limit} of these clicks are already running, which is the limit")

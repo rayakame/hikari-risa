@@ -215,6 +215,8 @@ risa/
   di.py             Contexts (DEFAULT/COMPONENT/MODAL), INJECTED re-export
   dispatch.py       Dispatcher: route, decode, run, the watchdog
   errors.py         RisaError-rooted hierarchy
+  hooks.py          ExecutionHook, the steps, ExecutionPipeline and its failures
+  prefab.py         ready-made hooks: checks, cooldowns, max_concurrency
   view.py           View base, @register, @handler machinery, AutoDefer
   internal/         not public API; modules here carry no leading underscore
     wire.py         the printable alphabet every id is written in

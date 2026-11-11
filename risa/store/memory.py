@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import collections.abc
 import logging
+import math
 import time
 import typing
 
@@ -55,10 +56,10 @@ class MemoryStore(protocol.Store):
     """A store that keeps state in this process's memory.
 
     It needs nothing installed, but the state is lost on every restart, other processes
-    cannot see it, and past `max_entries` each new entry pushes out the least recently used
-    one. That suits development and tests, and a bot of one process whose views may forget
-    their state when it restarts. The client warns once when an `InStore` view uses one,
-    unless `warn=False`.
+    cannot see it, and past `max_entries` each new entry pushes out what has expired, then
+    the least recently used one. That suits development and tests, and a bot of one process
+    whose views may forget their state when it restarts. The client warns once when an
+    `InStore` view uses one, unless `warn=False`.
 
     Parameters
     ----------
@@ -71,7 +72,7 @@ class MemoryStore(protocol.Store):
         `False` once you choose this store on purpose; the warning at `max_entries` stays.
     """
 
-    __slots__ = ("_capacity_warned", "_clock", "_entries", "_locks", "_max_entries", "_warn")
+    __slots__ = ("_capacity_warned", "_clock", "_entries", "_locks", "_max_entries", "_soonest", "_warn")
 
     def __init__(
         self,
@@ -85,6 +86,7 @@ class MemoryStore(protocol.Store):
         self._max_entries = max_entries
         self._clock = clock
         self._capacity_warned = False
+        self._soonest = math.inf
         self._warn = warn
 
     @property
@@ -146,11 +148,16 @@ class MemoryStore(protocol.Store):
         return None if ttl is None else self._clock() + ttl
 
     def _write(self, key: str, value: bytes, *, version: int, ttl: float | None) -> None:
-        self._entries[key] = _Entry(data=value, version=version, expires_at=self._deadline(ttl))
+        deadline = self._deadline(ttl)
+        self._entries[key] = _Entry(data=value, version=version, expires_at=deadline)
         self._entries.move_to_end(key)
+        if deadline is not None:
+            self._soonest = min(self._soonest, deadline)
         self._evict()
 
     def _evict(self) -> None:
+        if len(self._entries) > self._max_entries and self._soonest <= self._clock():
+            self._drop_expired()
         while len(self._entries) > self._max_entries:
             if not self._capacity_warned:
                 self._capacity_warned = True
@@ -162,3 +169,11 @@ class MemoryStore(protocol.Store):
                 )
             key, _ = self._entries.popitem(last=False)
             _LOGGER.debug("evicted state key %r to stay within %d entries", key, self._max_entries)
+
+    def _drop_expired(self) -> None:
+        now = self._clock()
+        deadlines = {key: entry.expires_at for key, entry in self._entries.items() if entry.expires_at is not None}
+        for key, deadline in deadlines.items():
+            if deadline <= now:
+                del self._entries[key]
+        self._soonest = min((deadline for deadline in deadlines.values() if deadline > now), default=math.inf)

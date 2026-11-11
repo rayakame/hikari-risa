@@ -30,6 +30,7 @@ nav = [
     { "11 Several processes" = "by-example/11-several-processes.md" },
     { "12 Writing your own store" = "by-example/12-writing-your-own-store.md" },
     { "13 Hooks" = "by-example/13-hooks.md" },
+    { "14 Ready-made hooks" = "by-example/14-ready-made-hooks.md" },
   ] },
   { "API reference" = [
     "api/index.md",
@@ -58,6 +59,7 @@ nav = [
     { "risa.di" = "api/di.md" },
     { "risa.errors" = "api/errors.md" },
     { "risa.hooks" = "api/hooks.md" },
+    { "risa.prefab" = "api/prefab.md" },
     { "risa.view" = "api/view.md" },
   ] },
 ]

@@ -4,6 +4,8 @@ A hook is a function risa runs before or after the handler of a click: a check t
 audit once it is done. Attach it to the client, a view or a handler.
 {: .risa-lead }
 
+risa ships the common ones as [ready-made hooks](14-ready-made-hooks.md).
+
 ## A check
 
 Anyone can click **Close** on this poll, and only its author should. A check is a hook in the `CHECKS` step that raises
