@@ -98,7 +98,7 @@ A hook fails the click by raising. Then:
   once anything in the click has failed, the handler included.
 - **If `INVOKE` has not run yet, it does not run**: not `load()`, not the handler, not a fallback.
 - **`POST_INVOKE` runs**, so a hook after the handler can release what one before it took.
-- **The view is gone from `ctx`**, as in an error handler. `ctx.rerender()` on a view with durable fields and
+- **The view is gone from `ctx`**, as in an error handler. On a view with durable fields, `ctx.rerender()` and
   `ctx.edit()` with something to click raise `NoViewError`, so a half-changed view is never saved. A hook that takes the
   view still gets it to read.
 - **The error handlers run once**, when the click is over. [`pipeline.failures`](../api/hooks.md#risa.hooks.ExecutionPipeline.failures)

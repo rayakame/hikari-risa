@@ -195,7 +195,7 @@ class ExecutionHook[V: view_.View]:
     Within a step, the client's hooks run first, then the view's, then the handler's.
 
     A hook can change the view's state. Before the handler, the handler's save takes the
-    change along, and the change is lost if a later hook or the handler fails. After the
+    change along, and the change is lost if the handler or a hook before it fails. After the
     handler, the hook has to call `ctx.rerender()` to save it, which works only while nothing
     in the click has failed. A change it leaves unsaved is lost, and if nothing in the click
     failed, risa logs a warning.
@@ -417,7 +417,7 @@ def hook(step: ExecutionStep, /, *, skip_when_failed: bool = False, name: str | 
     checker refuses a `Poll` hook on the client, and `client.add_view` raises
     `HookDeclarationError` for a hook that takes a view of another class. With
     `use_global=True`, a view never passes through `add_view`, so there the hook fails each
-    click with that error.
+    click that reaches it with that error.
 
     Parameters
     ----------

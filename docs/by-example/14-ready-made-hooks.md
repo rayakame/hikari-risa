@@ -77,8 +77,8 @@ The bucket says which clicks count together:
 | `"message"` | Per message |
 | A function | Per value it returns for the context, an `int` or a `str`; it may be `async` |
 
-- **One hook object, one count.** Each call makes a cooldown of its own, and the same hook object attached to two
-  handlers counts their clicks together.
+- **One hook object, one count.** Each call without a store makes a cooldown of its own, and the same hook object
+  attached to two handlers counts their clicks together.
 - **A click that was turned away costs no use.** Like the checks, a cooldown is skipped once anything has failed.
 - **Every click it lets through counts**, even one that fails afterwards or that a later cooldown turns away.
 - **A handler can give the use back** through [`Cooldown`](../api/prefab.md#risa.prefab.Cooldown), which the cooldown
@@ -116,7 +116,7 @@ An export takes five seconds, and only one should run at a time:
 before the handler and raises `MaxConcurrencyReachedError` when none is free, the other gives it back in `POST_INVOKE`.
 
 - **Unpack both into the list**, as `export` does. A `POST_INVOKE` hook of your own that should still count as running
-  goes before them.
+  goes before them in the list.
 - **Keep slow work on a view without durable state**, as `Export` is. Within one process, risa runs the clicks on one
   message with durable state one after another, so a second click there waits for the first instead of being turned
   away, and it still has to answer within Discord's three seconds. There the limit only matters across messages.
