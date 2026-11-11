@@ -521,6 +521,8 @@
       
         
       
+        
+      
     
     
     
@@ -925,6 +927,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../by-example/14-ready-made-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  14 Ready-made hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -946,6 +975,8 @@
       
         
           
+        
+      
         
       
         
@@ -1850,6 +1881,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../prefab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.prefab
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../view/" class="md-nav__link">
         
   
@@ -2093,6 +2151,8 @@
       
         
       
+        
+      
     
     
     
@@ -2247,10 +2307,10 @@
 
         <p>A store that keeps state in this process's memory.</p>
 <p>It needs nothing installed, but the state is lost on every restart, other processes
-cannot see it, and past <code>max_entries</code> each new entry pushes out the least recently used
-one. That suits development and tests, and a bot of one process whose views may forget
-their state when it restarts. The client warns once when an <code>InStore</code> view uses one,
-unless <code>warn=False</code>.</p>
+cannot see it, and past <code>max_entries</code> each new entry pushes out what has expired, then
+the least recently used one. That suits development and tests, and a bot of one process
+whose views may forget their state when it restarts. The client warns once when an
+<code>InStore</code> view uses one, unless <code>warn=False</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2402,8 +2462,9 @@ unless <code>warn=False</code>.</p>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
           –
           <div class="doc-md-description">
-            <p>The entry's key, an opaque string. risa's are <code>{prefix}:1:{hex}</code>, and it passes
-the one key of a view's record to every method, <code>lock</code> included.</p>
+            <p>The entry's key, an opaque string. A view's record is under <code>{prefix}:1:{hex}</code>,
+the count of a ready-made hook under <code>{prefix}:hook:...</code>, and risa passes the one
+key of an entry to every method, <code>lock</code> included.</p>
           </div>
         </li>
     </ul>
@@ -2459,7 +2520,7 @@ lands.</p>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
           –
           <div class="doc-md-description">
-            <p>The key to hold; risa passes the key of the record it is about to read and write.
+            <p>The key to hold; risa passes the key of the entry it is about to read and write.
 Holding one key does not make another wait, and the key needs no entry.</p>
           </div>
         </li>

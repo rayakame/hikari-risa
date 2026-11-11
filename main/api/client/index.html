@@ -521,6 +521,8 @@
       
         
       
+        
+      
     
     
     
@@ -925,6 +927,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/14-ready-made-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  14 Ready-made hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -946,6 +975,8 @@
       
         
           
+        
+      
         
       
         
@@ -1627,10 +1658,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#risa.client.Client.key_prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        key_prefix
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#risa.client.Client.rest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         rest
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.stores" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        stores
       </span>
     </span>
   </a>
@@ -1965,6 +2018,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../prefab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.prefab
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../view/" class="md-nav__link">
         
   
@@ -2068,10 +2148,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#risa.client.Client.key_prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        key_prefix
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#risa.client.Client.rest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         rest
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.stores" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        stores
       </span>
     </span>
   </a>
@@ -2301,6 +2403,8 @@
       
         
           
+        
+      
         
       
         
@@ -2636,6 +2740,30 @@ default. It holds <code>ExecutionSteps.INVOKE</code> once, and every other step 
 
 
 
+<h3 id="risa.client.Client.key_prefix" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">key_prefix</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.client.Client.key_prefix" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">key_prefix</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>What the client's store keys start with, or <code>None</code> for <code>risa:{application id}</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
 <h3 id="risa.client.Client.rest" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">rest</span>
 
@@ -2651,6 +2779,30 @@ default. It holds <code>ExecutionSteps.INVOKE</code> once, and every other step 
     <div class="doc doc-contents ">
 
         <p>The REST client risa answers interactions through.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.client.Client.stores" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">stores</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.client.Client.stores" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">stores</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="            Store (risa.store.protocol.Store)" href="../store/protocol/#risa.store.protocol.Store">Store</a></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The client's stores by name; the one passed as <code>store=</code> is <code>"default"</code>.</p>
 
     </div>
 

@@ -647,6 +647,8 @@
       
         
       
+        
+      
     
     
     
@@ -1051,6 +1053,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/14-ready-made-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  14 Ready-made hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1070,6 +1099,8 @@
       
         
           
+        
+      
         
       
         
@@ -1820,6 +1851,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api/prefab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.prefab
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/view/" class="md-nav__link">
         
   
@@ -2128,7 +2186,7 @@ you choose.</p>
 </tr>
 <tr>
 <td><code>timeout=</code>, 120 seconds by default</td>
-<td><code>InStore(ttl=...)</code>, and no expiry in the message</td>
+<td><code>InStore(ttl=...)</code> or the hook <code>expires_after</code>, and no expiry without them</td>
 </tr>
 <tr>
 <td><code>autodefer=True</code> by default, after 2 seconds</td>
@@ -2259,7 +2317,8 @@ pass another <code>timeout=</code>. Then <code>on_timeout()</code> runs and the 
 </span></code></pre></div>
 <p>A risa view in the message has no timeout: it works as long as the message exists. For a lifetime, keep the state in a
 store with <a href="../../by-example/09-stores-and-ttl/#ttl"><code>InStore</code></a>. <code>ttl</code> has no default. Like miru's timeout it counts seconds of
-inactivity, and every click restarts it.</p>
+inactivity, and every click restarts it. A view that stays in the message gets a lifetime from the hook
+<a href="../../by-example/14-ready-made-hooks/#checks"><code>expires_after</code></a>, which counts from the message's last edit.</p>
 <div class="language-python highlight"><span class="filename">risa</span><pre><span></span><code><span id="__span-6-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"question"</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InStore</span><span class="p">(</span><span class="n">ttl</span><span class="o">=</span><span class="mi">600</span><span class="p">))</span>
 </span><span id="__span-6-2"><span class="k">class</span><span class="w"> </span><span class="nc">Question</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
 </span><span id="__span-6-3">    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>

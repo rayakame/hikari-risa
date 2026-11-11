@@ -28,6 +28,9 @@
         <loc>https://hikari-risa.rayakame.dev/main/api/hooks/</loc>
       </url>
       <url>
+        <loc>https://hikari-risa.rayakame.dev/main/api/prefab/</loc>
+      </url>
+      <url>
         <loc>https://hikari-risa.rayakame.dev/main/api/state/</loc>
       </url>
       <url>
@@ -107,6 +110,9 @@
       </url>
       <url>
         <loc>https://hikari-risa.rayakame.dev/main/by-example/13-hooks/</loc>
+      </url>
+      <url>
+        <loc>https://hikari-risa.rayakame.dev/main/by-example/14-ready-made-hooks/</loc>
       </url>
       <url>
         <loc>https://hikari-risa.rayakame.dev/main/changelog/</loc>
