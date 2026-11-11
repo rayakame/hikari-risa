@@ -1012,17 +1012,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#with-or-without-the-view" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        With or without the view
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#when-a-hook-fails" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1038,6 +1027,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         After the handler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#with-or-without-the-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        With or without the view
       </span>
     </span>
   </a>
@@ -2013,17 +2013,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#with-or-without-the-view" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        With or without the view
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#when-a-hook-fails" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2039,6 +2028,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         After the handler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#with-or-without-the-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        With or without the view
       </span>
     </span>
   </a>
@@ -2192,44 +2192,14 @@ when the click may not go on:</p>
 </span><span id="__span-0-7">    <span class="k">if</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="n">poll</span><span class="o">.</span><span class="n">author_id</span><span class="p">:</span>
 </span><span id="__span-0-8">        <span class="k">raise</span> <span class="n">NotTheAuthorError</span>
 </span></code></pre></div>
-<p><a href="../../api/hooks/#risa.hooks.hook"><code>@risa.hook</code></a> makes <code>author_only</code> a hook. It takes the
-<a href="../../api/hooks/#risa.hooks.ExecutionPipeline"><code>ExecutionPipeline</code></a> of the click and the context, and because its third
-parameter is annotated <code>Poll</code>, it also gets the poll with its durable state. <code>@risa.handler(hooks=[...])</code> attaches it to
-<code>close</code> alone:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"closable-poll"</span><span class="p">)</span>
-</span><span id="__span-1-2"><span class="k">class</span><span class="w"> </span><span class="nc">Poll</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
-</span><span id="__span-1-3">    <span class="n">question</span><span class="p">:</span> <span class="nb">str</span>
-</span><span id="__span-1-4">    <span class="n">author_id</span><span class="p">:</span> <span class="nb">int</span>
-</span><span id="__span-1-5">    <span class="n">yes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="__span-1-6">    <span class="n">no</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span id="__span-1-7">    <span class="n">closed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span id="__span-1-8">
-</span><span id="__span-1-9">    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ui</span><span class="o">.</span><span class="n">Layout</span><span class="p">:</span>
-</span><span id="__span-1-10">        <span class="k">return</span> <span class="n">ui</span><span class="o">.</span><span class="n">Container</span><span class="p">(</span>
-</span><span id="__span-1-11">            <span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="sa">f</span><span class="s2">"## </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">question</span><span class="si">}</span><span class="s2">"</span> <span class="o">+</span> <span class="p">(</span><span class="s2">" (closed)"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">closed</span> <span class="k">else</span> <span class="s2">""</span><span class="p">)),</span>
-</span><span id="__span-1-12">            <span class="n">ui</span><span class="o">.</span><span class="n">Row</span><span class="p">(</span>
-</span><span id="__span-1-13">                <span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vote_yes</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Yes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">yes</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">disabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">closed</span><span class="p">),</span>
-</span><span id="__span-1-14">                <span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vote_no</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">"No: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">no</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">disabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">closed</span><span class="p">),</span>
-</span><span id="__span-1-15">                <span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Close"</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">ButtonStyle</span><span class="o">.</span><span class="n">DANGER</span><span class="p">,</span> <span class="n">disabled</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">closed</span><span class="p">),</span>
-</span><span id="__span-1-16">            <span class="p">),</span>
-</span><span id="__span-1-17">        <span class="p">)</span>
-</span><span id="__span-1-18">
-</span><span id="__span-1-19">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
-</span><span id="__span-1-20">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">vote_yes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-1-21">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">closed</span><span class="p">:</span>
-</span><span id="__span-1-22">            <span class="bp">self</span><span class="o">.</span><span class="n">yes</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span id="__span-1-23">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
-</span><span id="__span-1-24">
-</span><span id="__span-1-25">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
-</span><span id="__span-1-26">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">vote_no</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-1-27">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">closed</span><span class="p">:</span>
-</span><span id="__span-1-28">            <span class="bp">self</span><span class="o">.</span><span class="n">no</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span id="__span-1-29">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
-</span><span id="__span-1-30">
-</span><span id="__span-1-31">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span><span class="p">(</span><span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">author_only</span><span class="p">])</span>
-</span><span id="__span-1-32">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-1-33">        <span class="bp">self</span><span class="o">.</span><span class="n">closed</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span id="__span-1-34">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
+<p><a href="../../api/hooks/#risa.hooks.hook"><code>@risa.hook</code></a> makes <code>author_only</code> a hook. It takes the click's
+<a href="../../api/hooks/#risa.hooks.ExecutionPipeline"><code>ExecutionPipeline</code></a> and the context. Its third parameter is annotated
+<code>Poll</code>, so it also gets the poll with its durable state.</p>
+<p><code>@risa.handler(hooks=[...])</code> attaches it to <code>close</code> alone:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span><span class="p">(</span><span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">author_only</span><span class="p">])</span>
+</span><span id="__span-1-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-1-3">    <span class="bp">self</span><span class="o">.</span><span class="n">closed</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="__span-1-4">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">In Discord</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-box"><div class="dc-text"><p class="dc-h2">Pizza on Friday?</p></div><div class="dc-row"><span class="dc-btn dc-primary">Yes: 3</span><span class="dc-btn dc-primary">No: 1</span><span class="dc-btn dc-danger">Close</span></div></div></div></div></div>
 
@@ -2237,18 +2207,22 @@ parameter is annotated <code>Poll</code>, it also gets the poll with its durable
 handlers.</p>
 <h2 id="answering-a-check">Answering a check<a class="headerlink" href="#answering-a-check" title="Permanent link">&para;</a></h2>
 <p>Without an error handler the click fails in Discord, and risa logs it. This one answers instead:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">not_the_author</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="__span-2-2">    <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">NotTheAuthorError</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-2-3">        <span class="k">return</span> <span class="kc">False</span>
-</span><span id="__span-2-4">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Only the author can close this poll."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-2-5">    <span class="k">return</span> <span class="kc">True</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="nd">@client</span><span class="o">.</span><span class="n">error_handler</span>
+</span><span id="__span-2-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">not_the_author</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-2-3">    <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">NotTheAuthorError</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-2-4">        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="__span-2-5">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Only the author can close this poll."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-2-6">    <span class="k">return</span> <span class="kc">True</span>
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">After a click on Close by someone else</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>Only the author can close this poll.</p></div><div class="dc-eph"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg><span>Only you can see this</span><span>&middot;</span><a>Dismiss message</a></div></div></div></div>
 
-<p><a href="../../api/hooks/#risa.hooks.ExecutionPipeline.find"><code>pipeline.find</code></a> returns the first exception of that type the click
-raised, or <code>None</code>. <code>client.error_handler(not_the_author)</code> registers it, as the client under
-<a href="#after-the-handler">After the handler</a> does, and <a href="../05-answering-in-time/#when-something-fails">Answering in time</a> covers
-the rest of what an error handler can do. When the author clicks, the check passes and <code>close</code> runs:</p>
+<ul>
+<li><code>@client.error_handler</code> registers <code>not_the_author</code> as an error handler.</li>
+<li><a href="../../api/hooks/#risa.hooks.ExecutionPipeline.find"><code>pipeline.find</code></a> returns the first exception of that type the
+  click raised, or <code>None</code>.</li>
+<li><a href="../05-answering-in-time/#when-something-fails">Answering in time</a> covers the rest of what an error handler can do.</li>
+</ul>
+<p>When the author clicks, the check passes and <code>close</code> runs:</p>
 <div class="risa-result"><p class="risa-result__label">After a click on Close by the author</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-box"><div class="dc-text"><p class="dc-h2">Pizza on Friday? (closed)</p></div><div class="dc-row"><span class="dc-btn dc-primary dc-disabled">Yes: 3</span><span class="dc-btn dc-primary dc-disabled">No: 1</span><span class="dc-btn dc-danger dc-disabled">Close</span></div></div></div></div></div>
 
 <p>A hook can also answer the click itself through <code>ctx</code>, as a handler would. A handler that answers after it then sends a
@@ -2264,13 +2238,15 @@ follow-up.</p>
 <li class="risa-flow__step"><span class="risa-flow__n">6</span><strong><code>POST_INVOKE</code></strong><span>After the handler, even after a failure.</span></li>
 </ol>
 
-<p>A step's name only says what it is meant for: risa runs every step's hooks the same way. <code>INVOKE</code> takes no hooks, and
-<code>@risa.hook</code> raises <a href="../../api/errors/#risa.errors.HookDeclarationError"><code>HookDeclarationError</code></a> for it. Within a step, the
-client's hooks run first, then the view's, then the handler's, each in the order of its list. A hook you attach in two
-places runs twice.</p>
-<p>On a view with durable fields, hooks run after risa has read the state and taken its lock, so a check sees the fields as
-they are, and no other click on the message gets in between. Props are still at their defaults, because <code>load()</code> runs in
-<code>INVOKE</code>. Hooks count toward auto-defer's delay and Discord's three seconds, as the handler does.</p>
+<p>A step's name only says what it is meant for: risa runs every step's hooks the same way.</p>
+<ul>
+<li><strong><code>INVOKE</code> takes no hooks.</strong> <code>@risa.hook</code> raises
+  <a href="../../api/errors/#risa.errors.HookDeclarationError"><code>HookDeclarationError</code></a> for it.</li>
+<li><strong>Hooks see the state, locked.</strong> On a view with durable fields, hooks run after risa has read the state and taken its
+  lock, so a check sees the fields as they are, and no other click on the message gets in between.</li>
+<li><strong>Props are still at their defaults</strong>, because <code>load()</code> runs in <code>INVOKE</code>.</li>
+<li><strong>Hooks take time.</strong> They count toward auto-defer's delay and Discord's three seconds, as the handler does.</li>
+</ul>
 <h2 id="where-a-hook-goes">Where a hook goes<a class="headerlink" href="#where-a-hook-goes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2295,13 +2271,76 @@ they are, and no other click on the message gets in between. Props are still at 
 </tbody>
 </table>
 <p><code>client_from_lightbulb</code> takes <code>hooks=</code> too.</p>
+<p>Within a step, the client's hooks run first, then the view's, then the handler's, each in the order of its list. A hook
+you attach in two places runs twice.</p>
+<h2 id="when-a-hook-fails">When a hook fails<a class="headerlink" href="#when-a-hook-fails" title="Permanent link">&para;</a></h2>
+<p>A hook fails the click by raising. Then:</p>
+<ul>
+<li><strong>The hooks after it still run</strong>, so every check has its say. A hook made with <code>skip_when_failed=True</code> is skipped
+  once anything in the click has failed, the handler included.</li>
+<li><strong>If <code>INVOKE</code> has not run yet, it does not run</strong>: not <code>load()</code>, not the handler, not a fallback.</li>
+<li><strong><code>POST_INVOKE</code> runs</strong>, so a hook after the handler can release what one before it took.</li>
+<li><strong>The view is gone from <code>ctx</code>.</strong> From the first failure on, as in an error handler, <code>ctx.rerender()</code> on a view with
+  durable fields and <code>ctx.edit()</code> with something to click raise <code>NoViewError</code>, so a half-changed view is never saved. A
+  hook that takes the view still gets it to read.</li>
+<li><strong>The error handlers run once</strong>, when the click is over. <a href="../../api/hooks/#risa.hooks.ExecutionPipeline.failures"><code>pipeline.failures</code></a>
+  lists every <a href="../../api/hooks/#risa.hooks.Failure"><code>Failure</code></a> in the order it happened, each with its exception, its
+  stage and the hook that raised it.</li>
+</ul>
+<p>If no error handler returns <code>True</code>, risa's log names the hook by its function name, or by the <code>name=</code> you give
+<code>@risa.hook</code>, which is also <code>failure.hook.name</code>.</p>
+<h2 id="after-the-handler">After the handler<a class="headerlink" href="#after-the-handler" title="Permanent link">&para;</a></h2>
+<p>The client runs <code>audit</code> after every click on every view:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">hook</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">ExecutionSteps</span><span class="o">.</span><span class="n">POST_INVOKE</span><span class="p">)</span>
+</span><span id="__span-3-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">audit</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-3">    <span class="n">outcome</span> <span class="o">=</span> <span class="s2">"failed"</span> <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">failed</span> <span class="k">else</span> <span class="s2">"ran"</span>
+</span><span id="__span-3-4">    <span class="n">AUDIT</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2"> clicked on message </span><span class="si">%s</span><span class="s2">, which </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">outcome</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>hooks=</code> on the client attaches it:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">audit</span><span class="p">])</span>
+</span><span id="__span-4-2"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>On the pipeline</th>
+<th>Says whether</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pipeline.failed</code></td>
+<td>Anything in the click has failed so far</td>
+</tr>
+<tr>
+<td><code>pipeline.any_hook_failed</code></td>
+<td>A hook did</td>
+</tr>
+<tr>
+<td><code>pipeline.invocation_failed</code></td>
+<td><code>load()</code>, the handler or a fallback did</td>
+</tr>
+</tbody>
+</table>
+<p>risa saves what the handler changed before <code>POST_INVOKE</code> begins, so a failing <code>audit</code> cannot cost a vote, and
+auto-defer still acknowledges the click.</p>
+<div class="admonition warning">
+<p class="admonition-title">A hook can change the view's state.</p>
+<ul>
+<li><strong>After the handler</strong>, the hook has to call <code>ctx.rerender()</code> to save it, which works only while nothing in the
+  click has failed. A change it leaves unsaved is lost, and if nothing in the click failed, risa logs a warning.</li>
+<li><strong>Before the handler</strong>, the handler's save takes the change along. Keep that rare: the change is lost if a later
+  hook or the handler fails.</li>
+</ul>
+</div>
 <h2 id="with-or-without-the-view">With or without the view<a class="headerlink" href="#with-or-without-the-view" title="Permanent link">&para;</a></h2>
-<p>A hook whose third parameter is annotated with a view class gets the view, and runs only on clicks that have one.
-Annotate it with the class alone: for <code>Poll | None</code>, <code>client.add_view</code> raises <code>HookDeclarationError</code>. A hook without that
-parameter also runs on clicks that go to the view's fallbacks:
+<p>A hook whose third parameter is annotated with a view class gets the view, and runs only on clicks that have one. A
+hook without that parameter also runs on clicks that go to the view's fallbacks:
 <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a> for a component the view can no longer route, and
 <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a> for a state that is gone. On such a click the fallback runs in place of
-<code>INVOKE</code>, without auto-defer. Which hooks run:</p>
+<code>INVOKE</code>, without auto-defer.</p>
+<details class="note">
+<summary>Which hooks run on which click</summary>
 <table>
 <thead>
 <tr>
@@ -2333,54 +2372,21 @@ parameter also runs on clicks that go to the view's fallbacks:
 </tr>
 </tbody>
 </table>
-<p>A click cannot reach its state when the store is down, the lock timed out, a codec's extra is missing or the client lacks
-the view's store. It goes straight to the error handlers with a <code>STATE</code> failure.</p>
-<p>A hook for one view class belongs on that view or its handlers, or annotate its view parameter with a base class of every
-view it runs for. Your type checker refuses a <code>Poll</code> hook on the client, and <code>client.add_view</code> raises
-<code>HookDeclarationError</code> for a hook that takes a view of another class. With <code>use_global=True</code>, a view never passes through
-<code>add_view</code>, so there the hook fails each click with that error.</p>
+<p>A click cannot reach its state when the store is down, the lock timed out, a codec's extra is missing or the client
+lacks the view's store. It goes straight to the error handlers with a <code>STATE</code> failure.</p>
+</details>
+<p>For a hook that takes the view:</p>
+<ul>
+<li><strong>Annotate it with the class alone.</strong> For <code>Poll | None</code>, <code>client.add_view</code> raises <code>HookDeclarationError</code>.</li>
+<li><strong>Attach it where its view is.</strong> A hook for one view class belongs on that view or its handlers, or annotate its view
+  parameter with a base class of every view it runs for. Your type checker refuses a <code>Poll</code> hook on the client, and
+  <code>client.add_view</code> raises <code>HookDeclarationError</code> for a hook that takes a view of another class. With <code>use_global=True</code>,
+  a view never passes through <code>add_view</code>, so there the hook fails each click with that error.</li>
+</ul>
 <p>Parameters after these are <a href="../06-dependency-injection/">injected</a>, as a handler's are, and their types have to
 <a href="../06-dependency-injection/#types-have-to-exist-at-runtime">exist at runtime</a>. risa also registers the pipeline for
 injection, so a factory, or a function the hook calls, can take <code>risa.ExecutionPipeline</code>. A handler can take it too, but
 there it is always empty: the handler runs only when nothing has failed.</p>
-<h2 id="when-a-hook-fails">When a hook fails<a class="headerlink" href="#when-a-hook-fails" title="Permanent link">&para;</a></h2>
-<p>A hook fails the click by raising. Then:</p>
-<ul>
-<li><strong>The hooks after it still run</strong>, so every check has its say. A hook made with <code>skip_when_failed=True</code> is skipped
-  once anything in the click has failed, the handler included.</li>
-<li><strong>If <code>INVOKE</code> has not run yet, it does not run</strong>: not <code>load()</code>, not the handler, not a fallback.</li>
-<li><strong><code>POST_INVOKE</code> runs</strong>, so a hook after the handler can release what one before it took.</li>
-<li><strong>The view is gone from <code>ctx</code>.</strong> From the first failure on, as in an error handler, <code>ctx.rerender()</code> on a view with
-  durable fields and <code>ctx.edit()</code> with something to click raise <code>NoViewError</code>, so a half-changed view is never saved. A
-  hook that takes the view still gets it to read.</li>
-<li><strong>The error handlers run once</strong>, when the click is over. <a href="../../api/hooks/#risa.hooks.ExecutionPipeline.failures"><code>pipeline.failures</code></a>
-  lists every <a href="../../api/hooks/#risa.hooks.Failure"><code>Failure</code></a> in the order it happened, each with its exception, its
-  stage and the hook that raised it.</li>
-</ul>
-<p>If no error handler returns <code>True</code>, risa's log names the hook by its function name, or by the <code>name=</code> you give
-<code>@risa.hook</code>, which is also <code>failure.hook.name</code>.</p>
-<h2 id="after-the-handler">After the handler<a class="headerlink" href="#after-the-handler" title="Permanent link">&para;</a></h2>
-<p>The client runs <code>audit</code> after every click on every view:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">hook</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">ExecutionSteps</span><span class="o">.</span><span class="n">POST_INVOKE</span><span class="p">)</span>
-</span><span id="__span-3-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">audit</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-3">    <span class="n">outcome</span> <span class="o">=</span> <span class="s2">"failed"</span> <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">failed</span> <span class="k">else</span> <span class="s2">"ran"</span>
-</span><span id="__span-3-4">    <span class="n">AUDIT</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2"> clicked on message </span><span class="si">%s</span><span class="s2">, which </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">outcome</span><span class="p">)</span>
-</span></code></pre></div>
-<p><code>make_client</code> attaches <code>audit</code> to the client and registers <code>not_the_author</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><span class="k">def</span><span class="w"> </span><span class="nf">make_client</span><span class="p">(</span><span class="n">bot</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">risa</span><span class="o">.</span><span class="n">GatewayEnabledClient</span><span class="p">:</span>
-</span><span id="__span-4-2">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">audit</span><span class="p">])</span>
-</span><span id="__span-4-3">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
-</span><span id="__span-4-4">    <span class="n">client</span><span class="o">.</span><span class="n">error_handler</span><span class="p">(</span><span class="n">not_the_author</span><span class="p">)</span>
-</span><span id="__span-4-5">    <span class="k">return</span> <span class="n">client</span>
-</span></code></pre></div>
-<p><code>pipeline.failed</code> says whether anything in the click has failed so far, <code>pipeline.any_hook_failed</code> whether a hook did,
-and <code>pipeline.invocation_failed</code> whether <code>load()</code>, the handler or a fallback did.</p>
-<p>risa saves what the handler changed before <code>POST_INVOKE</code> begins, so a failing <code>audit</code> cannot cost a vote, and
-auto-defer still acknowledges the click. A hook after
-the handler that changes the view's state has to call <code>ctx.rerender()</code> to save it, which works only while nothing in the
-click has failed. A change it leaves unsaved is lost, and if nothing in the click failed, risa logs a warning.</p>
-<p>Hooks may change the state before the handler too, and the handler's save takes their change along. Keep that rare: the
-change is lost if a later hook or the handler fails.</p>
 <h2 id="steps-of-your-own">Steps of your own<a class="headerlink" href="#steps-of-your-own" title="Permanent link">&para;</a></h2>
 <p>Within one step, the client's hooks run before the view's. To audit after every other hook, give the audit a step of its
 own after <code>POST_INVOKE</code>:</p>
@@ -2393,15 +2399,11 @@ own after <code>POST_INVOKE</code>:</p>
 </span><span id="__span-5-7">    <span class="n">AUDIT</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2"> clicked on message </span><span class="si">%s</span><span class="s2">, which </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">outcome</span><span class="p">)</span>
 </span><span id="__span-5-8">
 </span><span id="__span-5-9">
-</span><span id="__span-5-10"><span class="k">def</span><span class="w"> </span><span class="nf">make_client_that_audits_last</span><span class="p">(</span><span class="n">bot</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">risa</span><span class="o">.</span><span class="n">GatewayEnabledClient</span><span class="p">:</span>
-</span><span id="__span-5-11">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span>
-</span><span id="__span-5-12">        <span class="n">bot</span><span class="p">,</span>
-</span><span id="__span-5-13">        <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">audit_last</span><span class="p">],</span>
-</span><span id="__span-5-14">        <span class="n">execution_step_order</span><span class="o">=</span><span class="p">[</span><span class="o">*</span><span class="n">risa</span><span class="o">.</span><span class="n">DEFAULT_EXECUTION_STEP_ORDER</span><span class="p">,</span> <span class="n">LAST</span><span class="p">],</span>
-</span><span id="__span-5-15">    <span class="p">)</span>
-</span><span id="__span-5-16">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
-</span><span id="__span-5-17">    <span class="n">client</span><span class="o">.</span><span class="n">error_handler</span><span class="p">(</span><span class="n">not_the_author</span><span class="p">)</span>
-</span><span id="__span-5-18">    <span class="k">return</span> <span class="n">client</span>
+</span><span id="__span-5-10"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span>
+</span><span id="__span-5-11">    <span class="n">bot</span><span class="p">,</span>
+</span><span id="__span-5-12">    <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">audit_last</span><span class="p">],</span>
+</span><span id="__span-5-13">    <span class="n">execution_step_order</span><span class="o">=</span><span class="p">[</span><span class="o">*</span><span class="n">risa</span><span class="o">.</span><span class="n">DEFAULT_EXECUTION_STEP_ORDER</span><span class="p">,</span> <span class="n">LAST</span><span class="p">],</span>
+</span><span id="__span-5-14"><span class="p">)</span>
 </span></code></pre></div>
 <p><code>execution_step_order</code> holds <code>INVOKE</code> once and every other step at most once, or the client raises <code>ValueError</code>. A hook
 in a step the order leaves out never runs, and risa logs a warning when the client is made or the view added.</p>
@@ -2477,70 +2479,73 @@ handler or a hook after the handler.</p>
 </span><span id="__span-7-59">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
 </span><span id="__span-7-60">
 </span><span id="__span-7-61">
-</span><span id="__span-7-62"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">not_the_author</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="__span-7-63">    <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">NotTheAuthorError</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-7-64">        <span class="k">return</span> <span class="kc">False</span>
-</span><span id="__span-7-65">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Only the author can close this poll."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-7-66">    <span class="k">return</span> <span class="kc">True</span>
-</span><span id="__span-7-67">
-</span><span id="__span-7-68">
-</span><span id="__span-7-69"><span class="nd">@risa</span><span class="o">.</span><span class="n">hook</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">ExecutionSteps</span><span class="o">.</span><span class="n">POST_INVOKE</span><span class="p">)</span>
-</span><span id="__span-7-70"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">audit</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-7-71">    <span class="n">outcome</span> <span class="o">=</span> <span class="s2">"failed"</span> <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">failed</span> <span class="k">else</span> <span class="s2">"ran"</span>
-</span><span id="__span-7-72">    <span class="n">AUDIT</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2"> clicked on message </span><span class="si">%s</span><span class="s2">, which </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">outcome</span><span class="p">)</span>
-</span><span id="__span-7-73">
-</span><span id="__span-7-74">
-</span><span id="__span-7-75"><span class="k">def</span><span class="w"> </span><span class="nf">make_client</span><span class="p">(</span><span class="n">bot</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">risa</span><span class="o">.</span><span class="n">GatewayEnabledClient</span><span class="p">:</span>
-</span><span id="__span-7-76">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">audit</span><span class="p">])</span>
-</span><span id="__span-7-77">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
-</span><span id="__span-7-78">    <span class="n">client</span><span class="o">.</span><span class="n">error_handler</span><span class="p">(</span><span class="n">not_the_author</span><span class="p">)</span>
-</span><span id="__span-7-79">    <span class="k">return</span> <span class="n">client</span>
-</span><span id="__span-7-80">
-</span><span id="__span-7-81">
-</span><span id="__span-7-82"><span class="n">LAST</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionStep</span><span class="p">(</span><span class="s2">"LAST"</span><span class="p">)</span>
+</span><span id="__span-7-62"><span class="k">def</span><span class="w"> </span><span class="nf">add_error_handlers</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">Client</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-7-63">    <span class="nd">@client</span><span class="o">.</span><span class="n">error_handler</span>
+</span><span id="__span-7-64">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">not_the_author</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-7-65">        <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">NotTheAuthorError</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-7-66">            <span class="k">return</span> <span class="kc">False</span>
+</span><span id="__span-7-67">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Only the author can close this poll."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-7-68">        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-7-69">
+</span><span id="__span-7-70">
+</span><span id="__span-7-71"><span class="nd">@risa</span><span class="o">.</span><span class="n">hook</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">ExecutionSteps</span><span class="o">.</span><span class="n">POST_INVOKE</span><span class="p">)</span>
+</span><span id="__span-7-72"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">audit</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-7-73">    <span class="n">outcome</span> <span class="o">=</span> <span class="s2">"failed"</span> <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">failed</span> <span class="k">else</span> <span class="s2">"ran"</span>
+</span><span id="__span-7-74">    <span class="n">AUDIT</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2"> clicked on message </span><span class="si">%s</span><span class="s2">, which </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">outcome</span><span class="p">)</span>
+</span><span id="__span-7-75">
+</span><span id="__span-7-76">
+</span><span id="__span-7-77"><span class="k">def</span><span class="w"> </span><span class="nf">make_client</span><span class="p">(</span><span class="n">bot</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">risa</span><span class="o">.</span><span class="n">GatewayEnabledClient</span><span class="p">:</span>
+</span><span id="__span-7-78">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">audit</span><span class="p">])</span>
+</span><span id="__span-7-79">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
+</span><span id="__span-7-80">    <span class="n">add_error_handlers</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+</span><span id="__span-7-81">    <span class="k">return</span> <span class="n">client</span>
+</span><span id="__span-7-82">
 </span><span id="__span-7-83">
-</span><span id="__span-7-84">
-</span><span id="__span-7-85"><span class="nd">@risa</span><span class="o">.</span><span class="n">hook</span><span class="p">(</span><span class="n">LAST</span><span class="p">)</span>
-</span><span id="__span-7-86"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">audit_last</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-7-87">    <span class="n">outcome</span> <span class="o">=</span> <span class="s2">"failed"</span> <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">failed</span> <span class="k">else</span> <span class="s2">"ran"</span>
-</span><span id="__span-7-88">    <span class="n">AUDIT</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2"> clicked on message </span><span class="si">%s</span><span class="s2">, which </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">outcome</span><span class="p">)</span>
-</span><span id="__span-7-89">
-</span><span id="__span-7-90">
-</span><span id="__span-7-91"><span class="k">def</span><span class="w"> </span><span class="nf">make_client_that_audits_last</span><span class="p">(</span><span class="n">bot</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">risa</span><span class="o">.</span><span class="n">GatewayEnabledClient</span><span class="p">:</span>
-</span><span id="__span-7-92">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span>
-</span><span id="__span-7-93">        <span class="n">bot</span><span class="p">,</span>
-</span><span id="__span-7-94">        <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">audit_last</span><span class="p">],</span>
-</span><span id="__span-7-95">        <span class="n">execution_step_order</span><span class="o">=</span><span class="p">[</span><span class="o">*</span><span class="n">risa</span><span class="o">.</span><span class="n">DEFAULT_EXECUTION_STEP_ORDER</span><span class="p">,</span> <span class="n">LAST</span><span class="p">],</span>
-</span><span id="__span-7-96">    <span class="p">)</span>
-</span><span id="__span-7-97">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
-</span><span id="__span-7-98">    <span class="n">client</span><span class="o">.</span><span class="n">error_handler</span><span class="p">(</span><span class="n">not_the_author</span><span class="p">)</span>
-</span><span id="__span-7-99">    <span class="k">return</span> <span class="n">client</span>
-</span><span id="__span-7-100">
-</span><span id="__span-7-101">
-</span><span id="__span-7-102"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_author_only_lets_the_author_through</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-7-103">    <span class="n">poll</span> <span class="o">=</span> <span class="n">Poll</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"Pizza on Friday?"</span><span class="p">,</span> <span class="n">author_id</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-</span><span id="__span-7-104">    <span class="k">await</span> <span class="n">author_only</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">(),</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">poll</span><span class="p">)</span>
-</span><span id="__span-7-105">
-</span><span id="__span-7-106">
-</span><span id="__span-7-107"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-7-108">    <span class="n">bot</span> <span class="o">=</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">(</span>
-</span><span id="__span-7-109">        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DISCORD_TOKEN"</span><span class="p">],</span>
-</span><span id="__span-7-110">        <span class="n">intents</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">ALL_UNPRIVILEGED</span> <span class="o">|</span> <span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">MESSAGE_CONTENT</span><span class="p">,</span>
-</span><span id="__span-7-111">    <span class="p">)</span>
-</span><span id="__span-7-112">    <span class="n">client</span> <span class="o">=</span> <span class="n">make_client</span><span class="p">(</span><span class="n">bot</span><span class="p">)</span>
-</span><span id="__span-7-113">
-</span><span id="__span-7-114">    <span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
-</span><span id="__span-7-115">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-7-116">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!poll"</span><span class="p">:</span>
-</span><span id="__span-7-117">            <span class="n">poll</span> <span class="o">=</span> <span class="n">Poll</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"Pizza on Friday?"</span><span class="p">,</span> <span class="n">author_id</span><span class="o">=</span><span class="n">event</span><span class="o">.</span><span class="n">author</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-</span><span id="__span-7-118">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">poll</span><span class="p">)</span>
-</span><span id="__span-7-119">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">)</span>
-</span><span id="__span-7-120">
-</span><span id="__span-7-121">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span><span id="__span-7-122">
+</span><span id="__span-7-84"><span class="n">LAST</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionStep</span><span class="p">(</span><span class="s2">"LAST"</span><span class="p">)</span>
+</span><span id="__span-7-85">
+</span><span id="__span-7-86">
+</span><span id="__span-7-87"><span class="nd">@risa</span><span class="o">.</span><span class="n">hook</span><span class="p">(</span><span class="n">LAST</span><span class="p">)</span>
+</span><span id="__span-7-88"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">audit_last</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-7-89">    <span class="n">outcome</span> <span class="o">=</span> <span class="s2">"failed"</span> <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">failed</span> <span class="k">else</span> <span class="s2">"ran"</span>
+</span><span id="__span-7-90">    <span class="n">AUDIT</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2"> clicked on message </span><span class="si">%s</span><span class="s2">, which </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">outcome</span><span class="p">)</span>
+</span><span id="__span-7-91">
+</span><span id="__span-7-92">
+</span><span id="__span-7-93">
+</span><span id="__span-7-94"><span class="k">def</span><span class="w"> </span><span class="nf">make_client_that_audits_last</span><span class="p">(</span><span class="n">bot</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">risa</span><span class="o">.</span><span class="n">GatewayEnabledClient</span><span class="p">:</span>
+</span><span id="__span-7-95">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span>
+</span><span id="__span-7-96">        <span class="n">bot</span><span class="p">,</span>
+</span><span id="__span-7-97">        <span class="n">hooks</span><span class="o">=</span><span class="p">[</span><span class="n">audit_last</span><span class="p">],</span>
+</span><span id="__span-7-98">        <span class="n">execution_step_order</span><span class="o">=</span><span class="p">[</span><span class="o">*</span><span class="n">risa</span><span class="o">.</span><span class="n">DEFAULT_EXECUTION_STEP_ORDER</span><span class="p">,</span> <span class="n">LAST</span><span class="p">],</span>
+</span><span id="__span-7-99">    <span class="p">)</span>
+</span><span id="__span-7-100">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Poll</span><span class="p">)</span>
+</span><span id="__span-7-101">    <span class="n">add_error_handlers</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+</span><span id="__span-7-102">    <span class="k">return</span> <span class="n">client</span>
+</span><span id="__span-7-103">
+</span><span id="__span-7-104">
+</span><span id="__span-7-105"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_author_only_lets_the_author_through</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-7-106">    <span class="n">poll</span> <span class="o">=</span> <span class="n">Poll</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"Pizza on Friday?"</span><span class="p">,</span> <span class="n">author_id</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span id="__span-7-107">    <span class="k">await</span> <span class="n">author_only</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">(),</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">poll</span><span class="p">)</span>
+</span><span id="__span-7-108">
+</span><span id="__span-7-109">
+</span><span id="__span-7-110"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-7-111">    <span class="n">bot</span> <span class="o">=</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">(</span>
+</span><span id="__span-7-112">        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DISCORD_TOKEN"</span><span class="p">],</span>
+</span><span id="__span-7-113">        <span class="n">intents</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">ALL_UNPRIVILEGED</span> <span class="o">|</span> <span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">MESSAGE_CONTENT</span><span class="p">,</span>
+</span><span id="__span-7-114">    <span class="p">)</span>
+</span><span id="__span-7-115">    <span class="n">client</span> <span class="o">=</span> <span class="n">make_client</span><span class="p">(</span><span class="n">bot</span><span class="p">)</span>
+</span><span id="__span-7-116">
+</span><span id="__span-7-117">    <span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
+</span><span id="__span-7-118">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-7-119">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!poll"</span><span class="p">:</span>
+</span><span id="__span-7-120">            <span class="n">poll</span> <span class="o">=</span> <span class="n">Poll</span><span class="p">(</span><span class="n">question</span><span class="o">=</span><span class="s2">"Pizza on Friday?"</span><span class="p">,</span> <span class="n">author_id</span><span class="o">=</span><span class="n">event</span><span class="o">.</span><span class="n">author</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span id="__span-7-121">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">poll</span><span class="p">)</span>
+</span><span id="__span-7-122">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">)</span>
 </span><span id="__span-7-123">
-</span><span id="__span-7-124"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
-</span><span id="__span-7-125">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-7-124">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-7-125">
+</span><span id="__span-7-126">
+</span><span id="__span-7-127"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-7-128">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 </details>
 
