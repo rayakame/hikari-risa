@@ -519,6 +519,8 @@
       
         
       
+        
+      
     
     
     
@@ -896,6 +898,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/13-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  13 Hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -917,6 +946,8 @@
       
         
           
+        
+      
         
       
         
@@ -1729,6 +1760,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../view/" class="md-nav__link">
         
   
@@ -1909,6 +1967,8 @@
       
         
       
+        
+      
     
     
     
@@ -2035,9 +2095,10 @@
 
 
         <p>The linkd contexts risa dispatches in.</p>
-<p>A handler runs inside <code>DEFAULT</code> with <code>COMPONENT</code> entered on top, so it can be
-injected with anything registered in either. risa adds the <code>ComponentContext</code> and the
-<code>hikari.ComponentInteraction</code> to <code>COMPONENT</code> for every click.</p>
+<p>A click runs inside <code>DEFAULT</code> with <code>COMPONENT</code> entered on top, so its hooks, handler and
+error handlers can be injected with anything registered in either. risa adds the
+<code>ComponentContext</code>, the <code>hikari.ComponentInteraction</code> and the <code>ExecutionPipeline</code> to
+<code>COMPONENT</code> for every click.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>

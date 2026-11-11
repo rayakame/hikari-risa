@@ -521,6 +521,8 @@
       
         
       
+        
+      
     
     
     
@@ -1143,6 +1145,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../13-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  13 Hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1162,6 +1191,8 @@
       
         
           
+        
+      
         
       
         
@@ -1883,6 +1914,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api/hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/view/" class="md-nav__link">
         
   
@@ -2221,6 +2279,8 @@
       
         
       
+        
+      
     
     
     
@@ -2498,6 +2558,10 @@ that as its answer. This is the other view, and <code>main()</code> adds both to
 <td><code>hikari.ComponentInteraction</code></td>
 <td>The interaction behind the click, the same object as <code>ctx.interaction</code></td>
 </tr>
+<tr>
+<td><a href="../../api/hooks/#risa.hooks.ExecutionPipeline"><code>risa.ExecutionPipeline</code></a></td>
+<td>The click's run through its <a href="../13-hooks/">hooks</a>, with what has failed so far. In a handler it is empty, since a handler runs only when nothing failed</td>
+</tr>
 </tbody>
 </table>
 <p>This handler uses the REST client to post in a log channel as well as answering the click:</p>
@@ -2544,7 +2608,7 @@ context, <code>risa.Contexts.MODAL</code>, which waits for modals.</p>
 <p class="risa-scope__items"><code>risa.Client</code> <code>hikari.api.RESTClient</code> <code>Prices</code> <code>Database</code></p>
 <div class="risa-scope risa-scope--inner">
 <p class="risa-scope__title"><code>COMPONENT</code> a new container for each click</p>
-<p class="risa-scope__items"><code>risa.ComponentContext</code> <code>hikari.ComponentInteraction</code> <code>Wallet</code></p>
+<p class="risa-scope__items"><code>risa.ComponentContext</code> <code>hikari.ComponentInteraction</code> <code>risa.ExecutionPipeline</code> <code>Wallet</code></p>
 <p class="risa-scope__note">A handler runs here. It looks in this box first, then in the one around it.</p>
 </div>
 </div>
@@ -2804,7 +2868,7 @@ a <code>typing.NewType</code> as the type, but pyright rejects it in <code>regis
 <p>A union falls back the same way: <code>Memory | Disk</code> gets the first one registered. <code>linkd.Try[Memory] | Disk</code> also falls back
 when making <code>Memory</code> fails, where a plain union would fail the click.</p>
 <h2 id="where-injection-works">Where injection works<a class="headerlink" href="#where-injection-works" title="Permanent link">&para;</a></h2>
-<p>Handlers, <code>load()</code>, <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a>, <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a>,
+<p>Handlers, <a href="../13-hooks/">hooks</a>, <code>load()</code>, <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a>, <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a>,
 <a href="../05-answering-in-time/#when-something-fails">error handlers</a> and factories have it without a decorator. For a function of your own, add <code>@linkd.inject</code>. <code>render()</code> takes no injected
 parameters, so <code>load()</code> reads what it draws.</p>
 <p>A parameter is injected if it has an annotation and either no default or the default
@@ -2814,9 +2878,9 @@ parameters are left alone. A parameter with no annotation gets nothing, so the c
 <code>on_state_missing</code> and a function of your own that you call with no arguments need it. In a handler it also marks a wire type as
 injected: <code>limit: int = risa.INJECTED</code>.</p>
 <h2 id="injection-context">Injection context<a class="headerlink" href="#injection-context" title="Permanent link">&para;</a></h2>
-<p>An injected function needs an open context when it runs. risa opens <code>DEFAULT</code> and <code>COMPONENT</code> around <code>load()</code>, the handler,
-the hooks and the error handlers of a click, and <code>DEFAULT</code> around the <code>load()</code> in <code>client.build</code>. A function called from inside those has them
-too, so you rarely need to think about this.</p>
+<p>An injected function needs an open context when it runs. risa opens <code>DEFAULT</code> and <code>COMPONENT</code> once around a whole click,
+its hooks, <code>load()</code>, the handler, the fallbacks and the error handlers, and <code>DEFAULT</code> around the <code>load()</code> in <code>client.build</code>.
+A function called from inside those has them too, so you rarely need to think about this.</p>
 <p>Anywhere else, such as in a hikari listener, open the context yourself, or the call raises
 <code>DependencyNotSatisfiableException</code>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><span class="nd">@linkd</span><span class="o">.</span><span class="n">inject</span>
@@ -3112,8 +3176,8 @@ command opens lightbulb's <code>COMMAND</code>, and neither sees what the other 
 itself, so a handler that takes only those keeps working. A handler that names anything else fails with a <code>TypeError</code>.</p>
 <h2 id="types-have-to-exist-at-runtime">Types have to exist at runtime<a class="headerlink" href="#types-have-to-exist-at-runtime" title="Permanent link">&para;</a></h2>
 <p>linkd reads annotations while the bot runs, so a dependency's type has to be importable then. A type imported only under
-<code>if typing.TYPE_CHECKING:</code> makes <code>@risa.register</code> raise <code>HandlerSignatureError</code> for a handler, and <code>NameError</code> for a
-<code>load()</code> or a factory. Keep that import outside the block.</p>
+<code>if typing.TYPE_CHECKING:</code> makes <code>@risa.register</code> raise <code>HandlerSignatureError</code> for a handler, <code>client.add_view</code> raise
+<code>HookDeclarationError</code> for a hook, and <code>NameError</code> for a <code>load()</code> or a factory. Keep that import outside the block.</p>
 
 
 

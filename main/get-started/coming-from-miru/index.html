@@ -645,6 +645,8 @@
       
         
       
+        
+      
     
     
     
@@ -1022,6 +1024,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/13-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  13 Hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1041,6 +1070,8 @@
       
         
           
+        
+      
         
       
         
@@ -1762,6 +1793,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api/hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/view/" class="md-nav__link">
         
   
@@ -2077,6 +2135,10 @@ you choose.</p>
 <td><code>AutoDefer.OFF</code> by default; set it on a handler, view or client</td>
 </tr>
 <tr>
+<td><code>view_check(self, ctx)</code> that returns <code>False</code></td>
+<td>A <a href="../../by-example/13-hooks/">hook</a> in <code>CHECKS</code> that raises, on the view with <code>@risa.register(hooks=[...])</code></td>
+</tr>
+<tr>
 <td>alluka, with <code>@client.inject_dependencies</code></td>
 <td>linkd, with no decorator; <a href="../../by-example/06-dependency-injection/#name-it-as-a-parameter">Dependency injection</a> says which parameters are injected</td>
 </tr>
@@ -2281,8 +2343,7 @@ restarts:</p>
 </span></code></pre></div>
 </details>
 <p><code>on_timeout()</code> runs when the time is up. risa has no timer, so <code>on_state_missing()</code> runs when someone clicks after the
-record has expired. Until then the message stays as it is, and risa has no hook for greying out its buttons at that
-moment.</p>
+record has expired. Until then the message stays as it is, and nothing in risa greys out its buttons at that moment.</p>
 <p>To end a view yourself, where miru has <code>self.stop()</code>, replace the message with a layout that has no buttons. <code>yes</code> above
 does that with <a href="../../by-example/05-answering-in-time/#which-message"><code>ctx.edit</code></a>.</p>
 <h2 id="what-risa-does-not-have">What risa does not have<a class="headerlink" href="#what-risa-does-not-have" title="Permanent link">&para;</a></h2>
@@ -2293,8 +2354,7 @@ does that with <a href="../../by-example/05-answering-in-time/#which-message"><c
 <li><strong>Menus and navigators.</strong> miru ships <a href="https://miru.hypergonial.com/guides/menus/"><code>miru.ext.menu</code></a> and
   <a href="https://miru.hypergonial.com/guides/navigators/"><code>miru.ext.nav</code></a>. In risa you write these yourself, for example as a
   view with a <code>page: int</code> field.</li>
-<li><strong>A check before every handler.</strong> miru has <code>view_check</code>. In risa, a handler checks <code>ctx.user</code> itself.</li>
-<li><strong>An error hook on each view.</strong> miru has <a href="https://miru.hypergonial.com/guides/error_handling/"><code>on_error</code></a> on each
+<li><strong>An error handler on each view.</strong> miru has <a href="https://miru.hypergonial.com/guides/error_handling/"><code>on_error</code></a> on each
   view. risa has <a href="../../by-example/05-answering-in-time/#when-something-fails">error handlers</a> for the whole client, and
   a handler that wants its own answer uses <code>try</code>.</li>
 <li><strong>Waiting on a view.</strong> miru has <code>view.wait()</code> and <code>wait_for_input()</code>. A risa view has no object that lives between

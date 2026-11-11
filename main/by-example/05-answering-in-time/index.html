@@ -521,6 +521,8 @@
       
         
       
+        
+      
     
     
     
@@ -1022,6 +1024,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../13-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  13 Hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1041,6 +1070,8 @@
       
         
           
+        
+      
         
       
         
@@ -1762,6 +1793,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api/hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/view/" class="md-nav__link">
         
   
@@ -1953,6 +2011,8 @@
       
         
           
+        
+      
         
       
         
@@ -2342,10 +2402,10 @@ bug:</p>
 <div class="risa-result"><p class="risa-result__label">In Discord</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-box"><div class="dc-text"><p><strong>Berlin</strong>: Sunny, 18 °C</p></div><div class="dc-row"><span class="dc-btn dc-primary">Refresh</span><span class="dc-btn dc-primary">Next city</span></div></div></div></div></div>
 
 <p>This error handler answers the failure the bot expects:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">forecast_unavailable</span><span class="p">(</span><span class="n">failure</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ClickFailure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="__span-8-2">    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">failure</span><span class="o">.</span><span class="n">error</span><span class="p">,</span> <span class="n">ForecastUnavailableError</span><span class="p">):</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">forecast_unavailable</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-8-2">    <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">ForecastUnavailableError</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-8-3">        <span class="k">return</span> <span class="kc">False</span>
-</span><span id="__span-8-4">    <span class="k">await</span> <span class="n">failure</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span>
+</span><span id="__span-8-4">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span>
 </span><span id="__span-8-5">        <span class="s2">"The weather service is not answering. Try again in a minute."</span><span class="p">,</span>
 </span><span id="__span-8-6">        <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-8-7">    <span class="p">)</span>
@@ -2353,9 +2413,14 @@ bug:</p>
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">After a click on Refresh, while the weather service is down</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>The weather service is not answering. Try again in a minute.</p></div><div class="dc-eph"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg><span>Only you can see this</span><span>&middot;</span><a>Dismiss message</a></div></div></div></div>
 
-<p>It gets a <a href="../../api/context/#risa.context.ClickFailure"><code>ClickFailure</code></a>: <code>failure.ctx</code> to answer through, <code>failure.error</code>
-with the exception, and <code>failure.stage</code> with where it was raised. It returns <code>True</code> once it has dealt with the failure,
-and risa logs nothing more. With <code>False</code> it passes the failure on.</p>
+<p>It gets the click's <a href="../../api/hooks/#risa.hooks.ExecutionPipeline"><code>ExecutionPipeline</code></a> and its context.
+<a href="../../api/hooks/#risa.hooks.ExecutionPipeline.find"><code>pipeline.find(ForecastUnavailableError)</code></a> returns the first such
+exception the click raised, or <code>None</code>. The answer goes through <code>ctx</code>. It returns <code>True</code> once it has dealt with the click,
+and risa logs nothing more. With <code>False</code> it passes the click on.</p>
+<p>A click can fail more than once, for instance in a <a href="../13-hooks/">hook</a> and again in a hook after the handler.
+<a href="../../api/hooks/#risa.hooks.ExecutionPipeline.failures"><code>pipeline.failures</code></a> lists every
+<a href="../../api/hooks/#risa.hooks.Failure"><code>Failure</code></a> in the order it happened. Each holds the exception in <code>error</code>, where it
+was raised in <code>stage</code>, and the hook that raised it, if any, in <code>hook</code>:</p>
 <table>
 <thead>
 <tr>
@@ -2365,16 +2430,20 @@ and risa logs nothing more. With <code>False</code> it passes the failure on.</p
 </thead>
 <tbody>
 <tr>
-<td><code>HANDLER</code></td>
-<td>The handler</td>
+<td><code>HOOK</code></td>
+<td>A <a href="../13-hooks/">hook</a></td>
 </tr>
 <tr>
 <td><code>LOAD</code></td>
 <td><a href="../07-fresh-data/"><code>load()</code></a>, so the handler never ran</td>
 </tr>
 <tr>
+<td><code>HANDLER</code></td>
+<td>The handler</td>
+</tr>
+<tr>
 <td><code>ON_OUTDATED</code>, <code>ON_STATE_MISSING</code></td>
-<td>That hook</td>
+<td>That fallback</td>
 </tr>
 <tr>
 <td><code>STATE</code></td>
@@ -2382,12 +2451,16 @@ and risa logs nothing more. With <code>False</code> it passes the failure on.</p
 </tr>
 </tbody>
 </table>
-<p>A failure after the handler, such as saving the view when the handler returns, stays a log line.</p>
+<p>A failure in risa's own save after the handler returns stays a log line. A hook after the handler that raises reaches
+the error handlers like any other.</p>
 <p>Several error handlers run highest <code>priority</code> first, and in the order you registered them within one priority, until one
-returns <code>True</code>. If none does, risa logs the failure as it would without them. A last one that answers every failure and
-returns <code>False</code> tells the person something went wrong and still leaves the failure in your log:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">something_went_wrong</span><span class="p">(</span><span class="n">failure</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ClickFailure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="__span-9-2">    <span class="k">await</span> <span class="n">failure</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Something went wrong."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+returns <code>True</code>. They run once per click, after everything else in it. If none returns <code>True</code>, risa logs the click: one
+entry that names each failure and carries their tracebacks as an <code>ExceptionGroup</code>, or a single line without a traceback
+when the view's state could not be reached. A <code>True</code> covers the whole click, so its other failures go unlogged
+too. A last error handler that answers every failure and returns <code>False</code> tells the person something went wrong and still
+leaves the click in your log:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">something_went_wrong</span><span class="p">(</span><span class="n">_pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-9-2">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Something went wrong."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-9-3">    <span class="k">return</span> <span class="kc">False</span>
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">After a click on Next city, which raises a KeyError</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>Something went wrong.</p></div><div class="dc-eph"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg><span>Only you can see this</span><span>&middot;</span><a>Dismiss message</a></div></div></div></div>
@@ -2398,14 +2471,14 @@ returns <code>False</code> tells the person something went wrong and still leave
 </span></code></pre></div>
 <p><code>@client.error_handler</code> and <code>@client.error_handler(priority=1)</code> work as decorators too.</p>
 <ul>
-<li><strong>The view is gone.</strong> <code>failure.ctx</code> has no view state, as in <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a>:
+<li><strong>The view is gone.</strong> <code>ctx</code> has no view state, as in <a href="../10-changing-a-view-safely/#on_outdated"><code>on_outdated</code></a>:
   <code>respond</code>, an <code>edit</code> with nothing to click and <code>replace</code> work, and on a view with fields <code>rerender()</code> raises
   <code>NoViewError</code>, so a half-changed view is never saved.</li>
 <li><strong>Three seconds.</strong> An error handler runs without auto-defer, and the three seconds count from the click. A failure
   that comes late, such as a lock that took ten seconds, leaves it no time unless auto-defer answered first.</li>
 <li><strong>What was sent before.</strong> <code>respond</code> continues it, as it would in the handler: after an answer it sends a follow-up,
   and after a thinking message it replaces that.</li>
-<li><strong>Injection.</strong> Its parameters after <code>failure</code> are <a href="../06-dependency-injection/#where-injection-works">injected</a>, as a
+<li><strong>Injection.</strong> Its parameters after <code>ctx</code> are <a href="../06-dependency-injection/#where-injection-works">injected</a>, as a
   handler's are.</li>
 <li><strong>One that raises</strong> is logged and counts as <code>False</code>.</li>
 </ul>
@@ -2460,18 +2533,18 @@ returns <code>False</code> tells the person something went wrong and still leave
 </span><span id="__span-11-47">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
 </span><span id="__span-11-48">
 </span><span id="__span-11-49">
-</span><span id="__span-11-50"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">forecast_unavailable</span><span class="p">(</span><span class="n">failure</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ClickFailure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="__span-11-51">    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">failure</span><span class="o">.</span><span class="n">error</span><span class="p">,</span> <span class="n">ForecastUnavailableError</span><span class="p">):</span>
+</span><span id="__span-11-50"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">forecast_unavailable</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-11-51">    <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">ForecastUnavailableError</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-11-52">        <span class="k">return</span> <span class="kc">False</span>
-</span><span id="__span-11-53">    <span class="k">await</span> <span class="n">failure</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span>
+</span><span id="__span-11-53">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span>
 </span><span id="__span-11-54">        <span class="s2">"The weather service is not answering. Try again in a minute."</span><span class="p">,</span>
 </span><span id="__span-11-55">        <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-11-56">    <span class="p">)</span>
 </span><span id="__span-11-57">    <span class="k">return</span> <span class="kc">True</span>
 </span><span id="__span-11-58">
 </span><span id="__span-11-59">
-</span><span id="__span-11-60"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">something_went_wrong</span><span class="p">(</span><span class="n">failure</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ClickFailure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="__span-11-61">    <span class="k">await</span> <span class="n">failure</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Something went wrong."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-11-60"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">something_went_wrong</span><span class="p">(</span><span class="n">_pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-11-61">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Something went wrong."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-11-62">    <span class="k">return</span> <span class="kc">False</span>
 </span><span id="__span-11-63">
 </span><span id="__span-11-64">
