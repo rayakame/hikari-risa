@@ -75,10 +75,12 @@ class Poll(risa.View):
             self.no += 1
         await ctx.rerender()
 
+    # --8<-- [start:attach]
     @risa.handler(hooks=[author_only])
     async def close(self, ctx: risa.ComponentContext) -> None:
         self.closed = True
         await ctx.rerender()
+        # --8<-- [end:attach]
         # --8<-- [end:view]
 
 
@@ -103,7 +105,9 @@ async def audit(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) ->
 def make_client(bot: hikari.GatewayBot) -> risa.GatewayEnabledClient:
     client = risa.client_from_app(bot, hooks=[audit])
     client.add_view(Poll)
+    # --8<-- [start:register]
     client.error_handler(not_the_author)
+    # --8<-- [end:register]
     return client
     # --8<-- [end:client]
 
