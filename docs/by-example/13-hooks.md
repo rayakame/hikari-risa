@@ -6,6 +6,9 @@ audit once it is done. Attach it to the client, a view or a handler.
 
 risa ships the common ones as [ready-made hooks](14-ready-made-hooks.md).
 
+The model is [lightbulb's](https://hikari-lightbulb.readthedocs.io/en/latest/by-examples/060_hooks.html): the steps and most
+names are the same, so what you know from its hooks carries over.
+
 ## A check
 
 Anyone can click **Close** on this poll, and only its author should. A check is a hook in the `CHECKS` step that raises
