@@ -2305,7 +2305,8 @@ forgotten. Pass the name of one of the client's <a href="../09-stores-and-ttl/">
 <code>risa.client_from_app(bot, store=...)</code>: <code>"default"</code> is that store's name. A name the client has no store for fails
 every click with <code>HookDeclarationError</code>, from the first click on. The key
 names this cooldown in the store, so every process finds the same count. Give each cooldown its own. <code>max_concurrency</code>
-takes both too. Counting in a store needs dependency injection, and a click fails while the store cannot be reached.</p>
+takes both too. Counting in a store needs dependency injection, and a click fails with
+<a href="../../api/errors/#risa.errors.StoreUnavailableError"><code>StoreUnavailableError</code></a> while the store cannot be reached.</p>
 <h2 id="clicks-that-run-at-once">Clicks that run at once<a class="headerlink" href="#clicks-that-run-at-once" title="Permanent link">&para;</a></h2>
 <p>An export takes five seconds, and only one should run at a time:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"reward-export"</span><span class="p">)</span>
@@ -2317,7 +2318,7 @@ takes both too. Counting in a store needs dependency injection, and a click fail
 </span><span id="__span-4-7">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">export</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-4-8">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">defer</span><span class="p">(</span><span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-4-9">        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
-</span><span id="__span-4-10">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"The export is in your direct messages."</span><span class="p">)</span>
+</span><span id="__span-4-10">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"The export is done."</span><span class="p">)</span>
 </span></code></pre></div>
 <p><a href="../../api/prefab/#risa.prefab.max_concurrency"><code>max_concurrency(1, "global")</code></a> returns two hooks: one takes a slot
 before the handler and raises <code>MaxConcurrencyReachedError</code> when none is free, the other gives it back in <code>POST_INVOKE</code>. Unpack
@@ -2328,7 +2329,7 @@ one after another, so a second click there waits for the first instead of being 
 answer within Discord's three seconds. Keep slow work on a view without durable state, or the limit only matters
 across messages.</p>
 <p>A slot that is never given back, for example because the bot stopped in the middle of a click, frees itself after 15
-minutes.</p>
+minutes. A handler that runs longer than that loses its slot too, and another click may start beside it.</p>
 <details class="example">
 <summary>Full file</summary>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><span class="sd">"""Ready-made hooks: a daily reward with a cooldown and an owner's restock, a slow export, and one answer for all."""</span>
@@ -2386,7 +2387,7 @@ minutes.</p>
 </span><span id="__span-5-53">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">export</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-5-54">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">defer</span><span class="p">(</span><span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-5-55">        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
-</span><span id="__span-5-56">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"The export is in your direct messages."</span><span class="p">)</span>
+</span><span id="__span-5-56">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"The export is done."</span><span class="p">)</span>
 </span><span id="__span-5-57">
 </span><span id="__span-5-58">
 </span><span id="__span-5-59"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">turned_away</span><span class="p">(</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
