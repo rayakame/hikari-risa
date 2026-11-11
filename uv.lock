@@ -609,7 +609,7 @@ wheels = [
 
 [[package]]
 name = "hikari-lightbulb"
-version = "3.2.6"
+version = "3.2.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-timeout" },
@@ -618,9 +618,9 @@ dependencies = [
     { name = "linkd" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/fc/3b8b05520321589492db730fb30aab9e75cf680bfde70c5625f1440038f6/hikari_lightbulb-3.2.6.tar.gz", hash = "sha256:06beae2b39a9727da2199c7edd09c50455545e890f02d30d74c004ad692b0bf4", size = 73800, upload-time = "2026-08-19T16:16:22.086Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/58/92e9222802340df6945a8a56007f4ca6edf96c67a505261611e69434604e/hikari_lightbulb-3.2.7.tar.gz", hash = "sha256:e028075c360c56b1fc143b1c276aaa878f58959d3542c84870dc5404baaeeb67", size = 73842, upload-time = "2026-11-10T20:52:14.39Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/bd/d61ea217b0d9e2382e7f6bf7aa61619982062e62c0b9bf3f9e64d536ee80/hikari_lightbulb-3.2.6-py3-none-any.whl", hash = "sha256:a9de5fc73fe7471830cf55a37d9b5dd8914ddb2ffcff08a7b17231d566393cd2", size = 104637, upload-time = "2026-08-19T16:16:20.929Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/1f/0f51a040f27df9829d86ab7578d35c745ad92664607ace1b777876749696/hikari_lightbulb-3.2.7-py3-none-any.whl", hash = "sha256:ce9167af5819c0689870d427266626d776286be94df463c9976b54e99cc459f4", size = 104641, upload-time = "2026-11-10T20:52:12.783Z" },
 ]
 
 [[package]]
@@ -718,11 +718,11 @@ docs = [
     { name = "zensical", specifier = "==0.1.0" },
 ]
 images = [{ name = "pillow", specifier = "==13.0.0" }]
-lightbulb = [{ name = "hikari-lightbulb", specifier = "==3.2.6" }]
+lightbulb = [{ name = "hikari-lightbulb", specifier = "==3.2.7" }]
 nox = [{ name = "nox", extras = ["uv"], specifier = "==2026.10.20" }]
 pyright = [
     { name = "asyncpg-stubs", specifier = "==0.32.0" },
-    { name = "hikari-lightbulb", specifier = "==3.2.6" },
+    { name = "hikari-lightbulb", specifier = "==3.2.7" },
     { name = "pyright", specifier = "==1.1.414" },
 ]
 pytest = [
