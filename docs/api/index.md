@@ -91,6 +91,10 @@ hide:
 
     Hooks, the steps they run in, and the pipeline every click runs through.
 
+- [`risa.prefab`](prefab.md)
+
+    Ready-made hooks: checks, cooldowns and a limit on clicks that run at once.
+
 - [`risa.view`](view.md)
 
     Views, their handlers, and how they are registered.

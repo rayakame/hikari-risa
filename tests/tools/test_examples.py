@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import importlib.util
 import logging
 import pathlib
@@ -724,6 +725,41 @@ async def test_the_poll_of_chapter_13_closes_only_for_its_author_and_audits_ever
     await module.test_author_only_lets_the_author_through(ctx)
     with pytest.raises(module.NotTheAuthorError):
         await module.author_only(risa.ExecutionPipeline(), ctx, module.Poll(question="?", author_id=1))
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_reward_of_chapter_14_answers_every_click_it_turns_away() -> None:
+    module = _load("ch14_prefab")
+    app = unittest.mock.Mock(rest=unittest.mock.AsyncMock())
+    app.rest.fetch_application.return_value.owner.id = hikari.Snowflake(42)
+    app.rest.fetch_application.return_value.team = None
+    client = module.make_client(typing.cast("hikari.GatewayBot", app))
+    ids = _ids((await client.build(module.Reward())).components)
+    now = dt.datetime.now(dt.UTC)
+    answers: list[object] = []
+
+    for button, user, sent in [
+        (0, 7, now),
+        (0, 7, now),
+        (1, 7, now),
+        (1, 42, now),
+        (0, 8, now - dt.timedelta(hours=2)),
+    ]:
+        interaction = _click(ids, button, user=user)
+        interaction.message.timestamp = sent
+        interaction.message.edited_timestamp = None
+        await _process(client, interaction)
+        call = _rest(client).create_interaction_response.await_args
+        answers.append(call.args[3] if len(call.args) > 3 else call.args[2])
+    answers[1] = str(answers[1]).split("<")[0]
+
+    assert answers == [
+        hikari.ResponseType.MESSAGE_UPDATE,
+        "Come back ",
+        "You cannot use this.",
+        hikari.ResponseType.MESSAGE_UPDATE,
+        "This message has expired.",
+    ]
 
 
 @pytest.mark.usefixtures("own_registry")

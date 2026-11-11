@@ -5,7 +5,7 @@ hide:
 
 # By example
 
-Thirteen chapters that start with a single message and end with hooks around every click. Read them in order, or jump to the one you need.
+Fourteen chapters that start with a single message and end with the hooks risa ships. Read them in order, or jump to the one you need.
 {: .risa-lead }
 
 <div class="risa-overview risa-overview--numbered" markdown>
@@ -67,5 +67,9 @@ Thirteen chapters that start with a single message and end with hooks around eve
 - [Hooks](13-hooks.md)
 
     Check, limit or audit every click before and after its handler runs.
+
+- [Ready-made hooks](14-ready-made-hooks.md)
+
+    Use the checks, cooldowns and concurrency limit risa ships.
 
 </div>

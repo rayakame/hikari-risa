@@ -30,6 +30,7 @@ from __future__ import annotations
 from risa import codecs as codecs
 from risa import di as di
 from risa import errors as errors
+from risa import prefab as prefab
 from risa import state as state
 from risa import store as store
 from risa import ui as ui

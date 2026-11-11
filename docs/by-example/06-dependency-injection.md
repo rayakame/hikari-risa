@@ -115,6 +115,7 @@ risa registers these itself, so you can name them in any handler without registe
 | [`risa.ComponentContext`](../api/context.md#risa.context.ComponentContext) | The click, the same object as `ctx`. A [factory](#values-and-factories) or a function further down uses this to reach it |
 | `hikari.ComponentInteraction` | The interaction behind the click, the same object as `ctx.interaction` |
 | [`risa.ExecutionPipeline`](../api/hooks.md#risa.hooks.ExecutionPipeline) | The click's run through its [hooks](13-hooks.md), with what has failed so far. In a handler it is empty, since a handler runs only when nothing failed |
+| [`risa.prefab.Cooldown`](../api/prefab.md#risa.prefab.Cooldown) | On a click a [ready-made cooldown](14-ready-made-hooks.md#cooldowns) ran for, that cooldown, to take back or apply again |
 
 This handler uses the REST client to post in a log channel as well as answering the click:
 

@@ -166,6 +166,7 @@ class Client(abc.ABC):
         "_global_checked",
         "_hooks",
         "_in_message",
+        "_key_prefix",
         "_memory_warned",
         "_order",
         "_registry",
@@ -210,6 +211,7 @@ class Client(abc.ABC):
         self._use_global = use_global
         self._auto_defer = auto_defer
         self._auto_defer_delay = auto_defer_delay
+        self._key_prefix = key_prefix
         namespace = stored.KeyNamespace(rest, key_prefix=key_prefix)
         self._stored = {
             name: stored.StoredBackend(instance, namespace=namespace)
@@ -255,6 +257,16 @@ class Client(abc.ABC):
     def rest(self) -> hikari.api.RESTClient:
         """The REST client risa answers interactions through."""
         return self._rest
+
+    @property
+    def stores(self) -> collections.abc.Mapping[str, protocol.Store]:
+        """The client's stores by name; the one passed as `store=` is `"default"`."""
+        return {name: slot.store for name, slot in self._stored.items()}
+
+    @property
+    def key_prefix(self) -> str | None:
+        """What the client's store keys start with, or `None` for `risa:{application id}`."""
+        return self._key_prefix
 
     async def build(self, view: view_.View) -> build_.Rendered:
         """Render `view` into the components of a new message, ready to send.

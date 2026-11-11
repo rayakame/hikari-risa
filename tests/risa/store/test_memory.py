@@ -262,6 +262,50 @@ async def test_writing_past_the_bound_drops_the_least_recently_used() -> None:
     assert await data_of(store, "c") == b"c"
 
 
+async def test_writing_past_the_bound_drops_what_has_expired_first(caplog: pytest.LogCaptureFixture) -> None:
+    now = [0.0]
+    store = memory.MemoryStore(max_entries=2, clock=lambda: now[0])
+    await store.put("a", b"a", ttl=None)
+    await store.put("b", b"b", ttl=5)
+    now[0] = 5
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await store.put("c", b"c", ttl=None)
+
+    assert await data_of(store, "a") == b"a"
+    assert await data_of(store, "c") == b"c"
+    assert not warnings_in(caplog)
+
+
+async def test_writing_past_the_bound_drops_what_a_touch_let_expire_first() -> None:
+    now = [0.0]
+    store = memory.MemoryStore(max_entries=2, clock=lambda: now[0])
+    await store.put("a", b"a", ttl=20)
+    await store.put("b", b"b", ttl=20)
+    await store.touch("b", ttl=5)
+    now[0] = 5
+
+    await store.put("c", b"c", ttl=20)
+
+    assert await data_of(store, "a") == b"a"
+    assert await data_of(store, "c") == b"c"
+
+
+async def test_writing_past_the_bound_drops_live_entries_once_nothing_has_expired() -> None:
+    now = [0.0]
+    store = memory.MemoryStore(max_entries=2, clock=lambda: now[0])
+    await store.put("a", b"a", ttl=10)
+    await store.put("b", b"b", ttl=5)
+    now[0] = 5
+    await store.put("c", b"c", ttl=10)
+
+    await store.put("d", b"d", ttl=10)
+
+    assert await data_of(store, "a") is None
+    assert await data_of(store, "c") == b"c"
+    assert await data_of(store, "d") == b"d"
+
+
 async def test_a_read_counts_as_use() -> None:
     store = memory.MemoryStore(max_entries=2)
     await store.put("a", b"a", ttl=None)

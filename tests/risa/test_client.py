@@ -276,6 +276,16 @@ async def test_the_component_scope_sees_what_the_default_one_holds(
         assert await container.get(Database) is database
 
 
+def test_the_client_names_its_stores_and_its_key_prefix() -> None:
+    default, other = risa.MemoryStore(warn=False), risa.MemoryStore(warn=False)
+
+    built = risa.client_from_app(gateway_app(), store=default, stores={"other": other}, key_prefix="bot")
+
+    assert built.stores == {"default": default, "other": other}
+    assert built.key_prefix == "bot"
+    assert risa.client_from_app(gateway_app()).key_prefix is None
+
+
 def test_a_lightbulb_client_shares_its_dependency_manager() -> None:
     lightbulb = LightbulbStub(GatewayApp())
     built = risa.client_from_lightbulb(typing.cast("risa.LightbulbClient", lightbulb))

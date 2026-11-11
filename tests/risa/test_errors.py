@@ -28,6 +28,7 @@ import risa
     "exc_type",
     [
         risa.ArgBindError,
+        risa.ClickRejectedError,
         risa.CustomIdOverflowError,
         risa.EphemeralOriginError,
         risa.HandlerSignatureError,
@@ -156,3 +157,20 @@ def test_store_conformance_lists_every_failed_check() -> None:
     assert "2 conformance checks" in str(error)
     assert "a_stale_cas_is_refused" in str(error)
     assert "touch_ignores_a_missing_key" in str(error)
+
+
+@pytest.mark.parametrize(
+    "exc_type",
+    [
+        risa.BotMissingPermissionsError,
+        risa.ComponentExpiredError,
+        risa.MaxConcurrencyReachedError,
+        risa.MissingPermissionsError,
+        risa.MissingRolesError,
+        risa.NotInvokerError,
+        risa.NotOwnerError,
+        risa.OnCooldownError,
+    ],
+)
+def test_every_rejection_of_a_ready_made_hook_is_a_click_rejected_error(exc_type: type[Exception]) -> None:
+    assert issubclass(exc_type, risa.ClickRejectedError)
