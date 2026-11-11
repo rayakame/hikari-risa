@@ -186,11 +186,8 @@ leaves the click in your log:
 
 --8<-- "previews/something-went-wrong.html"
 
-```python
---8<-- "ch05_errors.py:register"
-```
-
-`@client.error_handler` and `@client.error_handler(priority=1)` work as decorators too.
+`@client.error_handler` without a priority registers at priority `0`, and
+`client.error_handler(forecast_unavailable, priority=1)` registers a function that is defined elsewhere.
 
 - **The view is gone.** `ctx` has no view state, as in [`on_outdated`](10-changing-a-view-safely.md#on_outdated):
   `respond`, an `edit` with nothing to click and `replace` work, and on a view with fields `rerender()` raises

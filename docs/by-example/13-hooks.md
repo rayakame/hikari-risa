@@ -40,15 +40,9 @@ Without an error handler the click fails in Discord, and risa logs it. This one 
 
 --8<-- "previews/closable-poll-refused.html"
 
-`not_the_author` is an error handler once the client registers it:
-
-```python
---8<-- "ch13_hooks.py:register"
-```
-
+- `@client.error_handler` registers `not_the_author` as an error handler.
 - [`pipeline.find`](../api/hooks.md#risa.hooks.ExecutionPipeline.find) returns the first exception of that type the
   click raised, or `None`.
-- `@client.error_handler` above the function registers it too, where the client already exists.
 - [Answering in time](05-answering-in-time.md#when-something-fails) covers the rest of what an error handler can do.
 
 When the author clicks, the check passes and `close` runs:
@@ -119,7 +113,7 @@ The client runs `audit` after every click on every view:
 --8<-- "ch13_hooks.py:audit"
 ```
 
-`make_client` attaches `audit` to the client and registers `not_the_author`:
+`hooks=` on the client attaches it:
 
 ```python
 --8<-- "ch13_hooks.py:client"
@@ -181,6 +175,8 @@ own after `POST_INVOKE`:
 
 ```python
 --8<-- "ch13_hooks.py:order"
+
+--8<-- "ch13_hooks.py:order-client"
 ```
 
 `execution_step_order` holds `INVOKE` once and every other step at most once, or the client raises `ValueError`. A hook

@@ -84,13 +84,15 @@ class Poll(risa.View):
         # --8<-- [end:view]
 
 
-# --8<-- [start:answer]
-async def not_the_author(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
-    if pipeline.find(NotTheAuthorError) is None:
-        return False
-    await ctx.respond("Only the author can close this poll.", ephemeral=True)
-    return True
-    # --8<-- [end:answer]
+def add_error_handlers(client: risa.Client) -> None:
+    # --8<-- [start:answer]
+    @client.error_handler
+    async def not_the_author(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) -> bool:
+        if pipeline.find(NotTheAuthorError) is None:
+            return False
+        await ctx.respond("Only the author can close this poll.", ephemeral=True)
+        return True
+        # --8<-- [end:answer]
 
 
 # --8<-- [start:audit]
@@ -101,15 +103,13 @@ async def audit(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext) ->
     # --8<-- [end:audit]
 
 
-# --8<-- [start:client]
 def make_client(bot: hikari.GatewayBot) -> risa.GatewayEnabledClient:
+    # --8<-- [start:client]
     client = risa.client_from_app(bot, hooks=[audit])
     client.add_view(Poll)
-    # --8<-- [start:register]
-    client.error_handler(not_the_author)
-    # --8<-- [end:register]
-    return client
     # --8<-- [end:client]
+    add_error_handlers(client)
+    return client
 
 
 # --8<-- [start:order]
@@ -121,17 +121,20 @@ async def audit_last(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContex
     outcome = "failed" if pipeline.failed else "ran"
     AUDIT.info("%s clicked on message %s, which %s", ctx.user.id, ctx.message.id, outcome)
 
+    # --8<-- [end:order]
+
 
 def make_client_that_audits_last(bot: hikari.GatewayBot) -> risa.GatewayEnabledClient:
+    # --8<-- [start:order-client]
     client = risa.client_from_app(
         bot,
         hooks=[audit_last],
         execution_step_order=[*risa.DEFAULT_EXECUTION_STEP_ORDER, LAST],
     )
+    # --8<-- [end:order-client]
     client.add_view(Poll)
-    client.error_handler(not_the_author)
+    add_error_handlers(client)
     return client
-    # --8<-- [end:order]
 
 
 # --8<-- [start:test]
