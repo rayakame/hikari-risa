@@ -33,7 +33,7 @@ Old buttons keep working through all of these:
 
 | You change | What to know |
 |---|---|
-| The code of `render()`, `load()`, a handler or a hook | An old message keeps its look until its next rerender |
+| The code of `render()`, `load()`, a handler, a hook or a fallback | An old message keeps its look until its next rerender |
 | A button added to `render()`, or left out | A button you left out stays on old messages until their next rerender, so keep its handler until then |
 | The Python name of the class or its module | risa routes by `name=` |
 | A field added at the end, with a default | It takes room in a message |

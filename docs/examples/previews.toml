@@ -476,3 +476,25 @@ id = "poll-full-reply"
 label = "The thirteenth voter's click"
 text = "This poll is full."
 ephemeral = true
+
+[[preview]]
+kind = "view"
+id = "closable-poll"
+example = "ch13_hooks"
+view = "Poll"
+fields = { question = "Pizza on Friday?", author_id = 1298471056230400001, yes = 3, no = 1 }
+
+[[preview]]
+kind = "reply"
+id = "closable-poll-refused"
+label = "After a click on Close by someone else"
+text = "Only the author can close this poll."
+ephemeral = true
+
+[[preview]]
+kind = "view"
+id = "closable-poll-closed"
+label = "After a click on Close by the author"
+example = "ch13_hooks"
+view = "Poll"
+fields = { question = "Pizza on Friday?", author_id = 1298471056230400001, yes = 3, no = 1, closed = true }

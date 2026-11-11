@@ -152,22 +152,33 @@ This error handler answers the failure the bot expects:
 
 --8<-- "previews/forecast-unavailable.html"
 
-It gets a [`ClickFailure`](../api/context.md#risa.context.ClickFailure): `failure.ctx` to answer through, `failure.error`
-with the exception, and `failure.stage` with where it was raised. It returns `True` once it has dealt with the failure,
-and risa logs nothing more. With `False` it passes the failure on.
+It gets the click's [`ExecutionPipeline`](../api/hooks.md#risa.hooks.ExecutionPipeline) and its context.
+[`pipeline.find(ForecastUnavailableError)`](../api/hooks.md#risa.hooks.ExecutionPipeline.find) returns the first such
+exception the click raised, or `None`. The answer goes through `ctx`. It returns `True` once it has dealt with the click,
+and risa logs nothing more. With `False` it passes the click on.
+
+A click can fail more than once, for instance in a [hook](13-hooks.md) and again in a hook after the handler.
+[`pipeline.failures`](../api/hooks.md#risa.hooks.ExecutionPipeline.failures) lists every
+[`Failure`](../api/hooks.md#risa.hooks.Failure) in the order it happened. Each holds the exception in `error`, where it
+was raised in `stage`, and the hook that raised it, if any, in `hook`:
 
 | `stage` | What failed |
 |---|---|
-| `HANDLER` | The handler |
+| `HOOK` | A [hook](13-hooks.md) |
 | `LOAD` | [`load()`](07-fresh-data.md), so the handler never ran |
-| `ON_OUTDATED`, `ON_STATE_MISSING` | That hook |
+| `HANDLER` | The handler |
+| `ON_OUTDATED`, `ON_STATE_MISSING` | That fallback |
 | `STATE` | Reaching the view's state, before any of your code ran: the store failed or is missing, its lock timed out, or a codec's extra is not installed |
 
-A failure after the handler, such as saving the view when the handler returns, stays a log line.
+A failure in risa's own save after the handler returns stays a log line. A hook after the handler that raises reaches
+the error handlers like any other.
 
 Several error handlers run highest `priority` first, and in the order you registered them within one priority, until one
-returns `True`. If none does, risa logs the failure as it would without them. A last one that answers every failure and
-returns `False` tells the person something went wrong and still leaves the failure in your log:
+returns `True`. They run once per click, after everything else in it. If none returns `True`, risa logs the click: one
+entry that names each failure and carries their tracebacks as an `ExceptionGroup`, or a single line without a traceback
+when the view's state could not be reached. A `True` covers the whole click, so its other failures go unlogged
+too. A last error handler that answers every failure and returns `False` tells the person something went wrong and still
+leaves the click in your log:
 
 ```python
 --8<-- "ch05_errors.py:everything"
@@ -181,14 +192,14 @@ returns `False` tells the person something went wrong and still leaves the failu
 
 `@client.error_handler` and `@client.error_handler(priority=1)` work as decorators too.
 
-- **The view is gone.** `failure.ctx` has no view state, as in [`on_outdated`](10-changing-a-view-safely.md#on_outdated):
+- **The view is gone.** `ctx` has no view state, as in [`on_outdated`](10-changing-a-view-safely.md#on_outdated):
   `respond`, an `edit` with nothing to click and `replace` work, and on a view with fields `rerender()` raises
   `NoViewError`, so a half-changed view is never saved.
 - **Three seconds.** An error handler runs without auto-defer, and the three seconds count from the click. A failure
   that comes late, such as a lock that took ten seconds, leaves it no time unless auto-defer answered first.
 - **What was sent before.** `respond` continues it, as it would in the handler: after an answer it sends a follow-up,
   and after a thinking message it replaces that.
-- **Injection.** Its parameters after `failure` are [injected](06-dependency-injection.md#where-injection-works), as a
+- **Injection.** Its parameters after `ctx` are [injected](06-dependency-injection.md#where-injection-works), as a
   handler's are.
 - **One that raises** is logged and counts as `False`.
 

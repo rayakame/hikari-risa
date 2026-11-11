@@ -44,6 +44,7 @@ from risa.client import *
 from risa.context import *
 from risa.di import *
 from risa.errors import *
+from risa.hooks import *
 from risa.state import *
 from risa.store import *
 from risa.view import *

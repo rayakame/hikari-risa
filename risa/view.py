@@ -40,6 +40,7 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
     from risa import context
+    from risa import hooks as hooks_
     from risa import ui
 
 __all__ = (
@@ -96,7 +97,7 @@ class HandlerMethod[V: View, **P]:
     handler that delegates to another.
     """
 
-    __slots__ = ("_defer", "_func", "_handler_id", "_owner", "_signature", "_token", "_version")
+    __slots__ = ("_defer", "_func", "_handler_id", "_hooks", "_owner", "_signature", "_token", "_version")
 
     def __init__(
         self,
@@ -105,12 +106,14 @@ class HandlerMethod[V: View, **P]:
         handler_id: str,
         version: int,
         defer: AutoDefer | None = None,
+        hooks: collections.abc.Sequence[hooks_.AnyHook] = (),
     ) -> None:
         self._func = func
         self._handler_id = handler_id
         self._version = version
         self._token = codec.make_handler_token(handler_id, version)
         self._defer = defer
+        self._hooks = tuple(hooks)
         self._signature: codec.HandlerSignature | None = None
         self._owner: type[View] | None = None
 
@@ -151,6 +154,11 @@ class HandlerMethod[V: View, **P]:
         """The handler's own `AutoDefer`, or `None` to use the view's."""
         return self._defer
 
+    @property
+    def hooks(self) -> collections.abc.Sequence[hooks_.AnyHook]:
+        """The hooks attached to the handler."""
+        return self._hooks
+
     @typing.overload
     def __get__(self, instance: None, owner: type[V]) -> HandlerMethod[V, P]: ...
 
@@ -190,6 +198,7 @@ def handler(
     handler_id: str | None = ...,
     version: int = ...,
     defer: AutoDefer | None = ...,
+    hooks: collections.abc.Sequence[hooks_.AnyHook] = ...,
 ) -> _HandlerDecorator: ...
 
 
@@ -200,6 +209,7 @@ def handler(
     handler_id: str | None = None,
     version: int = 1,
     defer: AutoDefer | None = None,
+    hooks: collections.abc.Sequence[hooks_.AnyHook] = (),
 ) -> object:
     """Make a view method a handler that components can route to.
 
@@ -235,6 +245,9 @@ def handler(
         `View.on_outdated`.
     defer
         The handler's `AutoDefer`, overriding the view's.
+    hooks
+        Hooks that run only for clicks on this handler, after the client's and the view's in
+        each step.
     """  # ruff:ignore[docstring-missing-returns]
 
     def decorate(f: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> HandlerMethod[View, ...]:
@@ -243,6 +256,7 @@ def handler(
             handler_id=handler_id if handler_id is not None else f.__name__,
             version=version,
             defer=defer,
+            hooks=hooks,
         )
 
     return decorate(func) if func is not None else decorate
@@ -297,8 +311,9 @@ class View(msgspec.Struct):
         async def load(self) -> None:
             """Fill the view's props before it renders.
 
-            risa awaits it before the first send and on every click, after restoring the durable
-            state and before the handler runs. Its parameters are injected, as a handler's are.
+            risa awaits it before the first send, and on every click right before the handler,
+            once the hooks before it have run without a failure. Its parameters are injected, as
+            a handler's are.
             An override of another view's `load` that adds parameters needs `= risa.INJECTED` on
             them for a type checker, as any override that adds parameters would.
             """
@@ -383,6 +398,7 @@ def register[T: View](
     version: int = 1,
     defer: AutoDefer | None = None,
     state: placement_.StatePlacement = placement_.DEFAULT_PLACEMENT,
+    hooks: collections.abc.Sequence[hooks_.AnyHook] = (),
 ) -> typing.Callable[[type[T]], type[T]]:
     """Register a view class so its components can be routed.
 
@@ -408,6 +424,9 @@ def register[T: View](
         The view's `AutoDefer`, for handlers that set none.
     state
         Where the durable state lives: `InMessage()`, the default, or `InStore(...)`.
+    hooks
+        Hooks that run for clicks on this view, after the client's in each step. One that
+        takes a view must take this class or a base of it, which `Client.add_view` checks.
 
     Returns
     -------
@@ -446,6 +465,7 @@ def register[T: View](
                 version=member.version,
                 defer=resolved_defer,
                 signature=member.signature,
+                hooks=member.hooks,
             )
 
         meta = registry.ViewMeta(
@@ -458,6 +478,8 @@ def register[T: View](
             outdated=_injected_outdated(cls),
             state_missing=_injected_state_missing(cls),
             loader=_injected_load(cls),
+            hooks=tuple(hooks),
+            defer=defer,
         )
         registry.global_registry().register(meta)
         registry.stamp(cls, meta)

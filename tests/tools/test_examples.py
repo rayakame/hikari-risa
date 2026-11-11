@@ -530,7 +530,7 @@ async def test_a_render_with_fewer_buttons_can_leave_an_old_message_no_room(capl
     with caplog.at_level(logging.ERROR, logger="risa"):
         await _process(_client_with(OneButton), _click(ids, 0))
 
-    assert "handler 'vote' (version 1) of view examples-room failed" in caplog.text
+    assert "on view examples-room failed in handler 'vote' (version 1)" in caplog.text
     assert "StateOverflowError" in caplog.text
 
 
@@ -699,6 +699,31 @@ async def test_the_error_handlers_of_chapter_05_answer_and_log_as_the_page_says(
     answered = _rest(client).create_interaction_response.await_args
     assert answered.args[3] == "Something went wrong."
     assert "KeyError" in caplog.text
+
+
+@pytest.mark.usefixtures("own_registry")
+async def test_the_poll_of_chapter_13_closes_only_for_its_author_and_audits_every_click(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    module = _load("ch13_hooks")
+    app = unittest.mock.Mock(rest=unittest.mock.AsyncMock())
+    client = module.make_client(typing.cast("hikari.GatewayBot", app))
+    ids = _ids((await client.build(module.Poll(question="Pizza on Friday?", author_id=42))).components)
+
+    with caplog.at_level(logging.INFO, logger="bot.audit"):
+        await _process(client, _click(ids, 2, user=7))
+        refused = _rest(client).create_interaction_response.await_args
+        await _process(client, _click(ids, 2, user=42))
+        closed = _rest(client).create_interaction_response.await_args
+
+    assert refused.args[3] == "Only the author can close this poll."
+    assert closed.args[2] is hikari.ResponseType.MESSAGE_UPDATE
+    assert [record.getMessage().rsplit(" ", 1)[1] for record in caplog.records] == ["failed", "ran"]
+
+    ctx = unittest.mock.Mock(spec=risa.ComponentContext)
+    await module.test_author_only_lets_the_author_through(ctx)
+    with pytest.raises(module.NotTheAuthorError):
+        await module.author_only(risa.ExecutionPipeline(), ctx, module.Poll(question="?", author_id=1))
 
 
 @pytest.mark.usefixtures("own_registry")

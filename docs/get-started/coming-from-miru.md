@@ -30,6 +30,7 @@ This page compares with miru 4.3.1. The main things miru has and risa does not a
 | `respond("Hi", components=view)` | `respond(**await client.build(MyView()))` |
 | `timeout=`, 120 seconds by default | `InStore(ttl=...)`, and no expiry in the message |
 | `autodefer=True` by default, after 2 seconds | `AutoDefer.OFF` by default; set it on a handler, view or client |
+| `view_check(self, ctx)` that returns `False` | A [hook](../by-example/13-hooks.md) in `CHECKS` that raises, on the view with `@risa.register(hooks=[...])` |
 | alluka, with `@client.inject_dependencies` | linkd, with no decorator; [Dependency injection](../by-example/06-dependency-injection.md#name-it-as-a-parameter) says which parameters are injected |
 
 ## A view
@@ -176,8 +177,7 @@ restarts:
     ```
 
 `on_timeout()` runs when the time is up. risa has no timer, so `on_state_missing()` runs when someone clicks after the
-record has expired. Until then the message stays as it is, and risa has no hook for greying out its buttons at that
-moment.
+record has expired. Until then the message stays as it is, and nothing in risa greys out its buttons at that moment.
 
 To end a view yourself, where miru has `self.stop()`, replace the message with a layout that has no buttons. `yes` above
 does that with [`ctx.edit`](../by-example/05-answering-in-time.md#which-message).
@@ -190,8 +190,7 @@ does that with [`ctx.edit`](../by-example/05-answering-in-time.md#which-message)
 - **Menus and navigators.** miru ships [`miru.ext.menu`](https://miru.hypergonial.com/guides/menus/) and
   [`miru.ext.nav`](https://miru.hypergonial.com/guides/navigators/). In risa you write these yourself, for example as a
   view with a `page: int` field.
-- **A check before every handler.** miru has `view_check`. In risa, a handler checks `ctx.user` itself.
-- **An error hook on each view.** miru has [`on_error`](https://miru.hypergonial.com/guides/error_handling/) on each
+- **An error handler on each view.** miru has [`on_error`](https://miru.hypergonial.com/guides/error_handling/) on each
   view. risa has [error handlers](../by-example/05-answering-in-time.md#when-something-fails) for the whole client, and
   a handler that wants its own answer uses `try`.
 - **Waiting on a view.** miru has `view.wait()` and `wait_for_input()`. A risa view has no object that lives between

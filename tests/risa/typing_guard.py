@@ -79,3 +79,22 @@ def pyright_must_reject(view: Guard) -> None:
 
 def rendered_is_spreadable(rendered: ui.Rendered, rest: hikari.api.RESTClient) -> None:
     _ = rest.create_message(hikari.Snowflake(1), **rendered)
+
+
+@risa.hook(risa.ExecutionSteps.CHECKS)
+async def guard_check(pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext, view: Guard) -> None: ...
+
+
+@risa.hook(risa.ExecutionSteps.CHECKS)
+async def any_view_check(
+    pipeline: risa.ExecutionPipeline, ctx: risa.ComponentContext, service: GuardService
+) -> None: ...
+
+
+def hooks_pyright_must_accept(app: risa.GatewayClientAppT) -> None:
+    risa.client_from_app(app, hooks=[any_view_check])
+    risa.register(name="typing-guard-hooked", hooks=[guard_check, any_view_check])
+
+
+def hooks_pyright_must_reject(app: risa.GatewayClientAppT) -> None:
+    risa.client_from_app(app, hooks=[guard_check])  # type: ignore[reportArgumentType]

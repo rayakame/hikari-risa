@@ -77,7 +77,7 @@ hide:
 
 - [`risa.context`](context.md)
 
-    The contexts handlers and hooks answer interactions through.
+    The contexts handlers, hooks and fallbacks answer interactions through.
 
 - [`risa.di`](di.md)
 
@@ -87,10 +87,14 @@ hide:
 
     The exceptions risa raises.
 
+- [`risa.hooks`](hooks.md)
+
+    Hooks, the steps they run in, and the pipeline every click runs through.
+
 - [`risa.view`](view.md)
 
     Views, their handlers, and how they are registered.
 
 </div>
 
-The names of `risa.binding`, `risa.client`, `risa.context`, `risa.di`, `risa.errors`, `risa.state`, `risa.store` and `risa.view` are also importable directly from `risa`.
+The names of `risa.binding`, `risa.client`, `risa.context`, `risa.di`, `risa.errors`, `risa.hooks`, `risa.state`, `risa.store` and `risa.view` are also importable directly from `risa`.

@@ -43,6 +43,7 @@ __all__ = (
     "EphemeralOriginError",
     "HandlerNotCallableError",
     "HandlerSignatureError",
+    "HookDeclarationError",
     "LayoutError",
     "LockTimeoutError",
     "NoViewError",
@@ -284,6 +285,23 @@ class ViewDeclarationError(RisaError):
         super().__init__(f"view {view_name!r}: {reason}")
 
 
+class HookDeclarationError(RisaError):
+    """Raised when a hook is declared or attached in a way risa cannot run.
+
+    Attributes
+    ----------
+    hook_name
+        The hook at fault.
+    reason
+        What is wrong with it.
+    """
+
+    def __init__(self, hook_name: str, reason: str) -> None:
+        self.hook_name: str = hook_name
+        self.reason: str = reason
+        super().__init__(f"hook {hook_name!r}: {reason}")
+
+
 class DuplicateViewError(RisaError):
     """Raised when two views would route under the same cookie.
 
@@ -398,8 +416,9 @@ class NotAViewError(RisaError):
 class NoViewError(RisaError):
     """Raised when an operation needs the view's state, but the context has none.
 
-    That is the case in `on_outdated` and `on_state_missing`, after `ctx.replace` gave the
-    message to another view, and in a context kept past the end of its dispatch.
+    That is the case in `on_outdated`, `on_state_missing` and an error handler, in a hook
+    after something in the click failed, after `ctx.replace` gave the message to another
+    view, and in a context kept past the end of its dispatch.
 
     Attributes
     ----------
@@ -414,8 +433,9 @@ class NoViewError(RisaError):
         self.attempted: str = attempted
         super().__init__(
             f"{attempted} on view {view_name!r} needs the view's state, but this context has none - it"
-            " belongs to on_outdated or on_state_missing, to a message ctx.replace gave to another"
-            " view, or to a dispatch that has already ended;"
+            " belongs to on_outdated or on_state_missing, to an error handler, to a hook after a"
+            " failure in the click, to a message ctx.replace gave to another view, or to a dispatch"
+            " that has already ended;"
             " answer with ctx.edit(layout) using a tree without interactive components, or with"
             " ctx.respond(...)",
         )
