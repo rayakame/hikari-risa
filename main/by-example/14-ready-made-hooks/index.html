@@ -2209,18 +2209,17 @@ cooldown still counts the click, and a check that turns it away keeps the fallba
 </tr>
 </tbody>
 </table>
-<p>The permission and role checks turn a click in a direct message away. With <code>fail_in_dm=False</code> they let it through
-unchecked. The permission checks let an administrator through unless you pass <code>permit_admin=False</code>. <code>has_roles</code> needs at least
-one role and raises <code>HookDeclarationError</code> without.</p>
-<p><code>owner_only</code> asks Discord for the owners on the first click and keeps them until the bot restarts.</p>
-<p><code>invoker_only</code> reads the user from the interaction that sent the message. A message the bot posted by itself has none,
-and every click on it is turned away; the <code>!reward</code> listener in the full file sends such a message. For those, keep the
-user's id in a field and write the check yourself, as <a href="../13-hooks/#a-check">Hooks</a> does.</p>
-<p><code>expires_after</code> gives a view a lifetime without a store. The message carries when it was sent and last edited, and a
-<code>ctx.rerender()</code> is an edit, so the hour above starts over with every claim. Only an edit restarts it: a click that
-answers without <code>ctx.rerender()</code>, such as a claim with nothing left, does not. The buttons stay on the message, and a
-click on them raises <code>ComponentExpiredError</code>. For a view whose state lives in a store, <a href="../09-stores-and-ttl/#ttl"><code>ttl</code></a> restarts on
-every click and also removes the record.</p>
+<ul>
+<li><strong>Permissions and roles.</strong> These checks turn a click in a direct message away, or let it through unchecked with
+  <code>fail_in_dm=False</code>. The permission checks let an administrator through unless you pass <code>permit_admin=False</code>.</li>
+<li><strong><code>invoker_only</code></strong> reads the user from the interaction that sent the message. A message the bot posted by itself has
+  none, and every click on it is turned away. For those, keep the user's id in a field and write the check yourself, as
+  <a href="../13-hooks/#a-check">Hooks</a> does.</li>
+<li><strong><code>expires_after</code></strong> gives a view a lifetime without a store. A <code>ctx.rerender()</code> is an edit, so the hour above starts
+  over with every claim. A click that answers without it, such as a claim with nothing left, does not restart it. The
+  buttons stay on the message, and a click on them raises <code>ComponentExpiredError</code>. For a view whose state lives in a
+  store, <a href="../09-stores-and-ttl/#ttl"><code>ttl</code></a> restarts on every click and also removes the record.</li>
+</ul>
 <h2 id="cooldowns">Cooldowns<a class="headerlink" href="#cooldowns" title="Permanent link">&para;</a></h2>
 <p>A cooldown runs in the <code>COOLDOWNS</code> step and raises
 <a href="../../api/errors/#risa.errors.OnCooldownError"><code>OnCooldownError</code></a>, whose <code>remaining</code> is the seconds until the next click
@@ -2278,26 +2277,30 @@ is allowed.</p>
 </tr>
 </tbody>
 </table>
-<p>Each call without a store makes a cooldown of its own. <code>claim</code> above has one. The same hook object attached to two
-handlers counts their clicks together.</p>
-<p>Like the checks, a cooldown is skipped once anything has failed, so a click a check turned away costs no use. It counts
-every click it lets through, even one that fails afterwards or that a later cooldown turns away. A handler gives the
-use back through <a href="../../api/prefab/#risa.prefab.Cooldown"><code>Cooldown</code></a>, which the cooldown registers for
-<a href="../06-dependency-injection/#what-risa-registers">injection</a>: <code>claim</code> calls <code>cooldown.undo()</code> when nothing is left.
-<code>reset()</code> gives the bucket all of its uses back, and <code>apply()</code> takes one more or raises <code>OnCooldownError</code>. <code>Cooldown</code>
-needs dependency injection.</p>
+<ul>
+<li><strong>One hook object, one count.</strong> Each call without a store makes a cooldown of its own, and the same hook object
+  attached to two handlers counts their clicks together.</li>
+<li><strong>A click that was turned away costs no use.</strong> Like the checks, a cooldown is skipped once anything has failed.</li>
+<li><strong>Every click it lets through counts</strong>, even one that fails afterwards or that a later cooldown turns away.</li>
+<li><strong>A handler can give the use back</strong> through <a href="../../api/prefab/#risa.prefab.Cooldown"><code>Cooldown</code></a>, which the cooldown
+  registers for <a href="../06-dependency-injection/#what-risa-registers">injection</a>: <code>claim</code> calls <code>cooldown.undo()</code> when
+  nothing is left. <code>reset()</code> gives the bucket all of its uses back, and <code>apply()</code> takes one more or raises
+  <code>OnCooldownError</code>.</li>
+</ul>
 <h2 id="counting-in-a-store">Counting in a store<a class="headerlink" href="#counting-in-a-store" title="Permanent link">&para;</a></h2>
-<p>By default a cooldown counts in the memory of its process. A restart forgets it, each process of a
-<a href="../11-several-processes/">REST bot</a> counts alone, and past 100,000 buckets at a time the one unused the longest is
-forgotten. Pass the name of one of the client's <a href="../09-stores-and-ttl/">stores</a> and a key to count there:</p>
+<p>By default a cooldown counts in the memory of its process: a restart forgets it, and each process of a
+<a href="../11-several-processes/">REST bot</a> counts alone. Pass the name of one of the client's <a href="../09-stores-and-ttl/">stores</a>
+and a key to count there:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="n">DAILY</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">prefab</span><span class="o">.</span><span class="n">fixed_window</span><span class="p">(</span><span class="mi">86400</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="s2">"default"</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">"daily-reward"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Put <code>DAILY</code> on <code>claim</code> in place of the cooldown above, and give the client a store with
-<code>risa.client_from_app(bot, store=...)</code>: <code>"default"</code> is that store's name. A name the client has no store for fails
-every click with <code>HookDeclarationError</code>, from the first click on. The key
-names this cooldown in the store, so every process finds the same count. Give each cooldown its own. <code>max_concurrency</code>
-takes both too. Counting in a store needs dependency injection, and a click fails with
-<a href="../../api/errors/#risa.errors.StoreUnavailableError"><code>StoreUnavailableError</code></a> while the store cannot be reached.</p>
+<code>risa.client_from_app(bot, store=...)</code>: <code>"default"</code> is that store's name. <code>max_concurrency</code> takes both too.</p>
+<ul>
+<li><strong>The key</strong> names this cooldown in the store, so every process finds the same count. Give each cooldown its own.</li>
+<li><strong>A name the client has no store for</strong> fails every click with <code>HookDeclarationError</code>, from the first click on.</li>
+<li><strong>While the store cannot be reached</strong>, a click fails with
+  <a href="../../api/errors/#risa.errors.StoreUnavailableError"><code>StoreUnavailableError</code></a>.</li>
+</ul>
 <h2 id="clicks-that-run-at-once">Clicks that run at once<a class="headerlink" href="#clicks-that-run-at-once" title="Permanent link">&para;</a></h2>
 <p>An export takes five seconds, and only one should run at a time:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"reward-export"</span><span class="p">)</span>
@@ -2312,15 +2315,16 @@ takes both too. Counting in a store needs dependency injection, and a click fail
 </span><span id="__span-3-10">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"The export is done."</span><span class="p">)</span>
 </span></code></pre></div>
 <p><a href="../../api/prefab/#risa.prefab.max_concurrency"><code>max_concurrency(1, "global")</code></a> returns two hooks: one takes a slot
-before the handler and raises <code>MaxConcurrencyReachedError</code> when none is free, the other gives it back in <code>POST_INVOKE</code>. Unpack
-both into the list, as <code>export</code> does. A <code>POST_INVOKE</code> hook of your own that should still count as running goes before
-them in the list.</p>
-<p><code>Export</code> has no durable fields on purpose. Within one process, risa runs the clicks on one message with durable state
-one after another, so a second click there waits for the first instead of being turned away, and it still has to
-answer within Discord's three seconds. Keep slow work on a view without durable state, or the limit only matters
-across messages.</p>
-<p>A slot that is never given back, for example because the bot stopped in the middle of a click, frees itself after 15
-minutes. A handler that runs longer than that loses its slot too, and another click may start beside it.</p>
+before the handler and raises <code>MaxConcurrencyReachedError</code> when none is free, the other gives it back in <code>POST_INVOKE</code>.</p>
+<ul>
+<li><strong>Unpack both into the list</strong>, as <code>export</code> does. A <code>POST_INVOKE</code> hook of your own that should still count as running
+  goes before them in the list.</li>
+<li><strong>Keep slow work on a view without durable state</strong>, as <code>Export</code> is. Within one process, risa runs the clicks on one
+  message with durable state one after another, so a second click there waits for the first instead of being turned
+  away, and it still has to answer within Discord's three seconds. There the limit only matters across messages.</li>
+<li><strong>A slot frees itself after 15 minutes</strong> if it is never given back, for example because the bot stopped in the middle
+  of a click. A handler that runs longer than that loses its slot too, and another click may start beside it.</li>
+</ul>
 <details class="example">
 <summary>Full file</summary>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><span class="sd">"""Ready-made hooks: a daily reward with a cooldown and an owner's restock, a slow export, and one answer for all."""</span>

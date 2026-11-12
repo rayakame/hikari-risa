@@ -2280,15 +2280,12 @@ you attach in two places runs twice.</p>
   once anything in the click has failed, the handler included.</li>
 <li><strong>If <code>INVOKE</code> has not run yet, it does not run</strong>: not <code>load()</code>, not the handler, not a fallback.</li>
 <li><strong><code>POST_INVOKE</code> runs</strong>, so a hook after the handler can release what one before it took.</li>
-<li><strong>The view is gone from <code>ctx</code>.</strong> From the first failure on, as in an error handler, <code>ctx.rerender()</code> on a view with
-  durable fields and <code>ctx.edit()</code> with something to click raise <code>NoViewError</code>, so a half-changed view is never saved. A
-  hook that takes the view still gets it to read.</li>
+<li><strong>The view is gone from <code>ctx</code></strong>, as in an error handler. On a view with durable fields, <code>ctx.rerender()</code> and
+  <code>ctx.edit()</code> with something to click raise <code>NoViewError</code>, so a half-changed view is never saved. A hook that takes the
+  view still gets it to read.</li>
 <li><strong>The error handlers run once</strong>, when the click is over. <a href="../../api/hooks/#risa.hooks.ExecutionPipeline.failures"><code>pipeline.failures</code></a>
-  lists every <a href="../../api/hooks/#risa.hooks.Failure"><code>Failure</code></a> in the order it happened, each with its exception, its
-  stage and the hook that raised it.</li>
+  lists every <a href="../../api/hooks/#risa.hooks.Failure"><code>Failure</code></a> in order, each with its exception, its stage and its hook.</li>
 </ul>
-<p>If no error handler returns <code>True</code>, risa's log names the hook by its function name, or by the <code>name=</code> you give
-<code>@risa.hook</code>, which is also <code>failure.hook.name</code>.</p>
 <h2 id="after-the-handler">After the handler<a class="headerlink" href="#after-the-handler" title="Permanent link">&para;</a></h2>
 <p>The client runs <code>audit</code> after every click on every view:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">hook</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">ExecutionSteps</span><span class="o">.</span><span class="n">POST_INVOKE</span><span class="p">)</span>
@@ -2324,15 +2321,8 @@ you attach in two places runs twice.</p>
 </table>
 <p>risa saves what the handler changed before <code>POST_INVOKE</code> begins, so a failing <code>audit</code> cannot cost a vote, and
 auto-defer still acknowledges the click.</p>
-<div class="admonition warning">
-<p class="admonition-title">A hook can change the view's state.</p>
-<ul>
-<li><strong>After the handler</strong>, the hook has to call <code>ctx.rerender()</code> to save it, which works only while nothing in the
-  click has failed. A change it leaves unsaved is lost, and if nothing in the click failed, risa logs a warning.</li>
-<li><strong>Before the handler</strong>, the handler's save takes the change along. Keep that rare: the change is lost if a later
-  hook or the handler fails.</li>
-</ul>
-</div>
+<p>A hook can change the view's state, which is rarely a good idea.
+<a href="../../api/hooks/#risa.hooks.ExecutionHook"><code>ExecutionHook</code></a> says when such a change is saved.</p>
 <h2 id="with-or-without-the-view">With or without the view<a class="headerlink" href="#with-or-without-the-view" title="Permanent link">&para;</a></h2>
 <p>A hook whose third parameter is annotated with a view class gets the view, and runs only on clicks that have one. A
 hook without that parameter also runs on clicks that go to the view's fallbacks:
@@ -2375,18 +2365,12 @@ hook without that parameter also runs on clicks that go to the view's fallbacks:
 <p>A click cannot reach its state when the store is down, the lock timed out, a codec's extra is missing or the client
 lacks the view's store. It goes straight to the error handlers with a <code>STATE</code> failure.</p>
 </details>
-<p>For a hook that takes the view:</p>
-<ul>
-<li><strong>Annotate it with the class alone.</strong> For <code>Poll | None</code>, <code>client.add_view</code> raises <code>HookDeclarationError</code>.</li>
-<li><strong>Attach it where its view is.</strong> A hook for one view class belongs on that view or its handlers, or annotate its view
-  parameter with a base class of every view it runs for. Your type checker refuses a <code>Poll</code> hook on the client, and
-  <code>client.add_view</code> raises <code>HookDeclarationError</code> for a hook that takes a view of another class. With <code>use_global=True</code>,
-  a view never passes through <code>add_view</code>, so there the hook fails each click with that error.</li>
-</ul>
+<p>Annotate the view parameter with the class alone, and attach the hook where its view is.
+<a href="../../api/hooks/#risa.hooks.hook"><code>@risa.hook</code></a> has both rules.</p>
 <p>Parameters after these are <a href="../06-dependency-injection/">injected</a>, as a handler's are, and their types have to
-<a href="../06-dependency-injection/#types-have-to-exist-at-runtime">exist at runtime</a>. risa also registers the pipeline for
-injection, so a factory, or a function the hook calls, can take <code>risa.ExecutionPipeline</code>. A handler can take it too, but
-there it is always empty: the handler runs only when nothing has failed.</p>
+<a href="../06-dependency-injection/#types-have-to-exist-at-runtime">exist at runtime</a>. That includes the pipeline: a factory, or
+a function the hook calls, can take <code>risa.ExecutionPipeline</code>. A handler can too, but there it is always empty, since the
+handler runs only when nothing has failed.</p>
 <h2 id="steps-of-your-own">Steps of your own<a class="headerlink" href="#steps-of-your-own" title="Permanent link">&para;</a></h2>
 <p>Within one step, the client's hooks run before the view's. To audit after every other hook, give the audit a step of its
 own after <code>POST_INVOKE</code>:</p>
