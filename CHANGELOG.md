@@ -4,6 +4,18 @@ What changed in each release of hikari-risa.
 
 <!-- towncrier release notes start -->
 
+## 1.2.0 (2026-11-12)
+
+### Breaking changes
+
+- Error handlers take the click's `ExecutionPipeline` and its `ComponentContext`, as `async def on_error(pipeline, ctx) -> bool`, and `ClickFailure` is gone. `pipeline.failures` lists every failure of the click in order, `pipeline.find(SomeError)` returns the first of a type, and `FailureStage` moved to `risa.hooks` and gained `HOOK`. A click no error handler takes is logged as one entry with an `ExceptionGroup`. ([#83](https://github.com/rayakame/hikari-risa/pull/83))
+
+### Features
+
+- Hooks: functions made with `@risa.hook(step)` that run in steps around a click's handler, such as a check before it or an audit after it. Attach them with `hooks=` to the client, `@risa.register` or `@risa.handler`, and set the steps with `execution_step_order=`. ([#83](https://github.com/rayakame/hikari-risa/pull/83))
+- Ready-made hooks in `risa.prefab`: the checks `owner_only`, `invoker_only`, `has_permissions`, `bot_has_permissions`, `has_roles` and `expires_after`, the cooldowns `fixed_window` and `sliding_window`, and `max_concurrency`. Each turns a click away with an exception derived from `ClickRejectedError`. Cooldowns and `max_concurrency` count in memory, or in one of the client's stores with `store=` and `key=`. ([#85](https://github.com/rayakame/hikari-risa/pull/85))
+
+
 ## 1.1.0 (2026-11-09)
 
 ### Features
