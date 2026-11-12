@@ -160,7 +160,9 @@ jobs:
 
       - run: uv run --group nox nox -s pytest
 
+      # A failed run uploads both reports too: it is the one whose tests Codecov should name.
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        if: ${{ !cancelled() }}
         with:
           files: coverage.xml
           disable_search: true
@@ -169,7 +171,6 @@ jobs:
           use_oidc: ${{ !github.event.pull_request.head.repo.fork }}
 
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        # A failed run is the one whose tests Codecov should name.
         if: ${{ !cancelled() }}
         with:
           report_type: test_results

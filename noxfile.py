@@ -86,8 +86,11 @@ def pytest(session: nox.Session) -> None:
     sync(session, groups=["pytest"], self=True)
 
     junit = ["--junitxml=junit.xml", "-o", "junit_family=legacy"]
-    session.run("coverage", "run", "-m", "pytest", *junit, *session.posargs)
-    session.run("coverage", "xml", "--quiet")
+    try:
+        session.run("coverage", "run", "-m", "pytest", *junit, *session.posargs)
+    finally:
+        # Codecov comments on a failed run only once it has that run's coverage too.
+        session.run("coverage", "xml", "--quiet")
 
 
 def declared_floors() -> dict[str, str]:
