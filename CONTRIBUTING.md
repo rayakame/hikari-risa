@@ -22,10 +22,10 @@ where lightbulb pins it, which is why CI also runs `compat`: it installs without
 versions of the direct dependencies and once at the highest.
 
 The `pytest` session measures the coverage of `risa/`, branches included, and CI sends each Python version's report to
-Codecov. `codecov.yml` holds it to two statuses: `codecov/project` fails when a pull request lowers the total by more
-than half a point, and `codecov/patch` when less than 90% of its changed lines are covered. Codecov's comment on the pull
-request names the lines that are not. The session also writes `junit.xml`, which CI sends to Codecov's test analytics,
-so the comment names a failed test and a flaky one shows there by name.
+Codecov. `codecov.yml` holds it to one status: `codecov/patch` fails when less than 90% of a pull request's changed
+lines are covered. Codecov's comment on the pull request names the lines that are not. The session also writes
+`junit.xml`, which CI sends to Codecov's test analytics, so the comment names a failed test and a flaky one shows there
+by name.
 
 The `audit` session runs `uv audit`, which needs **uv >= 0.9** (the subcommand is still behind
 `--preview-features audit-command`). Because `nox[uv]` puts uv in the lockfile, the project's
