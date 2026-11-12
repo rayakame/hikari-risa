@@ -70,7 +70,7 @@ Three things differ:
   `content`, so the text goes in `ui.TextDisplay`.
 - **There is no `__init__`.** A view is a `msgspec.Struct`, made with `Counter(count=3)`, and its annotated fields are
   saved from click to click. For what should not be saved, such as a database row, mark the field
-  `risa.Prop[T]` and fill it in `load()`, which runs before every handler, as
+  `risa.Prop[T]` and fill it in `load()`, which runs before the handler, as
   [Fresh data](../by-example/07-fresh-data.md) shows.
 
 ## Sending

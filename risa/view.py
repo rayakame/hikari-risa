@@ -97,7 +97,7 @@ class HandlerMethod[V: View, **P]:
     handler that delegates to another.
     """
 
-    __slots__ = ("_defer", "_func", "_handler_id", "_hooks", "_owner", "_signature", "_token", "_version")
+    __slots__ = ("_defer", "_func", "_handler_id", "_hooks", "_load", "_owner", "_signature", "_token", "_version")
 
     def __init__(
         self,
@@ -107,6 +107,7 @@ class HandlerMethod[V: View, **P]:
         version: int,
         defer: AutoDefer | None = None,
         hooks: collections.abc.Sequence[hooks_.AnyHook] = (),
+        load: bool = True,
     ) -> None:
         self._func = func
         self._handler_id = handler_id
@@ -114,6 +115,7 @@ class HandlerMethod[V: View, **P]:
         self._token = codec.make_handler_token(handler_id, version)
         self._defer = defer
         self._hooks = tuple(hooks)
+        self._load = load
         self._signature: codec.HandlerSignature | None = None
         self._owner: type[View] | None = None
 
@@ -159,6 +161,11 @@ class HandlerMethod[V: View, **P]:
         """The hooks attached to the handler."""
         return self._hooks
 
+    @property
+    def load(self) -> bool:
+        """Whether the view's `load` runs before the handler."""
+        return self._load
+
     @typing.overload
     def __get__(self, instance: None, owner: type[V]) -> HandlerMethod[V, P]: ...
 
@@ -199,6 +206,7 @@ def handler(
     version: int = ...,
     defer: AutoDefer | None = ...,
     hooks: collections.abc.Sequence[hooks_.AnyHook] = ...,
+    load: bool = ...,
 ) -> _HandlerDecorator: ...
 
 
@@ -210,6 +218,7 @@ def handler(
     version: int = 1,
     defer: AutoDefer | None = None,
     hooks: collections.abc.Sequence[hooks_.AnyHook] = (),
+    load: bool = True,
 ) -> object:
     """Make a view method a handler that components can route to.
 
@@ -248,6 +257,10 @@ def handler(
     hooks
         Hooks that run only for clicks on this handler, after the client's and the view's in
         each step.
+    load
+        Whether the view's `load` runs before the handler. With `False` the handler gets the
+        props at their defaults, and so does a rerender in that click, which suits a handler
+        that needs none of them or fills them itself.
     """  # ruff:ignore[docstring-missing-returns]
 
     def decorate(f: collections.abc.Callable[..., collections.abc.Awaitable[None]]) -> HandlerMethod[View, ...]:
@@ -257,6 +270,7 @@ def handler(
             version=version,
             defer=defer,
             hooks=hooks,
+            load=load,
         )
 
     return decorate(func) if func is not None else decorate
@@ -312,8 +326,8 @@ class View(msgspec.Struct):
             """Fill the view's props before it renders.
 
             risa awaits it before the first send, and on every click right before the handler,
-            once the hooks before it have run without a failure. Its parameters are injected, as
-            a handler's are.
+            once the hooks before it have run without a failure, unless the handler was made with
+            `load=False`. Its parameters are injected, as a handler's are.
             An override of another view's `load` that adds parameters needs `= risa.INJECTED` on
             them for a type checker, as any override that adds parameters would.
             """
@@ -466,6 +480,7 @@ def register[T: View](
                 defer=resolved_defer,
                 signature=member.signature,
                 hooks=member.hooks,
+                load=member.load,
             )
 
         meta = registry.ViewMeta(

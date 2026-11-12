@@ -486,7 +486,7 @@ async def _invoke(
     session: backend.StateSession,
     view: view_.View,
 ) -> None:
-    loader = click.meta.loader
+    loader = click.meta.loader if record.load else None
     if loader is not None and not await _guard(click, hooks_.FailureStage.LOAD, functools.partial(loader, view)):
         return
     handle = functools.partial(record.callback, view, click.ctx, *click.decoded)
