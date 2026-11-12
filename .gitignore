@@ -15,6 +15,7 @@ wheels/
 .pytest_cache/
 .coverage
 coverage.xml
+junit.xml
 
 # IDEs
 .idea/

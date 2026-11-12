@@ -168,6 +168,16 @@ jobs:
           # A fork's pull request gets no OIDC token and uploads the way Codecov takes from public repositories.
           use_oidc: ${{ !github.event.pull_request.head.repo.fork }}
 
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        # A failed run is the one whose tests Codecov should name.
+        if: ${{ !cancelled() }}
+        with:
+          report_type: test_results
+          files: junit.xml
+          disable_search: true
+          flags: python-${{ matrix.python-version }}
+          use_oidc: ${{ !github.event.pull_request.head.repo.fork }}
+
   compat:
     name: compat (${{ matrix.resolution }})
     runs-on: ubuntu-latest

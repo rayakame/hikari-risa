@@ -85,7 +85,8 @@ def pyright(session: nox.Session) -> None:
 def pytest(session: nox.Session) -> None:
     sync(session, groups=["pytest"], self=True)
 
-    session.run("coverage", "run", "-m", "pytest", *session.posargs)
+    junit = ["--junitxml=junit.xml", "-o", "junit_family=legacy"]
+    session.run("coverage", "run", "-m", "pytest", *junit, *session.posargs)
     session.run("coverage", "xml", "--quiet")
 
 
