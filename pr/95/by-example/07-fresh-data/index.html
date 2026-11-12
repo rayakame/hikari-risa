@@ -851,6 +851,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#a-handler-that-needs-no-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A handler that needs no <code>load()</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1959,6 +1970,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#a-handler-that-needs-no-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A handler that needs no <code>load()</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2119,7 +2141,8 @@ default again.</p>
 </ol>
 
 <p><code>client.build</code> runs it too, before <code>render()</code>, so the first message has its rows. On a click, <code>refresh</code> only rerenders,
-and the rows are new because <code>load()</code> has just read them.</p>
+and the rows are new because <code>load()</code> has just read them. A handler can
+<a href="#a-handler-that-needs-no-load">leave <code>load()</code> out</a>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
 </span><span id="__span-2-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">refresh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-2-3">    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
@@ -2132,10 +2155,11 @@ auto-defer's 2 seconds.</p>
 <p>A handler that sets <code>self.game</code> and calls <code>ctx.rerender()</code> draws the new heading over the old rows, because <code>load()</code>
 read them while <code>game</code> still held the old value.</p>
 </div>
-<p>Read them again in the handler. <code>switch</code> takes the game as a wire argument, as in
+<p>Read them in the handler. <code>load()</code> would still read the old game's rows first, for nothing, so <code>switch</code> is made with
+<a href="#a-handler-that-needs-no-load"><code>load=False</code></a>. It takes the game as a wire argument, as in
 <a href="../03-handlers-and-arguments/#an-argument-per-button">Handlers and arguments</a>, and after it <code>scores</code>, which risa injects
 as it does for <code>load()</code>. A handler's injected parameter needs no default.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span><span class="p">(</span><span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </span><span id="__span-3-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">switch</span><span class="p">(</span>
 </span><span id="__span-3-3">    <span class="bp">self</span><span class="p">,</span>
 </span><span id="__span-3-4">    <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">,</span>
@@ -2148,6 +2172,13 @@ as it does for <code>load()</code>. A handler's injected parameter needs no defa
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">After a click on Go</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-box"><div class="dc-text"><p class="dc-h2">Top players in go</p></div><div class="dc-text"><p>1. Noor<br>2. Mika<br>3. Ren</p></div><div class="dc-row"><span class="dc-btn dc-primary">Chess</span><span class="dc-btn dc-primary dc-disabled">Go</span><span class="dc-btn dc-primary">Refresh</span></div></div></div></div></div>
 
+<h2 id="a-handler-that-needs-no-load">A handler that needs no <code>load()</code><a class="headerlink" href="#a-handler-that-needs-no-load" title="Permanent link">&para;</a></h2>
+<p><a href="../../api/view/#risa.view.handler"><code>@risa.handler(load=False)</code></a> keeps <code>load()</code> from running for clicks on that handler.
+It suits a handler that fills the props itself, as <code>switch</code> does, and one that uses no prop at all, such as one that
+deletes the message.</p>
+<p>The handler then gets the props at their defaults, and so does every rerender of that click: a <code>ctx.rerender()</code> in the
+handler, and the one risa does itself when the handler changed a field without rerendering. Fill every prop <code>render()</code>
+draws, or change no field and leave the rerender out. <code>client.build</code> still runs <code>load()</code>.</p>
 <details class="example">
 <summary>Full file</summary>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><span class="sd">"""A field for what to show, and a prop for what the database says right now."""</span>
@@ -2203,7 +2234,7 @@ as it does for <code>load()</code>. A handler's injected parameter needs no defa
 </span><span id="__span-4-51">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">refresh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-4-52">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
 </span><span id="__span-4-53">
-</span><span id="__span-4-54">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
+</span><span id="__span-4-54">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span><span class="p">(</span><span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </span><span id="__span-4-55">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">switch</span><span class="p">(</span>
 </span><span id="__span-4-56">        <span class="bp">self</span><span class="p">,</span>
 </span><span id="__span-4-57">        <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">,</span>

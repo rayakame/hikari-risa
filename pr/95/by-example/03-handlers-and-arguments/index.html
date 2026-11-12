@@ -2347,6 +2347,14 @@ in <code>@risa.handler(handler_id="pick", version=2)</code>.</p>
 <td><code>defer</code></td>
 <td>The handler's <a href="../05-answering-in-time/#where-to-set-it"><code>AutoDefer</code></a>, overriding the view's</td>
 </tr>
+<tr>
+<td><code>hooks</code></td>
+<td><a href="../13-hooks/#where-a-hook-goes">Hooks</a> that run for clicks on the handler</td>
+</tr>
+<tr>
+<td><code>load</code></td>
+<td><code>False</code> <a href="../07-fresh-data/#a-handler-that-needs-no-load">skips the view's <code>load()</code></a> for clicks on the handler</td>
+</tr>
 </tbody>
 </table>
 <p><a href="../10-changing-a-view-safely/#changing-a-handler">Changing a handler</a> shows what each change does to buttons already sent,
