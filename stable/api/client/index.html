@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.1.0/api/client/">
+        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.2.0/api/client/">
       
       
       
@@ -24,7 +24,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.svg">
-      <meta name="generator" content="zensical-0.1.0">
+      <meta name="generator" content="zensical-0.1.1">
     
     
       
@@ -35,7 +35,7 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.4ab2de0c.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
@@ -76,17 +76,17 @@
   <meta property="og:site_name" content="hikari-risa">
   <meta property="og:title" content="risa.client - hikari-risa">
   <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.1.0/api/client/">
-  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.1.0/assets/images/social-preview.png">
+  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.2.0/api/client/">
+  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.2.0/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="risa.client - hikari-risa">
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.1.0/assets/images/social-preview.png">
+  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.2.0/assets/images/social-preview.png">
 
-  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# API reference\n## risa.client\nThe client that routes clicks to views, and the functions that make one."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.1.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/1.1.0/api/client/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.1.0 · This preview is a risa view"}]}}</script>
+  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# API reference\n## risa.client\nThe client that routes clicks to views, and the functions that make one."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.2.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/1.2.0/api/client/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.2.0 · This preview is a risa view"}]}}</script>
 </head>
   
   
@@ -519,6 +519,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -896,6 +900,60 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/13-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  13 Hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/14-ready-made-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  14 Ready-made hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -917,6 +975,10 @@
       
         
           
+        
+      
+        
+      
         
       
         
@@ -1596,10 +1658,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#risa.client.Client.key_prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        key_prefix
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#risa.client.Client.rest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         rest
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.stores" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        stores
       </span>
     </span>
   </a>
@@ -1907,6 +1991,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prefab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.prefab
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../view/" class="md-nav__link">
         
   
@@ -2010,10 +2148,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#risa.client.Client.key_prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        key_prefix
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#risa.client.Client.rest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         rest
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.stores" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        stores
       </span>
     </span>
   </a>
@@ -2265,6 +2425,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2347,7 +2511,16 @@
 </span><span id="__span-0-9">    <span class="n">store</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            Store (risa.store.protocol.Store)" href="../store/protocol/#risa.store.protocol.Store">Store</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-10">    <span class="n">stores</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="            Store (risa.store.protocol.Store)" href="../store/protocol/#risa.store.protocol.Store">Store</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-11">    <span class="n">key_prefix</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-12"><span class="p">)</span>
+</span><span id="__span-0-12">    <span class="n">hooks</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            ExecutionHook (risa.hooks.ExecutionHook)" href="../hooks/#risa.hooks.ExecutionHook">ExecutionHook</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a></span><span class="p">]]</span> <span class="o">=</span> <span class="p">(),</span>
+</span><span id="__span-0-13">    <span class="n">execution_step_order</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span>
+</span><span id="__span-0-14">        <span class="n"><a class="autorefs autorefs-internal" title="            ExecutionStep (risa.hooks.ExecutionStep)" href="../hooks/#risa.hooks.ExecutionStep">ExecutionStep</a></span>
+</span><span id="__span-0-15">    <span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-internal" title="            DEFAULT_EXECUTION_STEP_ORDER
+
+
+  
+      module-attribute
+   (risa.hooks.DEFAULT_EXECUTION_STEP_ORDER)" href="../hooks/#risa.hooks.DEFAULT_EXECUTION_STEP_ORDER">DEFAULT_EXECUTION_STEP_ORDER</a></span><span class="p">,</span>
+</span><span id="__span-0-16"><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2454,6 +2627,33 @@ for injection.</p>
 fit a Redis ACL pattern, or to separate bots that share one store.</p>
           </div>
         </li>
+        <li class="doc-section-item field-body">
+            <b><code>hooks</code></b>
+              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-internal" title="            ExecutionHook (risa.hooks.ExecutionHook)" href="../hooks/#risa.hooks.ExecutionHook">ExecutionHook</a>[<a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a>]]</code>, default:
+                  <code>()</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Hooks that run for clicks on every view, before the view's and the handler's in
+each step. They take no view, or <code>View</code> itself.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>execution_step_order</code></b>
+              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-internal" title="            ExecutionStep (risa.hooks.ExecutionStep)" href="../hooks/#risa.hooks.ExecutionStep">ExecutionStep</a>]</code>, default:
+                  <code><a class="autorefs autorefs-internal" title="            DEFAULT_EXECUTION_STEP_ORDER
+
+
+  
+      module-attribute
+   (risa.hooks.DEFAULT_EXECUTION_STEP_ORDER)" href="../hooks/#risa.hooks.DEFAULT_EXECUTION_STEP_ORDER">DEFAULT_EXECUTION_STEP_ORDER</a></code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The steps of a click in the order they run, <code>DEFAULT_EXECUTION_STEP_ORDER</code> by
+default. It holds <code>ExecutionSteps.INVOKE</code> once, and every other step at most once.</p>
+          </div>
+        </li>
     </ul>
 
 
@@ -2463,8 +2663,8 @@ fit a Redis ACL pattern, or to separate bots that share one store.</p>
               <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
             –
           <div class="doc-md-description">
-            <p>If <code>key_prefix</code> is blank, or the default store is given both as <code>store</code> and in
-<code>stores</code>.</p>
+            <p>If <code>key_prefix</code> is blank, the default store is given both as <code>store</code> and in
+<code>stores</code>, or <code>execution_step_order</code> lacks <code>INVOKE</code> or holds a step twice.</p>
           </div>
         </li>
     </ul>
@@ -2540,6 +2740,30 @@ fit a Redis ACL pattern, or to separate bots that share one store.</p>
 
 
 
+<h3 id="risa.client.Client.key_prefix" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">key_prefix</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.client.Client.key_prefix" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">key_prefix</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>What the client's store keys start with, or <code>None</code> for <code>risa:{application id}</code>.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
 <h3 id="risa.client.Client.rest" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">rest</span>
 
@@ -2555,6 +2779,30 @@ fit a Redis ACL pattern, or to separate bots that share one store.</p>
     <div class="doc doc-contents ">
 
         <p>The REST client risa answers interactions through.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.client.Client.stores" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">stores</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.client.Client.stores" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">stores</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-internal" title="            Store (risa.store.protocol.Store)" href="../store/protocol/#risa.store.protocol.Store">Store</a></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The client's stores by name; the one passed as <code>store=</code> is <code>"default"</code>.</p>
 
     </div>
 
@@ -2618,6 +2866,14 @@ fit a Redis ACL pattern, or to separate bots that share one store.</p>
             –
           <div class="doc-md-description">
             <p>If the view keeps its state in a store this client does not have.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            HookDeclarationError (risa.errors.HookDeclarationError)" href="../errors/#risa.errors.HookDeclarationError">HookDeclarationError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If a hook of the client, the view or a handler takes a view of another class, or
+its annotations cannot be resolved.</p>
           </div>
         </li>
     </ul>
@@ -2726,27 +2982,30 @@ that send fails, the record stays behind until its TTL reaps it, or for good und
 
         <p>Register a function that answers clicks that failed.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="risa.client.Client.error_handler--__span-0-1"><span class="nd">@client</span><span class="o">.</span><span class="n">error_handler</span>
-</span><span id="risa.client.Client.error_handler--__span-0-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_error</span><span class="p">(</span><span class="n">failure</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ClickFailure</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span id="risa.client.Client.error_handler--__span-0-3">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">failure</span><span class="o">.</span><span class="n">error</span><span class="p">,</span> <span class="n">risa</span><span class="o">.</span><span class="n">StoreUnavailableError</span><span class="p">):</span>
-</span><span id="risa.client.Client.error_handler--__span-0-4">        <span class="k">await</span> <span class="n">failure</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Try again in a moment."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="risa.client.Client.error_handler--__span-0-5">        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="risa.client.Client.error_handler--__span-0-6">    <span class="k">return</span> <span class="kc">False</span>
+</span><span id="risa.client.Client.error_handler--__span-0-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_error</span><span class="p">(</span>
+</span><span id="risa.client.Client.error_handler--__span-0-3">    <span class="n">pipeline</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ExecutionPipeline</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span>
+</span><span id="risa.client.Client.error_handler--__span-0-4"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="risa.client.Client.error_handler--__span-0-5">    <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">StoreUnavailableError</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="risa.client.Client.error_handler--__span-0-6">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Try again in a moment."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="risa.client.Client.error_handler--__span-0-7">        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="risa.client.Client.error_handler--__span-0-8">    <span class="k">return</span> <span class="kc">False</span>
 </span></code></pre></div>
-<p>It runs when a handler, <code>load</code>, <code>View.on_outdated</code> or <code>View.on_state_missing</code> raises,
-or when the view's state cannot be reached before them; <code>ClickFailure.stage</code> says
-which. It returns <code>True</code> once it has dealt with the failure, and risa then logs
-nothing. Otherwise the next one runs, and if none returns <code>True</code>, risa logs the
-failure as it would without them. One that raises is logged and counts as <code>False</code>.
-Its parameters after the first are injected, as a handler's are. It runs without
-auto-defer, and Discord's three seconds count from the click, so a failure that comes
-late, such as a lock timeout, may leave it no time unless auto-defer answered first.</p>
+<p>It runs once a click is over, if anything in it failed: a hook, <code>load</code>, the handler,
+<code>View.on_outdated</code> or <code>View.on_state_missing</code>, or reaching the view's state before
+them. <code>pipeline.failures</code> lists what failed, in order. It returns <code>True</code> once it has
+dealt with the click, and risa then logs nothing. Otherwise the next one runs, and if
+none returns <code>True</code>, risa logs the failures. One that raises is logged and counts as
+<code>False</code>. Its parameters after <code>ctx</code> are injected, as a handler's are. <code>ctx</code> has no view
+state, so a half-changed view is never saved. It runs without auto-defer, and
+Discord's three seconds count from the click, so a failure that comes late, such as a
+lock timeout, may leave it no time unless auto-defer answered first.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
             <b><code>func</code></b>
-              (<code><a class="autorefs autorefs-internal" title="            ErrorHandler (risa.context.ErrorHandler)" href="../context/#risa.context.ErrorHandler">ErrorHandler</a> | None</code>, default:
+              (<code><a class="autorefs autorefs-internal" title="            ErrorHandler (risa.hooks.ErrorHandler)" href="../hooks/#risa.hooks.ErrorHandler">ErrorHandler</a> | None</code>, default:
                   <code>None</code>
 )
           –
@@ -2772,7 +3031,7 @@ registered.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-internal" title="            ErrorHandler (risa.context.ErrorHandler)" href="../context/#risa.context.ErrorHandler">ErrorHandler</a> | <span title="risa.client._ErrorHandlerDecorator">_ErrorHandlerDecorator</span></code>
+              <code><a class="autorefs autorefs-internal" title="            ErrorHandler (risa.hooks.ErrorHandler)" href="../hooks/#risa.hooks.ErrorHandler">ErrorHandler</a> | <span title="risa.client._ErrorHandlerDecorator">_ErrorHandlerDecorator</span></code>
           –
           <div class="doc-md-description">
             <p>The function, unchanged, or the decorator that registers one.</p>
@@ -3388,7 +3647,7 @@ dependencies are left to lightbulb, which registers them already.</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.annotate","content.code.copy","content.tabs.link","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"stable","provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d31f0ffa.min.js"></script>
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/live-preview.js"></script>
       
