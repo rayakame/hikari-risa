@@ -1,0 +1,2544 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Components V2 views for hikari, with state that survives restarts.">
+      
+      
+      
+        <link rel="canonical" href="https://hikari-risa.rayakame.dev/pr/95/get-started/coming-from-miru/">
+      
+      
+      
+        <link rel="prev" href="../first-view/">
+      
+      
+        <link rel="next" href="../../by-example/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.svg">
+      <meta name="generator" content="zensical-0.1.1">
+    
+    
+      
+        <title>Coming from miru - hikari-risa</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/risa.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/diagrams.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/discord.css">
+    
+    <script>__md_scope=new URL("/",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <link rel="icon" href="../../assets/images/logo-light.svg" media="(prefers-color-scheme: dark)" type="image/svg+xml">
+  
+  
+    <meta name="robots" content="noindex">
+  
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="hikari-risa">
+  <meta property="og:title" content="Coming from miru - hikari-risa">
+  <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
+  <meta property="og:url" content="https://hikari-risa.rayakame.dev/pr/95/get-started/coming-from-miru/">
+  <meta property="og:image" content="https://hikari-risa.rayakame.dev/pr/95/assets/images/social-preview.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Coming from miru - hikari-risa">
+  <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
+  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/pr/95/assets/images/social-preview.png">
+
+  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# Get started\n## Coming from miru\nhikari-risa is not a direct successor to miru, so it does some things differently. Much of it will still look familiar: a view class, methods that answer clicks, a client that routes them. The big change is where a view lives. A miru view is an object in your bot's memory."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/pr/95/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/pr/95/get-started/coming-from-miru/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa pr/95 · This preview is a risa view"}]}}</script>
+</head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="risa-night" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You're reading the docs for a version other than the latest release.
+  <a href="../../../stable/">
+    <strong>Go to the latest release.</strong>
+  </a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../..",location),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="hikari-risa" class="md-header__button md-logo" aria-label="hikari-risa" data-md-component="logo">
+      <img class="risa-logo__night" src="../../assets/images/logo-light.svg" alt="hikari-risa">
+<img class="risa-logo__banner" src="../../assets/images/logo.svg" alt="hikari-risa">
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <a href="../.." class="md-ellipsis risa-wordmark" tabindex="-1" aria-hidden="true">
+            hikari-risa
+          </a>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Coming from miru
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="risa-night" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="risa-banner" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/rayakame/hikari-risa" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+  
+    
+    <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+      <div class="md-sidebar__scrollwrap">
+        <div class="md-sidebar__inner">
+          <a href="../.." class="risa-brand" title="hikari-risa">
+            <img class="risa-brand__night" src="../../assets/images/logo-mascot-light.webp" alt="hikari-risa" width="480" height="480">
+            <img class="risa-brand__banner" src="../../assets/images/logo-mascot.webp" alt="hikari-risa" width="480" height="480">
+          </a>
+          
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hikari-risa" class="md-nav__button md-logo" aria-label="hikari-risa" data-md-component="logo">
+      <img class="risa-logo__night" src="../../assets/images/logo-light.svg" alt="hikari-risa">
+<img class="risa-logo__banner" src="../../assets/images/logo.svg" alt="hikari-risa">
+    </a>
+    hikari-risa
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rayakame/hikari-risa" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Get started
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Get started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Installation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../first-view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Your first view
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Coming from miru
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Coming from miru
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-same-things-under-other-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The same things under other names
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A view
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sending" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sending
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#restarts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Restarts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timeouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timeouts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-risa-does-not-have" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What risa does not have
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#moving-one-view-at-a-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Moving one view at a time
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../by-example/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  By example
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  By example
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/01-views/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  01 Views
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/02-buttons-that-remember/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  02 Buttons that remember
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/03-handlers-and-arguments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  03 Handlers and arguments
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/04-selects-sections-galleries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  04 Selects, sections, galleries
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/05-answering-in-time/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  05 Answering in time
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/06-dependency-injection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  06 Dependency injection
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/07-fresh-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  07 Fresh data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/08-where-state-lives/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  08 Where state lives
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/09-stores-and-ttl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  09 Stores and TTL
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/10-changing-a-view-safely/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  10 Changing a view safely
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/11-several-processes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  11 Several processes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/12-writing-your-own-store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  12 Writing your own store
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/13-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  13 Hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../by-example/14-ready-made-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  14 Ready-made hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  API reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/state/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.state
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  risa.state
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/state/placement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.state.placement
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/state/schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.state.schema
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/store/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  risa.store
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/store/memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.memory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/store/postgres/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.postgres
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/store/protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/store/redis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.redis
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/store/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.store.testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/ui/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.ui
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  risa.ui
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ui/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.ui.build
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ui/nodes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.ui.nodes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/binding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.binding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.client
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/codecs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.codecs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.context
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/di/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.di
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.hooks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/prefab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.prefab
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  risa.view
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+        </div>
+      </div>
+    </div>
+  
+  
+    
+    <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+      <div class="md-sidebar__scrollwrap">
+        
+          
+          
+          
+            
+          
+          
+            <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+            <div class="md-sidebar-button__wrapper">
+              <label class="md-sidebar-button" for="__toc"></label>
+            </div>
+          
+        
+        <div class="md-sidebar__inner">
+          
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-same-things-under-other-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The same things under other names
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A view
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sending" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sending
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#restarts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Restarts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timeouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timeouts
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-risa-does-not-have" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What risa does not have
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#moving-one-view-at-a-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Moving one view at a time
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+        </div>
+      </div>
+    </div>
+  
+
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Get started
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+  
+
+
+<h1 id="coming-from-miru">Coming from miru<a class="headerlink" href="#coming-from-miru" title="Permanent link">&para;</a></h1>
+<p class="risa-lead">hikari-risa is not a direct successor to miru, so it does some things differently. Much of it will still look familiar:
+a view class, methods that answer clicks, a client that routes them. The big change is where a view lives. A miru view
+is an object in your bot's memory. A risa view is rebuilt on every click, from state kept in the message or in a store
+you choose.</p>
+<p>This page compares with miru 4.3.1. The main things miru has and risa does not are under
+<a href="#what-risa-does-not-have">What risa does not have</a>. risa needs Python 3.12 to 3.15, and miru 4.3.1 needs 3.11 or newer.</p>
+<h2 id="the-same-things-under-other-names">The same things under other names<a class="headerlink" href="#the-same-things-under-other-names" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>miru</th>
+<th>risa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>class MyView(miru.View)</code></td>
+<td><code>@risa.register(name="my-view")</code> above <code>class MyView(risa.View)</code></td>
+</tr>
+<tr>
+<td><code>self.x = 0</code> in <code>__init__</code></td>
+<td>An annotated field, <code>x: int = 0</code></td>
+</tr>
+<tr>
+<td>An attribute set on a view stays until the view stops</td>
+<td>A <code>risa.Prop</code> starts from its default on every click, and <code>load()</code> fills it</td>
+</tr>
+<tr>
+<td><code>@miru.button(...)</code> on a callback <code>(self, ctx, button)</code></td>
+<td><code>@risa.handler</code> on a method <code>(self, ctx)</code>, and <code>ui.Button(self.method, ...)</code> in <code>render()</code></td>
+</tr>
+<tr>
+<td><code>@miru.text_select(...)</code> and <code>select.values</code></td>
+<td><code>ui.TextSelect(self.method, ...)</code> and <code>ctx.values</code></td>
+</tr>
+<tr>
+<td><code>select.values</code> on a <code>miru.RoleSelect</code> holds the roles</td>
+<td><code>ctx.values</code> holds their ids, and <code>ctx.resolved</code> the roles</td>
+</tr>
+<tr>
+<td><code>miru.Button</code> subclasses that hold a value</td>
+<td>One handler with an argument, <code>ui.Button(risa.bind(self.method, value))</code></td>
+</tr>
+<tr>
+<td><code>view.add_item(...)</code> and <code>remove_item(...)</code></td>
+<td><code>if</code> and <code>for</code> in <code>render()</code></td>
+</tr>
+<tr>
+<td><code>miru.ViewContext</code></td>
+<td><code>risa.ComponentContext</code></td>
+</tr>
+<tr>
+<td><code>ctx.view</code></td>
+<td><code>self</code></td>
+</tr>
+<tr>
+<td><code>await ctx.edit_response(components=self)</code></td>
+<td><code>await ctx.rerender()</code></td>
+</tr>
+<tr>
+<td><code>ctx.respond("Hi", flags=hikari.MessageFlag.EPHEMERAL)</code></td>
+<td><code>ctx.respond("Hi", ephemeral=True)</code></td>
+</tr>
+<tr>
+<td><code>miru.Client(bot)</code></td>
+<td><code>risa.client_from_app(bot)</code>, or <code>risa.client_from_lightbulb(lightbulb_client)</code> with lightbulb</td>
+</tr>
+<tr>
+<td><code>client.start_view(view)</code> after each send</td>
+<td><code>client.add_view(MyView)</code> once at startup</td>
+</tr>
+<tr>
+<td><code>respond("Hi", components=view)</code></td>
+<td><code>respond(**await client.build(MyView()))</code></td>
+</tr>
+<tr>
+<td><code>timeout=</code>, 120 seconds by default</td>
+<td><code>InStore(ttl=...)</code> or the hook <code>expires_after</code>, and no expiry without them</td>
+</tr>
+<tr>
+<td><code>autodefer=True</code> by default, after 2 seconds</td>
+<td><code>AutoDefer.OFF</code> by default; set it on a handler, view or client</td>
+</tr>
+<tr>
+<td><code>view_check(self, ctx)</code> that returns <code>False</code></td>
+<td>A <a href="../../by-example/13-hooks/">hook</a> in <code>CHECKS</code> that raises, on the view with <code>@risa.register(hooks=[...])</code></td>
+</tr>
+<tr>
+<td>alluka, with <code>@client.inject_dependencies</code></td>
+<td>linkd, with no decorator; <a href="../../by-example/06-dependency-injection/#name-it-as-a-parameter">Dependency injection</a> says which parameters are injected</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a-view">A view<a class="headerlink" href="#a-view" title="Permanent link">&para;</a></h2>
+<p><a href="https://miru.hypergonial.com/guides/editing_items/">miru's guide to editing items</a> has a counter. This is its counter
+button:</p>
+<div class="language-python highlight"><span class="filename">miru</span><pre><span></span><code><span id="__span-0-1"><span class="k">class</span><span class="w"> </span><span class="nc">EditView</span><span class="p">(</span><span class="n">miru</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-0-2">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-3">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="__span-0-4">        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-0-5">
+</span><span id="__span-0-6">    <span class="nd">@miru</span><span class="o">.</span><span class="n">button</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s2">"Counter: 0"</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">ButtonStyle</span><span class="o">.</span><span class="n">PRIMARY</span><span class="p">)</span>
+</span><span id="__span-0-7">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">counter_button</span><span class="p">(</span>
+</span><span id="__span-0-8">        <span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">miru</span><span class="o">.</span><span class="n">ViewContext</span><span class="p">,</span> <span class="n">button</span><span class="p">:</span> <span class="n">miru</span><span class="o">.</span><span class="n">Button</span>
+</span><span id="__span-0-9">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-10">        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span id="__span-0-11">        <span class="n">button</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Counter: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="si">}</span><span class="s2">"</span>
+</span><span id="__span-0-12">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">edit_response</span><span class="p">(</span><span class="n">components</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+</span></code></pre></div>
+<p>And this is a counter in risa:</p>
+<div class="language-python highlight"><span class="filename">risa</span><pre><span></span><code><span id="__span-1-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"counter"</span><span class="p">)</span>
+</span><span id="__span-1-2"><span class="k">class</span><span class="w"> </span><span class="nc">Counter</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-1-3">    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span id="__span-1-4">
+</span><span id="__span-1-5">    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ui</span><span class="o">.</span><span class="n">Layout</span><span class="p">:</span>
+</span><span id="__span-1-6">        <span class="k">return</span> <span class="n">ui</span><span class="o">.</span><span class="n">Container</span><span class="p">(</span>
+</span><span id="__span-1-7">            <span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Clicks: **</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2">**"</span><span class="p">),</span>
+</span><span id="__span-1-8">            <span class="n">ui</span><span class="o">.</span><span class="n">Row</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">click</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"+1"</span><span class="p">)),</span>
+</span><span id="__span-1-9">        <span class="p">)</span>
+</span><span id="__span-1-10">
+</span><span id="__span-1-11">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
+</span><span id="__span-1-12">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">click</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-1-13">        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span id="__span-1-14">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">rerender</span><span class="p">()</span>
+</span></code></pre></div>
+<div class="risa-result"><p class="risa-result__label">In Discord</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-box"><div class="dc-text"><p>Clicks: <strong>0</strong></p></div><div class="dc-row"><span class="dc-btn dc-primary">+1</span></div></div></div></div></div>
+
+<p>Three things differ:</p>
+<ul>
+<li><strong>Items come from <code>render()</code>.</strong> A miru item is an object you change. A risa button is drawn again on every rerender,
+  so you change the fields and the button follows.</li>
+<li><strong>The whole message is the view.</strong> A miru 4.3.1 view builds action rows, and you pass <code>content</code> and embeds beside
+  them. A risa view renders with Components V2: containers, sections, galleries and rows. Such a message has no
+  <code>content</code>, so the text goes in <code>ui.TextDisplay</code>.</li>
+<li><strong>There is no <code>__init__</code>.</strong> A view is a <code>msgspec.Struct</code>, made with <code>Counter(count=3)</code>, and its annotated fields are
+  saved from click to click. For what should not be saved, such as a database row, mark the field
+  <code>risa.Prop[T]</code> and fill it in <code>load()</code>, which runs before every handler, as
+  <a href="../../by-example/07-fresh-data/">Fresh data</a> shows.</li>
+</ul>
+<h2 id="sending">Sending<a class="headerlink" href="#sending" title="Permanent link">&para;</a></h2>
+<p>In miru, each message gets its own view object, which you start after sending:</p>
+<div class="language-python highlight"><span class="filename">miru</span><pre><span></span><code><span id="__span-2-1"><span class="n">view</span> <span class="o">=</span> <span class="n">EditView</span><span class="p">()</span>
+</span><span id="__span-2-2"><span class="k">await</span> <span class="n">event</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"Hello miru!"</span><span class="p">,</span> <span class="n">components</span><span class="o">=</span><span class="n">view</span><span class="p">)</span>
+</span><span id="__span-2-3"><span class="n">client</span><span class="o">.</span><span class="n">start_view</span><span class="p">(</span><span class="n">view</span><span class="p">)</span>
+</span></code></pre></div>
+<p>In risa, you add the class once. <code>client.build</code> renders an instance for each message, and nothing needs starting:</p>
+<div class="language-python highlight"><span class="filename">risa</span><pre><span></span><code><span id="__span-3-1"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">)</span>
+</span><span id="__span-3-2"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Counter</span><span class="p">)</span>
+</span><span id="__span-3-3">
+</span><span id="__span-3-4"><span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
+</span><span id="__span-3-5"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-6">    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!counter"</span><span class="p">:</span>
+</span><span id="__span-3-7">        <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">Counter</span><span class="p">())</span>
+</span><span id="__span-3-8">        <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The result spreads into any call that takes <code>components=</code>, so inside a handler it reads
+<code>await ctx.respond(**await client.build(Counter()))</code>.</p>
+<h2 id="restarts">Restarts<a class="headerlink" href="#restarts" title="Permanent link">&para;</a></h2>
+<p><a href="https://miru.hypergonial.com/guides/persistent_views/">miru's guide to persistent views</a> says that after a restart
+"your views will no longer work, even if the timeout did not expire". The answer there is a persistent view:
+<code>timeout=None</code>, a <code>custom_id</code> on every item, and starting the view again at startup.</p>
+<div class="language-python highlight"><span class="filename">miru</span><pre><span></span><code><span id="__span-4-1"><span class="k">class</span><span class="w"> </span><span class="nc">Persistence</span><span class="p">(</span><span class="n">miru</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-4-2">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-4-3">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span><span id="__span-4-4">
+</span><span id="__span-4-5">    <span class="nd">@miru</span><span class="o">.</span><span class="n">button</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s2">"Button 1"</span><span class="p">,</span> <span class="n">custom_id</span><span class="o">=</span><span class="s2">"my_unique_custom_id_1"</span><span class="p">)</span>
+</span><span id="__span-4-6">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">button_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">miru</span><span class="o">.</span><span class="n">ViewContext</span><span class="p">,</span> <span class="n">button</span><span class="p">:</span> <span class="n">miru</span><span class="o">.</span><span class="n">Button</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-4-7">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"You pressed button 1."</span><span class="p">)</span>
+</span><span id="__span-4-8">
+</span><span id="__span-4-9">
+</span><span id="__span-4-10"><span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
+</span><span id="__span-4-11"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start_views</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">StartedEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-4-12">    <span class="n">client</span><span class="o">.</span><span class="n">start_view</span><span class="p">(</span><span class="n">Persistence</span><span class="p">(),</span> <span class="n">bind_to</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span></code></pre></div>
+<p>An unbound view like this one serves every message of its type and does not know which message it is on. A bound view
+serves one message: you pass its id, which you keep yourself, or it binds to the first message clicked. Either way, you
+bring back whatever the view held.</p>
+<p>In risa, the <code>Counter</code> above already survives a restart. <code>add_view</code> at startup is the whole setup, there is no
+<code>timeout=None</code> and no <code>custom_id</code>, and each message keeps its own count. See
+<a href="../first-view/#restart-it">Restart it</a> for how that works.</p>
+<p>This has costs:</p>
+<ul>
+<li>The view's <code>name</code> is its route, and so is its <code>version</code>, which you raise when you change its fields or move it to a
+  store. Either change retires the buttons already sent. Appending a field with a default needs no new version, and
+  <a href="../../by-example/10-changing-a-view-safely/">Changing a view safely</a> lists the rest.</li>
+<li>State in the message has limited room: about 60 bytes on one button, and about 70 more for each further one, with the
+  default codec. Anyone who can see the message can read it.</li>
+<li>A rerender that changes state in the message changes the id of the button that holds it, and Discord refuses a click
+  on the old id. If two people click at nearly the same moment, the second can fail and click again. A view in a store
+  keeps its ids unless a bound argument changes.</li>
+<li>A view in a <code>MemoryStore</code> does not survive a restart. Use <code>RedisStore</code> or <code>PostgresStore</code> for that.</li>
+</ul>
+<h2 id="timeouts">Timeouts<a class="headerlink" href="#timeouts" title="Permanent link">&para;</a></h2>
+<p>A miru view <a href="https://miru.hypergonial.com/guides/checks_timeout/">times out after 120 seconds of inactivity</a> unless you
+pass another <code>timeout=</code>. Then <code>on_timeout()</code> runs and the view stops.</p>
+<div class="language-python highlight"><span class="filename">miru</span><pre><span></span><code><span id="__span-5-1"><span class="k">class</span><span class="w"> </span><span class="nc">TimeoutView</span><span class="p">(</span><span class="n">miru</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-5-2">    <span class="nd">@miru</span><span class="o">.</span><span class="n">button</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s2">"Click me!"</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">ButtonStyle</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">)</span>
+</span><span id="__span-5-3">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">basic_button</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">miru</span><span class="o">.</span><span class="n">ViewContext</span><span class="p">,</span> <span class="n">button</span><span class="p">:</span> <span class="n">miru</span><span class="o">.</span><span class="n">Button</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-4">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"You clicked me!"</span><span class="p">)</span>
+</span><span id="__span-5-5">
+</span><span id="__span-5-6">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_timeout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-7">        <span class="nb">print</span><span class="p">(</span><span class="s2">"This view timed out!"</span><span class="p">)</span>
+</span><span id="__span-5-8">
+</span><span id="__span-5-9">
+</span><span id="__span-5-10"><span class="n">view</span> <span class="o">=</span> <span class="n">TimeoutView</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+</span></code></pre></div>
+<p>A risa view in the message has no timeout: it works as long as the message exists. For a lifetime, keep the state in a
+store with <a href="../../by-example/09-stores-and-ttl/#ttl"><code>InStore</code></a>. <code>ttl</code> has no default. Like miru's timeout it counts seconds of
+inactivity, and every click restarts it. A view that stays in the message gets a lifetime from the hook
+<a href="../../by-example/14-ready-made-hooks/#checks"><code>expires_after</code></a>, which counts from the message's last edit.</p>
+<div class="language-python highlight"><span class="filename">risa</span><pre><span></span><code><span id="__span-6-1"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"question"</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InStore</span><span class="p">(</span><span class="n">ttl</span><span class="o">=</span><span class="mi">600</span><span class="p">))</span>
+</span><span id="__span-6-2"><span class="k">class</span><span class="w"> </span><span class="nc">Question</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-6-3">    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-6-4">
+</span><span id="__span-6-5">    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ui</span><span class="o">.</span><span class="n">Layout</span><span class="p">:</span>
+</span><span id="__span-6-6">        <span class="k">return</span> <span class="n">ui</span><span class="o">.</span><span class="n">Container</span><span class="p">(</span>
+</span><span id="__span-6-7">            <span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">),</span>
+</span><span id="__span-6-8">            <span class="n">ui</span><span class="o">.</span><span class="n">Row</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">yes</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Yes"</span><span class="p">)),</span>
+</span><span id="__span-6-9">        <span class="p">)</span>
+</span><span id="__span-6-10">
+</span><span id="__span-6-11">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
+</span><span id="__span-6-12">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">yes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-6-13">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">edit</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2"> **Yes.**"</span><span class="p">))</span>
+</span><span id="__span-6-14">
+</span><span id="__span-6-15">    <span class="nd">@classmethod</span>
+</span><span id="__span-6-16">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_state_missing</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-6-17">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"This question has expired."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
+<div class="risa-result"><p class="risa-result__label">In Discord</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-box"><div class="dc-text"><p>Ship it?</p></div><div class="dc-row"><span class="dc-btn dc-primary">Yes</span></div></div></div></div></div>
+
+<div class="risa-result"><p class="risa-result__label">A click after the record expired</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>This question has expired.</p></div><div class="dc-eph"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg><span>Only you can see this</span><span>&middot;</span><a>Dismiss message</a></div></div></div></div>
+
+<p>The client needs a store for this. A <code>MemoryStore</code> needs nothing installed, and it forgets everything when the bot
+restarts:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">MemoryStore</span><span class="p">())</span>
+</span><span id="__span-7-2"><span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Question</span><span class="p">)</span>
+</span></code></pre></div>
+<details class="example">
+<summary>Full file</summary>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><span class="sd">"""A question that expires, for readers who know miru's timeout."""</span>
+</span><span id="__span-8-2">
+</span><span id="__span-8-3"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="__span-8-4">
+</span><span id="__span-8-5"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-8-6">
+</span><span id="__span-8-7"><span class="kn">import</span><span class="w"> </span><span class="nn">hikari</span>
+</span><span id="__span-8-8">
+</span><span id="__span-8-9"><span class="kn">import</span><span class="w"> </span><span class="nn">risa</span>
+</span><span id="__span-8-10"><span class="kn">from</span><span class="w"> </span><span class="nn">risa</span><span class="w"> </span><span class="kn">import</span> <span class="n">ui</span>
+</span><span id="__span-8-11">
+</span><span id="__span-8-12">
+</span><span id="__span-8-13"><span class="nd">@risa</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"question"</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">InStore</span><span class="p">(</span><span class="n">ttl</span><span class="o">=</span><span class="mi">600</span><span class="p">))</span>
+</span><span id="__span-8-14"><span class="k">class</span><span class="w"> </span><span class="nc">Question</span><span class="p">(</span><span class="n">risa</span><span class="o">.</span><span class="n">View</span><span class="p">):</span>
+</span><span id="__span-8-15">    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-8-16">
+</span><span id="__span-8-17">    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ui</span><span class="o">.</span><span class="n">Layout</span><span class="p">:</span>
+</span><span id="__span-8-18">        <span class="k">return</span> <span class="n">ui</span><span class="o">.</span><span class="n">Container</span><span class="p">(</span>
+</span><span id="__span-8-19">            <span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">),</span>
+</span><span id="__span-8-20">            <span class="n">ui</span><span class="o">.</span><span class="n">Row</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">yes</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Yes"</span><span class="p">)),</span>
+</span><span id="__span-8-21">        <span class="p">)</span>
+</span><span id="__span-8-22">
+</span><span id="__span-8-23">    <span class="nd">@risa</span><span class="o">.</span><span class="n">handler</span>
+</span><span id="__span-8-24">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">yes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-8-25">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">edit</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2"> **Yes.**"</span><span class="p">))</span>
+</span><span id="__span-8-26">
+</span><span id="__span-8-27">    <span class="nd">@classmethod</span>
+</span><span id="__span-8-28">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_state_missing</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">risa</span><span class="o">.</span><span class="n">ComponentContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-8-29">        <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span><span class="s2">"This question has expired."</span><span class="p">,</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-8-30">
+</span><span id="__span-8-31">
+</span><span id="__span-8-32"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-8-33">    <span class="n">bot</span> <span class="o">=</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GatewayBot</span><span class="p">(</span>
+</span><span id="__span-8-34">        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DISCORD_TOKEN"</span><span class="p">],</span>
+</span><span id="__span-8-35">        <span class="n">intents</span><span class="o">=</span><span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">ALL_UNPRIVILEGED</span> <span class="o">|</span> <span class="n">hikari</span><span class="o">.</span><span class="n">Intents</span><span class="o">.</span><span class="n">MESSAGE_CONTENT</span><span class="p">,</span>
+</span><span id="__span-8-36">    <span class="p">)</span>
+</span><span id="__span-8-37">
+</span><span id="__span-8-38">    <span class="n">client</span> <span class="o">=</span> <span class="n">risa</span><span class="o">.</span><span class="n">client_from_app</span><span class="p">(</span><span class="n">bot</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="n">risa</span><span class="o">.</span><span class="n">MemoryStore</span><span class="p">())</span>
+</span><span id="__span-8-39">    <span class="n">client</span><span class="o">.</span><span class="n">add_view</span><span class="p">(</span><span class="n">Question</span><span class="p">)</span>
+</span><span id="__span-8-40">
+</span><span id="__span-8-41">    <span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
+</span><span id="__span-8-42">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-8-43">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!question"</span><span class="p">:</span>
+</span><span id="__span-8-44">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">Question</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">"Ship it?"</span><span class="p">))</span>
+</span><span id="__span-8-45">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">)</span>
+</span><span id="__span-8-46">
+</span><span id="__span-8-47">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-8-48">
+</span><span id="__span-8-49">
+</span><span id="__span-8-50"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-8-51">    <span class="n">main</span><span class="p">()</span>
+</span></code></pre></div>
+</details>
+<p><code>on_timeout()</code> runs when the time is up. risa has no timer, so <code>on_state_missing()</code> runs when someone clicks after the
+record has expired. Until then the message stays as it is, and nothing in risa greys out its buttons at that moment.</p>
+<p>To end a view yourself, where miru has <code>self.stop()</code>, replace the message with a layout that has no buttons. <code>yes</code> above
+does that with <a href="../../by-example/05-answering-in-time/#which-message"><code>ctx.edit</code></a>.</p>
+<h2 id="what-risa-does-not-have">What risa does not have<a class="headerlink" href="#what-risa-does-not-have" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Modals.</strong> miru has <a href="https://miru.hypergonial.com/guides/modals/">modals</a>, with <code>miru.Modal</code> and
+  <code>ctx.respond_with_modal</code>. risa's are designed but not built, because they wait for hikari to parse Discord's new modal
+  components.</li>
+<li><strong>Menus and navigators.</strong> miru ships <a href="https://miru.hypergonial.com/guides/menus/"><code>miru.ext.menu</code></a> and
+  <a href="https://miru.hypergonial.com/guides/navigators/"><code>miru.ext.nav</code></a>. In risa you write these yourself, for example as a
+  view with a <code>page: int</code> field.</li>
+<li><strong>An error handler on each view.</strong> miru has <a href="https://miru.hypergonial.com/guides/error_handling/"><code>on_error</code></a> on each
+  view. risa has <a href="../../by-example/05-answering-in-time/#when-something-fails">error handlers</a> for the whole client, and
+  a handler that wants its own answer uses <code>try</code>.</li>
+<li><strong>Waiting on a view.</strong> miru has <code>view.wait()</code> and <code>wait_for_input()</code>. A risa view has no object that lives between
+  clicks, so the code you would run after <code>wait()</code> goes in the handler.</li>
+<li><strong>Sharing injection with arc.</strong> miru has <code>Client.from_arc</code>. risa shares a dependency manager with lightbulb only,
+  through <code>client_from_lightbulb</code>. With arc or crescent, make the client with <code>client_from_app</code>.</li>
+</ul>
+<h2 id="moving-one-view-at-a-time">Moving one view at a time<a class="headerlink" href="#moving-one-view-at-a-time" title="Permanent link">&para;</a></h2>
+<p>A bot can run both, so you need not move everything at once. A risa client answers only the ids risa wrote.</p>
+<p>On a gateway bot, make the miru client with <code>ignore_unknown_interactions=True</code>. Without it, miru logs a warning for
+every click on a risa view.</p>
+<p>On a REST bot, hikari has one slot for a component listener, so make the miru client first. risa takes the slot and
+passes on each click it does not handle, and it logs a warning about that unless you pass <code>warn_shared_listener=False</code>.
+In the other order, miru's own call to set its listener raises.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../first-view/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Your first view">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Your first view
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../by-example/" class="md-footer__link md-footer__link--next" aria-label="Next: By example">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                By example
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <span>MIT licensed</span>
+  
+  
+    <span>Made with <a href="https://zensical.org/" target="_blank" rel="noopener">Zensical</a></span>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.annotate","content.code.copy","content.tabs.link","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"stable","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      
+        <script src="../../javascripts/live-preview.js"></script>
+      
+    
+  </body>
+</html>
