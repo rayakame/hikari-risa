@@ -126,6 +126,9 @@ class _Ledger:
         if store is not None and not linkd.DI_ENABLED:
             reason = "store= needs dependency injection to reach the client, and LINKD_DI_DISABLED turned it off"
             raise errors.HookDeclarationError(hook, reason)
+        if isinstance(bucket, str) and bucket not in _BUCKETS:
+            reason = f"{bucket!r} is no bucket; pass a function or one of {', '.join(map(repr, _BUCKETS))}"
+            raise errors.HookDeclarationError(hook, reason)
         self._hook = hook
         self._bucket = _BUCKETS[bucket] if isinstance(bucket, str) else bucket
         self._store = store
@@ -513,8 +516,8 @@ def fixed_window(
     Raises
     ------
     HookDeclarationError
-        If only one of `store` and `key` is given, or `store` is given while dependency
-        injection is off.
+        If `bucket` is a name that is no bucket, only one of `store` and `key` is given, or
+        `store` is given while dependency injection is off.
     """
     ledger = _Ledger("fixed_window", bucket, store, key)
     cooldown = _FixedWindow(ledger, window_length, allowed_invocations)
@@ -559,8 +562,8 @@ def sliding_window(
     Raises
     ------
     HookDeclarationError
-        If only one of `store` and `key` is given, or `store` is given while dependency
-        injection is off.
+        If `bucket` is a name that is no bucket, only one of `store` and `key` is given, or
+        `store` is given while dependency injection is off.
     """
     ledger = _Ledger("sliding_window", bucket, store, key)
     cooldown = _SlidingWindow(ledger, window_length, allowed_invocations)
@@ -608,8 +611,8 @@ def max_concurrency(
     Raises
     ------
     HookDeclarationError
-        If only one of `store` and `key` is given, or `store` is given while dependency
-        injection is off.
+        If `bucket` is a name that is no bucket, only one of `store` and `key` is given, or
+        `store` is given while dependency injection is off.
     """
     ledger = _Ledger("max_concurrency", bucket, store, key)
     held: dict[hikari.Snowflake, float] = {}

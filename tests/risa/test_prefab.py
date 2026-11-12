@@ -585,6 +585,20 @@ def test_a_store_and_a_key_only_come_together(given: dict[str, str]) -> None:
         risa.prefab.max_concurrency(1, "user", **given)
 
 
+def test_an_unknown_bucket_is_a_declaration_error() -> None:
+    bucket = typing.cast("typing.Literal['user']", "usr")
+
+    with pytest.raises(risa.HookDeclarationError, match="'usr' is no bucket") as caught:
+        risa.prefab.fixed_window(60, 1, bucket)
+    with pytest.raises(risa.HookDeclarationError, match="'usr' is no bucket"):
+        risa.prefab.sliding_window(60, 1, bucket)
+    with pytest.raises(risa.HookDeclarationError, match="'usr' is no bucket"):
+        risa.prefab.max_concurrency(1, bucket)
+
+    assert caught.value.hook_name == "fixed_window"
+    assert "'global', 'user', 'channel', 'guild', 'message'" in caught.value.reason
+
+
 def test_a_store_needs_dependency_injection(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(linkd, "DI_ENABLED", False)
 
