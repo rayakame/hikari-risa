@@ -97,7 +97,7 @@ slotscheck = [
 pytest = [
     {include-group = "images"},
     "asyncpg~=0.32",
-    "coverage==7.17.2",
+    "coverage==7.17.3",
     "fakeredis[lua]==2.40.0",
     "griffe-inherited-docstrings==1.1.4",
     "griffelib==2.4.1",
