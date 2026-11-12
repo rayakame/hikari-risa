@@ -261,6 +261,13 @@ def test_a_pinned_id_keeps_the_token_across_a_rename() -> None:
     assert risa.HandlerMethod(renamed, handler_id="press", version=1).token == Machine.press.token
 
 
+def test_load_is_true_unless_the_handler_is_made_with_load_false() -> None:
+    async def press(self: Machine, _ctx: risa.ComponentContext) -> None: ...
+
+    assert risa.handler(press).load is True
+    assert risa.handler(load=False)(press).load is False
+
+
 def test_bind_packages_identity_with_an_empty_payload() -> None:
     bound = engine(Machine().press).bind()
     expected = risa.Binding(

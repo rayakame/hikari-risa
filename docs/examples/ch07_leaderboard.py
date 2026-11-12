@@ -77,7 +77,7 @@ class Leaderboard(risa.View):
         # --8<-- [end:refresh]
 
     # --8<-- [start:switch]
-    @risa.handler
+    @risa.handler(load=False)
     async def switch(
         self,
         ctx: risa.ComponentContext,

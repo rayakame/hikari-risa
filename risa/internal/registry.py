@@ -86,6 +86,8 @@ class HandlerRecord(msgspec.Struct, frozen=True):
         Its wire parameters.
     hooks
         The hooks `@risa.handler` attached to it.
+    load
+        Whether the view's `load` runs before it.
     """
 
     callback: DispatchCallback
@@ -94,6 +96,7 @@ class HandlerRecord(msgspec.Struct, frozen=True):
     defer: AutoDefer | None
     signature: codec.HandlerSignature
     hooks: collections.abc.Sequence[hooks_.AnyHook] = ()
+    load: bool = True
 
 
 class ViewMeta(msgspec.Struct, frozen=True):

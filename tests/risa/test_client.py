@@ -2156,6 +2156,33 @@ class Unloadable(risa.View):
         STATE_CALLS.append("press")
 
 
+@risa.register(name="client-selective")
+class Selective(risa.View):
+    count: int = 0
+    rows: risa.Prop[list[str]] = msgspec.field(default_factory=list[str])
+
+    def render(self) -> ui.Layout:
+        bump = ui.Button(self.bump, label=f"{self.count} {self.rows}")
+        return ui.Row(ui.Button(self.show), ui.Button(self.close), bump)
+
+    @typing.override
+    async def load(self) -> None:
+        STATE_CALLS.append("load")
+        self.rows = ["first"]
+
+    @risa.handler
+    async def show(self, _ctx: risa.ComponentContext) -> None:
+        STATE_CALLS.append(f"show {self.rows}")
+
+    @risa.handler(load=False)
+    async def close(self, _ctx: risa.ComponentContext) -> None:
+        STATE_CALLS.append(f"close {self.rows}")
+
+    @risa.handler(load=False)
+    async def bump(self, _ctx: risa.ComponentContext) -> None:
+        self.count += 1
+
+
 @risa.register(name="client-notebook", state=risa.InStore(ttl=60.0))
 class Notebook(risa.View):
     entries: list[str] = msgspec.field(default_factory=list[str])
@@ -2401,6 +2428,43 @@ async def test_a_failing_load_keeps_the_handler_from_running(caplog: pytest.LogC
 
     assert not STATE_CALLS
     assert "on view client-unloadable failed in load()" in caplog.text
+
+
+async def test_load_runs_only_for_a_handler_made_without_load_false() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Selective)
+    ids = ids_of((await built.build(Selective())).components)
+    STATE_CALLS.clear()
+
+    await built._process_interaction(click(ids, 1))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    await built._process_interaction(click(ids, 0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert STATE_CALLS == ["close []", "load", "show ['first']"]
+
+
+async def test_the_rerender_after_a_handler_made_with_load_false_draws_the_props_at_their_defaults() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Selective)
+    ids = ids_of((await built.build(Selective())).components)
+    STATE_CALLS.clear()
+
+    await built._process_interaction(click(ids, 2))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    (row,) = updated_with(built)
+    assert row.build()[0]["components"][2]["label"] == "1 []"
+    assert not STATE_CALLS
+
+
+async def test_build_runs_load_for_a_view_with_a_handler_that_skips_it() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Selective)
+    STATE_CALLS.clear()
+
+    rendered = await built.build(Selective())
+
+    (row,) = rendered.components
+    assert row.build()[0]["components"][2]["label"] == "0 ['first']"
+    assert STATE_CALLS == ["load"]
 
 
 async def test_build_of_a_stored_view_writes_its_record_first() -> None:

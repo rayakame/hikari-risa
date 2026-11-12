@@ -46,7 +46,8 @@ default again.
 </ol>
 
 `client.build` runs it too, before `render()`, so the first message has its rows. On a click, `refresh` only rerenders,
-and the rows are new because `load()` has just read them.
+and the rows are new because `load()` has just read them. A handler can
+[leave `load()` out](#a-handler-that-needs-no-load).
 
 ```python
 --8<-- "ch07_leaderboard.py:refresh"
@@ -61,7 +62,8 @@ auto-defer's 2 seconds.
     A handler that sets `self.game` and calls `ctx.rerender()` draws the new heading over the old rows, because `load()`
     read them while `game` still held the old value.
 
-Read them again in the handler. `switch` takes the game as a wire argument, as in
+Read them in the handler. `load()` would still read the old game's rows first, for nothing, so `switch` is made with
+[`load=False`](#a-handler-that-needs-no-load). It takes the game as a wire argument, as in
 [Handlers and arguments](03-handlers-and-arguments.md#an-argument-per-button), and after it `scores`, which risa injects
 as it does for `load()`. A handler's injected parameter needs no default.
 
@@ -70,6 +72,16 @@ as it does for `load()`. A handler's injected parameter needs no default.
 ```
 
 --8<-- "previews/leaderboard-go.html"
+
+## A handler that needs no `load()`
+
+[`@risa.handler(load=False)`](../api/view.md#risa.view.handler) keeps `load()` from running for clicks on that handler.
+It suits a handler that fills the props itself, as `switch` does, and one that uses no prop at all, such as one that
+deletes the message.
+
+The handler then gets the props at their defaults, and so does every rerender of that click: a `ctx.rerender()` in the
+handler, and the one risa does itself when the handler changed a field without rerendering. Fill every prop `render()`
+draws, or change no field and leave the rerender out. `client.build` still runs `load()`.
 
 ??? example "Full file"
 

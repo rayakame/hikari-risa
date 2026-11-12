@@ -94,6 +94,8 @@ in `@risa.handler(handler_id="pick", version=2)`.
 | `handler_id` | The id the handler routes under, the method's name by default |
 | `version` | Bump it when the handler's arguments change |
 | `defer` | The handler's [`AutoDefer`](05-answering-in-time.md#where-to-set-it), overriding the view's |
+| `hooks` | [Hooks](13-hooks.md#where-a-hook-goes) that run for clicks on the handler |
+| `load` | `False` [skips the view's `load()`](07-fresh-data.md#a-handler-that-needs-no-load) for clicks on the handler |
 
 [Changing a handler](10-changing-a-view-safely.md#changing-a-handler) shows what each change does to buttons already sent,
 how `handler_id` keeps them working through a rename, and how a method at the old `version` answers them.
