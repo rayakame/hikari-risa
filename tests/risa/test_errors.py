@@ -174,7 +174,3 @@ def test_store_conformance_lists_every_failed_check() -> None:
 )
 def test_every_rejection_of_a_ready_made_hook_is_a_click_rejected_error(exc_type: type[Exception]) -> None:
     assert issubclass(exc_type, risa.ClickRejectedError)
-
-
-def test_fails_on_purpose_to_see_the_comment() -> None:
-    assert risa.__version__ == "0"
