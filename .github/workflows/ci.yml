@@ -1,7 +1,9 @@
 name: CI
 
 on:
+  # Only main: a branch's commits already run through its pull request.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
