@@ -193,6 +193,12 @@ class ExecutionHook[V: view_.View]:
 
     Attach it with `hooks=[...]` to the client, to `@risa.register` or to `@risa.handler`.
     Within a step, the client's hooks run first, then the view's, then the handler's.
+
+    A hook can change the view's state. Before the handler, the handler's save takes the
+    change along, and the change is lost if the handler or a hook before it fails. After the
+    handler, the hook has to call `ctx.rerender()` to save it, which works only while nothing
+    in the click has failed. A change it leaves unsaved is lost, and if nothing in the click
+    failed, risa logs a warning.
     """
 
     __slots__ = ("_func", "_injected", "_name", "_skip_when_failed", "_step", "_view_type")
@@ -404,6 +410,14 @@ def hook(step: ExecutionStep, /, *, skip_when_failed: bool = False, name: str | 
     injected, as a handler's are. A hook fails the click by raising: a handler that has not
     run yet no longer runs, the exception reaches the error handlers, and the hooks after it
     still run unless they were made with `skip_when_failed=True`.
+
+    Annotate the view parameter with the class alone: for `Poll | None`, `client.add_view`
+    raises `HookDeclarationError`. A hook for one view class belongs on that view or its
+    handlers, or its view parameter names a base class of every view it runs for. Your type
+    checker refuses a `Poll` hook on the client, and `client.add_view` raises
+    `HookDeclarationError` for a hook that takes a view of another class. With
+    `use_global=True`, a view never passes through `add_view`, so there the hook fails each
+    click that reaches it with that error.
 
     Parameters
     ----------
