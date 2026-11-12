@@ -2245,7 +2245,7 @@ button:</p>
   <code>content</code>, so the text goes in <code>ui.TextDisplay</code>.</li>
 <li><strong>There is no <code>__init__</code>.</strong> A view is a <code>msgspec.Struct</code>, made with <code>Counter(count=3)</code>, and its annotated fields are
   saved from click to click. For what should not be saved, such as a database row, mark the field
-  <code>risa.Prop[T]</code> and fill it in <code>load()</code>, which runs before every handler, as
+  <code>risa.Prop[T]</code> and fill it in <code>load()</code>, which runs before the handler, as
   <a href="../../by-example/07-fresh-data/">Fresh data</a> shows.</li>
 </ul>
 <h2 id="sending">Sending<a class="headerlink" href="#sending" title="Permanent link">&para;</a></h2>

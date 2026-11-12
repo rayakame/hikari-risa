@@ -1889,6 +1889,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#risa.view.HandlerMethod.load" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        load
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#risa.view.HandlerMethod.owner" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2149,6 +2160,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         hooks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.view.HandlerMethod.load" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        load
       </span>
     </span>
   </a>
@@ -2546,7 +2568,8 @@ which then takes its place.</p>
 </span><span id="__span-0-5">    <span class="n">version</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span>
 </span><span id="__span-0-6">    <span class="n">defer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            AutoDefer (risa.view.AutoDefer)" href="./#risa.view.AutoDefer">AutoDefer</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-7">    <span class="n">hooks</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            AnyHook (risa.hooks.AnyHook)" href="../hooks/#risa.hooks.AnyHook">AnyHook</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
-</span><span id="__span-0-8"><span class="p">)</span>
+</span><span id="__span-0-8">    <span class="n">load</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-9"><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2668,6 +2691,30 @@ handler that delegates to another.</p>
     <div class="doc doc-contents ">
 
         <p>The hooks attached to the handler.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="risa.view.HandlerMethod.load" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">load</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#risa.view.HandlerMethod.load" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">load</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the view's <code>load</code> runs before the handler.</p>
 
     </div>
 
@@ -2864,8 +2911,8 @@ keeps what it saved through <code>rerender()</code> or <code>edit()</code> befor
 
         <p>Fill the view's props before it renders.</p>
 <p>risa awaits it before the first send, and on every click right before the handler,
-once the hooks before it have run without a failure. Its parameters are injected, as
-a handler's are.
+once the hooks before it have run without a failure, unless the handler was made with
+<code>load=False</code>. Its parameters are injected, as a handler's are.
 An override of another view's <code>load</code> that adds parameters needs <code>= risa.INJECTED</code> on
 them for a type checker, as any override that adds parameters would.</p>
 
@@ -3011,7 +3058,8 @@ I/O; fetch what it shows in <code>load</code>.</p>
 </span><span id="__span-0-4">    <span class="n">version</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
 </span><span id="__span-0-5">    <span class="n">defer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            AutoDefer (risa.view.AutoDefer)" href="./#risa.view.AutoDefer">AutoDefer</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
 </span><span id="__span-0-6">    <span class="n">hooks</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            AnyHook (risa.hooks.AnyHook)" href="../hooks/#risa.hooks.AnyHook">AnyHook</a></span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
-</span><span id="__span-0-7"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="risa.view._HandlerDecorator">_HandlerDecorator</span></span>
+</span><span id="__span-0-7">    <span class="n">load</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+</span><span id="__span-0-8"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="risa.view._HandlerDecorator">_HandlerDecorator</span></span>
 </span></code></pre></div>          </div>
 
 
@@ -3089,6 +3137,18 @@ method that still has the old version; once none does, they go to
           <div class="doc-md-description">
             <p>Hooks that run only for clicks on this handler, after the client's and the view's in
 each step.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>load</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>True</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Whether the view's <code>load</code> runs before the handler. With <code>False</code> the handler gets the
+props at their defaults, and so does a rerender in that click, which suits a handler
+that needs none of them or fills them itself.</p>
           </div>
         </li>
     </ul>
