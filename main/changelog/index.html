@@ -361,6 +361,45 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#120-2026-11-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.2.0 (2026-11-12)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.2.0 (2026-11-12)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Breaking changes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#110-2026-11-09" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -373,7 +412,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#features" class="md-nav__link">
+  <a href="#features_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -1907,6 +1946,45 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#120-2026-11-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.2.0 (2026-11-12)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.2.0 (2026-11-12)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Breaking changes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#110-2026-11-09" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1919,7 +1997,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#features" class="md-nav__link">
+  <a href="#features_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -1977,8 +2055,18 @@
 <p>What changed in each release of hikari-risa.</p>
 <!-- towncrier release notes start -->
 
-<h2 id="110-2026-11-09">1.1.0 (2026-11-09)<a class="headerlink" href="#110-2026-11-09" title="Permanent link">&para;</a></h2>
+<h2 id="120-2026-11-12">1.2.0 (2026-11-12)<a class="headerlink" href="#120-2026-11-12" title="Permanent link">&para;</a></h2>
+<h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Error handlers take the click's <code>ExecutionPipeline</code> and its <code>ComponentContext</code>, as <code>async def on_error(pipeline, ctx) -&gt; bool</code>, and <code>ClickFailure</code> is gone. <code>pipeline.failures</code> lists every failure of the click in order, <code>pipeline.find(SomeError)</code> returns the first of a type, and <code>FailureStage</code> moved to <code>risa.hooks</code> and gained <code>HOOK</code>. A click no error handler takes is logged as one entry with an <code>ExceptionGroup</code>. (<a href="https://github.com/rayakame/hikari-risa/pull/83">#83</a>)</li>
+</ul>
 <h3 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Hooks: functions made with <code>@risa.hook(step)</code> that run in steps around a click's handler, such as a check before it or an audit after it. Attach them with <code>hooks=</code> to the client, <code>@risa.register</code> or <code>@risa.handler</code>, and set the steps with <code>execution_step_order=</code>. (<a href="https://github.com/rayakame/hikari-risa/pull/83">#83</a>)</li>
+<li>Ready-made hooks in <code>risa.prefab</code>: the checks <code>owner_only</code>, <code>invoker_only</code>, <code>has_permissions</code>, <code>bot_has_permissions</code>, <code>has_roles</code> and <code>expires_after</code>, the cooldowns <code>fixed_window</code> and <code>sliding_window</code>, and <code>max_concurrency</code>. Each turns a click away with an exception derived from <code>ClickRejectedError</code>. Cooldowns and <code>max_concurrency</code> count in memory, or in one of the client's stores with <code>store=</code> and <code>key=</code>. (<a href="https://github.com/rayakame/hikari-risa/pull/85">#85</a>)</li>
+</ul>
+<h2 id="110-2026-11-09">1.1.0 (2026-11-09)<a class="headerlink" href="#110-2026-11-09" title="Permanent link">&para;</a></h2>
+<h3 id="features_1">Features<a class="headerlink" href="#features_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>InStore(adopt=True)</code> takes over the messages a view sent while it kept its state in the message: switch <code>state=</code> without raising the <code>version</code>, and the first click on an old message moves its state into the store. (<a href="https://github.com/rayakame/hikari-risa/pull/75">#75</a>)</li>
 <li><code>MemoryStore(warn=False)</code> turns off the warning <code>add_view</code> logs about a <code>MemoryStore</code>, for a bot that uses one on purpose. (<a href="https://github.com/rayakame/hikari-risa/pull/76">#76</a>)</li>
