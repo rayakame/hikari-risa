@@ -101,8 +101,8 @@ RISA_TEST_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/postgres uv
   and the kind of change, such as `71.feature.md`; the kinds are `breaking`, `deprecation`, `feature` and `bugfix`.
   towncrier adds the link to the pull request. `changelog.yml` runs `towncrier check`, which a pull request users do not
   notice skips with the label `skip-changelog`.
-- The ruleset of `main` requires two checks: `ci-done`, which waits for every job of `ci.yml`, and `fragment`. A new
-  job in `ci.yml` goes into the `needs` of `ci-done`.
+- The ruleset of `main` requires three checks: `ci-done`, which waits for every job of `ci.yml`, `fragment`, and
+  Codecov's `codecov/patch`. A new job in `ci.yml` goes into the `needs` of `ci-done`.
 
 ## Releasing
 
