@@ -159,6 +159,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - run: uv run --group nox nox -s pytest
+        env:
+          # Colour codes would end up in junit.xml and in the traceback Codecov's comment shows.
+          PY_COLORS: "0"
 
       # A failed run uploads both reports too: it is the one whose tests Codecov should name.
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
