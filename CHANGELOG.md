@@ -4,6 +4,17 @@ What changed in each release of hikari-risa.
 
 <!-- towncrier release notes start -->
 
+## 1.2.1 (2026-11-16)
+
+### Features
+
+- `@risa.handler(load=False)` skips the view's `load()` for clicks on that handler, for one that uses no prop or fills the props itself. The handler, and a rerender in that click, then get the props at their defaults. ([#96](https://github.com/rayakame/hikari-risa/pull/96))
+
+### Bug fixes
+
+- A bucket name that is no bucket, such as `"usr"`, makes `fixed_window`, `sliding_window` and `max_concurrency` raise `HookDeclarationError` with the buckets there are, instead of a bare `KeyError`. ([#98](https://github.com/rayakame/hikari-risa/pull/98))
+
+
 ## 1.2.0 (2026-11-12)
 
 ### Breaking changes
