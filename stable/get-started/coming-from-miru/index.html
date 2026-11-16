@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.2.0/get-started/coming-from-miru/">
+        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.2.1/get-started/coming-from-miru/">
       
       
       
@@ -76,17 +76,17 @@
   <meta property="og:site_name" content="hikari-risa">
   <meta property="og:title" content="Coming from miru - hikari-risa">
   <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.2.0/get-started/coming-from-miru/">
-  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.2.0/assets/images/social-preview.png">
+  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.2.1/get-started/coming-from-miru/">
+  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.2.1/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Coming from miru - hikari-risa">
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.2.0/assets/images/social-preview.png">
+  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.2.1/assets/images/social-preview.png">
 
-  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# Get started\n## Coming from miru\nhikari-risa is not a direct successor to miru, so it does some things differently. Much of it will still look familiar: a view class, methods that answer clicks, a client that routes them. The big change is where a view lives. A miru view is an object in your bot's memory."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.2.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/1.2.0/get-started/coming-from-miru/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.2.0 · This preview is a risa view"}]}}</script>
+  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# Get started\n## Coming from miru\nhikari-risa is not a direct successor to miru, so it does some things differently. Much of it will still look familiar: a view class, methods that answer clicks, a client that routes them. The big change is where a view lives. A miru view is an object in your bot's memory."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.2.1/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/1.2.1/get-started/coming-from-miru/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.2.1 · This preview is a risa view"}]}}</script>
 </head>
   
   
@@ -2245,7 +2245,7 @@ button:</p>
   <code>content</code>, so the text goes in <code>ui.TextDisplay</code>.</li>
 <li><strong>There is no <code>__init__</code>.</strong> A view is a <code>msgspec.Struct</code>, made with <code>Counter(count=3)</code>, and its annotated fields are
   saved from click to click. For what should not be saved, such as a database row, mark the field
-  <code>risa.Prop[T]</code> and fill it in <code>load()</code>, which runs before every handler, as
+  <code>risa.Prop[T]</code> and fill it in <code>load()</code>, which runs before the handler, as
   <a href="../../by-example/07-fresh-data/">Fresh data</a> shows.</li>
 </ul>
 <h2 id="sending">Sending<a class="headerlink" href="#sending" title="Permanent link">&para;</a></h2>
