@@ -94,12 +94,15 @@ view as `client.build` does, so `load()` runs, and edits the message with the re
 ```
 
 `replace` needs the channel and the message, so keep the id of the message `send_to` returns, here in a `dict` and in
-your bot beside the data. It does not read the fields the message holds: the board above goes back to chess, and a view
-that should keep its fields gets them passed, as in `Leaderboard(game="go")`.
+your bot beside the data. It fetches the message before it edits it, which costs one more request. It does not read the
+fields the message holds: the board above goes back to chess, and a view that should keep its fields gets them passed,
+as in `Leaderboard(game="go")`.
 
 !!! warning "Do not edit a view's message with `rest.edit_message`."
     risa remembers the state it last saved to a message, and after an edit it did not make, a later click can bring that
-    state back. `replace` forgets that state, and it waits for a running click on an `InMessage` view of the message.
+    state back. `replace` waits for a click on the message that is still running, and a click made on the same view just
+    before the edit runs on the new state. A view with no fields takes no lock, so `replace` does not wait for its
+    handler.
 
 In a handler, [`ctx.replace`](../api/context.md#risa.context.ComponentContext.replace) does the same for the message
 that was clicked.

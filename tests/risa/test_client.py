@@ -4529,7 +4529,7 @@ class Reminder(risa.View):
         return [ui.TextDisplay("done" if self.done else "open"), self.buttons()]
 
     def buttons(self) -> ui.Row:
-        return ui.Row(ui.Button(self.finish), ui.Button(self.refresh))
+        return ui.Row(ui.Button(self.finish), ui.Button(self.refresh), ui.Button(self.reopen))
 
     @risa.handler
     async def finish(self, ctx: risa.ComponentContext) -> None:
@@ -4540,14 +4540,24 @@ class Reminder(risa.View):
     async def refresh(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
         await ctx.rerender()
 
+    @risa.handler
+    async def reopen(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.replace(Reminder())
+
+
+FINISH, REFRESH, REOPEN = range(3)
+CHANNEL = hikari.Snowflake(7)
+MESSAGE = hikari.Snowflake(1)
+
 
 def reminder_click(view: Reminder, *, clicked: int) -> unittest.mock.Mock:
     return interaction_on(view, view.buttons(), clicked=clicked)
 
 
-def reminder_client() -> risa.GatewayEnabledClient:
+def reminder_client(*, shows: Reminder | None = None) -> risa.GatewayEnabledClient:
     built = risa.client_from_app(gateway_app())
     built.add_view(Reminder)
+    rest_of(built).fetch_message.return_value = reminder_click(shows or Reminder(), clicked=REFRESH).message
     return built
 
 
@@ -4564,15 +4574,15 @@ def message_object() -> unittest.mock.MagicMock:
     return found
 
 
-@pytest.mark.parametrize("message", [hikari.Snowflake(1), message_object()], ids=["id", "object"])
+@pytest.mark.parametrize("message", [MESSAGE, message_object()], ids=["id", "object"])
 async def test_replace_edits_the_message_into_the_view(message: hikari.SnowflakeishOr[hikari.PartialMessage]) -> None:
     built = reminder_client()
 
-    sent = await built.replace(hikari.Snowflake(7), message, Reminder(done=True))
+    sent = await built.replace(CHANNEL, message, Reminder(done=True))
 
     call = rest_of(built).edit_message.await_args
     assert call is not None
-    assert call.args == (hikari.Snowflake(7), message)
+    assert call.args == (CHANNEL, message)
     payload, _attachments = call.kwargs["components"][0].build()
     assert payload["content"] == "done"
     assert sent is rest_of(built).edit_message.return_value
@@ -4580,11 +4590,20 @@ async def test_replace_edits_the_message_into_the_view(message: hikari.Snowflake
 
 async def test_a_click_after_replace_reads_the_state_replace_wrote() -> None:
     built = reminder_client()
-    await built._process_interaction(reminder_click(Reminder(), clicked=0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    await process(built, reminder_click(Reminder(), clicked=FINISH))
     assert shown_by_the_last_click(built) == "done"
 
-    await built.replace(hikari.Snowflake(7), hikari.Snowflake(1), Reminder())
-    await built._process_interaction(reminder_click(Reminder(), clicked=1))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    await built.replace(CHANNEL, MESSAGE, Reminder())
+    await process(built, reminder_click(Reminder(), clicked=REFRESH))
+
+    assert shown_by_the_last_click(built) == "open"
+
+
+async def test_a_click_made_before_replace_runs_on_the_state_replace_wrote() -> None:
+    built = reminder_client(shows=Reminder(done=True))
+
+    await built.replace(CHANNEL, MESSAGE, Reminder())
+    await process(built, reminder_click(Reminder(done=True), clicked=REFRESH))
 
     assert shown_by_the_last_click(built) == "open"
 
@@ -4593,8 +4612,8 @@ async def test_replace_waits_for_a_click_on_the_message_to_finish() -> None:
     built = reminder_client()
     backend = built._in_message  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
 
-    async with backend.hold(hikari.Snowflake(1)):
-        replacing = asyncio.create_task(built.replace(hikari.Snowflake(7), hikari.Snowflake(1), Reminder()))
+    async with backend.hold(MESSAGE):
+        replacing = asyncio.create_task(built.replace(CHANNEL, MESSAGE, Reminder()))
         await asyncio.sleep(0.01)
         rest_of(built).edit_message.assert_not_awaited()
     await replacing
@@ -4604,11 +4623,68 @@ async def test_replace_waits_for_a_click_on_the_message_to_finish() -> None:
 
 async def test_a_replace_that_fails_leaves_the_message_to_its_last_commit() -> None:
     built = reminder_client()
-    await built._process_interaction(reminder_click(Reminder(), clicked=0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    await process(built, reminder_click(Reminder(), clicked=FINISH))
     rest_of(built).edit_message.side_effect = hikari.HikariError("no such message")
 
     with pytest.raises(hikari.HikariError):
-        await built.replace(hikari.Snowflake(7), hikari.Snowflake(1), Reminder())
-    await built._process_interaction(reminder_click(Reminder(), clicked=1))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+        await built.replace(CHANNEL, MESSAGE, Reminder())
+    await process(built, reminder_click(Reminder(), clicked=REFRESH))
 
     assert shown_by_the_last_click(built) == "done"
+
+
+async def test_a_handlers_replace_that_fails_leaves_the_message_to_its_last_commit(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built = reminder_client()
+    await process(built, reminder_click(Reminder(), clicked=FINISH))
+    rest_of(built).create_interaction_response.side_effect = hikari.HikariError("no such interaction")
+
+    with caplog.at_level(logging.CRITICAL, logger="risa"):
+        await process(built, reminder_click(Reminder(), clicked=REOPEN))
+    rest_of(built).create_interaction_response.side_effect = None
+    await process(built, reminder_click(Reminder(), clicked=REFRESH))
+
+    assert shown_by_the_last_click(built) == "done"
+
+
+async def replacement_client(total: int) -> tuple[risa.Client, risa.MemoryStore, unittest.mock.Mock]:
+    store = risa.MemoryStore()
+    built = stored_client(store)
+    built.add_view(Replacement)
+    REPLACED_CALLS.clear()
+    shown = click(ids_of((await built.build(Replacement(total=total))).components), 0)
+    rest_of(built).fetch_message.return_value = shown.message
+    return built, store, shown
+
+
+async def test_replace_writes_over_the_record_of_a_view_the_message_already_shows() -> None:
+    built, store, made_before = await replacement_client(total=1)
+
+    await built.replace(CHANNEL, MESSAGE, Replacement(total=2))
+    await process(built, made_before)
+
+    assert len(store._entries) == 1  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert REPLACED_CALLS == ["replacement at 2"]
+
+
+async def test_replace_over_another_view_writes_a_record_of_its_own() -> None:
+    built, store, ids = await replacing_client()
+    rest_of(built).fetch_message.return_value = click(ids, 0).message
+
+    await built.replace(CHANNEL, MESSAGE, Replacement(total=1))
+
+    assert len(store._entries) == 2  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+
+async def test_a_click_on_a_view_in_a_store_takes_the_lock_of_its_message() -> None:
+    built, _, shown = await replacement_client(total=1)
+    backend = built._in_message  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    async with backend.hold(MESSAGE):
+        clicking = asyncio.create_task(process(built, shown))
+        await asyncio.sleep(0.01)
+        assert REPLACED_CALLS == []
+    await clicking
+
+    assert REPLACED_CALLS == ["replacement at 1"]

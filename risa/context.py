@@ -459,7 +459,7 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
     message. risa makes one per click.
     """
 
-    __slots__ = ("_build", "_meta", "_slot")
+    __slots__ = ("_build", "_forget", "_meta", "_slot")
 
     def __init__(
         self,
@@ -467,13 +467,15 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         *,
         rest: hikari.api.RESTClient,
         meta: registry.ViewMeta,
-        build: collections.abc.Callable[[view_.View, hikari.Snowflake], collections.abc.Awaitable[build_.Rendered]],
+        build: collections.abc.Callable[[view_.View], collections.abc.Awaitable[build_.Rendered]],
+        forget: collections.abc.Callable[[hikari.Snowflake], None],
         gate: ResponseGate | None = None,
         slot: ViewSlot | None = None,
     ) -> None:
         super().__init__(interaction, rest=rest, gate=gate)
         self._meta = meta
         self._build = build
+        self._forget = forget
         self._slot = slot if slot is not None else ViewSlot()
 
     @property
@@ -556,8 +558,10 @@ class ComponentContext(Context[hikari.ComponentInteraction]):
         ViewDeclarationError
             If the view keeps its state in a store this client does not have.
         """
-        rendered = await self._build(view, self.message.id)
+        rendered = await self._build(view)
         await self._update_origin(rendered.components)
+        # The new view starts at sequence 0, so a later commit remembered for the message would win over it.
+        self._forget(self.message.id)
         self._slot.view = None
         self._slot.session = None
         self._slot.replaced = True

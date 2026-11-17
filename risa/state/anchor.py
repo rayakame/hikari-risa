@@ -55,6 +55,7 @@ __all__ = (
     "SEQ_WIDTH",
     "STORE_ANCHOR_LENGTH",
     "TOTAL_WIDTH",
+    "Anchor",
     "MessageAnchor",
     "Slot",
     "StoreAnchor",
@@ -79,6 +80,9 @@ MAX_SEQ: typing.Final[int] = 256**SEQ_WIDTH - 1
 
 KEY_BYTES: typing.Final[int] = 12  # 96 bits
 STORE_ANCHOR_LENGTH: typing.Final[int] = 1 + KEY_BYTES
+
+type Anchor = MessageAnchor | StoreAnchor | TakenOverAnchor
+"""An anchor in any of its dialects."""
 
 
 class Slot(msgspec.Struct, frozen=True):
@@ -292,7 +296,7 @@ def gather(fragments: collections.abc.Mapping[int, bytes]) -> bytes | None:
     return b"".join(parts)
 
 
-def parse(raw: bytes) -> MessageAnchor | StoreAnchor | TakenOverAnchor | None:
+def parse(raw: bytes) -> Anchor | None:
     """Read an anchor of any dialect, or return `None` for one of none."""
     head = raw[:1]
     if head == PLACEMENT_MESSAGE:

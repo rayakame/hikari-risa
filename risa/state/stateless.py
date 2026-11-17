@@ -34,6 +34,7 @@ if typing.TYPE_CHECKING:
     from risa import view as view_
     from risa.internal import codec
     from risa.internal import registry
+    from risa.state import anchor
 
 __all__ = (
     "StatelessBackend",
@@ -86,7 +87,7 @@ class StatelessBackend(backend.StateBackend):
         return StatelessSession(meta=meta)
 
     @typing.override
-    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:
+    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View, over: anchor.Anchor | None = None) -> bytes:
         return b""
 
     @typing.override

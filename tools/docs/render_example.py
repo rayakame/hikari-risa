@@ -303,7 +303,7 @@ def _same_keys(preview_id: str) -> contextlib.AbstractContextManager[object]:
 def _sequence(number: int) -> contextlib.AbstractContextManager[object]:
     """Build a message-state anchor at sequence number `number`, which `number` clicks leave behind."""
 
-    def first_anchor(_: message.MessageBackend, *, meta: registry.ViewMeta, view: risa.View) -> bytes:
+    def first_anchor(_: message.MessageBackend, *, meta: registry.ViewMeta, view: risa.View, **_over: object) -> bytes:
         return anchor.MessageAnchor(meta.schema.fingerprint, number, meta.schema.pack_view(view)).pack()
 
     return mock.patch.object(message.MessageBackend, "first_anchor", first_anchor)

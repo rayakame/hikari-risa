@@ -36,6 +36,7 @@ if typing.TYPE_CHECKING:
     from risa import view as view_
     from risa.internal import codec
     from risa.internal import registry
+    from risa.state import anchor
 
 __all__ = (
     "Restored",
@@ -135,8 +136,13 @@ class StateBackend(abc.ABC):
         """Return a session for one click on a component of the view."""
 
     @abc.abstractmethod
-    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:
-        """Return the anchor a newly built view's components carry."""
+    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View, over: anchor.Anchor | None = None) -> bytes:
+        """Return the anchor a newly built view's components carry.
+
+        `over` is the anchor of this view that the message it is built over already holds.
+        The new anchor then continues that one, so a click that still carries it reads the
+        new state.
+        """
 
     @abc.abstractmethod
     async def commit_first(

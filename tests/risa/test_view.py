@@ -62,6 +62,7 @@ def component_context() -> risa.ComponentContext:
         rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
         meta=meta_of(Machine),
         build=unittest.mock.AsyncMock(),
+        forget=unittest.mock.Mock(),
         slot=context.ViewSlot(view=Machine()),
     )
 

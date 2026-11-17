@@ -181,8 +181,9 @@ class MessageBackend(backend.StateBackend):
         return MessageSession(self, meta=meta, component=component, interaction=interaction)
 
     @typing.override
-    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:
-        return anchor.MessageAnchor(meta.schema.fingerprint, 0, meta.schema.pack_view(view)).pack()
+    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View, over: anchor.Anchor | None = None) -> bytes:
+        seq = (over.seq + 1) % _SEQ_SPACE if isinstance(over, anchor.MessageAnchor) else 0
+        return anchor.MessageAnchor(meta.schema.fingerprint, seq, meta.schema.pack_view(view)).pack()
 
     @typing.override
     async def commit_first(self, *, meta: registry.ViewMeta, view: view_.View, anchor: bytes) -> None:
@@ -204,12 +205,31 @@ class MessageBackend(backend.StateBackend):
         for key in [key for key in self._cache if key[0] == message_id]:
             del self._cache[key]
 
+    def replaced(self, message_id: hikari.Snowflake, cookie: str, raw: bytes) -> None:
+        """Record that a message now shows the view `cookie` built with the anchor `raw`."""
+        self.forget(message_id)
+        built = anchor.parse(raw)
+        if isinstance(built, anchor.MessageAnchor):
+            self.remember(message_id, cookie, built)
+
     def remember(self, message_id: hikari.Snowflake, cookie: str, committed: anchor.MessageAnchor) -> None:
         """Remember a commit as the latest for the view `cookie` on a message."""
         self._cache[message_id, cookie] = committed
         self._cache.move_to_end((message_id, cookie))
         while len(self._cache) > self._max_cached:
             self._cache.popitem(last=False)
+
+
+def shown_anchor(
+    components: collections.abc.Sequence[hikari.TopLevelComponentTypesT],
+    cookie: str,
+) -> anchor.Anchor | None:
+    """Return the anchor of the view `cookie` that a message's components hold, or `None` if none reads."""
+    found = reader.fragments(components, cookie=cookie)
+    if found is None or isinstance(found, errors.CodecUnavailableError):
+        return None
+    raw = anchor.gather(found)
+    return None if raw is None else anchor.parse(raw)
 
 
 def read_anchor(

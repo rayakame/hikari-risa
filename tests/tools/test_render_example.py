@@ -253,7 +253,7 @@ def _frame(markup: str) -> dict[str, str]:
 
 
 def _at_sequence(number: int) -> contextlib.AbstractContextManager[object]:
-    def first_anchor(_: message.MessageBackend, *, meta: registry.ViewMeta, view: risa.View) -> bytes:
+    def first_anchor(_: message.MessageBackend, *, meta: registry.ViewMeta, view: risa.View, **_over: object) -> bytes:
         return anchor.MessageAnchor(meta.schema.fingerprint, number, meta.schema.pack_view(view)).pack()
 
     return unittest.mock.patch.object(message.MessageBackend, "first_anchor", first_anchor)

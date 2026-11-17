@@ -81,7 +81,7 @@ type _InjectedErrorHandler = collections.abc.Callable[
     collections.abc.Awaitable[bool],
 ]
 type _Invoke = collections.abc.Callable[[], collections.abc.Awaitable[None]]
-type ViewBuilder = collections.abc.Callable[[view_.View, hikari.Snowflake], collections.abc.Awaitable[build_.Rendered]]
+type ViewBuilder = collections.abc.Callable[[view_.View], collections.abc.Awaitable[build_.Rendered]]
 
 
 class _Outdated(enum.Enum):
@@ -154,6 +154,7 @@ class Dispatcher:
         "_build",
         "_di",
         "_error_handlers",
+        "_forget",
         "_hooks",
         "_order",
         "_resolve_view",
@@ -170,6 +171,7 @@ class Dispatcher:
         auto_defer: view_.AutoDefer,
         auto_defer_delay: float,
         build: ViewBuilder,
+        forget: collections.abc.Callable[[hikari.Snowflake], None],
         hooks: collections.abc.Sequence[hooks_.ExecutionHook[view_.View]],
         order: collections.abc.Sequence[hooks_.ExecutionStep],
     ) -> None:
@@ -180,6 +182,7 @@ class Dispatcher:
         self._auto_defer = auto_defer
         self._auto_defer_delay = auto_defer_delay
         self._build = build
+        self._forget = forget
         self._hooks = tuple(hooks)
         self._order = tuple(order)
         self._error_handlers: list[tuple[int, int, _InjectedErrorHandler]] = []
@@ -264,6 +267,7 @@ class Dispatcher:
                 rest=self._rest,
                 meta=route.meta,
                 build=self._build,
+                forget=self._forget,
                 gate=gate,
                 slot=slot,
             ),

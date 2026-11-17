@@ -39,7 +39,7 @@ from risa import hooks as hooks_
 from risa import view as view_
 from risa.internal import constants
 from risa.internal import registry
-from risa.state import message
+from risa.state import message as message_
 from risa.state import placement as placement_
 from risa.state import stateless
 from risa.state import stored
@@ -49,6 +49,7 @@ from risa.ui import build as build_
 if typing.TYPE_CHECKING:
     from hikari.api import interaction_server as interaction_server_
 
+    from risa.state import anchor as anchor_
     from risa.state import backend as backend_
     from risa.store import protocol
 
@@ -213,11 +214,11 @@ class Client(abc.ABC):
         self._auto_defer_delay = auto_defer_delay
         self._key_prefix = key_prefix
         namespace = stored.KeyNamespace(rest, key_prefix=key_prefix)
+        self._in_message = message_.MessageBackend()
         self._stored = {
-            name: stored.StoredBackend(instance, namespace=namespace)
+            name: stored.StoredBackend(instance, namespace=namespace, hold=self._in_message.hold)
             for name, instance in _store_slots(store, stores or {}).items()
         }
-        self._in_message = message.MessageBackend()
         self._stateless = stateless.StatelessBackend()
         self._memory_warned: set[str] = set()
         self._unanswered_warned: set[str] = set()
@@ -238,7 +239,8 @@ class Client(abc.ABC):
             self._require_backend,
             auto_defer=auto_defer,
             auto_defer_delay=auto_defer_delay,
-            build=self._build_over,
+            build=self.build,
+            forget=self._in_message.forget,
             hooks=self._hooks,
             order=self._order,
         )
@@ -300,17 +302,8 @@ class Client(abc.ABC):
             If an `InMessage` view's state does not fit its components.
         """
         meta = registry.require_meta(view)
-        if meta.loader is not None:
-            async with self._di.enter_context(di_.Contexts.DEFAULT):
-                await meta.loader(view)
-        plan = build_.plan(view.render(), meta)
-        if not plan.interactive:
-            return build_.Rendered(plan.emit(b""))
-        self._warn_if_unanswered(meta)
-        state = self._require_backend(meta)
-        anchor = state.first_anchor(meta=meta, view=view)
-        builders = plan.emit(anchor)
-        await state.commit_first(meta=meta, view=view, anchor=anchor)
+        plan = await self._plan(meta, view)
+        builders, _anchor = await self._emit(meta, view, plan, over=None)
         return build_.Rendered(builders)
 
     async def replace(
@@ -325,16 +318,17 @@ class Client(abc.ABC):
         await client.replace(channel_id, message_id, Reminder(task=task.id, done=True))
         ```
 
-        It builds `view` as `build` does, so its `load` runs and a view in a store gets a record
-        of its own, and edits the message. The fields the message held are not read. The record
-        of a view in a store that the message showed before stays until its `ttl` runs out, and
-        so does the new one if the edit fails.
+        It builds `view` as `build` does, so its `load` runs, fetches the message and edits it.
+        The fields the message held are not read. When the message already shows this view, its
+        state goes on from there: a record in a store is written over, and a click made just
+        before the edit runs on the new state. When it shows another view, that view's record
+        stays until its `ttl` runs out, and a click made on it just before the edit can draw it
+        back. A record is written before the edit and stays if the edit fails.
 
         Edit a view's message this way and not with `rest.edit_message`, after which a later
-        click can bring the earlier state back. The edit waits for a click on an `InMessage`
-        view of the message that this client is handling. A click made just before the edit
-        still runs on the earlier state and can draw it back. In a handler, for the message
-        that was clicked, use `ctx.replace` instead.
+        click can bring the earlier state back. The edit waits for a click on the message that
+        this client is handling, unless the view clicked has no fields. In a handler, for the
+        message that was clicked, use `ctx.replace` instead.
 
         Parameters
         ----------
@@ -359,15 +353,18 @@ class Client(abc.ABC):
         StateOverflowError
             If an `InMessage` view's state does not fit its components.
         LockTimeoutError
-            If a click on an `InMessage` view of the message is still running after the lock
-            timeout, as it is when its handler calls this for the message that was clicked.
+            If a click on the message is still running after the lock timeout, as it is when
+            a handler of a view with fields calls this for the message that was clicked.
         """
+        meta = registry.require_meta(view)
+        plan = await self._plan(meta, view)
         message_id = hikari.Snowflake(message)
-        rendered = await self.build(view)
         async with self._in_message.hold(message_id):
-            edited = await self._rest.edit_message(channel, message, components=rendered.components)
-            # The new state starts at sequence 0, so a later commit remembered for the message would win over it.
-            self._in_message.forget(message_id)
+            shown = await self._rest.fetch_message(channel, message)
+            over = message_.shown_anchor(shown.components, meta.cookie)
+            builders, anchor = await self._emit(meta, view, plan, over=over)
+            edited = await self._rest.edit_message(channel, message, components=builders)
+            self._in_message.replaced(message_id, meta.cookie, anchor)
         return edited
 
     @typing.overload
@@ -457,11 +454,28 @@ class Client(abc.ABC):
         self._registry.register(meta)
         return cls
 
-    async def _build_over(self, view: view_.View, message_id: hikari.Snowflake) -> build_.Rendered:
-        rendered = await self.build(view)
-        # The new state starts at sequence 0, so a later commit remembered for the message would win over it.
-        self._in_message.forget(message_id)
-        return rendered
+    async def _plan(self, meta: registry.ViewMeta, view: view_.View) -> build_.Plan:
+        if meta.loader is not None:
+            async with self._di.enter_context(di_.Contexts.DEFAULT):
+                await meta.loader(view)
+        return build_.plan(view.render(), meta)
+
+    async def _emit(
+        self,
+        meta: registry.ViewMeta,
+        view: view_.View,
+        plan: build_.Plan,
+        *,
+        over: anchor_.Anchor | None,
+    ) -> tuple[collections.abc.Sequence[hikari.api.ComponentBuilder], bytes]:
+        if not plan.interactive:
+            return plan.emit(b""), b""
+        self._warn_if_unanswered(meta)
+        state = self._require_backend(meta)
+        anchor = state.first_anchor(meta=meta, view=view, over=over)
+        builders = plan.emit(anchor)
+        await state.commit_first(meta=meta, view=view, anchor=anchor)
+        return builders, anchor
 
     def _warn_if_unanswered(self, meta: registry.ViewMeta) -> None:
         if self._resolve(meta.cookie) is None and meta.cookie not in self._unanswered_warned:

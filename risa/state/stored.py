@@ -49,6 +49,7 @@ if typing.TYPE_CHECKING:
 __all__ = (
     "KEY_LAYOUT",
     "KeyNamespace",
+    "MessageHold",
     "StoredBackend",
     "StoredSession",
 )
@@ -56,6 +57,8 @@ __all__ = (
 _LOGGER: typing.Final[logging.Logger] = logging.getLogger("risa.state.stored")
 
 KEY_LAYOUT: typing.Final[str] = "1"
+
+type MessageHold = collections.abc.Callable[[hikari.Snowflake], contextlib.AbstractAsyncContextManager[None]]
 
 
 class _Target(msgspec.Struct, frozen=True):
@@ -160,6 +163,7 @@ class StoredSession(backend.StateSession):
 
     @typing.override
     async def open(self) -> None:
+        await self._held.enter_async_context(self._backend.hold(self._interaction.message.id))
         located = self._locate()
         if located is None:
             return
@@ -384,21 +388,25 @@ class StoredBackend(backend.StateBackend):
         The store.
     namespace
         How the client's store keys are composed.
+    hold
+        Holds the lock of one message, which `Client.replace` takes too.
     lock_timeout
         Seconds a click waits for the store's lock.
     """
 
-    __slots__ = ("_lock_timeout", "_namespace", "_store")
+    __slots__ = ("_hold", "_lock_timeout", "_namespace", "_store")
 
     def __init__(
         self,
         store: protocol.Store,
         *,
         namespace: KeyNamespace,
+        hold: MessageHold,
         lock_timeout: float = protocol.DEFAULT_LOCK_TIMEOUT,
     ) -> None:
         self._store = store
         self._namespace = namespace
+        self._hold = hold
         self._lock_timeout = lock_timeout
 
     @property
@@ -416,6 +424,10 @@ class StoredBackend(backend.StateBackend):
         """Seconds a click waits for the store's lock."""
         return self._lock_timeout
 
+    def hold(self, message_id: hikari.Snowflake) -> contextlib.AbstractAsyncContextManager[None]:
+        """Hold the lock of one message, before the store's lock of its record."""
+        return self._hold(message_id)
+
     @typing.override
     def session(
         self,
@@ -427,8 +439,9 @@ class StoredBackend(backend.StateBackend):
         return StoredSession(self, meta=meta, component=component, interaction=interaction)
 
     @typing.override
-    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:
-        return anchor_.StoreAnchor.mint().pack()
+    def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View, over: anchor_.Anchor | None = None) -> bytes:
+        located = over if isinstance(over, anchor_.StoreAnchor) else anchor_.StoreAnchor.mint()
+        return located.pack()
 
     @typing.override
     async def commit_first(self, *, meta: registry.ViewMeta, view: view_.View, anchor: bytes) -> None:

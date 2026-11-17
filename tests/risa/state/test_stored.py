@@ -36,6 +36,7 @@ from risa.internal import codec
 from risa.internal import registry
 from risa.state import anchor
 from risa.state import backend
+from risa.state import message
 from risa.state import serde
 from risa.state import stored
 from risa.store import memory
@@ -138,6 +139,7 @@ def backend_for(
     return stored.StoredBackend(
         store,
         namespace=stored.KeyNamespace(rest(), key_prefix=key_prefix),
+        hold=message.MessageBackend().hold,
         lock_timeout=lock_timeout,
     )
 

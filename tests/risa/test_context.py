@@ -73,6 +73,7 @@ def component_ctx(
         rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
         meta=meta,
         build=unittest.mock.AsyncMock(),
+        forget=unittest.mock.Mock(),
         gate=gate,
         slot=slot,
     )
@@ -480,6 +481,7 @@ async def test_a_hook_on_a_view_without_state_can_still_rerender() -> None:
         rest=unittest.mock.Mock(spec=hikari.api.RESTClient),
         meta=registry.require_meta(Menu),
         build=unittest.mock.AsyncMock(),
+        forget=unittest.mock.Mock(),
     )
 
     await ctx.rerender()
