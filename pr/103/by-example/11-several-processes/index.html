@@ -2227,9 +2227,6 @@ give <a href="../../api/store/redis/#risa.store.redis.RedisStore"><code>RedisSto
 <p>An <code>InMessage</code> view has only step 1, so nothing spans the processes. Two clicks at the same moment read the same state:
 both raise a count from 5 to 6, and both edits say 6. The last edit wins, one click is lost, and your log shows nothing. If a
 view cannot lose a click, move it to a store.</p>
-<p><a href="../07-fresh-data/#a-change-with-no-click"><code>client.replace</code></a> has a limit of the same kind. Each process remembers the
-state it last saved to a message, and only the process that calls <code>replace</code> forgets it, so a click that reaches another
-process can bring that state back.</p>
 <h2 id="when-a-handler-loses-the-race">When a handler loses the race<a class="headerlink" href="#when-a-handler-loses-the-race" title="Permanent link">&para;</a></h2>
 <p>A lease can run out under a handler that runs past <code>max_hold</code>, 60 seconds by default, or in a process that stalls, and a
 Redis failover can lose one. The next click then runs beside the first, and step 4 lets only one write through. The other's
