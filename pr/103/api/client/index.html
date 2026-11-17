@@ -3092,12 +3092,15 @@ registered.</p>
         <p>Turn a message the bot sent into <code>view</code>, outside of any click.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="risa.client.Client.replace--__span-0-1"><span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">channel_id</span><span class="p">,</span> <span class="n">message_id</span><span class="p">,</span> <span class="n">Reminder</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">done</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 </span></code></pre></div>
-<p>It builds <code>view</code> as <code>build</code> does, so its <code>load</code> runs, fetches the message and edits it.
-The fields the message held are not read. When the message already shows this view, its
-state goes on from there: a record in a store is written over, and a click made just
-before the edit runs on the new state. When it shows another view, that view's record
-stays until its <code>ttl</code> runs out, and a click made on it just before the edit can draw it
-back. A record is written before the edit and stays if the edit fails.</p>
+<p>It builds <code>view</code> as <code>build</code> does, so its <code>load</code> runs, and edits the message. The fields
+the message held are not read. It fetches the message first, unless the view has no
+fields or this client knows what the message shows, from a click on an <code>InMessage</code>
+view or an earlier <code>replace</code>.</p>
+<p>When the message already shows this view, its state goes on from there: a record in a
+store is written over, and a click made just before the edit runs on the new state.
+When it shows another view, that view's record stays until its <code>ttl</code> runs out, and a
+click made on it just before the edit can draw it back. A record is written before the
+edit and stays if the edit fails.</p>
 <p>Edit a view's message this way and not with <code>rest.edit_message</code>, after which a later
 click can bring the earlier state back. The edit waits for a click on the message that
 this client is handling, unless the view clicked has no fields. In a handler, for the
