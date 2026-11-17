@@ -128,6 +128,10 @@ An `InMessage` view has only step 1, so nothing spans the processes. Two clicks 
 both raise a count from 5 to 6, and both edits say 6. The last edit wins, one click is lost, and your log shows nothing. If a
 view cannot lose a click, move it to a store.
 
+[`client.replace`](07-fresh-data.md#a-change-with-no-click) has a limit of the same kind. Each process remembers the
+state it last saved to a message, and only the process that calls `replace` forgets it, so a click that reaches another
+process can bring that state back.
+
 ## When a handler loses the race
 
 A lease can run out under a handler that runs past `max_hold`, 60 seconds by default, or in a process that stalls, and a

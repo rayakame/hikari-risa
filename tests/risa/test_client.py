@@ -4519,3 +4519,96 @@ def test_an_order_without_invoke_or_with_a_step_twice_is_refused(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         risa.client_from_app(gateway_app(), execution_step_order=order)
+
+
+@risa.register(name="client-reminder")
+class Reminder(risa.View):
+    done: bool = False
+
+    def render(self) -> ui.Layout:
+        return [ui.TextDisplay("done" if self.done else "open"), self.buttons()]
+
+    def buttons(self) -> ui.Row:
+        return ui.Row(ui.Button(self.finish), ui.Button(self.refresh))
+
+    @risa.handler
+    async def finish(self, ctx: risa.ComponentContext) -> None:
+        self.done = True
+        await ctx.rerender()
+
+    @risa.handler
+    async def refresh(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.rerender()
+
+
+def reminder_click(view: Reminder, *, clicked: int) -> unittest.mock.Mock:
+    return interaction_on(view, view.buttons(), clicked=clicked)
+
+
+def reminder_client() -> risa.GatewayEnabledClient:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Reminder)
+    return built
+
+
+def shown_by_the_last_click(built: risa.Client) -> str:
+    call = rest_of(built).create_interaction_response.await_args
+    assert call is not None
+    payload, _attachments = call.kwargs["components"][0].build()
+    return typing.cast("str", payload["content"])
+
+
+def message_object() -> unittest.mock.MagicMock:
+    found = unittest.mock.MagicMock(spec=hikari.PartialMessage)
+    found.__int__.return_value = 1
+    return found
+
+
+@pytest.mark.parametrize("message", [hikari.Snowflake(1), message_object()], ids=["id", "object"])
+async def test_replace_edits_the_message_into_the_view(message: hikari.SnowflakeishOr[hikari.PartialMessage]) -> None:
+    built = reminder_client()
+
+    sent = await built.replace(hikari.Snowflake(7), message, Reminder(done=True))
+
+    call = rest_of(built).edit_message.await_args
+    assert call is not None
+    assert call.args == (hikari.Snowflake(7), message)
+    payload, _attachments = call.kwargs["components"][0].build()
+    assert payload["content"] == "done"
+    assert sent is rest_of(built).edit_message.return_value
+
+
+async def test_a_click_after_replace_reads_the_state_replace_wrote() -> None:
+    built = reminder_client()
+    await built._process_interaction(reminder_click(Reminder(), clicked=0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert shown_by_the_last_click(built) == "done"
+
+    await built.replace(hikari.Snowflake(7), hikari.Snowflake(1), Reminder())
+    await built._process_interaction(reminder_click(Reminder(), clicked=1))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert shown_by_the_last_click(built) == "open"
+
+
+async def test_replace_waits_for_a_click_on_the_message_to_finish() -> None:
+    built = reminder_client()
+    backend = built._in_message  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    async with backend.hold(hikari.Snowflake(1)):
+        replacing = asyncio.create_task(built.replace(hikari.Snowflake(7), hikari.Snowflake(1), Reminder()))
+        await asyncio.sleep(0.01)
+        rest_of(built).edit_message.assert_not_awaited()
+    await replacing
+
+    rest_of(built).edit_message.assert_awaited_once()
+
+
+async def test_a_replace_that_fails_leaves_the_message_to_its_last_commit() -> None:
+    built = reminder_client()
+    await built._process_interaction(reminder_click(Reminder(), clicked=0))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    rest_of(built).edit_message.side_effect = hikari.HikariError("no such message")
+
+    with pytest.raises(hikari.HikariError):
+        await built.replace(hikari.Snowflake(7), hikari.Snowflake(1), Reminder())
+    await built._process_interaction(reminder_click(Reminder(), clicked=1))  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    assert shown_by_the_last_click(built) == "done"

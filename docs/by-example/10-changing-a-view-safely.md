@@ -260,7 +260,8 @@ into that poll.
 - **The new state.** In a store, `ctx.replace` writes a new record under a new key, and the old one expires with its
   `ttl`. In a message, it raises `StateOverflowError` if the new state does not fit the new buttons.
 - **Messages nobody clicks.** risa keeps no list of the messages it sent, so one that gets no click stays at version 2.
-  It still needs this class when someone clicks it next.
+  It still needs this class when someone clicks it next. A bot that kept the ids of its messages can upgrade them with
+  [`client.replace`](07-fresh-data.md#a-change-with-no-click).
 - **Two clicks at once.** Both start from the same old state, and the second replaces the first with only its own vote.
 
 When the old state cannot convert, close the message instead. A count of votes cannot say who chose what, so a version

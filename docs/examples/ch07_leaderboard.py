@@ -104,11 +104,19 @@ def main() -> None:
     add_dependencies(client)
     client.add_view(Leaderboard)
 
+    # --8<-- [start:replace]
+    boards: dict[hikari.Snowflake, hikari.Snowflake] = {}
+
     @bot.listen()
     async def on_message(event: hikari.GuildMessageCreateEvent) -> None:
         if event.content == "!leaderboard":
             rendered = await client.build(Leaderboard())
-            await rendered.send_to(bot.rest, event.channel_id)
+            message = await rendered.send_to(bot.rest, event.channel_id)
+            boards[event.channel_id] = message.id
+        if event.content == "!scored" and event.channel_id in boards:
+            board = boards[event.channel_id]
+            await client.replace(event.channel_id, board, Leaderboard())
+            # --8<-- [end:replace]
 
     bot.run()
 

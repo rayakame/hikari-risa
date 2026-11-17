@@ -83,6 +83,27 @@ The handler then gets the props at their defaults, and so does every rerender of
 handler, and the one risa does itself when the handler changed a field without rerendering. Fill every prop `render()`
 draws, or change no field and leave the rerender out. `client.build` still runs `load()`.
 
+## A change with no click
+
+A message shows what `load()` read at the last click. When the data changes with no click, such as a score that comes
+in from elsewhere, [`client.replace`](../api/client.md#risa.client.Client.replace) redraws the message. It builds the
+view as `client.build` does, so `load()` runs, and edits the message with the result.
+
+```python
+--8<-- "ch07_leaderboard.py:replace"
+```
+
+`replace` needs the channel and the message, so keep the id of the message `send_to` returns, here in a `dict` and in
+your bot beside the data. It does not read the fields the message holds: the board above goes back to chess, and a view
+that should keep its fields gets them passed, as in `Leaderboard(game="go")`.
+
+!!! warning "Do not edit a view's message with `rest.edit_message`."
+    risa remembers the state it last saved to a message, and after an edit it did not make, a later click can bring that
+    state back. `replace` forgets that state, and it waits for a running click on an `InMessage` view of the message.
+
+In a handler, [`ctx.replace`](../api/context.md#risa.context.ComponentContext.replace) does the same for the message
+that was clicked.
+
 ??? example "Full file"
 
     ```python

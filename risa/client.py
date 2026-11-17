@@ -313,6 +313,63 @@ class Client(abc.ABC):
         await state.commit_first(meta=meta, view=view, anchor=anchor)
         return build_.Rendered(builders)
 
+    async def replace(
+        self,
+        channel: hikari.SnowflakeishOr[hikari.TextableChannel],
+        message: hikari.SnowflakeishOr[hikari.PartialMessage],
+        view: view_.View,
+    ) -> hikari.Message:
+        """Turn a message the bot sent into `view`, outside of any click.
+
+        ```python
+        await client.replace(channel_id, message_id, Reminder(task=task.id, done=True))
+        ```
+
+        It builds `view` as `build` does, so its `load` runs and a view in a store gets a record
+        of its own, and edits the message. The fields the message held are not read. The record
+        of a view in a store that the message showed before stays until its `ttl` runs out, and
+        so does the new one if the edit fails.
+
+        Edit a view's message this way and not with `rest.edit_message`, after which a later
+        click can bring the earlier state back. The edit waits for a click on an `InMessage`
+        view of the message that this client is handling. A click made just before the edit
+        still runs on the earlier state and can draw it back. In a handler, for the message
+        that was clicked, use `ctx.replace` instead.
+
+        Parameters
+        ----------
+        channel
+            The channel the message is in, or its id.
+        message
+            The message to edit, or its id.
+        view
+            The view to show, an instance of a registered class.
+
+        Returns
+        -------
+        :
+            The edited message.
+
+        Raises
+        ------
+        NotAViewError
+            If the view's class was never registered.
+        ViewDeclarationError
+            If the view keeps its state in a store this client does not have.
+        StateOverflowError
+            If an `InMessage` view's state does not fit its components.
+        LockTimeoutError
+            If a click on an `InMessage` view of the message is still running after the lock
+            timeout, as it is when its handler calls this for the message that was clicked.
+        """
+        message_id = hikari.Snowflake(message)
+        rendered = await self.build(view)
+        async with self._in_message.hold(message_id):
+            edited = await self._rest.edit_message(channel, message, components=rendered.components)
+            # The new state starts at sequence 0, so a later commit remembered for the message would win over it.
+            self._in_message.forget(message_id)
+        return edited
+
     @typing.overload
     def error_handler[T: hooks_.ErrorHandler](self, func: T, /, *, priority: int = 0) -> T: ...
 
