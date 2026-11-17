@@ -4688,3 +4688,45 @@ async def test_a_click_on_a_view_in_a_store_takes_the_lock_of_its_message() -> N
     await clicking
 
     assert REPLACED_CALLS == ["replacement at 1"]
+
+
+async def test_replace_fetches_no_message_it_remembers_from_a_click() -> None:
+    built = reminder_client()
+    await process(built, reminder_click(Reminder(), clicked=FINISH))
+
+    await built.replace(CHANNEL, MESSAGE, Reminder())
+    await process(built, reminder_click(Reminder(done=True), clicked=REFRESH))
+
+    rest_of(built).fetch_message.assert_not_awaited()
+    assert shown_by_the_last_click(built) == "open"
+
+
+async def test_a_second_replace_of_a_view_in_a_store_fetches_nothing_and_keeps_its_record() -> None:
+    built, store, made_before = await replacement_client(total=1)
+
+    await built.replace(CHANNEL, MESSAGE, Replacement(total=2))
+    await built.replace(CHANNEL, MESSAGE, Replacement(total=3))
+    await process(built, made_before)
+
+    rest_of(built).fetch_message.assert_awaited_once()
+    assert len(store._entries) == 1  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert REPLACED_CALLS == ["replacement at 3"]
+
+
+@risa.register(name="client-fieldless")
+class Fieldless(risa.View):
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.poke))
+
+    @risa.handler
+    async def poke(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.acknowledge()
+
+
+async def test_replace_fetches_nothing_for_a_view_without_fields(client: risa.GatewayEnabledClient) -> None:
+    client.add_view(Fieldless)
+
+    await client.replace(CHANNEL, MESSAGE, Fieldless())
+
+    rest_of(client).fetch_message.assert_not_awaited()
+    rest_of(client).edit_message.assert_awaited_once()

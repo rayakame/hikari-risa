@@ -318,12 +318,16 @@ class Client(abc.ABC):
         await client.replace(channel_id, message_id, Reminder(task=task.id, done=True))
         ```
 
-        It builds `view` as `build` does, so its `load` runs, fetches the message and edits it.
-        The fields the message held are not read. When the message already shows this view, its
-        state goes on from there: a record in a store is written over, and a click made just
-        before the edit runs on the new state. When it shows another view, that view's record
-        stays until its `ttl` runs out, and a click made on it just before the edit can draw it
-        back. A record is written before the edit and stays if the edit fails.
+        It builds `view` as `build` does, so its `load` runs, and edits the message. The fields
+        the message held are not read. It fetches the message first, unless the view has no
+        fields or this client knows what the message shows, from a click on an `InMessage`
+        view or an earlier `replace`.
+
+        When the message already shows this view, its state goes on from there: a record in a
+        store is written over, and a click made just before the edit runs on the new state.
+        When it shows another view, that view's record stays until its `ttl` runs out, and a
+        click made on it just before the edit can draw it back. A record is written before the
+        edit and stays if the edit fails.
 
         Edit a view's message this way and not with `rest.edit_message`, after which a later
         click can bring the earlier state back. The edit waits for a click on the message that
@@ -360,8 +364,10 @@ class Client(abc.ABC):
         plan = await self._plan(meta, view)
         message_id = hikari.Snowflake(message)
         async with self._in_message.hold(message_id):
-            shown = await self._rest.fetch_message(channel, message)
-            over = message_.shown_anchor(shown.components, meta.cookie)
+            over = self._in_message.cached(message_id, meta.cookie)
+            if over is None and plan.interactive and meta.schema.durable:
+                shown = await self._rest.fetch_message(channel, message)
+                over = message_.shown_anchor(shown.components, meta.cookie)
             builders, anchor = await self._emit(meta, view, plan, over=over)
             edited = await self._rest.edit_message(channel, message, components=builders)
             self._in_message.replaced(message_id, meta.cookie, anchor)
