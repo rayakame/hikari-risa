@@ -319,9 +319,8 @@ class Client(abc.ABC):
         ```
 
         It builds `view` as `build` does, so its `load` runs, and edits the message. The fields
-        the message held are not read. It fetches the message first, unless the view has no
-        fields or this client knows what the message shows, from a click on an `InMessage`
-        view or an earlier `replace`.
+        the message held are not read. Unless the view has no fields, it first reads what the
+        message shows, from the app's cache when the message is in it and with a fetch otherwise.
 
         When the message already shows this view, its state goes on from there: a record in a
         store is written over, and a click made just before the edit runs on the new state.
@@ -364,10 +363,12 @@ class Client(abc.ABC):
         plan = await self._plan(meta, view)
         message_id = hikari.Snowflake(message)
         async with self._in_message.hold(message_id):
-            over = self._in_message.cached(message_id, meta.cookie)
-            if over is None and plan.interactive and meta.schema.durable:
-                shown = await self._rest.fetch_message(channel, message)
-                over = message_.shown_anchor(shown.components, meta.cookie)
+            over = None
+            if plan.interactive and meta.schema.durable:
+                shown = await self._shown(channel, message)
+                over = self._in_message.latest(
+                    message_id, meta.cookie, message_.shown_anchor(shown.components, meta.cookie)
+                )
             builders, anchor = await self._emit(meta, view, plan, over=over)
             edited = await self._rest.edit_message(channel, message, components=builders)
             self._in_message.replaced(message_id, meta.cookie, anchor)
@@ -465,6 +466,18 @@ class Client(abc.ABC):
             async with self._di.enter_context(di_.Contexts.DEFAULT):
                 await meta.loader(view)
         return build_.plan(view.render(), meta)
+
+    async def _shown(
+        self,
+        channel: hikari.SnowflakeishOr[hikari.TextableChannel],
+        message: hikari.SnowflakeishOr[hikari.PartialMessage],
+    ) -> hikari.Message:
+        app = self.app
+        if isinstance(app, hikari.CacheAware):
+            cached = app.cache.get_message(message)
+            if cached is not None:
+                return cached
+        return await self._rest.fetch_message(channel, message)
 
     async def _emit(
         self,

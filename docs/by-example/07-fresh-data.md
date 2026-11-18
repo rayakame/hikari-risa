@@ -94,9 +94,9 @@ view as `client.build` does, so `load()` runs, and edits the message with the re
 ```
 
 `replace` needs the channel and the message, so keep the id of the message `send_to` returns, here in a `dict` and in
-your bot beside the data. It fetches the message before it edits it, unless risa knows what the message shows from a
-click or an earlier `replace`. It does not read the fields the message holds: the board above goes back to chess, and a
-view that should keep its fields gets them passed, as in `Leaderboard(game="go")`.
+your bot beside the data. Before it edits the message it reads what the message shows, from hikari's cache when the
+message is in it and with a fetch otherwise. It does not read the fields the message holds: the board above goes back to
+chess, and a view that should keep its fields gets them passed, as in `Leaderboard(game="go")`.
 
 !!! warning "Do not edit a view's message with `rest.edit_message`."
     risa remembers the state it last saved to a message, and after an edit it did not make, a later click can bring that

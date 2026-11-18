@@ -4690,27 +4690,75 @@ async def test_a_click_on_a_view_in_a_store_takes_the_lock_of_its_message() -> N
     assert REPLACED_CALLS == ["replacement at 1"]
 
 
-async def test_replace_fetches_no_message_it_remembers_from_a_click() -> None:
+def click_on_the_last_response(built: risa.Client, *, clicked: int) -> unittest.mock.Mock:
+    call = rest_of(built).create_interaction_response.await_args
+    assert call is not None
+    ids = [
+        typing.cast("str", leaf["custom_id"])
+        for builder in call.kwargs["components"]
+        for leaf in typing.cast("list[dict[str, object]]", builder.build()[0].get("components", []))
+    ]
+    interaction = reminder_click(Reminder(), clicked=clicked)
+    interaction.custom_id = ids[clicked]
+    for button, raw in zip(interaction.message.components[0].components, ids, strict=True):
+        button.custom_id = raw
+    return interaction
+
+
+async def test_replace_goes_on_from_a_commit_newer_than_the_copy_of_the_message_it_read() -> None:
     built = reminder_client()
     await process(built, reminder_click(Reminder(), clicked=FINISH))
+    made_before = click_on_the_last_response(built, clicked=REFRESH)
 
     await built.replace(CHANNEL, MESSAGE, Reminder())
-    await process(built, reminder_click(Reminder(done=True), clicked=REFRESH))
+    await process(built, made_before)
 
-    rest_of(built).fetch_message.assert_not_awaited()
     assert shown_by_the_last_click(built) == "open"
 
 
-async def test_a_second_replace_of_a_view_in_a_store_fetches_nothing_and_keeps_its_record() -> None:
+async def test_a_second_replace_of_a_view_in_a_store_keeps_its_record() -> None:
     built, store, made_before = await replacement_client(total=1)
 
     await built.replace(CHANNEL, MESSAGE, Replacement(total=2))
     await built.replace(CHANNEL, MESSAGE, Replacement(total=3))
     await process(built, made_before)
 
-    rest_of(built).fetch_message.assert_awaited_once()
     assert len(store._entries) == 1  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
     assert REPLACED_CALLS == ["replacement at 3"]
+
+
+class CachingApp(GatewayApp):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cache = unittest.mock.Mock(spec=hikari.api.Cache)
+
+
+def caching_client(cached: hikari.Message | None) -> tuple[risa.GatewayEnabledClient, unittest.mock.Mock]:
+    app = CachingApp()
+    app.cache.get_message.return_value = cached
+    built = risa.client_from_app(typing.cast("risa.GatewayClientAppT", app))
+    built.add_view(Reminder)
+    rest_of(built).fetch_message.return_value = reminder_click(Reminder(), clicked=REFRESH).message
+    return built, app.cache
+
+
+async def test_replace_reads_a_message_in_the_apps_cache_without_a_fetch() -> None:
+    built, cache = caching_client(reminder_click(Reminder(done=True), clicked=REFRESH).message)
+
+    await built.replace(CHANNEL, MESSAGE, Reminder())
+    await process(built, reminder_click(Reminder(done=True), clicked=REFRESH))
+
+    cache.get_message.assert_called_once_with(MESSAGE)
+    rest_of(built).fetch_message.assert_not_awaited()
+    assert shown_by_the_last_click(built) == "open"
+
+
+async def test_replace_fetches_a_message_the_apps_cache_lacks() -> None:
+    built, _cache = caching_client(None)
+
+    await built.replace(CHANNEL, MESSAGE, Reminder())
+
+    rest_of(built).fetch_message.assert_awaited_once_with(CHANNEL, MESSAGE)
 
 
 @risa.register(name="client-fieldless")

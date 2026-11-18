@@ -107,7 +107,7 @@ class MessageSession(backend.StateSession):
         if read is None:
             return backend.Unreadably.OUTDATED
         cached = self._backend.cached(self._interaction.message.id, self._cookie)
-        if isinstance(cached, anchor.MessageAnchor) and _newer(cached.seq, read.seq):
+        if cached is not None and _newer(cached.seq, read.seq):
             read = cached
         values = unpack_anchor(self._meta, self._interaction, read)
         if values is None:
@@ -164,7 +164,9 @@ class MessageBackend(backend.StateBackend):
         lock_timeout: float = protocol.DEFAULT_LOCK_TIMEOUT,
     ) -> None:
         self._locks = locks.KeyedLocks()
-        self._cache: collections.OrderedDict[tuple[hikari.Snowflake, str], anchor.Anchor] = collections.OrderedDict()
+        self._cache: collections.OrderedDict[tuple[hikari.Snowflake, str], anchor.MessageAnchor] = (
+            collections.OrderedDict()
+        )
         self._max_cached = max_cached
         self._lock_timeout = lock_timeout
 
@@ -191,8 +193,8 @@ class MessageBackend(backend.StateBackend):
         """Hold the lock of one message, so clicks on it run one at a time."""
         return self._locks.hold(str(message_id), timeout=self._lock_timeout)
 
-    def cached(self, message_id: hikari.Snowflake, cookie: str) -> anchor.Anchor | None:
-        """Return the last anchor remembered for the view `cookie` on a message, or `None`."""
+    def cached(self, message_id: hikari.Snowflake, cookie: str) -> anchor.MessageAnchor | None:
+        """Return the last commit remembered for the view `cookie` on a message, or `None`."""
         committed = self._cache.get((message_id, cookie))
         if committed is not None:
             self._cache.move_to_end((message_id, cookie))
@@ -203,15 +205,22 @@ class MessageBackend(backend.StateBackend):
         for key in [key for key in self._cache if key[0] == message_id]:
             del self._cache[key]
 
+    def latest(self, message_id: hikari.Snowflake, cookie: str, shown: anchor.Anchor | None) -> anchor.Anchor | None:
+        """Return the remembered commit when it is newer than `shown`, the anchor a copy of the message holds."""
+        cached = self.cached(message_id, cookie)
+        if cached is None or (isinstance(shown, anchor.MessageAnchor) and not _newer(cached.seq, shown.seq)):
+            return shown
+        return cached
+
     def replaced(self, message_id: hikari.Snowflake, cookie: str, raw: bytes) -> None:
         """Record that a message now shows the view `cookie` built with the anchor `raw`."""
         self.forget(message_id)
         built = anchor.parse(raw)
-        if built is not None:
+        if isinstance(built, anchor.MessageAnchor):
             self.remember(message_id, cookie, built)
 
-    def remember(self, message_id: hikari.Snowflake, cookie: str, committed: anchor.Anchor) -> None:
-        """Remember an anchor as the latest for the view `cookie` on a message."""
+    def remember(self, message_id: hikari.Snowflake, cookie: str, committed: anchor.MessageAnchor) -> None:
+        """Remember a commit as the latest for the view `cookie` on a message."""
         self._cache[message_id, cookie] = committed
         self._cache.move_to_end((message_id, cookie))
         while len(self._cache) > self._max_cached:
