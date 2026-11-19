@@ -62,7 +62,8 @@ class MessageSession(backend.StateSession):
     commit per message, and the anchor whose `seq` is newer wins. An update fetched its
     message under the lock, after every commit of this process, so it reads that message
     alone: a remembered commit that is newer there was overwritten by another process or
-    by an edit risa did not make.
+    by an edit risa did not make. Its own commit still gets the `seq` after the newer of
+    the two, so a click that arrives late with the remembered commit loses to it.
     """
 
     __slots__ = ("_backend", "_baseline", "_cookie", "_fetched", "_held", "_meta", "_origin", "_seq", "_staged")
@@ -109,14 +110,18 @@ class MessageSession(backend.StateSession):
             return backend.Unreadably.OUTDATED
         if read is None:
             return backend.Unreadably.OUTDATED
-        cached = None if self._fetched else self._backend.cached(self._origin.message.id, self._cookie)
+        seq = read.seq
+        cached = self._backend.cached(self._origin.message.id, self._cookie)
         if cached is not None and _newer(cached.seq, read.seq):
-            read = cached
+            # A late click can still carry the remembered commit, so an update numbers its own past it.
+            seq = cached.seq
+            if not self._fetched:
+                read = cached
         values = unpack_anchor(self._meta, self._origin, read)
         if values is None:
             return backend.Unreadably.OUTDATED
         view = backend.hydrate(self._meta, values)
-        self._seq = read.seq
+        self._seq = seq
         self._baseline = self._meta.schema.pack_view(view)
         return backend.Restored(view)
 

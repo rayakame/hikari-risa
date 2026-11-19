@@ -4846,7 +4846,18 @@ async def test_an_update_reads_the_message_it_fetched_over_a_newer_commit_this_p
     await built.rerender(CHANNEL, MESSAGE, Tally)
 
     assert restored_tally(edited_with(built)) == [3, 1]
-    assert sequence_of(edited_with(built)) == 1
+    assert sequence_of(edited_with(built)) == 2
+
+
+async def test_a_late_click_on_a_commit_an_update_did_not_read_runs_on_what_the_update_left() -> None:
+    built, ids = await showing(Tally(counts=[3, 1]))
+    await process(built, click(ids, 0))
+    late = click(ids_of(updated_with(built)), 0)
+
+    await built.rerender(CHANNEL, MESSAGE, Tally)
+    await process(built, late)
+
+    assert restored_tally(updated_with(built)) == [4, 1]
 
 
 async def test_rerender_redraws_the_message_with_its_state_kept() -> None:
