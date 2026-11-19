@@ -59,10 +59,13 @@ class MessageSession(backend.StateSession):
     The state comes from the origin's message, for a click the one Discord delivered with
     it. When two clicks land close together, the second can arrive with the
     message from before the first one's edit. The backend therefore remembers the last
-    commit per message, and the anchor whose `seq` is newer wins.
+    commit per message, and the anchor whose `seq` is newer wins. An update fetched its
+    message under the lock, after every commit of this process, so it reads that message
+    alone: a remembered commit that is newer there was overwritten by another process or
+    by an edit risa did not make.
     """
 
-    __slots__ = ("_backend", "_baseline", "_cookie", "_held", "_meta", "_origin", "_seq", "_staged")
+    __slots__ = ("_backend", "_baseline", "_cookie", "_fetched", "_held", "_meta", "_origin", "_seq", "_staged")
 
     def __init__(
         self,
@@ -70,11 +73,13 @@ class MessageSession(backend.StateSession):
         *,
         meta: registry.ViewMeta,
         origin: backend.Origin,
+        fetched: bool = False,
     ) -> None:
         self._backend = owner
         self._meta = meta
         self._cookie = origin.component.cookie
         self._origin = origin
+        self._fetched = fetched
         self._held = contextlib.AsyncExitStack()
         self._seq = 0
         self._baseline: bytes | None = None
@@ -104,7 +109,7 @@ class MessageSession(backend.StateSession):
             return backend.Unreadably.OUTDATED
         if read is None:
             return backend.Unreadably.OUTDATED
-        cached = self._backend.cached(self._origin.message.id, self._cookie)
+        cached = None if self._fetched else self._backend.cached(self._origin.message.id, self._cookie)
         if cached is not None and _newer(cached.seq, read.seq):
             read = cached
         values = unpack_anchor(self._meta, self._origin, read)
@@ -183,7 +188,7 @@ class MessageBackend(backend.StateBackend):
     ) -> collections.abc.AsyncGenerator[MessageSession]:
         # The lock's key is the message id, so the fetch runs under it and never reads what a click is about to change.
         async with self.hold(message_id):
-            yield MessageSession(self, meta=meta, origin=await origin())
+            yield MessageSession(self, meta=meta, origin=await origin(), fetched=True)
 
     @typing.override
     def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:

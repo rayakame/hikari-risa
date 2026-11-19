@@ -185,6 +185,14 @@ class StoredSession(backend.StateSession):
         timeout = self._backend.lock_timeout
         await _guarded(key, lambda: self._held.enter_async_context(store.lock(key, timeout=timeout)))
 
+    def reread(self, origin: backend.Origin) -> bool:
+        """Take the message as fetched under the lock for the origin, unless it names another record."""
+        mine, theirs = self._origin.component, origin.component
+        if (theirs.fragment, theirs.fragment_index, theirs.codec) != (mine.fragment, mine.fragment_index, mine.codec):
+            return False
+        self._origin = origin
+        return True
+
     @typing.override
     async def close(self) -> None:
         if self._target is None:
@@ -441,9 +449,8 @@ class StoredBackend(backend.StateBackend):
         message_id: hikari.Snowflake,
         origin: backend.OriginFetcher,
     ) -> collections.abc.AsyncGenerator[StoredSession]:
-        session = StoredSession(self, meta=meta, origin=await origin())
+        session = await self._locked(meta, message_id, origin)
         try:
-            await session.open()
             yield session
         finally:
             await _release(session, meta, message_id)
@@ -462,6 +469,38 @@ class StoredBackend(backend.StateBackend):
         entry = _entry(meta, meta.schema.pack_view(view))
         ttl = _placement_of(meta).ttl
         await _guarded(key, lambda: self._store.put(key, entry, ttl=ttl))
+
+    async def _locked(
+        self,
+        meta: registry.ViewMeta,
+        message_id: hikari.Snowflake,
+        origin: backend.OriginFetcher,
+    ) -> StoredSession:
+        """Return a session that holds the lock of the record the message names.
+
+        The message names the lock, so the first fetch runs without it, and a click can
+        give the message to another record or end the view before the lock is held. A
+        second fetch under the lock therefore has to name the same record; otherwise the
+        lock is given back and the record that fetch names is tried.
+
+        Returns
+        -------
+        StoredSession
+            The session, whose origin is the fetch made under its lock.
+        """
+        seen = await origin()
+        while True:
+            session = StoredSession(self, meta=meta, origin=seen)
+            current = False
+            try:
+                await session.open()
+                seen = await origin()
+                current = session.reread(seen)
+            finally:
+                if not current:
+                    await _release(session, meta, message_id)
+            if current:
+                return session
 
 
 async def _release(session: StoredSession, meta: registry.ViewMeta, message_id: hikari.Snowflake) -> None:

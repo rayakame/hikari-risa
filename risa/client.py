@@ -373,7 +373,8 @@ class Client(abc.ABC):
         CodecUnavailableError
             If the message's state is written in a codec this process cannot load.
         StateNotFoundError
-            If the view's record is gone from its store, on entering or while the block ran.
+            If the view's record is gone from its store on entering, or on leaving after the
+            block changed a field.
         LockTimeoutError
             If a click on the message holds the lock for too long.
         StoreUnavailableError

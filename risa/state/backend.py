@@ -177,10 +177,11 @@ class StateBackend(abc.ABC):
 
         `origin` fetches the message the update works on. A placement whose lock needs
         nothing from the message runs it under that lock, so the copy it reads is never one a
-        click is about to change. The session it yields is ready for `restore`, and leaving
-        releases it: nobody calls its `open` or `close`. Releasing logs a failure and never
-        raises, so it cannot take the place of what the block raised or of an update that
-        went through.
+        click is about to change. A placement whose lock the message names runs it once to
+        find the lock and again under it. The session it yields is ready for `restore`, and
+        leaving releases it: nobody calls its `open` or `close`. Releasing logs a failure and
+        never raises, so it cannot take the place of what the block raised or of an update
+        that went through.
         """
 
     @abc.abstractmethod

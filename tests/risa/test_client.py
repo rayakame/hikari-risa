@@ -4581,6 +4581,34 @@ class Farewell(risa.View):
         await ctx.edit(ui.TextDisplay("goodbye"))
 
 
+@risa.register(name="client-adieu", state=risa.InStore(ttl=60.0))
+class Adieu(risa.View):
+    visits: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.leave, label=str(self.visits)))
+
+    @risa.handler
+    async def leave(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        ENTERED.event.set()
+        await RELEASE.event.wait()
+        await ctx.edit(ui.TextDisplay("goodbye"))
+
+
+@risa.register(name="client-logbook", state=risa.InStore(ttl=60.0))
+class Logbook(risa.View):
+    lines: list[str] = msgspec.field(default_factory=list[str])
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.restart, label=str(len(self.lines))))
+
+    @risa.handler
+    async def restart(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        ENTERED.event.set()
+        await RELEASE.event.wait()
+        await ctx.replace(Logbook(lines=["new"]))
+
+
 @risa.register(name="client-fragile")
 class Fragile(risa.View):
     uses: int = 0
@@ -4669,6 +4697,23 @@ async def showing(
     ids = ids_of((await built.build(view)).components)
     rest_of(built).fetch_message.return_value = shown(ids)
     return built, ids
+
+
+def follow_the_click(built: risa.Client, ids: list[str]) -> None:
+    def fetched(*_: object) -> unittest.mock.Mock:
+        answered = rest_of(built).create_interaction_response.await_args is not None
+        return shown(ids_of(updated_with(built)) if answered else ids)
+
+    rest_of(built).fetch_message.side_effect = fetched
+
+
+async def entered() -> None:
+    await asyncio.wait_for(ENTERED.event.wait(), timeout=1)
+
+
+async def add_line(built: risa.Client, line: str) -> None:
+    async with built.open(CHANNEL, MESSAGE, Logbook) as logbook:
+        logbook.lines.append(line)
 
 
 def zero_the_first(tally: Tally) -> None:
@@ -4794,6 +4839,16 @@ async def test_an_update_continues_the_sequence_number() -> None:
     assert sequence_of(edited_with(built)) == 2
 
 
+async def test_an_update_reads_the_message_it_fetched_over_a_newer_commit_this_process_remembers() -> None:
+    built, ids = await showing(Tally(counts=[3, 1]))
+    await process(built, click(ids, 0))
+
+    await built.rerender(CHANNEL, MESSAGE, Tally)
+
+    assert restored_tally(edited_with(built)) == [3, 1]
+    assert sequence_of(edited_with(built)) == 1
+
+
 async def test_rerender_redraws_the_message_with_its_state_kept() -> None:
     built, _ = await showing(Tally(counts=[3, 1]))
 
@@ -4854,10 +4909,11 @@ async def test_a_failing_load_draws_nothing_and_gives_the_lock_back() -> None:
 
 async def test_an_update_waits_for_a_running_click_and_reads_what_it_left() -> None:
     built, ids = await showing(Turnstile(passed=4))
+    follow_the_click(built, ids)
     ENTERED.event, RELEASE.event = asyncio.Event(), asyncio.Event()
 
     running = asyncio.create_task(process(built, click(ids, 0)))
-    await ENTERED.event.wait()
+    await entered()
     update = asyncio.create_task(built.rerender(CHANNEL, MESSAGE, Turnstile))
     await asyncio.sleep(0.01)
     rest_of(built).fetch_message.assert_not_called()
@@ -5119,25 +5175,68 @@ async def test_an_update_that_went_through_does_not_raise_when_the_release_fails
 
 async def test_an_update_that_waited_for_a_click_that_ended_the_view_finds_it_ended() -> None:
     built, ids = await showing(Farewell())
-    on_discord = [shown(ids)]
-
-    def fetched(*_: object) -> unittest.mock.Mock:
-        return on_discord[0]
-
-    rest_of(built).fetch_message.side_effect = fetched
+    follow_the_click(built, ids)
     ENTERED.event, RELEASE.event = asyncio.Event(), asyncio.Event()
 
     running = asyncio.create_task(process(built, click(ids, 0)))
-    await ENTERED.event.wait()
+    await entered()
     update = asyncio.create_task(built.rerender(CHANNEL, MESSAGE, Farewell))
     await asyncio.sleep(0.01)
-    on_discord[0] = shown([])
     RELEASE.event.set()
     await running
 
     with pytest.raises(risa.MessageOutdatedError):
         await update
     rest_of(built).edit_message.assert_not_called()
+
+
+async def test_a_stored_update_that_waited_for_a_click_that_ended_the_view_finds_it_ended() -> None:
+    built, ids = await showing(Adieu(), stored_client())
+    follow_the_click(built, ids)
+    ENTERED.event, RELEASE.event = asyncio.Event(), asyncio.Event()
+
+    running = asyncio.create_task(process(built, click(ids, 0)))
+    await entered()
+    update = asyncio.create_task(built.rerender(CHANNEL, MESSAGE, Adieu))
+    await asyncio.sleep(0.01)
+    RELEASE.event.set()
+    await running
+
+    with pytest.raises(risa.MessageOutdatedError):
+        await update
+    rest_of(built).edit_message.assert_not_called()
+
+
+async def test_a_stored_update_that_waited_for_a_click_that_replaced_the_view_changes_the_new_record() -> None:
+    store = risa.MemoryStore()
+    built, ids = await showing(Logbook(lines=["old"]), stored_client(store))
+    (old,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    before = await store.get_versioned(old)
+    follow_the_click(built, ids)
+    ENTERED.event, RELEASE.event = asyncio.Event(), asyncio.Event()
+
+    running = asyncio.create_task(process(built, click(ids, 0)))
+    await entered()
+    update = asyncio.create_task(add_line(built, "update"))
+    await asyncio.sleep(0.01)
+    RELEASE.event.set()
+    await asyncio.gather(running, update)
+
+    assert ids_of(edited_with(built)) == ids_of(updated_with(built))
+    after = await store.get_versioned(old)
+    assert before is not None
+    assert after is not None
+    assert (after.data, after.version) == (before.data, before.version)
+    async with built.open(CHANNEL, MESSAGE, Logbook) as logbook:
+        assert logbook.lines == ["new", "update"]
+
+
+async def test_a_stored_update_fetches_the_message_again_once_it_holds_the_lock() -> None:
+    built, _ = await showing(Notebook(entries=["eggs"]), stored_client())
+
+    await built.rerender(CHANNEL, MESSAGE, Notebook)
+
+    assert rest_of(built).fetch_message.await_count == 2
 
 
 async def test_cancelling_inside_the_block_saves_nothing_and_gives_the_lock_back() -> None:
