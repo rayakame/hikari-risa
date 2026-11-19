@@ -370,6 +370,18 @@ async def test_a_message_missing_its_trailing_components_reads_as_torn(caplog: p
     assert any("could not be reassembled" in line for line in records_at(caplog, logging.WARNING))
 
 
+async def test_a_message_whose_components_disagree_at_one_index_reads_as_torn(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="risa")
+    ids = carved(state_of(Poll(votes={"Red": 3, "Blue": 1})))
+    later = carved(state_of(Poll(votes={"Red": 3, "Blue": 1}), seq=1))
+    assert later[0] != ids[0]
+
+    restored = await session(message.MessageBackend(), [*ids, later[0]]).restore()
+
+    assert restored is backend.Unreadably.OUTDATED
+    assert any("could not be reassembled" in line for line in records_at(caplog, logging.WARNING))
+
+
 @pytest.mark.parametrize(
     "held", [anchor.StoreAnchor.mint().pack(), anchor.PLACEMENT_TAKEN_OVER], ids=["store", "taken-over"]
 )
