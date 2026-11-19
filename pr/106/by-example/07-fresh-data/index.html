@@ -2347,7 +2347,7 @@ error handler runs for an update, and <code>load()</code> runs in <code>DEFAULT<
 </thead>
 <tbody>
 <tr>
-<td>Fields and buttons</td>
+<td>Fields, and buttons or menus</td>
 <td><code>client.rerender</code>, or <code>client.open</code> to change a field too</td>
 </tr>
 <tr>
@@ -2355,14 +2355,14 @@ error handler runs for an update, and <code>load()</code> runs in <code>DEFAULT<
 <td><code>client.rerender</code>, or <code>client.open</code> to fill a prop in the block. risa fetches nothing, takes no lock, and does not check what the message shows</td>
 </tr>
 <tr>
-<td>Fields, and a <code>render()</code> that never draws a button</td>
+<td>Fields, and a <code>render()</code> that never draws a button or a menu</td>
 <td><code>rest.edit_message(channel, message, **await client.build(view))</code>, where <code>view</code> is a new instance with its fields passed again</td>
 </tr>
 </tbody>
 </table>
-<p>A message without buttons holds no state, which is why the last row builds a new view.</p>
+<p>A message with nothing to click holds no state, which is why the last row builds a new view.</p>
 <div class="admonition warning">
-<p class="admonition-title">Do not edit the message of a view with fields and buttons through <code>rest.edit_message</code>.</p>
+<p class="admonition-title">Do not edit the message of a view from the first row through <code>rest.edit_message</code>.</p>
 <p>risa remembers the state it last saved to a message, and after an edit it did not make, a later click can bring that
 state back. A view in a store gets a second record, and the first stays until its <code>ttl</code> runs out, or for good under
 <code>ttl=None</code>. Use <code>rerender</code> or <code>open</code> for such a view.</p>
@@ -2370,8 +2370,9 @@ state back. A view in a store gets a second record, and the first stays until it
 <h3 id="what-an-update-costs">What an update costs<a class="headerlink" href="#what-an-update-costs" title="Permanent link">&para;</a></h3>
 <p>For a view with fields:</p>
 <ul>
-<li><strong>One fetch.</strong> risa fetches the message to find the view's state, so the bot needs Read Message History in the
-  channel.</li>
+<li><strong>A fetch.</strong> risa fetches the message to find the view's state, so the bot needs View Channel and Read Message
+  History in the channel. A view in a store costs a second fetch: the message names the record, and risa reads the
+  message again once it holds that record's lock.</li>
 <li><strong>The view's lock.</strong> Clicks on the message wait until the update is done, and Discord's
   <a href="../05-answering-in-time/#the-clock">three seconds</a> keep running for them. <code>load()</code> and the block run under the lock,
   so do slow work before <code>open</code>, as the example does with the rows. When the data changes often, update a message
@@ -2387,11 +2388,10 @@ state back. A view in a store gets a second record, and the first stays until it
   <code>ctx.rerender()</code>.</li>
 <li><strong>An ephemeral message.</strong> Only an interaction can edit it: the one that sent it, or a click on it.</li>
 <li><strong>A layout from <code>ctx.edit</code>.</strong> An update draws what <code>render()</code> returns, as <code>ctx.rerender()</code> does, so a layout a
-  handler drew with <a href="../05-answering-in-time/#which-message"><code>ctx.edit</code></a> is gone after it. A layout without buttons
-  ended the view, and the update raises <a href="#what-an-update-raises"><code>MessageOutdatedError</code></a>, as it does once
-  <a href="../05-answering-in-time/#which-message"><code>ctx.replace</code></a> gave the message to another view. For a view in a store, one
-  case differs: an update that started while the handler was still running read the message before the handler
-  changed it, and it draws the view again.</li>
+  handler drew with <a href="../05-answering-in-time/#which-message"><code>ctx.edit</code></a> is gone after it. A layout with nothing to
+  click ended the view, and the update raises <a href="#what-an-update-raises"><code>MessageOutdatedError</code></a>, as it does once
+  <a href="../05-answering-in-time/#which-message"><code>ctx.replace</code></a> gave the message to another view. A view without fields is
+  not checked, so an update draws it over whatever the message shows.</li>
 <li><strong>Several processes.</strong> <a href="../11-several-processes/#an-update-from-outside">Several processes</a> says what an update does
   when clicks land in another process.</li>
 </ul>
@@ -2401,17 +2401,19 @@ fields, or <a href="../09-stores-and-ttl/#ttl"><code>on_state_missing</code></a>
 <ul>
 <li><a href="../../api/errors/#risa.errors.MessageOutdatedError"><code>MessageOutdatedError</code></a> when the message holds no state of the
   view that this code can read: it shows another view or another
-  <a href="../10-changing-a-view-safely/#which-version-to-raise"><code>version</code></a> of this one, it has no buttons, or a
+  <a href="../10-changing-a-view-safely/#which-version-to-raise"><code>version</code></a> of this one, it has nothing to click, or a
   <a href="../10-changing-a-view-safely/#breaking-changes">breaking change</a> to the view's fields or its placement went out
-  without a raised <code>version</code>. Catch it to stop updating a message whose view has ended.</li>
+  without a raised <code>version</code>. Catch it to stop updating a message whose view has ended. A view without fields never
+  raises it.</li>
 <li><a href="../../api/errors/#risa.errors.StateNotFoundError"><code>StateNotFoundError</code></a> when the record of a
   <a href="../08-where-state-lives/#message-or-store">view in a store</a> is gone.</li>
 <li><code>LockTimeoutError</code> when a click holds the view's lock for more than 10 seconds.</li>
 <li>hikari's <code>NotFoundError</code> for a message that was deleted, and its <code>ForbiddenError</code> for one the bot may not read. risa
   passes them on as they are.</li>
 </ul>
-<p>What the edit raises passes through as well. A view in a store has saved the new state by then, and the next click or
-update draws it.</p>
+<p>What the edit raises passes through as well. A view in the message has saved nothing then, so run the block again. A
+view in a store has saved the new state, and the block would apply its change a second time: call <code>client.rerender</code>
+to draw what is saved.</p>
 <p>Leaving the block can raise as <code>ctx.rerender()</code> can, with <a href="../08-where-state-lives/#the-limit"><code>StateOverflowError</code></a>
 when the state no longer fits the message and
 <a href="../11-several-processes/#when-a-handler-loses-the-race"><code>StateConflictError</code></a> when another process saved first. After a
