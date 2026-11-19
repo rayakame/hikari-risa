@@ -4,6 +4,13 @@ What changed in each release of hikari-risa.
 
 <!-- towncrier release notes start -->
 
+## 1.3.0 (2026-11-19)
+
+### Features
+
+- `client.open(channel, message, MyView)` opens the view a message shows outside of any click: the block changes its fields, and leaving it redraws the message and saves the state. `client.rerender(channel, message, MyView)` only redraws it, such as when the data behind it changed. ([#106](https://github.com/rayakame/hikari-risa/pull/106))
+
+
 ## 1.2.1 (2026-11-16)
 
 ### Features
