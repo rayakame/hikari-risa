@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.2.1/api/client/">
+        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.3.0/api/client/">
       
       
       
@@ -24,7 +24,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.svg">
-      <meta name="generator" content="zensical-0.1.1">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -76,17 +76,17 @@
   <meta property="og:site_name" content="hikari-risa">
   <meta property="og:title" content="risa.client - hikari-risa">
   <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.2.1/api/client/">
-  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.2.1/assets/images/social-preview.png">
+  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.3.0/api/client/">
+  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.3.0/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="risa.client - hikari-risa">
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.2.1/assets/images/social-preview.png">
+  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.3.0/assets/images/social-preview.png">
 
-  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# API reference\n## risa.client\nThe client that routes clicks to views, and the functions that make one."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.2.1/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/1.2.1/api/client/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.2.1 · This preview is a risa view"}]}}</script>
+  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# API reference\n## risa.client\nThe client that routes clicks to views, and the functions that make one."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.3.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/1.3.0/api/client/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.3.0 · This preview is a risa view"}]}}</script>
 </head>
   
   
@@ -1723,6 +1723,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.open" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        open
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.rerender" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rerender
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2213,6 +2235,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.open" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        open
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risa.client.Client.rerender" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rerender
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2531,8 +2575,9 @@
 
         <p>Routes clicks on registered views to their handlers.</p>
 <p>Make one with <code>client_from_app</code> or <code>client_from_lightbulb</code>, add views with
-<code>add_view</code>, and send a view with <code>build</code>. A client answers only <code>custom_id</code>s risa
-wrote, so it can share a bot with other component handlers.</p>
+<code>add_view</code>, send a view with <code>build</code>, and change one outside a click with <code>open</code>. A
+client answers only <code>custom_id</code>s risa wrote, so it can share a bot with other component
+handlers.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3035,6 +3080,312 @@ registered.</p>
           –
           <div class="doc-md-description">
             <p>The function, unchanged, or the decorator that registers one.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.client.Client.open" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">open</span>
+
+
+<a href="#risa.client.Client.open" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">open</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n">channel</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="hikari.TextableChannel" href="https://docs.hikari-py.dev/en/stable/reference/hikari/channels/#hikari.channels.TextableChannel">TextableChannel</a></span><span class="p">],</span>
+</span><span id="__span-0-3">    <span class="n">message</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="hikari.PartialMessage" href="https://docs.hikari-py.dev/en/stable/reference/hikari/messages/#hikari.messages.PartialMessage">PartialMessage</a></span><span class="p">],</span>
+</span><span id="__span-0-4">    <span class="bp">cls</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#type">type</a></span><span class="p">[</span><span class="n"><span title="risa.client.Client.open[T]">T</span></span><span class="p">],</span>
+</span><span id="__span-0-5">    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n">load</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-7"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="contextlib.AbstractAsyncContextManager" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractAsyncContextManager">AbstractAsyncContextManager</a></span><span class="p">[</span><span class="n"><span title="risa.client.Client.open[T]">T</span></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Open the view a message shows, to change it outside of any click.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="risa.client.Client.open--__span-0-1"><span class="k">async</span> <span class="k">with</span> <span class="n">client</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">channel_id</span><span class="p">,</span> <span class="n">message_id</span><span class="p">,</span> <span class="n">Counter</span><span class="p">)</span> <span class="k">as</span> <span class="n">view</span><span class="p">:</span>
+</span><span id="risa.client.Client.open--__span-0-2">    <span class="n">view</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+</span></code></pre></div>
+<p>Entering the block reads the view as a click would, under the view's lock, and then
+runs <code>load</code>. For the read, risa fetches the message. Leaving the block redraws the
+message and saves the state, even when the block changed nothing. A block that raises
+draws nothing and saves none of its changes.</p>
+<p>Hooks and error handlers do not run; what fails is raised here, and what hikari raises
+for the fetch or the edit passes through. A view in a store saves its state before
+the message is edited, so after an edit that failed the state is saved, and opening
+the view again starts from it.</p>
+<p>Clicks on the message wait until the update is done. In a handler of that message,
+change <code>self</code> and call <code>ctx.rerender()</code> instead, since the handler holds the lock
+this would wait for. A view without fields holds nothing in the message, so risa
+fetches nothing, takes no lock, and does not check that the message shows it.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>channel</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a>[<a class="autorefs autorefs-external" title="hikari.TextableChannel" href="https://docs.hikari-py.dev/en/stable/reference/hikari/channels/#hikari.channels.TextableChannel">TextableChannel</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The channel the message is in, or its id.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>message</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a>[<a class="autorefs autorefs-external" title="hikari.PartialMessage" href="https://docs.hikari-py.dev/en/stable/reference/hikari/messages/#hikari.messages.PartialMessage">PartialMessage</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The message, or its id.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>cls</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#type">type</a>[<span title="risa.client.Client.open[T]">T</span>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The view the message shows, a registered class.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>load</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>True</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Whether <code>load</code> runs before the block. Without it the props hold their defaults,
+for a block that fills them itself.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" title="contextlib.AbstractAsyncContextManager" href="https://docs.python.org/3/library/contextlib.html#contextlib.AbstractAsyncContextManager">AbstractAsyncContextManager</a>[<span title="risa.client.Client.open[T]">T</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>A context manager whose block gets the view.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            NotAViewError (risa.errors.NotAViewError)" href="../errors/#risa.errors.NotAViewError">NotAViewError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the class was never registered.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            ViewDeclarationError (risa.errors.ViewDeclarationError)" href="../errors/#risa.errors.ViewDeclarationError">ViewDeclarationError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the view keeps its state in a store this client does not have.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            MessageOutdatedError (risa.errors.MessageOutdatedError)" href="../errors/#risa.errors.MessageOutdatedError">MessageOutdatedError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the message holds no state of this view that this code can read.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            CodecUnavailableError (risa.errors.CodecUnavailableError)" href="../errors/#risa.errors.CodecUnavailableError">CodecUnavailableError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the message's state is written in a codec this process cannot load.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateNotFoundError (risa.errors.StateNotFoundError)" href="../errors/#risa.errors.StateNotFoundError">StateNotFoundError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the view's record is gone from its store on entering, or on leaving after the
+block changed a field.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            LockTimeoutError (risa.errors.LockTimeoutError)" href="../errors/#risa.errors.LockTimeoutError">LockTimeoutError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If a click on the message holds the lock for too long.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StoreUnavailableError (risa.errors.StoreUnavailableError)" href="../errors/#risa.errors.StoreUnavailableError">StoreUnavailableError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the store cannot be reached.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateOverflowError (risa.errors.StateOverflowError)" href="../errors/#risa.errors.StateOverflowError">StateOverflowError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>On leaving, if an <code>InMessage</code> view's state no longer fits its components.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateConflictError (risa.errors.StateConflictError)" href="../errors/#risa.errors.StateConflictError">StateConflictError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>On leaving, if another process saved the view's state first.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateUnreadableError (risa.errors.StateUnreadableError)" href="../errors/#risa.errors.StateUnreadableError">StateUnreadableError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>On leaving, if another process saved the view's state first, in a form this code
+cannot read.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="risa.client.Client.rerender" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">rerender</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#risa.client.Client.rerender" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">rerender</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n">channel</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="hikari.TextableChannel" href="https://docs.hikari-py.dev/en/stable/reference/hikari/channels/#hikari.channels.TextableChannel">TextableChannel</a></span><span class="p">],</span>
+</span><span id="__span-0-3">    <span class="n">message</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="hikari.PartialMessage" href="https://docs.hikari-py.dev/en/stable/reference/hikari/messages/#hikari.messages.PartialMessage">PartialMessage</a></span><span class="p">],</span>
+</span><span id="__span-0-4">    <span class="bp">cls</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#type">type</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a></span><span class="p">],</span>
+</span><span id="__span-0-5"><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Redraw the message of a view outside of any click, with its state kept.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="risa.client.Client.rerender--__span-0-1"><span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">rerender</span><span class="p">(</span><span class="n">channel_id</span><span class="p">,</span> <span class="n">message_id</span><span class="p">,</span> <span class="n">Leaderboard</span><span class="p">)</span>
+</span></code></pre></div>
+<p>It is <code>open</code> with an empty block: <code>load</code> runs again, so the message shows the data as
+it is now.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>channel</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a>[<a class="autorefs autorefs-external" title="hikari.TextableChannel" href="https://docs.hikari-py.dev/en/stable/reference/hikari/channels/#hikari.channels.TextableChannel">TextableChannel</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The channel the message is in, or its id.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>message</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a>[<a class="autorefs autorefs-external" title="hikari.PartialMessage" href="https://docs.hikari-py.dev/en/stable/reference/hikari/messages/#hikari.messages.PartialMessage">PartialMessage</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The message, or its id.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>cls</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#type">type</a>[<a class="autorefs autorefs-internal" title="            View (risa.view.View)" href="../view/#risa.view.View">View</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The view the message shows, a registered class.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            NotAViewError (risa.errors.NotAViewError)" href="../errors/#risa.errors.NotAViewError">NotAViewError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the class was never registered.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            ViewDeclarationError (risa.errors.ViewDeclarationError)" href="../errors/#risa.errors.ViewDeclarationError">ViewDeclarationError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the view keeps its state in a store this client does not have.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            MessageOutdatedError (risa.errors.MessageOutdatedError)" href="../errors/#risa.errors.MessageOutdatedError">MessageOutdatedError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the message holds no state of this view that this code can read.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            CodecUnavailableError (risa.errors.CodecUnavailableError)" href="../errors/#risa.errors.CodecUnavailableError">CodecUnavailableError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the message's state is written in a codec this process cannot load.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateNotFoundError (risa.errors.StateNotFoundError)" href="../errors/#risa.errors.StateNotFoundError">StateNotFoundError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the view's record is gone from its store.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            LockTimeoutError (risa.errors.LockTimeoutError)" href="../errors/#risa.errors.LockTimeoutError">LockTimeoutError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If a click on the message holds the lock for too long.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StoreUnavailableError (risa.errors.StoreUnavailableError)" href="../errors/#risa.errors.StoreUnavailableError">StoreUnavailableError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the store cannot be reached.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateOverflowError (risa.errors.StateOverflowError)" href="../errors/#risa.errors.StateOverflowError">StateOverflowError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If an <code>InMessage</code> view's state no longer fits its components.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateConflictError (risa.errors.StateConflictError)" href="../errors/#risa.errors.StateConflictError">StateConflictError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If another process saved the view's state first.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            StateUnreadableError (risa.errors.StateUnreadableError)" href="../errors/#risa.errors.StateUnreadableError">StateUnreadableError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If another process saved the view's state first, in a form this code cannot read.</p>
           </div>
         </li>
     </ul>

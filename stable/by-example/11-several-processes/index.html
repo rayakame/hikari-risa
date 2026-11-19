@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.2.1/by-example/11-several-processes/">
+        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.3.0/by-example/11-several-processes/">
       
       
       
@@ -24,7 +24,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.svg">
-      <meta name="generator" content="zensical-0.1.1">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -76,17 +76,17 @@
   <meta property="og:site_name" content="hikari-risa">
   <meta property="og:title" content="11 Several processes - hikari-risa">
   <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.2.1/by-example/11-several-processes/">
-  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.2.1/assets/images/social-preview.png">
+  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.3.0/by-example/11-several-processes/">
+  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.3.0/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="11 Several processes - hikari-risa">
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.2.1/assets/images/social-preview.png">
+  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.3.0/assets/images/social-preview.png">
 
-  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# By example › Chapter 11\n## Several processes\nRun more than one process, and two clicks on one message can land in two places. This chapter shows when that happens, what it does to your views, and how to keep every click."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.2.1/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the chapter","url":"https://hikari-risa.rayakame.dev/1.2.1/by-example/11-several-processes/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.2.1 · This preview is a risa view"}]}}</script>
+  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# By example › Chapter 11\n## Several processes\nRun more than one process, and two clicks on one message can land in two places. This chapter shows when that happens, what it does to your views, and how to keep every click."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.3.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the chapter","url":"https://hikari-risa.rayakame.dev/1.3.0/by-example/11-several-processes/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.3.0 · This preview is a risa view"}]}}</script>
 </head>
   
   
@@ -962,6 +962,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>InMessage</code> on a REST bot
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#an-update-from-outside" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        An update from outside
       </span>
     </span>
   </a>
@@ -1991,6 +2002,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#an-update-from-outside" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        An update from outside
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-a-handler-loses-the-race" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2225,6 +2247,11 @@ give <a href="../../api/store/redis/#risa.store.redis.RedisStore"><code>RedisSto
 <p>An <code>InMessage</code> view has only step 1, so nothing spans the processes. Two clicks at the same moment read the same state:
 both raise a count from 5 to 6, and both edits say 6. The last edit wins, one click is lost, and your log shows nothing. If a
 view cannot lose a click, move it to a store.</p>
+<h2 id="an-update-from-outside">An update from outside<a class="headerlink" href="#an-update-from-outside" title="Permanent link">&para;</a></h2>
+<p>An <a href="../07-fresh-data/#a-change-with-no-click">update from outside a click</a> takes its turn as a click does. For a view in
+a store on Redis or PostgreSQL, that turn spans the processes. A view in the message has only its lock in one process:
+an update in one process and a click in another both write, and the last edit wins. That holds on a gateway bot too,
+when the update runs in another process.</p>
 <h2 id="when-a-handler-loses-the-race">When a handler loses the race<a class="headerlink" href="#when-a-handler-loses-the-race" title="Permanent link">&para;</a></h2>
 <p>A lease can run out under a handler that runs past <code>max_hold</code>, 60 seconds by default, or in a process that stalls, and a
 Redis failover can lose one. The next click then runs beside the first, and step 4 lets only one write through. The other's
