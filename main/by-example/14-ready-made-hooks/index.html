@@ -2216,7 +2216,8 @@ cooldown still counts the click, and a check that turns it away keeps the fallba
   none, and every click on it is turned away. For those, keep the user's id in a field and write the check yourself, as
   <a href="../13-hooks/#a-check">Hooks</a> does.</li>
 <li><strong><code>expires_after</code></strong> gives a view a lifetime without a store. A <code>ctx.rerender()</code> is an edit, so the hour above starts
-  over with every claim. A click that answers without it, such as a claim with nothing left, does not restart it. The
+  over with every claim, and with every <a href="../07-fresh-data/#a-change-with-no-click">update from outside</a>. A click that
+  answers without it, such as a claim with nothing left, does not restart it. The
   buttons stay on the message, and a click on them raises <code>ComponentExpiredError</code>. For a view whose state lives in a
   store, <a href="../09-stores-and-ttl/#ttl"><code>ttl</code></a> restarts on every click and also removes the record.</li>
 </ul>

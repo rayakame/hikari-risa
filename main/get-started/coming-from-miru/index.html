@@ -2169,6 +2169,10 @@ you choose.</p>
 <td><code>await ctx.rerender()</code></td>
 </tr>
 <tr>
+<td><code>view.message</code> edited outside a callback, as in <code>on_timeout()</code></td>
+<td><code>async with client.open(channel, message, MyView) as view:</code></td>
+</tr>
+<tr>
 <td><code>ctx.respond("Hi", flags=hikari.MessageFlag.EPHEMERAL)</code></td>
 <td><code>ctx.respond("Hi", ephemeral=True)</code></td>
 </tr>
@@ -2402,7 +2406,10 @@ restarts:</p>
 </span></code></pre></div>
 </details>
 <p><code>on_timeout()</code> runs when the time is up. risa has no timer, so <code>on_state_missing()</code> runs when someone clicks after the
-record has expired. Until then the message stays as it is, and nothing in risa greys out its buttons at that moment.</p>
+record has expired. Until then the message stays as it is, and nothing in risa greys out its buttons at that moment.
+To grey them out, run a timer of your own that ends before the <code>ttl</code> does and changes a field <code>render()</code> reads, through
+<a href="../../by-example/07-fresh-data/#a-change-with-no-click"><code>client.open</code></a>. That update restarts the <code>ttl</code>, and once the
+record has expired, <code>open</code> raises <code>StateNotFoundError</code>.</p>
 <p>To end a view yourself, where miru has <code>self.stop()</code>, replace the message with a layout that has no buttons. <code>yes</code> above
 does that with <a href="../../by-example/05-answering-in-time/#which-message"><code>ctx.edit</code></a>.</p>
 <h2 id="what-risa-does-not-have">What risa does not have<a class="headerlink" href="#what-risa-does-not-have" title="Permanent link">&para;</a></h2>

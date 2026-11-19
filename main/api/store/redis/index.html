@@ -2529,10 +2529,10 @@ key of an entry to every method, <code>lock</code> included.</p>
     <div class="doc doc-contents ">
 
         <p>Hold <code>key</code> exclusively while the returned context manager is entered.</p>
-<p>risa holds it for the length of a click, so clicks on one view run one after
-another. A store that several processes share should exclude all of them; when such
-a lock lapses, the version check of <code>put_if_version</code> still decides whose write
-lands.</p>
+<p>risa holds it for the length of a click, or of an update through <code>Client.open</code>, so
+clicks and updates on one view run one after another. A store that several processes
+share should exclude all of them; when such a lock lapses, the version check of
+<code>put_if_version</code> still decides whose write lands.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

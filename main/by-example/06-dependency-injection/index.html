@@ -2736,9 +2736,9 @@ the <code>DEFAULT</code> one around it. A handler names <code>Wallet</code> like
 
 <p>The container makes a wallet at most once per click, so <code>load()</code> and the handler of one click share it, and a handler
 that doesn't name it never opens one.</p>
-<p><a href="../../api/client/#risa.client.Client.build"><code>client.build</code></a> runs <code>load()</code> in <code>DEFAULT</code> alone, even inside a handler. A
-<code>load()</code> that names <code>Wallet</code> makes it raise <code>DependencyNotSatisfiableException</code>, and one that names <code>Wallet | None</code> gets
-<code>None</code> there.</p>
+<p><a href="../../api/client/#risa.client.Client.build"><code>client.build</code></a> runs <code>load()</code> in <code>DEFAULT</code> alone, even inside a handler,
+and so does <a href="../07-fresh-data/#a-change-with-no-click"><code>client.open</code></a>. A <code>load()</code> that names <code>Wallet</code> makes them raise
+<code>DependencyNotSatisfiableException</code>, and one that names <code>Wallet | None</code> gets <code>None</code> there.</p>
 <details class="example">
 <summary>Full file</summary>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><span class="sd">"""A stall whose wallets open for each click, from a database that opens once."""</span>
@@ -2943,8 +2943,9 @@ parameters are left alone. A parameter with no annotation gets nothing, so the c
 injected: <code>limit: int = risa.INJECTED</code>.</p>
 <h2 id="injection-context">Injection context<a class="headerlink" href="#injection-context" title="Permanent link">&para;</a></h2>
 <p>An injected function needs an open context when it runs. risa opens <code>DEFAULT</code> and <code>COMPONENT</code> once around a whole click,
-its hooks, <code>load()</code>, the handler, the fallbacks and the error handlers, and <code>DEFAULT</code> around the <code>load()</code> in <code>client.build</code>.
-A function called from inside those has them too, so you rarely need to think about this.</p>
+its hooks, <code>load()</code>, the handler, the fallbacks and the error handlers, and <code>DEFAULT</code> around the <code>load()</code> in
+<code>client.build</code> and <code>client.open</code>. A function called from inside those has them too, so you rarely need to think about
+this.</p>
 <p>Anywhere else, such as in a hikari listener, open the context yourself, or the call raises
 <code>DependencyNotSatisfiableException</code>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><span class="nd">@linkd</span><span class="o">.</span><span class="n">inject</span>

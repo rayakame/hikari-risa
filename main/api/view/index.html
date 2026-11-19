@@ -2912,7 +2912,8 @@ keeps what it saved through <code>rerender()</code> or <code>edit()</code> befor
         <p>Fill the view's props before it renders.</p>
 <p>risa awaits it before the first send, and on every click right before the handler,
 once the hooks before it have run without a failure, unless the handler was made with
-<code>load=False</code>. Its parameters are injected, as a handler's are.
+<code>load=False</code>. <code>Client.open</code> and <code>Client.rerender</code> await it too, before the block,
+unless <code>open</code> was given <code>load=False</code>. Its parameters are injected, as a handler's are.
 An override of another view's <code>load</code> that adds parameters needs <code>= risa.INJECTED</code> on
 them for a type checker, as any override that adds parameters would.</p>
 

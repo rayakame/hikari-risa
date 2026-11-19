@@ -969,6 +969,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#an-update-from-outside" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        An update from outside
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-a-handler-loses-the-race" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1991,6 +2002,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#an-update-from-outside" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        An update from outside
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-a-handler-loses-the-race" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2225,6 +2247,11 @@ give <a href="../../api/store/redis/#risa.store.redis.RedisStore"><code>RedisSto
 <p>An <code>InMessage</code> view has only step 1, so nothing spans the processes. Two clicks at the same moment read the same state:
 both raise a count from 5 to 6, and both edits say 6. The last edit wins, one click is lost, and your log shows nothing. If a
 view cannot lose a click, move it to a store.</p>
+<h2 id="an-update-from-outside">An update from outside<a class="headerlink" href="#an-update-from-outside" title="Permanent link">&para;</a></h2>
+<p>An <a href="../07-fresh-data/#a-change-with-no-click">update from outside a click</a> takes its turn as a click does. For a view in
+a store on Redis or PostgreSQL, that turn spans the processes. A view in the message has only its lock in one process:
+an update in one process and a click in another both write, and the last edit wins. That holds on a gateway bot too,
+when the update runs in another process.</p>
 <h2 id="when-a-handler-loses-the-race">When a handler loses the race<a class="headerlink" href="#when-a-handler-loses-the-race" title="Permanent link">&para;</a></h2>
 <p>A lease can run out under a handler that runs past <code>max_hold</code>, 60 seconds by default, or in a process that stalls, and a
 Redis failover can lose one. The next click then runs beside the first, and step 4 lets only one write through. The other's

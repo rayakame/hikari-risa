@@ -1908,6 +1908,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#risa.errors.MessageOutdatedError" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MessageOutdatedError
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#risa.errors.MissingPermissionsError" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2435,6 +2446,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         MaxConcurrencyReachedError
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risa.errors.MessageOutdatedError" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MessageOutdatedError
       </span>
     </span>
   </a>
@@ -3818,7 +3840,7 @@ follow a silent <code>defer()</code>.</p>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
           –
           <div class="doc-md-description">
-            <p>The store key of the state.</p>
+            <p>The store key of the state, or the id of the message for a view that keeps its state there.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3889,6 +3911,80 @@ follow a silent <code>defer()</code>.</p>
           –
           <div class="doc-md-description">
             <p>How many clicks may run at once.</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="risa.errors.MessageOutdatedError" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">MessageOutdatedError</span>
+
+
+<a href="#risa.errors.MessageOutdatedError" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">MessageOutdatedError</span><span class="p">(</span><span class="n">view_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">message_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.Snowflake" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.Snowflake">Snowflake</a></span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="            RisaError (risa.errors.RisaError)" href="./#risa.errors.RisaError">RisaError</a></code></p>
+
+
+
+        <p>Raised when <code>Client.open</code> or <code>Client.rerender</code> cannot read the view's state from a message.</p>
+<p>The message shows another view or another version of this one, it has no interactive
+components and so holds no state, or its state cannot be read by this code, as after a
+field or the placement changed without a raised version. risa logs that last case, in
+which a click would reach <code>on_outdated</code>.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.errors.MessageOutdatedError.view_name">view_name</span></code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The view that was looked for.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="risa.errors.MessageOutdatedError.message_id">message_id</span></code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.Snowflake" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.Snowflake">Snowflake</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>The message it was looked for on.</p>
           </div>
         </li>
     </ul>
@@ -4626,8 +4722,9 @@ and routes the click to <code>View.on_outdated</code>. Bump the version in
 
 
         <p>Raised when another process wrote a view's state first.</p>
-<p>By the time it is raised, the view already holds the state that won, so the handler
-can apply its change again on top of it. A record that cannot be read raises
+<p>By the time it is raised, the view already holds the state that won, so a handler
+can apply its change again on top of it. An update through <code>Client.open</code> has left
+its block by then and opens the message again. A record that cannot be read raises
 <code>StateUnreadableError</code> instead.</p>
 
 
@@ -4646,7 +4743,7 @@ can apply its change again on top of it. A record that cannot be read raises
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>)
           –
           <div class="doc-md-description">
-            <p>The version this dispatch read.</p>
+            <p>The version the click or update read.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -4815,7 +4912,7 @@ can apply its change again on top of it. A record that cannot be read raises
 
 
 
-        <p>Raised when a view's stored state is gone in the middle of a dispatch.</p>
+        <p>Raised when a view's stored state is gone, in the middle of a dispatch or when <code>Client.open</code> looks for it.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
