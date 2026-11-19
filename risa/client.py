@@ -24,6 +24,8 @@ from __future__ import annotations
 import abc
 import asyncio
 import collections.abc
+import contextlib
+import functools
 import logging
 import typing
 
@@ -38,8 +40,10 @@ from risa import errors
 from risa import hooks as hooks_
 from risa import view as view_
 from risa.internal import constants
+from risa.internal import reader
 from risa.internal import registry
-from risa.state import message
+from risa.state import backend as backend_
+from risa.state import message as message_
 from risa.state import placement as placement_
 from risa.state import stateless
 from risa.state import stored
@@ -49,7 +53,6 @@ from risa.ui import build as build_
 if typing.TYPE_CHECKING:
     from hikari.api import interaction_server as interaction_server_
 
-    from risa.state import backend as backend_
     from risa.store import protocol
 
 __all__ = (
@@ -119,8 +122,9 @@ class Client(abc.ABC):
     """Routes clicks on registered views to their handlers.
 
     Make one with `client_from_app` or `client_from_lightbulb`, add views with
-    `add_view`, and send a view with `build`. A client answers only `custom_id`s risa
-    wrote, so it can share a bot with other component handlers.
+    `add_view`, send a view with `build`, and change one outside a click with `open`. A
+    client answers only `custom_id`s risa wrote, so it can share a bot with other component
+    handlers.
 
     Parameters
     ----------
@@ -217,7 +221,7 @@ class Client(abc.ABC):
             name: stored.StoredBackend(instance, namespace=namespace)
             for name, instance in _store_slots(store, stores or {}).items()
         }
-        self._in_message = message.MessageBackend()
+        self._in_message = message_.MessageBackend()
         self._stateless = stateless.StatelessBackend()
         self._memory_warned: set[str] = set()
         self._unanswered_warned: set[str] = set()
@@ -300,9 +304,7 @@ class Client(abc.ABC):
             If an `InMessage` view's state does not fit its components.
         """
         meta = registry.require_meta(view)
-        if meta.loader is not None:
-            async with self._di.enter_context(di_.Contexts.DEFAULT):
-                await meta.loader(view)
+        await self._load(meta, view)
         plan = build_.plan(view.render(), meta)
         if not plan.interactive:
             return build_.Rendered(plan.emit(b""))
@@ -312,6 +314,130 @@ class Client(abc.ABC):
         builders = plan.emit(anchor)
         await state.commit_first(meta=meta, view=view, anchor=anchor)
         return build_.Rendered(builders)
+
+    def open[T: view_.View](
+        self,
+        channel: hikari.SnowflakeishOr[hikari.TextableChannel],
+        message: hikari.SnowflakeishOr[hikari.PartialMessage],
+        cls: type[T],
+        *,
+        load: bool = True,
+    ) -> contextlib.AbstractAsyncContextManager[T]:
+        """Open the view a message shows, to change it outside of any click.
+
+        ```python
+        async with client.open(channel_id, message_id, Counter) as view:
+            view.count = 0
+        ```
+
+        Entering the block reads the view as a click would, under the view's lock, and then
+        runs `load`. For the read, risa fetches the message. Leaving the block redraws the
+        message and saves the state, even when the block changed nothing. A block that raises
+        draws nothing and saves none of its changes.
+
+        Hooks and error handlers do not run; what fails is raised here, and what hikari raises
+        for the fetch or the edit passes through. A view in a store saves its state before
+        the message is edited, so after an edit that failed the state is saved, and opening
+        the view again starts from it.
+
+        Clicks on the message wait until the update is done. In a handler of that message,
+        change `self` and call `ctx.rerender()` instead, since the handler holds the lock
+        this would wait for. A view without fields holds nothing in the message, so risa
+        fetches nothing, takes no lock, and does not check that the message shows it.
+
+        Parameters
+        ----------
+        channel
+            The channel the message is in, or its id.
+        message
+            The message, or its id.
+        cls
+            The view the message shows, a registered class.
+        load
+            Whether `load` runs before the block. Without it the props hold their defaults,
+            for a block that fills them itself.
+
+        Returns
+        -------
+        :
+            A context manager whose block gets the view.
+
+        Raises
+        ------
+        NotAViewError
+            If the class was never registered.
+        ViewDeclarationError
+            If the view keeps its state in a store this client does not have.
+        MessageOutdatedError
+            If the message holds no state of this view that this code can read.
+        CodecUnavailableError
+            If the message's state is written in a codec this process cannot load.
+        StateNotFoundError
+            If the view's record is gone from its store on entering, or on leaving after the
+            block changed a field.
+        LockTimeoutError
+            If a click on the message holds the lock for too long.
+        StoreUnavailableError
+            If the store cannot be reached.
+        StateOverflowError
+            On leaving, if an `InMessage` view's state no longer fits its components.
+        StateConflictError
+            On leaving, if another process saved the view's state first.
+        StateUnreadableError
+            On leaving, if another process saved the view's state first, in a form this code
+            cannot read.
+        """
+        return self._opened(channel, message, cls, load=load)
+
+    async def rerender(
+        self,
+        channel: hikari.SnowflakeishOr[hikari.TextableChannel],
+        message: hikari.SnowflakeishOr[hikari.PartialMessage],
+        cls: type[view_.View],
+    ) -> None:
+        """Redraw the message of a view outside of any click, with its state kept.
+
+        ```python
+        await client.rerender(channel_id, message_id, Leaderboard)
+        ```
+
+        It is `open` with an empty block: `load` runs again, so the message shows the data as
+        it is now.
+
+        Parameters
+        ----------
+        channel
+            The channel the message is in, or its id.
+        message
+            The message, or its id.
+        cls
+            The view the message shows, a registered class.
+
+        Raises
+        ------
+        NotAViewError
+            If the class was never registered.
+        ViewDeclarationError
+            If the view keeps its state in a store this client does not have.
+        MessageOutdatedError
+            If the message holds no state of this view that this code can read.
+        CodecUnavailableError
+            If the message's state is written in a codec this process cannot load.
+        StateNotFoundError
+            If the view's record is gone from its store.
+        LockTimeoutError
+            If a click on the message holds the lock for too long.
+        StoreUnavailableError
+            If the store cannot be reached.
+        StateOverflowError
+            If an `InMessage` view's state no longer fits its components.
+        StateConflictError
+            If another process saved the view's state first.
+        StateUnreadableError
+            If another process saved the view's state first, in a form this code cannot read.
+        """
+        async with self.open(channel, message, cls):
+            pass
 
     @typing.overload
     def error_handler[T: hooks_.ErrorHandler](self, func: T, /, *, priority: int = 0) -> T: ...
@@ -399,6 +525,54 @@ class Client(abc.ABC):
         _LOGGER.debug("registering view %s to client", meta.name)
         self._registry.register(meta)
         return cls
+
+    @contextlib.asynccontextmanager
+    async def _opened[T: view_.View](
+        self,
+        channel: hikari.SnowflakeishOr[hikari.TextableChannel],
+        message: hikari.SnowflakeishOr[hikari.PartialMessage],
+        cls: type[T],
+        *,
+        load: bool,
+    ) -> collections.abc.AsyncGenerator[T]:
+        meta = registry.require_meta(cls)
+        state = self._require_backend(meta)
+        origin = functools.partial(self._origin, meta, channel, message)
+        async with state.update(meta=meta, message_id=hikari.Snowflake(message), origin=origin) as session:
+            restored = await session.restore()
+            if isinstance(session, stored.StoredSession) and restored is backend_.Unreadably.MISSING:
+                raise errors.StateNotFoundError(session.key)
+            if not isinstance(restored, backend_.Restored):
+                raise errors.MessageOutdatedError(meta.name, hikari.Snowflake(message))
+            view = restored.view
+            if load:
+                await self._load(meta, view)
+            # Nothing below runs when the block raises, so a block that fails saves and draws nothing.
+            yield typing.cast("T", view)  # ruff:ignore[fallible-context-manager]
+            plan = build_.plan(view.render(), meta)
+            if plan.interactive:
+                self._warn_if_unanswered(meta)
+            anchor = await session.stage(view)
+            builders = plan.emit(anchor)
+            await self._rest.edit_message(channel, message, components=builders)
+            await session.published(view)
+
+    async def _origin(
+        self,
+        meta: registry.ViewMeta,
+        channel: hikari.SnowflakeishOr[hikari.TextableChannel],
+        message: hikari.SnowflakeishOr[hikari.PartialMessage],
+    ) -> backend_.Origin:
+        fetched = await self._rest.fetch_message(channel, message)
+        component = reader.first_component(fetched.components, cookie=meta.cookie)
+        if component is None:
+            raise errors.MessageOutdatedError(meta.name, fetched.id)
+        return backend_.Origin(message=fetched, component=component, asker="client.open")
+
+    async def _load(self, meta: registry.ViewMeta, view: view_.View) -> None:
+        if meta.loader is not None:
+            async with self._di.enter_context(di_.Contexts.DEFAULT):
+                await meta.loader(view)
 
     async def _build_over(self, view: view_.View, message_id: hikari.Snowflake) -> build_.Rendered:
         rendered = await self.build(view)

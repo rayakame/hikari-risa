@@ -51,11 +51,8 @@ def session() -> stateless.StatelessSession:
         fragment="",
         tail="",
     )
-    return stateless.StatelessBackend().session(
-        meta=HELP,
-        component=clicked,
-        interaction=unittest.mock.Mock(spec=hikari.ComponentInteraction),
-    )
+    origin = backend.Origin.from_click(unittest.mock.Mock(spec=hikari.ComponentInteraction), clicked)
+    return stateless.StatelessBackend().session(meta=HELP, origin=origin)
 
 
 async def test_restore_builds_the_view_from_its_defaults() -> None:

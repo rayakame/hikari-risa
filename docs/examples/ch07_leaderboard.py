@@ -41,6 +41,14 @@ class Scores:
         await asyncio.sleep(0.1)
         return _TOP[game]
 
+    async def win(self, game: str, player: str) -> None:
+        await asyncio.sleep(0.1)
+        _TOP[game].remove(player)
+        _TOP[game].insert(0, player)
+
+
+SCORES = Scores()
+
 
 # --8<-- [start:fields]
 @risa.register(name="leaderboard")
@@ -92,7 +100,7 @@ class Leaderboard(risa.View):
 
 def add_dependencies(client: risa.Client) -> None:
     registry = client.di.registry_for(risa.Contexts.DEFAULT)
-    registry.register_value(Scores, Scores())
+    registry.register_value(Scores, SCORES)
 
 
 def main() -> None:
@@ -104,11 +112,27 @@ def main() -> None:
     add_dependencies(client)
     client.add_view(Leaderboard)
 
+    # --8<-- [start:outside]
+    boards: dict[hikari.Snowflake, hikari.Snowflake] = {}
+
     @bot.listen()
     async def on_message(event: hikari.GuildMessageCreateEvent) -> None:
         if event.content == "!leaderboard":
             rendered = await client.build(Leaderboard())
-            await rendered.send_to(bot.rest, event.channel_id)
+            message = await rendered.send_to(bot.rest, event.channel_id)
+            boards[event.channel_id] = message.id
+        if event.content == "!scored" and event.channel_id in boards:
+            await SCORES.win("chess", "Sam")
+            await client.rerender(event.channel_id, boards[event.channel_id], Leaderboard)
+            # --8<-- [end:outside]
+        # --8<-- [start:block]
+        if event.content == "!go" and event.channel_id in boards:
+            rows = await SCORES.top("go")
+            message_id = boards[event.channel_id]
+            async with client.open(event.channel_id, message_id, Leaderboard, load=False) as view:
+                view.game = "go"
+                view.rows = rows
+            # --8<-- [end:block]
 
     bot.run()
 

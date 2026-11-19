@@ -82,18 +82,20 @@ class InStore(msgspec.Struct, frozen=True):
     Attributes
     ----------
     ttl
-        Seconds an untouched record lives. Every click restarts the clock, so only
-        abandoned views expire. `None` keeps records forever, including the ones a deleted
-        message or a failed send leaves behind. There is no default, since no lifetime
-        suits both a confirmation dialog and a role menu.
+        Seconds an untouched record lives. Every click restarts the clock, and so does
+        every update through `Client.open`, so only abandoned views expire. `None` keeps
+        records forever, including the ones a deleted message or a failed send leaves
+        behind. There is no default, since no lifetime suits both a confirmation dialog and
+        a role menu.
     store
         Which of the client's stores holds the state: `"default"` for the client's
         `store=`, or a key of its `stores=`.
     adopt
         Take over the messages the view sent while it kept its state in the message. It
         needs the same `version`, and durable fields that can still read the old state. The
-        first click on such a message moves its state into a record, which lives `ttl` like
-        any other, and every later click on the message reads the record. Once the record
+        first click on such a message, or the first update of it through `Client.open`, moves
+        its state into a record, which lives `ttl` like any other, and every later click on the
+        message reads the record. Once the record
         has expired, the next click takes the state over again if the message still holds
         it. A message nobody clicks keeps its state. Without `adopt`, a click on a message
         nobody took over goes to `on_outdated`.

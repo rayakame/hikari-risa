@@ -31,6 +31,7 @@ from risa import ui
 from risa.internal import codec
 from risa.internal import constants
 from risa.internal import registry
+from risa.state import backend
 from risa.state import message
 
 
@@ -66,7 +67,8 @@ def component_ctx(
     slot = context.ViewSlot()
     if not bare:
         clicked = codec.CustomID(cookie=meta.cookie, handler="ab", fragment_index=0, fragment="", tail="")
-        session = message.MessageBackend().session(meta=meta, component=clicked, interaction=interaction)
+        origin = backend.Origin.from_click(interaction, clicked)
+        session = message.MessageBackend().session(meta=meta, origin=origin)
         slot = context.ViewSlot(view=view if view is not None else Anchor(), session=session)
     return risa.ComponentContext(
         interaction,

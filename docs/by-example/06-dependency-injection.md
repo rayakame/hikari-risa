@@ -202,9 +202,9 @@ the `DEFAULT` one around it. A handler names `Wallet` like anything else.
 The container makes a wallet at most once per click, so `load()` and the handler of one click share it, and a handler
 that doesn't name it never opens one.
 
-[`client.build`](../api/client.md#risa.client.Client.build) runs `load()` in `DEFAULT` alone, even inside a handler. A
-`load()` that names `Wallet` makes it raise `DependencyNotSatisfiableException`, and one that names `Wallet | None` gets
-`None` there.
+[`client.build`](../api/client.md#risa.client.Client.build) runs `load()` in `DEFAULT` alone, even inside a handler,
+and so does [`client.open`](07-fresh-data.md#a-change-with-no-click). A `load()` that names `Wallet` makes them raise
+`DependencyNotSatisfiableException`, and one that names `Wallet | None` gets `None` there.
 
 ??? example "Full file"
 
@@ -276,8 +276,9 @@ injected: `limit: int = risa.INJECTED`.
 ## Injection context
 
 An injected function needs an open context when it runs. risa opens `DEFAULT` and `COMPONENT` once around a whole click,
-its hooks, `load()`, the handler, the fallbacks and the error handlers, and `DEFAULT` around the `load()` in `client.build`.
-A function called from inside those has them too, so you rarely need to think about this.
+its hooks, `load()`, the handler, the fallbacks and the error handlers, and `DEFAULT` around the `load()` in
+`client.build` and `client.open`. A function called from inside those has them too, so you rarely need to think about
+this.
 
 Anywhere else, such as in a hikari listener, open the context yourself, or the call raises
 `DependencyNotSatisfiableException`.

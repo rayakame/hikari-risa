@@ -83,6 +83,109 @@ The handler then gets the props at their defaults, and so does every rerender of
 handler, and the one risa does itself when the handler changed a field without rerendering. Fill every prop `render()`
 draws, or change no field and leave the rerender out. `client.build` still runs `load()`.
 
+## A change with no click
+
+A message shows what `load()` read when it was last drawn. When the data changes with no click, such as a score that
+comes in from elsewhere, [`client.rerender`](../api/client.md#risa.client.Client.rerender) redraws the message. The
+view's fields stay as they are, and `load()` reads the rows again.
+
+```python
+--8<-- "ch07_leaderboard.py:outside"
+```
+
+`SCORES` is the `Scores` the bot registered, and `win` stands in for whatever changes your data. `rerender` takes the
+channel, the message and the view's class, so keep the id of the message `send_to` returns. The example keeps it in a
+`dict`; your bot would keep it beside the data. For a view sent in answer to an interaction, fetch the message once
+with [`Response.fetch`](../api/context.md#risa.context.Response.fetch) to learn its id.
+
+To change a field as well, open the view with [`client.open`](../api/client.md#risa.client.Client.open). The block gets
+the view with its fields as they are now. Leaving the block redraws the message and saves the state, and a block that
+raises draws nothing and saves none of its changes. The same listener goes on:
+
+```python
+--8<-- "ch07_leaderboard.py:block"
+```
+
+`load()` runs before the block, as it runs [before a handler](#a-handler-that-changes-what-load-reads). This update
+changes `game`, which `load()` reads. So the example reads the new rows itself and then opens the view with
+`load=False`. When the block changes nothing that `load()` reads, leave `load=False` out.
+
+A redraw and a block are both updates of the message, and what follows holds for either. No [hook](13-hooks.md) and no
+error handler runs for an update, and `load()` runs in `DEFAULT` alone, as it does in
+[`client.build`](06-dependency-injection.md#a-dependency-for-each-click).
+
+### Which call for which view
+
+| The view | To redraw its message |
+|---|---|
+| Fields, and buttons or menus | `client.rerender`, or `client.open` to change a field too |
+| No fields | `client.rerender`, or `client.open` to fill a prop in the block. risa fetches nothing, takes no lock, and does not check what the message shows |
+| Fields, and a `render()` that never draws a button or a menu | `rest.edit_message(channel, message, **await client.build(view))`, where `view` is a new instance with its fields passed again |
+
+A message with nothing to click holds no state, which is why the last row builds a new view.
+
+!!! warning "Do not edit the message of a view from the first row through `rest.edit_message`."
+    risa remembers the state it last saved to a message, and after an edit it did not make, a later click can bring that
+    state back. A view in a store gets a second record, and the first stays until its `ttl` runs out, or for good under
+    `ttl=None`. Use `rerender` or `open` for such a view.
+
+### What an update costs
+
+For a view with fields:
+
+- **A fetch.** risa fetches the message to find the view's state, so the bot needs View Channel and Read Message
+  History in the channel. A view in a store costs a second fetch: the message names the record, and risa reads the
+  message again once it holds that record's lock.
+- **The view's lock.** Clicks on the message wait until the update is done, and Discord's
+  [three seconds](05-answering-in-time.md#the-clock) keep running for them. `load()` and the block run under the lock,
+  so do slow work before `open`, as the example does with the rows. When the data changes often, update a message
+  every few seconds at most: Discord limits how fast a bot edits messages, and an edit that waits for that limit holds
+  the lock.
+
+An update also restarts the [`ttl`](09-stores-and-ttl.md#ttl) of a view in a store and the time
+[`expires_after`](14-ready-made-hooks.md#checks) counts, so a board that is redrawn every minute never expires.
+
+### The limits of an update
+
+- **A handler of the same message.** The handler holds the lock `open` waits for, so `open` raises
+  [`LockTimeoutError`](../api/errors.md#risa.errors.LockTimeoutError) after 10 seconds. Change `self` there and call
+  `ctx.rerender()`.
+- **An ephemeral message.** Only an interaction can edit it: the one that sent it, or a click on it.
+- **A layout from `ctx.edit`.** An update draws what `render()` returns, as `ctx.rerender()` does, so a layout a
+  handler drew with [`ctx.edit`](05-answering-in-time.md#which-message) is gone after it. A layout with nothing to
+  click ended the view, and the update raises [`MessageOutdatedError`](#what-an-update-raises), as it does once
+  [`ctx.replace`](05-answering-in-time.md#which-message) gave the message to another view. A view without fields is
+  not checked, so an update draws it over whatever the message shows.
+- **Several processes.** [Several processes](11-several-processes.md#an-update-from-outside) says what an update does
+  when clicks land in another process.
+
+### What an update raises
+
+Where a click would run [`on_outdated`](10-changing-a-view-safely.md#on_outdated) because the state no longer fits the
+fields, or [`on_state_missing`](09-stores-and-ttl.md#ttl), there is no click to answer, so `open` and `rerender` raise:
+
+- [`MessageOutdatedError`](../api/errors.md#risa.errors.MessageOutdatedError) when the message holds no state of the
+  view that this code can read: it shows another view or another
+  [`version`](10-changing-a-view-safely.md#which-version-to-raise) of this one, it has nothing to click, or a
+  [breaking change](10-changing-a-view-safely.md#breaking-changes) to the view's fields or its placement went out
+  without a raised `version`. Catch it to stop updating a message whose view has ended. A view without fields never
+  raises it.
+- [`StateNotFoundError`](../api/errors.md#risa.errors.StateNotFoundError) when the record of a
+  [view in a store](08-where-state-lives.md#message-or-store) is gone.
+- `LockTimeoutError` when a click holds the view's lock for more than 10 seconds.
+- hikari's `NotFoundError` for a message that was deleted, and its `ForbiddenError` for one the bot may not read. risa
+  passes them on as they are.
+
+What the edit raises passes through as well. A view in the message has saved nothing then, so run the block again. A
+view in a store has saved the new state, and the block would apply its change a second time: call `client.rerender`
+to draw what is saved.
+
+Leaving the block can raise as `ctx.rerender()` can, with [`StateOverflowError`](08-where-state-lives.md#the-limit)
+when the state no longer fits the message and
+[`StateConflictError`](11-several-processes.md#when-a-handler-loses-the-race) when another process saved first. After a
+conflict the block is over, so run `open` again. The reference of
+[`client.open`](../api/client.md#risa.client.Client.open) lists everything it raises.
+
 ??? example "Full file"
 
     ```python

@@ -24,6 +24,7 @@ import typing
 
 import hikari
 import msgspec
+import pytest
 
 import risa
 from risa import codecs
@@ -33,8 +34,6 @@ from risa.state import anchor
 
 if typing.TYPE_CHECKING:
     import types
-
-    import pytest
 
 POLL = codec.make_cookie("poll", 1)
 HELP = codec.make_cookie("help", 1)
@@ -237,3 +236,35 @@ def test_a_carved_anchor_gathers_back_from_the_message() -> None:
     assert found is not None
     assert not isinstance(found, risa.CodecUnavailableError)
     assert anchor.gather(found) == raw
+
+
+def test_the_first_component_of_a_view_is_found() -> None:
+    found = reader.first_component([row(button(custom_id(0, b"ab")), button(custom_id(1, b"cd")))], cookie=POLL)
+
+    assert found == codec.parse_custom_id(custom_id(0, b"ab"))
+
+
+@pytest.mark.parametrize(
+    "components",
+    [
+        [container(text("title"), row(button(custom_id(0, b"ab"))))],
+        [container(section(button(custom_id(0, b"ab"))))],
+        [row(select(custom_id(0, b"ab")))],
+    ],
+)
+def test_the_first_component_is_found_wherever_it_sits(components: list[hikari.TopLevelComponentTypesT]) -> None:
+    assert reader.first_component(components, cookie=POLL) == codec.parse_custom_id(custom_id(0, b"ab"))
+
+
+def test_components_of_other_views_and_other_libraries_are_passed_over() -> None:
+    components = [
+        row(button("someone-elses-id"), button(custom_id(0, b"zz", cookie=HELP)), button(custom_id(0, b"ab"))),
+    ]
+
+    assert reader.first_component(components, cookie=POLL) == codec.parse_custom_id(custom_id(0, b"ab"))
+
+
+def test_a_message_without_the_view_has_no_first_component() -> None:
+    assert reader.first_component([row(button(custom_id(0, b"zz", cookie=HELP)))], cookie=POLL) is None
+    assert reader.first_component([text("no buttons")], cookie=POLL) is None
+    assert reader.first_component([], cookie=POLL) is None

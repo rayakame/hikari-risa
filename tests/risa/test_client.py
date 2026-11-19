@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import enum
+import itertools
 import logging
 import typing
 import unittest.mock
@@ -2029,9 +2030,7 @@ def test_a_blank_key_prefix_is_refused() -> None:
 
 def test_key_prefix_reaches_the_store_keys() -> None:
     built = risa.client_from_app(gateway_app(), store=risa.MemoryStore(), key_prefix="modbot")
-    clicked = unittest.mock.Mock(spec=hikari.ComponentInteraction, application_id=hikari.Snowflake(4242))
-
-    key = stored_backend_of(built, Ledger).namespace.for_click("aa", clicked)
+    key = stored_backend_of(built, Ledger).namespace.for_click("aa", hikari.Snowflake(4242))
 
     assert key == "modbot:1:aa"
 
@@ -4519,3 +4518,879 @@ def test_an_order_without_invoke_or_with_a_step_twice_is_refused(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         risa.client_from_app(gateway_app(), execution_step_order=order)
+
+
+CHANNEL = hikari.Snowflake(7)
+MESSAGE = hikari.Snowflake(1)
+ENTERED = _ReleaseGate()
+
+
+@risa.register(name="client-turnstile")
+class Turnstile(risa.View):
+    passed: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.enter, label=str(self.passed)))
+
+    @risa.handler
+    async def enter(self, ctx: risa.ComponentContext) -> None:
+        self.passed += 1
+        ENTERED.event.set()
+        await RELEASE.event.wait()
+        await ctx.rerender()
+
+
+@risa.register(name="client-raffle")
+class Raffle(risa.View):
+    closed: bool = False
+
+    def render(self) -> ui.Layout:
+        return ui.TextDisplay("closed") if self.closed else ui.Row(ui.Button(self.join))
+
+    @risa.handler
+    async def join(self, ctx: risa.ComponentContext) -> None: ...
+
+
+@risa.register(name="client-ticker")
+class Ticker(risa.View):
+    price: risa.Prop[int] = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Container(ui.TextDisplay(f"price {self.price}"), ui.Row(ui.Button(self.refresh)))
+
+    @typing.override
+    async def load(self) -> None:
+        self.price = 42
+
+    @risa.handler
+    async def refresh(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        await ctx.rerender()
+
+
+@risa.register(name="client-farewell")
+class Farewell(risa.View):
+    visits: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.leave, label=str(self.visits)))
+
+    @risa.handler
+    async def leave(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        ENTERED.event.set()
+        await RELEASE.event.wait()
+        await ctx.edit(ui.TextDisplay("goodbye"))
+
+
+@risa.register(name="client-adieu", state=risa.InStore(ttl=60.0))
+class Adieu(risa.View):
+    visits: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.leave, label=str(self.visits)))
+
+    @risa.handler
+    async def leave(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        ENTERED.event.set()
+        await RELEASE.event.wait()
+        await ctx.edit(ui.TextDisplay("goodbye"))
+
+
+@risa.register(name="client-logbook", state=risa.InStore(ttl=60.0))
+class Logbook(risa.View):
+    lines: list[str] = msgspec.field(default_factory=list[str])
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.restart, label=str(len(self.lines))))
+
+    @risa.handler
+    async def restart(self, ctx: risa.ComponentContext) -> None:  # ruff:ignore[no-self-use]
+        ENTERED.event.set()
+        await RELEASE.event.wait()
+        await ctx.replace(Logbook(lines=["new"]))
+
+
+@risa.register(name="client-fragile")
+class Fragile(risa.View):
+    uses: int = 0
+    broken: risa.Prop[bool] = False
+
+    def render(self) -> ui.Layout:
+        if self.broken:
+            msg = "render broke"
+            raise RuntimeError(msg)
+        return ui.Row(ui.Button(self.use, label=str(self.uses)))
+
+    @risa.handler
+    async def use(self, ctx: risa.ComponentContext) -> None:
+        self.uses += 1
+        await ctx.rerender()
+
+
+@risa.register(name="client-fragile-note", state=risa.InStore(ttl=60.0))
+class FragileNote(risa.View):
+    uses: int = 0
+    broken: risa.Prop[bool] = False
+
+    def render(self) -> ui.Layout:
+        if self.broken:
+            msg = "render broke"
+            raise RuntimeError(msg)
+        return ui.Row(ui.Button(self.use, label=str(self.uses)))
+
+    @risa.handler
+    async def use(self, ctx: risa.ComponentContext) -> None:
+        self.uses += 1
+        await ctx.rerender()
+
+
+@risa.register(name="client-reentrant")
+class Reentrant(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.again))
+
+    @risa.handler
+    async def again(self, ctx: risa.ComponentContext, client: risa.Client) -> None:  # ruff:ignore[no-self-use]
+        try:
+            await client.rerender(CHANNEL, ctx.message.id, Reentrant)
+        except risa.LockTimeoutError as error:
+            STATE_CALLS.append(f"timed out on {error.key}")
+
+
+@risa.register(name="client-packed", state=risa.InMessage(codec=codecs.BASE32768))
+class Packed(risa.View):
+    count: int = 0
+
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.add), ui.Button(self.add))
+
+    @risa.handler
+    async def add(self, ctx: risa.ComponentContext) -> None:
+        self.count += 1
+        await ctx.rerender()
+
+
+def shown(ids: list[str]) -> unittest.mock.Mock:
+    sent = click(ids, 0).message if ids else interaction_with("").message
+    return typing.cast("unittest.mock.Mock", sent)
+
+
+def edited_with(built: risa.Client) -> collections.abc.Sequence[hikari.api.ComponentBuilder]:
+    call = rest_of(built).edit_message.await_args
+    assert call is not None
+    assert call.args == (CHANNEL, MESSAGE)
+    return typing.cast("collections.abc.Sequence[hikari.api.ComponentBuilder]", call.kwargs["components"])
+
+
+def first_label(builders: collections.abc.Sequence[hikari.api.ComponentBuilder]) -> str:
+    payload, _attachments = builders[0].build()
+    return typing.cast("str", payload["components"][0]["label"])
+
+
+async def showing(
+    view: risa.View,
+    built: risa.GatewayEnabledClient | None = None,
+) -> tuple[risa.GatewayEnabledClient, list[str]]:
+    built = built if built is not None else risa.client_from_app(gateway_app())
+    built.add_view(type(view))
+    ids = ids_of((await built.build(view)).components)
+    rest_of(built).fetch_message.return_value = shown(ids)
+    return built, ids
+
+
+def follow_the_click(built: risa.Client, ids: list[str]) -> None:
+    def fetched(*_: object) -> unittest.mock.Mock:
+        answered = rest_of(built).create_interaction_response.await_args is not None
+        return shown(ids_of(updated_with(built)) if answered else ids)
+
+    rest_of(built).fetch_message.side_effect = fetched
+
+
+async def entered() -> None:
+    await asyncio.wait_for(ENTERED.event.wait(), timeout=1)
+
+
+async def add_line(built: risa.Client, line: str) -> None:
+    async with built.open(CHANNEL, MESSAGE, Logbook) as logbook:
+        logbook.lines.append(line)
+
+
+def zero_the_first(tally: Tally) -> None:
+    tally.counts[0] = 0
+
+
+def add_milk(notebook: Notebook) -> None:
+    notebook.entries.append("milk")
+
+
+async def changing_my_mind[T: risa.View](
+    built: risa.Client,
+    cls: type[T],
+    change: collections.abc.Callable[[T], None],
+) -> None:
+    async with built.open(CHANNEL, MESSAGE, cls) as view:
+        change(view)
+        msg = "changed my mind"
+        raise RuntimeError(msg)
+
+
+async def update_after_a_rival(built: risa.Client, store: risa.MemoryStore, key: str) -> None:
+    async with built.open(CHANNEL, MESSAGE, Notebook) as notebook:
+        current = await store.get_versioned(key)
+        assert current is not None
+        await store.put_if_version(key, current.data, expected=current.version, ttl=60.0)
+        notebook.entries.append("milk")
+
+
+async def breaking_the_render(built: risa.Client) -> None:
+    async with built.open(CHANNEL, MESSAGE, Fragile) as view:
+        view.uses = 9
+        view.broken = True
+
+
+async def breaking_the_stored_render(built: risa.Client) -> None:
+    async with built.open(CHANNEL, MESSAGE, FragileNote) as view:
+        view.uses = 9
+        view.broken = True
+
+
+def received(builders: collections.abc.Sequence[hikari.api.ComponentBuilder]) -> hikari.Message:
+    numbers = itertools.count(1)
+
+    def numbered(node: object) -> object:
+        if isinstance(node, dict):
+            entries = {key: numbered(value) for key, value in typing.cast("dict[str, object]", node).items()}
+            return {"id": next(numbers), **entries} if "type" in entries else entries
+        if isinstance(node, list):
+            return [numbered(value) for value in typing.cast("list[object]", node)]
+        return node
+
+    payload: dict[str, object] = {
+        "id": "1",
+        "channel_id": "7",
+        "author": {"id": "2", "username": "bot", "discriminator": "0", "avatar": None},
+        "content": "",
+        "timestamp": "2026-11-18T12:00:00+00:00",
+        "edited_timestamp": None,
+        "tts": False,
+        "mention_everyone": False,
+        "mentions": [],
+        "mention_roles": [],
+        "attachments": [],
+        "embeds": [],
+        "pinned": False,
+        "type": 0,
+        "flags": int(hikari.MessageFlag.IS_COMPONENTS_V2),
+        "components": [numbered(builder.build()[0]) for builder in builders],
+    }
+    return hikari.impl.EntityFactoryImpl(unittest.mock.Mock()).deserialize_message(payload)
+
+
+def sequence_of(builders: collections.abc.Sequence[hikari.api.ComponentBuilder]) -> int:
+    found = reader.fragments(click(ids_of(builders), 0).message.components, cookie=registry.require_meta(Tally).cookie)
+    assert isinstance(found, dict)
+    raw = anchor.gather(found)
+    assert raw is not None
+    parsed = anchor.parse(raw)
+    assert isinstance(parsed, anchor.MessageAnchor)
+    return parsed.seq
+
+
+async def test_open_reads_the_state_the_message_holds_and_saves_what_the_block_changes() -> None:
+    built, _ = await showing(Tally(counts=[3, 1]))
+
+    async with built.open(CHANNEL, MESSAGE, Tally) as tally:
+        assert tally.counts == [3, 1]
+        tally.counts[0] = 0
+
+    rest_of(built).fetch_message.assert_awaited_once_with(CHANNEL, MESSAGE)
+    assert restored_tally(edited_with(built)) == [0, 1]
+    assert text_of(edited_with(built)) == "[0, 1] fresh"
+
+
+async def test_a_click_after_an_update_runs_on_what_the_update_left() -> None:
+    built, _ = await showing(Tally(counts=[3, 1]))
+    async with built.open(CHANNEL, MESSAGE, Tally) as tally:
+        tally.counts[0] = 0
+
+    await process(built, click(ids_of(edited_with(built)), 0))
+
+    assert restored_tally(updated_with(built)) == [1, 1]
+
+
+async def test_a_click_that_carries_the_message_from_before_the_update_runs_on_the_new_state() -> None:
+    built, before = await showing(Tally(counts=[3, 1]))
+    async with built.open(CHANNEL, MESSAGE, Tally) as tally:
+        tally.counts[0] = 0
+
+    await process(built, click(before, 0))
+
+    assert restored_tally(updated_with(built)) == [1, 1]
+
+
+async def test_an_update_continues_the_sequence_number() -> None:
+    built, _ = await showing(Tally())
+
+    await built.rerender(CHANNEL, MESSAGE, Tally)
+    rest_of(built).fetch_message.return_value = shown(ids_of(edited_with(built)))
+    await built.rerender(CHANNEL, MESSAGE, Tally)
+
+    assert sequence_of(edited_with(built)) == 2
+
+
+async def test_an_update_reads_the_message_it_fetched_over_a_newer_commit_this_process_remembers() -> None:
+    built, ids = await showing(Tally(counts=[3, 1]))
+    await process(built, click(ids, 0))
+
+    await built.rerender(CHANNEL, MESSAGE, Tally)
+
+    assert restored_tally(edited_with(built)) == [3, 1]
+    assert sequence_of(edited_with(built)) == 2
+
+
+async def test_a_late_click_on_a_commit_an_update_did_not_read_runs_on_what_the_update_left() -> None:
+    built, ids = await showing(Tally(counts=[3, 1]))
+    await process(built, click(ids, 0))
+    late = click(ids_of(updated_with(built)), 0)
+
+    await built.rerender(CHANNEL, MESSAGE, Tally)
+    await process(built, late)
+
+    assert restored_tally(updated_with(built)) == [4, 1]
+
+
+async def test_rerender_redraws_the_message_with_its_state_kept() -> None:
+    built, _ = await showing(Tally(counts=[3, 1]))
+
+    await built.rerender(CHANNEL, MESSAGE, Tally)
+
+    assert restored_tally(edited_with(built)) == [3, 1]
+    assert text_of(edited_with(built)) == "[3, 1] fresh"
+
+
+async def test_a_block_that_raises_saves_and_draws_nothing() -> None:
+    built, before = await showing(Tally(counts=[3, 1]))
+
+    with pytest.raises(RuntimeError, match="changed my mind"):
+        await changing_my_mind(built, Tally, zero_the_first)
+
+    rest_of(built).edit_message.assert_not_called()
+    await process(built, click(before, 0))
+    assert restored_tally(updated_with(built)) == [4, 1]
+
+
+async def test_load_runs_before_the_block_and_not_again() -> None:
+    built, _ = await showing(Selective(count=2))
+    STATE_CALLS.clear()
+
+    async with built.open(CHANNEL, MESSAGE, Selective) as view:
+        assert view.rows == ["first"]
+        view.count = 3
+
+    assert STATE_CALLS == ["load"]
+    assert "3 ['first']" in str(edited_with(built)[0].build()[0])
+
+
+async def test_load_false_leaves_the_props_to_the_block() -> None:
+    built, _ = await showing(Selective(count=2))
+    STATE_CALLS.clear()
+
+    async with built.open(CHANNEL, MESSAGE, Selective, load=False) as view:
+        assert view.rows == []
+        view.rows = ["mine"]
+
+    assert STATE_CALLS == []
+    assert "2 ['mine']" in str(edited_with(built)[0].build()[0])
+
+
+async def test_a_failing_load_draws_nothing_and_gives_the_lock_back() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Unloadable)
+    meta = registry.require_meta(Unloadable)
+    first = message.MessageBackend().first_anchor(meta=meta, view=Unloadable())
+    rest_of(built).fetch_message.return_value = shown(ids_of(build_.plan(Unloadable().render(), meta).emit(first)))
+
+    for _attempt in range(2):
+        with pytest.raises(RuntimeError, match="the database is down"):
+            await built.rerender(CHANNEL, MESSAGE, Unloadable)
+
+    rest_of(built).edit_message.assert_not_called()
+
+
+async def test_an_update_waits_for_a_running_click_and_reads_what_it_left() -> None:
+    built, ids = await showing(Turnstile(passed=4))
+    follow_the_click(built, ids)
+    ENTERED.event, RELEASE.event = asyncio.Event(), asyncio.Event()
+
+    running = asyncio.create_task(process(built, click(ids, 0)))
+    await entered()
+    update = asyncio.create_task(built.rerender(CHANNEL, MESSAGE, Turnstile))
+    await asyncio.sleep(0.01)
+    rest_of(built).fetch_message.assert_not_called()
+    rest_of(built).edit_message.assert_not_called()
+    RELEASE.event.set()
+    await asyncio.gather(running, update)
+
+    assert first_label(edited_with(built)) == "5"
+
+
+async def test_a_view_that_ends_in_the_block_cannot_be_opened_again(caplog: pytest.LogCaptureFixture) -> None:
+    built, _ = await showing(Raffle())
+    async with built.open(CHANNEL, MESSAGE, Raffle) as raffle:
+        raffle.closed = True
+    assert ids_of(edited_with(built)) == []
+    rest_of(built).fetch_message.return_value = shown([])
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"), pytest.raises(risa.MessageOutdatedError) as exc_info:
+        await built.rerender(CHANNEL, MESSAGE, Raffle)
+
+    assert (exc_info.value.view_name, exc_info.value.message_id) == ("client-raffle", MESSAGE)
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+async def test_a_message_that_shows_another_view_is_refused_with_no_log_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built, _ = await showing(Tally())
+    built.add_view(Turnstile)
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"), pytest.raises(risa.MessageOutdatedError):
+        await built.rerender(CHANNEL, MESSAGE, Turnstile)
+
+    rest_of(built).edit_message.assert_not_called()
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+async def test_a_state_this_code_cannot_read_is_refused_after_the_sessions_log_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built, ids = await showing(Tally(counts=[3, 1]))
+    rest_of(built).fetch_message.return_value = shown(ids[1:])
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"), pytest.raises(risa.MessageOutdatedError):
+        await built.rerender(CHANNEL, MESSAGE, Tally)
+
+    (line,) = [record.getMessage() for record in caplog.records if record.levelno >= logging.WARNING]
+    assert line.startswith("client.open routes to view")
+
+
+async def test_a_record_that_is_gone_raises_state_not_found_with_its_key(caplog: pytest.LogCaptureFixture) -> None:
+    store = risa.MemoryStore()
+    built, _ = await showing(Notebook(), stored_client(store))
+    (key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    await store.delete(key)
+    caplog.clear()
+
+    with caplog.at_level(logging.DEBUG, logger="risa"), pytest.raises(risa.StateNotFoundError) as exc_info:
+        await built.rerender(CHANNEL, MESSAGE, Notebook)
+
+    assert exc_info.value.key == key
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+async def test_a_class_that_was_never_registered_is_refused_before_the_fetch(client: risa.GatewayEnabledClient) -> None:
+    class Loose(risa.View): ...
+
+    with pytest.raises(risa.NotAViewError):
+        await client.rerender(CHANNEL, MESSAGE, Loose)
+
+    rest_of(client).fetch_message.assert_not_called()
+
+
+async def test_a_view_whose_store_the_client_lacks_is_refused_before_the_fetch(
+    client: risa.GatewayEnabledClient,
+) -> None:
+    with pytest.raises(risa.ViewDeclarationError):
+        await client.rerender(CHANNEL, MESSAGE, Notebook)
+
+    rest_of(client).fetch_message.assert_not_called()
+
+
+async def test_what_the_fetch_raises_passes_through(client: risa.GatewayEnabledClient) -> None:
+    client.add_view(Tally)
+    rest_of(client).fetch_message.side_effect = LookupError("the message is gone")
+
+    with pytest.raises(LookupError, match="the message is gone"):
+        await client.rerender(CHANNEL, MESSAGE, Tally)
+
+
+async def test_an_edit_that_fails_remembers_nothing() -> None:
+    built, before = await showing(Tally(counts=[3, 1]))
+    rest_of(built).edit_message.side_effect = ConnectionError("discord said no")
+
+    with pytest.raises(ConnectionError, match="discord said no"):
+        async with built.open(CHANNEL, MESSAGE, Tally) as tally:
+            tally.counts[0] = 0
+
+    await process(built, click(before, 0))
+    assert restored_tally(updated_with(built)) == [4, 1]
+
+
+async def test_a_lock_that_is_not_granted_raises_lock_timeout() -> None:
+    built, _ = await showing(Notebook(), stored_client(LockedStore()))
+
+    with pytest.raises(risa.LockTimeoutError):
+        await built.rerender(CHANNEL, MESSAGE, Notebook)
+
+    rest_of(built).edit_message.assert_not_called()
+
+
+async def test_an_update_of_a_stored_view_writes_the_record_it_read_and_no_other() -> None:
+    store = risa.MemoryStore()
+    built, ids = await showing(Notebook(entries=["eggs"]), stored_client(store))
+
+    async with built.open(CHANNEL, MESSAGE, Notebook) as notebook:
+        notebook.entries.append("milk")
+
+    (key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    entry = await store.get_versioned(key)
+    assert entry is not None
+    assert entry.version == 2
+    assert ids_of(edited_with(built)) == ids
+    await process(built, click(ids, 0))
+    async with built.open(CHANNEL, MESSAGE, Notebook) as again:
+        assert again.entries == ["eggs", "milk", "milk"]
+
+
+async def test_a_stored_update_whose_block_raises_or_whose_edit_fails() -> None:
+    store = risa.MemoryStore()
+    built, _ = await showing(Notebook(entries=["eggs"]), stored_client(store))
+    (key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    before = await store.get_versioned(key)
+
+    with pytest.raises(RuntimeError, match="changed my mind"):
+        await changing_my_mind(built, Notebook, add_milk)
+    unchanged = await store.get_versioned(key)
+    assert before is not None
+    assert unchanged is not None
+    assert (unchanged.data, unchanged.version) == (before.data, before.version)
+
+    rest_of(built).edit_message.side_effect = ConnectionError("discord said no")
+    with pytest.raises(ConnectionError):
+        async with built.open(CHANNEL, MESSAGE, Notebook) as notebook:
+            notebook.entries.append("milk")
+    rest_of(built).edit_message.side_effect = None
+    async with built.open(CHANNEL, MESSAGE, Notebook) as again:
+        assert again.entries == ["eggs", "milk"]
+
+
+async def test_a_message_from_before_the_move_into_a_store_is_taken_over_by_an_update() -> None:
+    built = stored_client()
+    built.add_view(Pantry)
+    old = as_sent_in_the_message(Pantry(shelf=["beans"]), ids_of((await built.build(Pantry())).components))
+    rest_of(built).fetch_message.return_value = shown(old)
+
+    async with built.open(CHANNEL, MESSAGE, Pantry) as pantry:
+        assert pantry.shelf == ["beans"]
+        pantry.shelf.append("oats")
+
+    rewritten = ids_of(edited_with(built))
+    assert anchor_in(rewritten[0]) == anchor.TakenOverAnchor()
+    rest_of(built).fetch_message.return_value = shown(rewritten)
+    async with built.open(CHANNEL, MESSAGE, Pantry) as again:
+        assert again.shelf == ["beans", "oats"]
+
+
+async def test_a_view_without_fields_is_updated_with_no_fetch(client: risa.GatewayEnabledClient) -> None:
+    client.add_view(Ticker)
+
+    await client.rerender(CHANNEL, MESSAGE, Ticker)
+
+    rest_of(client).fetch_message.assert_not_called()
+    assert text_of(edited_with(client)) == "price 42"
+
+
+async def test_an_update_warns_for_a_view_the_client_does_not_answer(caplog: pytest.LogCaptureFixture) -> None:
+    _, ids = await showing(Tally())
+    built = risa.client_from_app(gateway_app())
+    rest_of(built).fetch_message.return_value = shown(ids)
+
+    with caplog.at_level(logging.WARNING, logger="risa"):
+        await built.rerender(CHANNEL, MESSAGE, Tally)
+
+    assert any("does not answer its clicks" in record.getMessage() for record in caplog.records)
+
+
+async def test_a_store_that_cannot_be_reached_raises_store_unavailable() -> None:
+    built, _ = await showing(Notebook(), stored_client(DownStore()))
+
+    with pytest.raises(risa.StoreUnavailableError):
+        await built.rerender(CHANNEL, MESSAGE, Notebook)
+
+    rest_of(built).edit_message.assert_not_called()
+
+
+async def test_a_state_that_no_longer_fits_raises_on_leaving_and_draws_nothing() -> None:
+    built, before = await showing(Tally(counts=[3, 1]))
+
+    with pytest.raises(risa.StateOverflowError):
+        async with built.open(CHANNEL, MESSAGE, Tally) as tally:
+            tally.counts = list(range(400))
+
+    rest_of(built).edit_message.assert_not_called()
+    await process(built, click(before, 0))
+    assert restored_tally(updated_with(built)) == [4, 1]
+
+
+async def test_a_race_lost_on_leaving_raises_state_conflict_and_draws_nothing() -> None:
+    store = risa.MemoryStore()
+    built, _ = await showing(Notebook(entries=["eggs"]), stored_client(store))
+    (key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+
+    with pytest.raises(risa.StateConflictError):
+        await update_after_a_rival(built, store, key)
+
+    rest_of(built).edit_message.assert_not_called()
+
+
+async def test_a_click_waits_for_an_update_and_runs_on_what_it_left() -> None:
+    built, ids = await showing(Tally(counts=[3, 1]))
+
+    async with built.open(CHANNEL, MESSAGE, Tally) as tally:
+        waiting = asyncio.create_task(process(built, click(ids, 0)))
+        await asyncio.sleep(0.01)
+        rest_of(built).create_interaction_response.assert_not_called()
+        tally.counts[0] = 0
+    await waiting
+
+    assert restored_tally(updated_with(built)) == [1, 1]
+
+
+async def test_a_block_that_raises_keeps_its_exception_when_the_release_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built, _ = await showing(Notebook(entries=["eggs"]), stored_client(StuckStore()))
+
+    with caplog.at_level(logging.ERROR, logger="risa"), pytest.raises(RuntimeError, match="changed my mind"):
+        await changing_my_mind(built, Notebook, add_milk)
+
+    assert "releasing the state of view client-notebook" in caplog.text
+
+
+async def test_an_update_that_went_through_does_not_raise_when_the_release_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    built, _ = await showing(Notebook(entries=["eggs"]), stored_client(StuckStore()))
+
+    with caplog.at_level(logging.ERROR, logger="risa"):
+        async with built.open(CHANNEL, MESSAGE, Notebook) as notebook:
+            notebook.entries.append("milk")
+
+    rest_of(built).edit_message.assert_awaited_once()
+    assert "releasing the state of view client-notebook" in caplog.text
+
+
+async def test_an_update_that_waited_for_a_click_that_ended_the_view_finds_it_ended() -> None:
+    built, ids = await showing(Farewell())
+    follow_the_click(built, ids)
+    ENTERED.event, RELEASE.event = asyncio.Event(), asyncio.Event()
+
+    running = asyncio.create_task(process(built, click(ids, 0)))
+    await entered()
+    update = asyncio.create_task(built.rerender(CHANNEL, MESSAGE, Farewell))
+    await asyncio.sleep(0.01)
+    RELEASE.event.set()
+    await running
+
+    with pytest.raises(risa.MessageOutdatedError):
+        await update
+    rest_of(built).edit_message.assert_not_called()
+
+
+async def test_a_stored_update_that_waited_for_a_click_that_ended_the_view_finds_it_ended() -> None:
+    built, ids = await showing(Adieu(), stored_client())
+    follow_the_click(built, ids)
+    ENTERED.event, RELEASE.event = asyncio.Event(), asyncio.Event()
+
+    running = asyncio.create_task(process(built, click(ids, 0)))
+    await entered()
+    update = asyncio.create_task(built.rerender(CHANNEL, MESSAGE, Adieu))
+    await asyncio.sleep(0.01)
+    RELEASE.event.set()
+    await running
+
+    with pytest.raises(risa.MessageOutdatedError):
+        await update
+    rest_of(built).edit_message.assert_not_called()
+
+
+async def test_a_stored_update_that_waited_for_a_click_that_replaced_the_view_changes_the_new_record() -> None:
+    store = risa.MemoryStore()
+    built, ids = await showing(Logbook(lines=["old"]), stored_client(store))
+    (old,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    before = await store.get_versioned(old)
+    follow_the_click(built, ids)
+    ENTERED.event, RELEASE.event = asyncio.Event(), asyncio.Event()
+
+    running = asyncio.create_task(process(built, click(ids, 0)))
+    await entered()
+    update = asyncio.create_task(add_line(built, "update"))
+    await asyncio.sleep(0.01)
+    RELEASE.event.set()
+    await asyncio.gather(running, update)
+
+    assert ids_of(edited_with(built)) == ids_of(updated_with(built))
+    after = await store.get_versioned(old)
+    assert before is not None
+    assert after is not None
+    assert (after.data, after.version) == (before.data, before.version)
+    async with built.open(CHANNEL, MESSAGE, Logbook) as logbook:
+        assert logbook.lines == ["new", "update"]
+
+
+async def test_a_stored_update_fetches_the_message_again_once_it_holds_the_lock() -> None:
+    built, _ = await showing(Notebook(entries=["eggs"]), stored_client())
+
+    await built.rerender(CHANNEL, MESSAGE, Notebook)
+
+    assert rest_of(built).fetch_message.await_count == 2
+
+
+async def test_cancelling_inside_the_block_saves_nothing_and_gives_the_lock_back() -> None:
+    built, _ = await showing(Tally(counts=[3, 1]))
+    inside = asyncio.Event()
+
+    async def hang() -> None:
+        async with built.open(CHANNEL, MESSAGE, Tally) as tally:
+            tally.counts[0] = 0
+            inside.set()
+            await asyncio.sleep(100)
+
+    task = asyncio.create_task(hang())
+    await inside.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    rest_of(built).edit_message.assert_not_called()
+    await asyncio.wait_for(built.rerender(CHANNEL, MESSAGE, Tally), timeout=1)
+    assert restored_tally(edited_with(built)) == [3, 1]
+
+
+async def test_cancelling_an_update_that_waits_for_the_lock_edits_nothing() -> None:
+    built, _ = await showing(Tally(counts=[3, 1]))
+
+    async with built.open(CHANNEL, MESSAGE, Tally):
+        waiting = asyncio.create_task(built.rerender(CHANNEL, MESSAGE, Tally))
+        await asyncio.sleep(0.01)
+        waiting.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiting
+
+    rest_of(built).edit_message.assert_awaited_once()
+    await asyncio.wait_for(built.rerender(CHANNEL, MESSAGE, Tally), timeout=1)
+
+
+async def test_a_render_that_raises_on_leaving_saves_and_draws_nothing() -> None:
+    built, before = await showing(Fragile(uses=2))
+
+    with pytest.raises(RuntimeError, match="render broke"):
+        await breaking_the_render(built)
+
+    rest_of(built).edit_message.assert_not_called()
+    await process(built, click(before, 0))
+    assert first_label(updated_with(built)) == "3"
+
+
+async def test_a_stored_update_without_a_key_prefix_asks_for_the_application_once() -> None:
+    store = risa.MemoryStore(warn=False)
+    built = risa.client_from_app(gateway_app(), store=store)
+    rest_of(built).fetch_application.return_value.id = hikari.Snowflake(4242)
+    await showing(Notebook(entries=["eggs"]), built)
+
+    async with built.open(CHANNEL, MESSAGE, Notebook) as notebook:
+        notebook.entries.append("milk")
+
+    (key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    assert key.startswith("risa:4242:1:")
+    rest_of(built).fetch_application.assert_awaited_once()
+
+
+async def test_open_reads_a_message_as_hikari_delivers_it() -> None:
+    built = risa.client_from_app(gateway_app())
+    built.add_view(Tally)
+    rest_of(built).fetch_message.return_value = received((await built.build(Tally(counts=[3, 1]))).components)
+
+    async with built.open(CHANNEL, MESSAGE, Tally) as tally:
+        assert tally.counts == [3, 1]
+        tally.counts[0] = 0
+
+    assert restored_tally(edited_with(built)) == [0, 1]
+
+
+async def test_a_stored_render_that_raises_on_leaving_leaves_the_record_as_it_was() -> None:
+    store = risa.MemoryStore()
+    built = stored_client(store)
+    await showing(FragileNote(uses=2), built)
+    (key,) = list(store._entries)  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    before = await store.get_versioned(key)
+
+    with pytest.raises(RuntimeError, match="render broke"):
+        await breaking_the_stored_render(built)
+
+    after = await store.get_versioned(key)
+    assert before is not None
+    assert after is not None
+    assert (after.data, after.version) == (before.data, before.version)
+    rest_of(built).edit_message.assert_not_called()
+
+
+async def test_an_update_restarts_the_ttl_once_also_after_a_block_that_raised() -> None:
+    store = CountingStore()
+    built, _ = await showing(Notebook(entries=["eggs"]), stored_client(store))
+
+    with pytest.raises(RuntimeError, match="changed my mind"):
+        await changing_my_mind(built, Notebook, add_milk)
+    assert store.touches == 1
+
+    await built.rerender(CHANNEL, MESSAGE, Notebook)
+    assert store.touches == 2
+
+    async with built.open(CHANNEL, MESSAGE, Notebook) as notebook:
+        notebook.entries.append("milk")
+    assert store.touches == 2
+
+
+async def test_a_click_on_a_stored_view_waits_for_an_update_and_runs_on_what_it_left() -> None:
+    built, ids = await showing(Notebook(entries=["eggs"]), stored_client())
+
+    async with built.open(CHANNEL, MESSAGE, Notebook) as notebook:
+        waiting = asyncio.create_task(process(built, click(ids, 0)))
+        await asyncio.sleep(0.01)
+        rest_of(built).create_interaction_response.assert_not_called()
+        notebook.entries.append("first")
+    await waiting
+
+    async with built.open(CHANNEL, MESSAGE, Notebook) as again:
+        assert again.entries == ["eggs", "first", "milk"]
+
+
+async def test_an_update_from_a_handler_of_the_same_message_runs_into_the_lock_timeout() -> None:
+    built, ids = await showing(Reentrant())
+    built._in_message._lock_timeout = 0.05  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+    STATE_CALLS.clear()
+
+    await process(built, click(ids, 0))
+
+    assert STATE_CALLS == ["timed out on 1"]
+    rest_of(built).fetch_message.assert_not_called()
+
+
+async def test_a_state_in_a_codec_that_is_not_installed_raises_codec_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    built, _ = await showing(Packed(count=3))
+
+    def missing(name: str) -> object:
+        raise risa.CodecUnavailableError(name, codecs.RADIXLY_EXTRA)
+
+    monkeypatch.setattr(codecs, "_radixly_module", missing)
+
+    with pytest.raises(risa.CodecUnavailableError):
+        await built.rerender(CHANNEL, MESSAGE, Packed)
+
+    rest_of(built).edit_message.assert_not_called()

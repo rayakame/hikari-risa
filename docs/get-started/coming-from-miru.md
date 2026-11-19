@@ -24,6 +24,7 @@ This page compares with miru 4.3.1. The main things miru has and risa does not a
 | `miru.ViewContext` | `risa.ComponentContext` |
 | `ctx.view` | `self` |
 | `await ctx.edit_response(components=self)` | `await ctx.rerender()` |
+| `view.message` edited outside a callback, as in `on_timeout()` | `async with client.open(channel, message, MyView) as view:` |
 | `ctx.respond("Hi", flags=hikari.MessageFlag.EPHEMERAL)` | `ctx.respond("Hi", ephemeral=True)` |
 | `miru.Client(bot)` | `risa.client_from_app(bot)`, or `risa.client_from_lightbulb(lightbulb_client)` with lightbulb |
 | `client.start_view(view)` after each send | `client.add_view(MyView)` once at startup |
@@ -179,6 +180,9 @@ restarts:
 
 `on_timeout()` runs when the time is up. risa has no timer, so `on_state_missing()` runs when someone clicks after the
 record has expired. Until then the message stays as it is, and nothing in risa greys out its buttons at that moment.
+To grey them out, run a timer of your own that ends before the `ttl` does and changes a field `render()` reads, through
+[`client.open`](../by-example/07-fresh-data.md#a-change-with-no-click). That update restarts the `ttl`, and once the
+record has expired, `open` raises `StateNotFoundError`.
 
 To end a view yourself, where miru has `self.stop()`, replace the message with a layout that has no buttons. `yes` above
 does that with [`ctx.edit`](../by-example/05-answering-in-time.md#which-message).

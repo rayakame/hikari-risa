@@ -80,12 +80,12 @@ class KeyNamespace:
         self._application_id: hikari.Snowflake | None = None
         self._fetching = asyncio.Lock()
 
-    def for_click(self, token: str, interaction: hikari.ComponentInteraction) -> str:
+    def for_click(self, token: str, application_id: hikari.Snowflake) -> str:
         """Return the store key for a click's anchor token."""
         if self._key_prefix is not None:
             return _compose(self._key_prefix, token)
-        self._application_id = interaction.application_id
-        return _compose(f"risa:{interaction.application_id}", token)
+        self._application_id = application_id
+        return _compose(f"risa:{application_id}", token)
 
     async def for_build(self, token: str) -> str:
         """Return the store key for a newly built view's anchor token."""
@@ -103,9 +103,9 @@ class KeyNamespace:
 
 
 class StoredSession(backend.StateSession):
-    """One click on an `InStore` view.
+    """One click on an `InStore` view, or one update of it through `Client.open`.
 
-    `open` locates the key in the clicked component and takes the store's lock. `restore`
+    `open` locates the key in the origin's component and takes the store's lock. `restore`
     reads the record and remembers its version. `stage` writes only when the durable fields
     changed, with a compare-and-set on that version; otherwise it only restarts the record's
     TTL, and does nothing under `ttl=None`. A lost compare-and-set adopts the state that won
@@ -115,22 +115,21 @@ class StoredSession(backend.StateSession):
     without adopting anything, so nothing more commits against a dead baseline. `close` restarts the TTL if nothing has
     yet, then releases the lock.
 
-    A click on a component that still carries the message's own state takes the key
-    `TakenOverAnchor` derives from the message. If no record is there yet, `restore` writes
-    one from the state in the message under `InStore(adopt=True)`, and routes the click to
-    `on_outdated` without it. The message keeps its components until a rerender writes the
-    taken-over anchor into them.
+    A click on a component that still carries the message's own state, or an update of
+    such a message, takes the key `TakenOverAnchor` derives from the message. If no record
+    is there yet, `restore` writes one from the state in the message under
+    `InStore(adopt=True)`, and reports the state as outdated without it. The message keeps
+    its components until a rerender writes the taken-over anchor into them.
     """
 
     __slots__ = (
         "_backend",
         "_baseline",
-        "_component",
         "_detached",
         "_from_message",
         "_held",
-        "_interaction",
         "_meta",
+        "_origin",
         "_placement",
         "_refreshed",
         "_target",
@@ -142,14 +141,12 @@ class StoredSession(backend.StateSession):
         owner: StoredBackend,
         *,
         meta: registry.ViewMeta,
-        component: codec.CustomID,
-        interaction: hikari.ComponentInteraction,
+        origin: backend.Origin,
     ) -> None:
         self._backend = owner
         self._meta = meta
         self._placement = _placement_of(meta)
-        self._component = component
-        self._interaction = interaction
+        self._origin = origin
         self._held = contextlib.AsyncExitStack()
         self._target: _Target | None = None
         self._version = 0
@@ -157,6 +154,14 @@ class StoredSession(backend.StateSession):
         self._detached: collections.abc.Callable[[], errors.StateError] | None = None
         self._refreshed = False
         self._from_message = False
+
+    @property
+    def key(self) -> str:
+        """The store key of the record, once `open` has located it."""
+        if self._target is None:
+            msg = "the session has located no record"
+            raise RuntimeError(msg)
+        return self._target.key
 
     @typing.override
     async def open(self) -> None:
@@ -166,13 +171,27 @@ class StoredSession(backend.StateSession):
         token = (
             located.token
             if isinstance(located, anchor_.StoreAnchor)
-            else anchor_.TakenOverAnchor.token(self._interaction.message.id, self._component.cookie)
+            else anchor_.TakenOverAnchor.token(self._origin.message.id, self._origin.component.cookie)
         )
-        key = self._backend.namespace.for_click(token, self._interaction)
+        namespace = self._backend.namespace
+        application_id = self._origin.application_id
+        key = (
+            namespace.for_click(token, application_id)
+            if application_id is not None
+            else await namespace.for_build(token)
+        )
         self._target = _Target(key=key, located=located)
         store = self._backend.store
         timeout = self._backend.lock_timeout
         await _guarded(key, lambda: self._held.enter_async_context(store.lock(key, timeout=timeout)))
+
+    def reread(self, origin: backend.Origin) -> bool:
+        """Take the message as fetched under the lock for the origin, unless it names another record."""
+        mine, theirs = self._origin.component, origin.component
+        if (theirs.fragment, theirs.fragment_index, theirs.codec) != (mine.fragment, mine.fragment_index, mine.codec):
+            return False
+        self._origin = origin
+        return True
 
     @typing.override
     async def close(self) -> None:
@@ -226,9 +245,8 @@ class StoredSession(backend.StateSession):
         if self._detached is not None:
             if dirty:
                 _LOGGER.debug(
-                    "interaction %s on view %s changed durable state after its session was detached"
-                    " (%s); the change was discarded",
-                    self._interaction.id,
+                    "%s on view %s changed durable state after its session was detached (%s); the change was discarded",
+                    self._origin.asker,
                     self._meta.name,
                     self._detached(),
                 )
@@ -236,18 +254,20 @@ class StoredSession(backend.StateSession):
         return dirty
 
     def _locate(self) -> anchor_.StoreAnchor | anchor_.TakenOverAnchor | None:
-        found = codec.decode_text(self._component.fragment, self._component.codec)
+        found = codec.decode_text(self._origin.component.fragment, self._origin.component.codec)
         if isinstance(found, errors.CodecUnavailableError):
             raise found
-        if found is not None and (self._component.fragment_index != 0 or found[:1] in {b"", anchor_.PLACEMENT_MESSAGE}):
+        if found is not None and (
+            self._origin.component.fragment_index != 0 or found[:1] in {b"", anchor_.PLACEMENT_MESSAGE}
+        ):
             self._from_message = True
             return anchor_.TakenOverAnchor()
         parsed = None if found is None else anchor_.parse(found)
         if not isinstance(parsed, anchor_.StoreAnchor | anchor_.TakenOverAnchor):
             _LOGGER.warning(
-                "interaction %s routes to view %s, but its component carries no readable store key;"
+                "%s routes to view %s, but its component carries no readable store key;"
                 " the component may be forged or corrupted",
-                self._interaction.id,
+                self._origin.asker,
                 self._meta.name,
             )
             return None
@@ -257,9 +277,9 @@ class StoredSession(backend.StateSession):
         envelope = serde.unpack_entry(data)
         if envelope is None or envelope.n != self._meta.name or envelope.v != self._meta.version:
             _LOGGER.warning(
-                "interaction %s routes to view %s (version %d), but the entry under %r is not one of its"
+                "%s routes to view %s (version %d), but the entry under %r is not one of its"
                 " records; the key may be forged, or the entry written by something other than risa",
-                self._interaction.id,
+                self._origin.asker,
                 self._meta.name,
                 self._meta.version,
                 key,
@@ -268,10 +288,10 @@ class StoredSession(backend.StateSession):
         schema = self._meta.schema
         if not schema.accepts(envelope.f):
             _LOGGER.error(
-                "interaction %s routes to view %s, but the entry under %r was written by durable fields"
+                "%s routes to view %s, but the entry under %r was written by durable fields"
                 " this code no longer accepts: a field was removed, reordered, retyped, or added without"
                 " a default, without bumping version=%d; bump the version to retire these components",
-                self._interaction.id,
+                self._origin.asker,
                 self._meta.name,
                 key,
                 self._meta.version,
@@ -280,10 +300,10 @@ class StoredSession(backend.StateSession):
         values = schema.unpack(envelope.f, envelope.d)
         if values is None:
             _LOGGER.warning(
-                "interaction %s routes to view %s, but the entry under %r does not decode under its own"
+                "%s routes to view %s, but the entry under %r does not decode under its own"
                 " fingerprint: a value of an enum or Literal field may have been removed, or the entry is"
                 " corrupted",
-                self._interaction.id,
+                self._origin.asker,
                 self._meta.name,
                 key,
             )
@@ -292,21 +312,21 @@ class StoredSession(backend.StateSession):
     async def _taken_over(self, key: str) -> backend.Restored | backend.Unreadably:
         if not self._placement.adopt:
             _LOGGER.error(
-                "interaction %s routes to view %s, which keeps its state in a store, but the component"
+                "%s routes to view %s, which keeps its state in a store, but the component"
                 " carries no store key: the placement was switched without bumping version=%d; bump"
                 " the version to retire these components, or take them over with InStore(adopt=True)",
-                self._interaction.id,
+                self._origin.asker,
                 self._meta.name,
                 self._meta.version,
             )
             return backend.Unreadably.OUTDATED
-        read = message.read_anchor(self._meta, self._interaction, self._component.cookie)
+        read = message.read_anchor(self._meta, self._origin, self._origin.component.cookie)
         if read is None:
             return backend.Unreadably.OUTDATED
         if not isinstance(read, anchor_.MessageAnchor):
             # A stale component of a message already taken over, whose record is gone.
             return backend.Unreadably.MISSING
-        values = message.unpack_anchor(self._meta, self._interaction, read)
+        values = message.unpack_anchor(self._meta, self._origin, read)
         if values is None:
             return backend.Unreadably.OUTDATED
         view = backend.hydrate(self._meta, values)
@@ -320,10 +340,10 @@ class StoredSession(backend.StateSession):
         if written is None:
             return backend.Unreadably.MISSING
         _LOGGER.debug(
-            "interaction %s moved the state of view %s from message %s into the store under %r",
-            self._interaction.id,
+            "%s moved the state of view %s from message %s into the store under %r",
+            self._origin.asker,
             self._meta.name,
-            self._interaction.message.id,
+            self._origin.message.id,
             key,
         )
         self._version = written.version
@@ -417,14 +437,23 @@ class StoredBackend(backend.StateBackend):
         return self._lock_timeout
 
     @typing.override
-    def session(
+    def session(self, *, meta: registry.ViewMeta, origin: backend.Origin) -> StoredSession:
+        return StoredSession(self, meta=meta, origin=origin)
+
+    @typing.override
+    @contextlib.asynccontextmanager
+    async def update(
         self,
         *,
         meta: registry.ViewMeta,
-        component: codec.CustomID,
-        interaction: hikari.ComponentInteraction,
-    ) -> StoredSession:
-        return StoredSession(self, meta=meta, component=component, interaction=interaction)
+        message_id: hikari.Snowflake,
+        origin: backend.OriginFetcher,
+    ) -> collections.abc.AsyncGenerator[StoredSession]:
+        session = await self._locked(meta, message_id, origin)
+        try:
+            yield session
+        finally:
+            await _release(session, meta, message_id)
 
     @typing.override
     def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:
@@ -440,6 +469,45 @@ class StoredBackend(backend.StateBackend):
         entry = _entry(meta, meta.schema.pack_view(view))
         ttl = _placement_of(meta).ttl
         await _guarded(key, lambda: self._store.put(key, entry, ttl=ttl))
+
+    async def _locked(
+        self,
+        meta: registry.ViewMeta,
+        message_id: hikari.Snowflake,
+        origin: backend.OriginFetcher,
+    ) -> StoredSession:
+        """Return a session that holds the lock of the record the message names.
+
+        The message names the lock, so the first fetch runs without it, and a click can
+        give the message to another record or end the view before the lock is held. A
+        second fetch under the lock therefore has to name the same record; otherwise the
+        lock is given back and the record that fetch names is tried.
+
+        Returns
+        -------
+        StoredSession
+            The session, whose origin is the fetch made under its lock.
+        """
+        seen = await origin()
+        while True:
+            session = StoredSession(self, meta=meta, origin=seen)
+            current = False
+            try:
+                await session.open()
+                seen = await origin()
+                current = session.reread(seen)
+            finally:
+                if not current:
+                    await _release(session, meta, message_id)
+            if current:
+                return session
+
+
+async def _release(session: StoredSession, meta: registry.ViewMeta, message_id: hikari.Snowflake) -> None:
+    try:
+        await session.close()
+    except Exception:
+        _LOGGER.exception("releasing the state of view %s after an update of message %s failed", meta.name, message_id)
 
 
 def _compose(prefix: str, token: str) -> str:
