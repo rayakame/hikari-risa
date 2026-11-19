@@ -174,7 +174,8 @@ async def sent(owner: stored.StoredBackend, view: TodoList) -> bytes:
 
 
 async def opened(owner: stored.StoredBackend, fragment: str, *, index: int = 0) -> stored.StoredSession:
-    session = owner.session(meta=TODO, component=clicked(fragment, index=index), interaction=interaction())
+    origin = backend.Origin.from_click(interaction(), clicked(fragment, index=index))
+    session = owner.session(meta=TODO, origin=origin)
     await session.open()
     return session
 
@@ -254,7 +255,7 @@ async def adopting(
     message_id: hikari.Snowflake = OLD_MESSAGE,
 ) -> stored.StoredSession:
     on = on_the_old_message(components if message is None else message, message_id=message_id)
-    session = owner.session(meta=GROCERIES, component=components[index], interaction=on)
+    session = owner.session(meta=GROCERIES, origin=backend.Origin.from_click(on, components[index]))
     await session.open()
     return session
 
@@ -314,10 +315,31 @@ async def test_a_click_teaches_the_namespace_the_application_id() -> None:
     client = rest()
     namespace = stored.KeyNamespace(client)
 
-    namespace.for_click("aa", interaction())
+    namespace.for_click("aa", APP_ID)
     await namespace.for_build("bb")
 
     client.fetch_application.assert_not_awaited()
+
+
+async def test_an_origin_without_an_application_id_finds_the_key_as_a_build_does() -> None:
+    owner = backend_for(memory.MemoryStore())
+    raw = await sent(owner, TodoList())
+    on = unittest.mock.Mock(spec=hikari.Message, id=hikari.Snowflake(1))
+    origin = backend.Origin(message=on, component=clicked(codecs.BASE85.encode(raw)), asker="client.open")
+    session = owner.session(meta=TODO, origin=origin)
+
+    await session.open()
+
+    assert session.key == key_of(raw)
+    await session.close()
+
+
+def test_a_session_has_no_key_before_it_is_opened() -> None:
+    origin = backend.Origin.from_click(interaction(), clicked(""))
+    session = backend_for(memory.MemoryStore()).session(meta=TODO, origin=origin)
+
+    with pytest.raises(RuntimeError, match="located no record"):
+        _ = session.key
 
 
 async def test_a_click_hydrates_the_view_from_the_store() -> None:
@@ -660,7 +682,7 @@ async def test_commit_first_takes_only_a_minted_anchor() -> None:
 def test_a_message_view_has_no_stored_session() -> None:
     with pytest.raises(TypeError, match="message"):
         backend_for(memory.MemoryStore()).session(
-            meta=POLL, component=clicked("", meta=POLL), interaction=interaction()
+            meta=POLL, origin=backend.Origin.from_click(interaction(), clicked("", meta=POLL))
         )
 
 
@@ -786,7 +808,8 @@ async def test_a_message_taken_over_keeps_working_once_adopt_is_removed() -> Non
     key = f"risa:{APP_ID}:1:{anchor.TakenOverAnchor.token(OLD_MESSAGE, TODO.cookie)}"
     await store.put(key, entry_of(TodoList(items=["milk"])), ttl=TTL)
     component = clicked(codecs.BASE85.encode(b"m" + bytes(30)))
-    session = backend_for(store).session(meta=TODO, component=component, interaction=on_the_old_message([component]))
+    origin = backend.Origin.from_click(on_the_old_message([component]), component)
+    session = backend_for(store).session(meta=TODO, origin=origin)
     await session.open()
 
     restored = await session.restore()

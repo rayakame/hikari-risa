@@ -128,6 +128,13 @@ An `InMessage` view has only step 1, so nothing spans the processes. Two clicks 
 both raise a count from 5 to 6, and both edits say 6. The last edit wins, one click is lost, and your log shows nothing. If a
 view cannot lose a click, move it to a store.
 
+## An update from outside
+
+An [update from outside a click](07-fresh-data.md#a-change-with-no-click) takes its turn as a click does. For a view in
+a store on Redis or PostgreSQL, that turn spans the processes. A view in the message has only its lock in one process:
+an update in one process and a click in another both write, and the last edit wins. That holds on a gateway bot too,
+when the update runs in another process.
+
 ## When a handler loses the race
 
 A lease can run out under a handler that runs past `max_hold`, 60 seconds by default, or in a process that stalls, and a

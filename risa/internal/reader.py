@@ -17,7 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""Collecting a view's anchor fragments from the message a click came from."""
+"""Reading a view's components and anchor fragments off a message."""
 
 from __future__ import annotations
 
@@ -32,7 +32,10 @@ if typing.TYPE_CHECKING:
 
     from risa import errors
 
-__all__ = ("fragments",)
+__all__ = (
+    "first_component",
+    "fragments",
+)
 
 
 def _leaves(
@@ -50,6 +53,20 @@ def _leaves(
 def _custom_id(component: hikari.PartialComponent) -> str | None:
     if isinstance(component, hikari.ButtonComponent | hikari.SelectMenuComponent):
         return component.custom_id
+    return None
+
+
+def first_component(
+    components: collections.abc.Sequence[hikari.TopLevelComponentTypesT],
+    *,
+    cookie: str,
+) -> codec.CustomID | None:
+    """Return the first interactive component of the view with `cookie` on a message, or `None`."""
+    for leaf in _leaves(components):
+        raw = _custom_id(leaf)
+        parsed = None if raw is None else codec.parse_custom_id(raw)
+        if parsed is not None and parsed.cookie == cookie:
+            return parsed
     return None
 
 

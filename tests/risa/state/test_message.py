@@ -124,7 +124,8 @@ def session(
         fragment="",
         tail="",
     )
-    return owner.session(meta=meta, component=clicked, interaction=interaction(ids, message_id=message_id))
+    origin = backend.Origin.from_click(interaction(ids, message_id=message_id), clicked)
+    return owner.session(meta=meta, origin=origin)
 
 
 async def poll_from(opened: message.MessageSession) -> Poll:
@@ -328,6 +329,25 @@ async def test_empty_fragments_with_a_gap_read_as_torn(caplog: pytest.LogCapture
 
     assert restored is backend.Unreadably.OUTDATED
     assert any("could not be reassembled" in line for line in records_at(caplog, logging.WARNING))
+
+
+async def test_a_clicks_log_line_still_names_the_interaction(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="risa")
+    torn = carved(state_of(Poll()))[1:]
+
+    assert await session(message.MessageBackend(), torn).restore() is backend.Unreadably.OUTDATED
+    assert any(line.startswith("interaction 900 routes to view") for line in records_at(caplog, logging.WARNING))
+
+
+async def test_a_torn_state_is_logged_under_what_asked(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="risa")
+    torn = carved(state_of(Poll()))[1:]
+    clicked = codec.parse_custom_id(torn[0])
+    assert clicked is not None
+    origin = backend.Origin(message=interaction(torn).message, component=clicked, asker="client.open")
+
+    assert await message.MessageBackend().session(meta=POLL, origin=origin).restore() is backend.Unreadably.OUTDATED
+    assert any(line.startswith("client.open routes to view") for line in records_at(caplog, logging.WARNING))
 
 
 async def test_a_message_missing_its_first_component_reads_as_torn(caplog: pytest.LogCaptureFixture) -> None:

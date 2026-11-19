@@ -37,7 +37,6 @@ if typing.TYPE_CHECKING:
     import hikari
 
     from risa import view as view_
-    from risa.internal import codec
     from risa.internal import registry
 
 __all__ = (
@@ -55,28 +54,27 @@ _SEQ_SPACE: typing.Final[int] = anchor.MAX_SEQ + 1
 
 
 class MessageSession(backend.StateSession):
-    """One click on an `InMessage` view.
+    """One click on an `InMessage` view, or one update of it through `Client.open`.
 
-    The state comes from `interaction.message`, the message as Discord delivered it with
-    the click. When two clicks land close together, the second can arrive with the
+    The state comes from the origin's message, for a click the one Discord delivered with
+    it. When two clicks land close together, the second can arrive with the
     message from before the first one's edit. The backend therefore remembers the last
     commit per message, and the anchor whose `seq` is newer wins.
     """
 
-    __slots__ = ("_backend", "_baseline", "_cookie", "_held", "_interaction", "_meta", "_seq", "_staged")
+    __slots__ = ("_backend", "_baseline", "_cookie", "_held", "_meta", "_origin", "_seq", "_staged")
 
     def __init__(
         self,
         owner: MessageBackend,
         *,
         meta: registry.ViewMeta,
-        component: codec.CustomID,
-        interaction: hikari.ComponentInteraction,
+        origin: backend.Origin,
     ) -> None:
         self._backend = owner
         self._meta = meta
-        self._cookie = component.cookie
-        self._interaction = interaction
+        self._cookie = origin.component.cookie
+        self._origin = origin
         self._held = contextlib.AsyncExitStack()
         self._seq = 0
         self._baseline: bytes | None = None
@@ -84,7 +82,7 @@ class MessageSession(backend.StateSession):
 
     @typing.override
     async def open(self) -> None:
-        await self._held.enter_async_context(self._backend.hold(self._interaction.message.id))
+        await self._held.enter_async_context(self._backend.hold(self._origin.message.id))
 
     @typing.override
     async def close(self) -> None:
@@ -92,24 +90,24 @@ class MessageSession(backend.StateSession):
 
     @typing.override
     async def restore(self) -> backend.Restored | backend.Unreadably:
-        read = read_anchor(self._meta, self._interaction, self._cookie)
+        read = read_anchor(self._meta, self._origin, self._cookie)
         if isinstance(read, anchor.StoreAnchor | anchor.TakenOverAnchor):
             _LOGGER.error(
-                "interaction %s routes to view %s, which keeps its state in the message, but message %s"
+                "%s routes to view %s, which keeps its state in the message, but message %s"
                 " points at a store record: the placement was switched without bumping version=%d; bump"
                 " the version to retire these components",
-                self._interaction.id,
+                self._origin.asker,
                 self._meta.name,
-                self._interaction.message.id,
+                self._origin.message.id,
                 self._meta.version,
             )
             return backend.Unreadably.OUTDATED
         if read is None:
             return backend.Unreadably.OUTDATED
-        cached = self._backend.cached(self._interaction.message.id, self._cookie)
+        cached = self._backend.cached(self._origin.message.id, self._cookie)
         if cached is not None and _newer(cached.seq, read.seq):
             read = cached
-        values = unpack_anchor(self._meta, self._interaction, read)
+        values = unpack_anchor(self._meta, self._origin, read)
         if values is None:
             return backend.Unreadably.OUTDATED
         view = backend.hydrate(self._meta, values)
@@ -134,7 +132,7 @@ class MessageSession(backend.StateSession):
         self._staged = None
         self._seq = staged.seq
         self._baseline = staged.payload
-        self._backend.remember(self._interaction.message.id, self._cookie, staged)
+        self._backend.remember(self._origin.message.id, self._cookie, staged)
 
     @typing.override
     async def settle(self, view: view_.View) -> bool:
@@ -171,14 +169,21 @@ class MessageBackend(backend.StateBackend):
         self._lock_timeout = lock_timeout
 
     @typing.override
-    def session(
+    def session(self, *, meta: registry.ViewMeta, origin: backend.Origin) -> MessageSession:
+        return MessageSession(self, meta=meta, origin=origin)
+
+    @typing.override
+    @contextlib.asynccontextmanager
+    async def update(
         self,
         *,
         meta: registry.ViewMeta,
-        component: codec.CustomID,
-        interaction: hikari.ComponentInteraction,
-    ) -> MessageSession:
-        return MessageSession(self, meta=meta, component=component, interaction=interaction)
+        message_id: hikari.Snowflake,
+        origin: backend.OriginFetcher,
+    ) -> collections.abc.AsyncGenerator[MessageSession]:
+        # The lock's key is the message id, so the fetch runs under it and never reads what a click is about to change.
+        async with self.hold(message_id):
+            yield MessageSession(self, meta=meta, origin=await origin())
 
     @typing.override
     def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:
@@ -214,10 +219,10 @@ class MessageBackend(backend.StateBackend):
 
 def read_anchor(
     meta: registry.ViewMeta,
-    interaction: hikari.ComponentInteraction,
+    origin: backend.Origin,
     cookie: str,
 ) -> anchor.MessageAnchor | anchor.StoreAnchor | anchor.TakenOverAnchor | None:
-    """Reassemble the anchor of the view `cookie` from the clicked message.
+    """Reassemble the anchor of the view `cookie` from the origin's message.
 
     Returns
     -------
@@ -230,59 +235,59 @@ def read_anchor(
     CodecUnavailableError
         If a component is written in a codec this process cannot decode.
     """
-    found = reader.fragments(interaction.message.components, cookie=cookie)
+    found = reader.fragments(origin.message.components, cookie=cookie)
     if isinstance(found, errors.CodecUnavailableError):
         raise found
     if found is None:
-        _log_torn(meta, interaction)
+        _log_torn(meta, origin)
         return None
     if _unwritten(found):
         return anchor.MessageAnchor(meta.schema.empty_fingerprint, 0, b"")
     raw = anchor.gather(found)
     parsed = None if raw is None else anchor.parse(raw)
     if parsed is None:
-        _log_torn(meta, interaction)
+        _log_torn(meta, origin)
     return parsed
 
 
 def unpack_anchor(
     meta: registry.ViewMeta,
-    interaction: hikari.ComponentInteraction,
+    origin: backend.Origin,
     read: anchor.MessageAnchor,
 ) -> collections.abc.Sequence[object] | None:
     """Return the durable values a message anchor holds, or log why it cannot be read and return `None`."""
     schema = meta.schema
     if not schema.accepts(read.schema_fp):
         _LOGGER.error(
-            "interaction %s routes to view %s, but message %s was written by durable fields this code"
+            "%s routes to view %s, but message %s was written by durable fields this code"
             " no longer accepts: a field was removed, reordered, retyped, or added without a default,"
             " without bumping version=%d; bump the version to retire these components",
-            interaction.id,
+            origin.asker,
             meta.name,
-            interaction.message.id,
+            origin.message.id,
             meta.version,
         )
         return None
     values = schema.unpack(read.schema_fp, read.payload)
     if values is None:
         _LOGGER.warning(
-            "interaction %s routes to view %s, but the state in message %s does not decode under its"
+            "%s routes to view %s, but the state in message %s does not decode under its"
             " own fingerprint: a value of an enum or Literal field may have been removed, or the"
             " components are forged or corrupted",
-            interaction.id,
+            origin.asker,
             meta.name,
-            interaction.message.id,
+            origin.message.id,
         )
     return values
 
 
-def _log_torn(meta: registry.ViewMeta, interaction: hikari.ComponentInteraction) -> None:
+def _log_torn(meta: registry.ViewMeta, origin: backend.Origin) -> None:
     _LOGGER.warning(
-        "interaction %s routes to view %s, but its state could not be reassembled from message %s;"
+        "%s routes to view %s, but its state could not be reassembled from message %s;"
         " the message was edited by something other than risa, or its components were forged",
-        interaction.id,
+        origin.asker,
         meta.name,
-        interaction.message.id,
+        origin.message.id,
     )
 
 

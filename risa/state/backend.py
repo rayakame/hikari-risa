@@ -17,7 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""The interface between dispatch and a placement: one backend per placement, one session per click."""
+"""The interface to a placement: one backend per placement, one session per click or update."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ import msgspec
 
 if typing.TYPE_CHECKING:
     import collections.abc
+    import contextlib
     import types
 
     import hikari
@@ -38,12 +39,17 @@ if typing.TYPE_CHECKING:
     from risa.internal import registry
 
 __all__ = (
+    "Origin",
+    "OriginFetcher",
     "Restored",
     "StateBackend",
     "StateSession",
     "Unreadably",
     "hydrate",
 )
+
+
+type OriginFetcher = collections.abc.Callable[[], collections.abc.Awaitable[Origin]]
 
 
 class Unreadably(enum.Enum):
@@ -68,12 +74,43 @@ class Restored(msgspec.Struct, frozen=True):
     view: view_.View
 
 
-class StateSession(abc.ABC):
-    """One click's hold on a view's state.
+class Origin(msgspec.Struct, frozen=True):
+    """What a session works on, whether a click delivered it or `Client.open` fetched it.
 
-    Dispatch drives it in this order: `open`, `restore`, then any number of `stage` and
-    `published` pairs, one per rerender, then `settle` after the handler, and `close`
-    last, whatever happened.
+    Attributes
+    ----------
+    message
+        The message that holds the view.
+    component
+        The clicked component, or for `Client.open` the view's first one on the message.
+    asker
+        What the log names: `interaction 123` for a click, `client.open` otherwise.
+    application_id
+        The application's id, when an interaction supplies it.
+    """
+
+    message: hikari.Message
+    component: codec.CustomID
+    asker: str
+    application_id: hikari.Snowflake | None = None
+
+    @classmethod
+    def from_click(cls, interaction: hikari.ComponentInteraction, component: codec.CustomID) -> typing.Self:
+        return cls(
+            message=interaction.message,
+            component=component,
+            asker=f"interaction {interaction.id}",
+            application_id=interaction.application_id,
+        )
+
+
+class StateSession(abc.ABC):
+    """One click's hold on a view's state, or that of one update through `Client.open`.
+
+    A click drives it in this order: `open`, `restore`, then any number of `stage` and
+    `published` pairs, one per rerender, then `settle` after the handler, and `close` last,
+    whatever happened. For an update, `StateBackend.update` stands in for `open` and
+    `close`, and nothing settles.
     """
 
     __slots__ = ()
@@ -125,14 +162,26 @@ class StateBackend(abc.ABC):
     __slots__ = ()
 
     @abc.abstractmethod
-    def session(
+    def session(self, *, meta: registry.ViewMeta, origin: Origin) -> StateSession:
+        """Return a session for one click on a component of the view."""
+
+    @abc.abstractmethod
+    def update(
         self,
         *,
         meta: registry.ViewMeta,
-        component: codec.CustomID,
-        interaction: hikari.ComponentInteraction,
-    ) -> StateSession:
-        """Return a session for one click on a component of the view."""
+        message_id: hikari.Snowflake,
+        origin: OriginFetcher,
+    ) -> contextlib.AbstractAsyncContextManager[StateSession]:
+        """Hold a session for one update through `Client.open`, for as long as the block is entered.
+
+        `origin` fetches the message the update works on. A placement whose lock needs
+        nothing from the message runs it under that lock, so the copy it reads is never one a
+        click is about to change. The session it yields is ready for `restore`, and leaving
+        releases it: nobody calls its `open` or `close`. Releasing logs a failure and never
+        raises, so it cannot take the place of what the block raised or of an update that
+        went through.
+        """
 
     @abc.abstractmethod
     def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:

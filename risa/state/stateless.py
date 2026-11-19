@@ -24,15 +24,17 @@ It exists so that dispatch never branches on whether a view has state.
 
 from __future__ import annotations
 
+import contextlib
 import typing
 
 from risa.state import backend
 
 if typing.TYPE_CHECKING:
+    import collections.abc
+
     import hikari
 
     from risa import view as view_
-    from risa.internal import codec
     from risa.internal import registry
 
 __all__ = (
@@ -76,14 +78,20 @@ class StatelessBackend(backend.StateBackend):
     __slots__ = ()
 
     @typing.override
-    def session(
+    def session(self, *, meta: registry.ViewMeta, origin: backend.Origin) -> StatelessSession:
+        return StatelessSession(meta=meta)
+
+    @typing.override
+    @contextlib.asynccontextmanager
+    async def update(
         self,
         *,
         meta: registry.ViewMeta,
-        component: codec.CustomID,
-        interaction: hikari.ComponentInteraction,
-    ) -> StatelessSession:
-        return StatelessSession(meta=meta)
+        message_id: hikari.Snowflake,
+        origin: backend.OriginFetcher,
+    ) -> collections.abc.AsyncGenerator[StatelessSession]:
+        # A message holds nothing of a view without fields, so there is nothing to fetch.
+        yield StatelessSession(meta=meta)
 
     @typing.override
     def first_anchor(self, *, meta: registry.ViewMeta, view: view_.View) -> bytes:

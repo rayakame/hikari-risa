@@ -327,7 +327,8 @@ class View(msgspec.Struct):
 
             risa awaits it before the first send, and on every click right before the handler,
             once the hooks before it have run without a failure, unless the handler was made with
-            `load=False`. Its parameters are injected, as a handler's are.
+            `load=False`. `Client.open` and `Client.rerender` await it too, before the block. Its
+            parameters are injected, as a handler's are.
             An override of another view's `load` that adds parameters needs `= risa.INJECTED` on
             them for a type checker, as any override that adds parameters would.
             """

@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import hikari
 import pytest
 
 import risa
@@ -174,3 +175,34 @@ def test_store_conformance_lists_every_failed_check() -> None:
 )
 def test_every_rejection_of_a_ready_made_hook_is_a_click_rejected_error(exc_type: type[Exception]) -> None:
     assert issubclass(exc_type, risa.ClickRejectedError)
+
+
+def test_message_outdated_error_names_the_view_and_the_message() -> None:
+    error = risa.MessageOutdatedError("counter", hikari.Snowflake(42))
+
+    assert isinstance(error, risa.RisaError)
+    assert error.view_name == "counter"
+    assert error.message_id == 42
+    assert "message 42" in str(error)
+    assert "'counter'" in str(error)
+    assert "no interactive components" in str(error)
+
+
+def test_state_conflict_error_names_both_versions_without_naming_who_read() -> None:
+    error = risa.StateConflictError("risa:ab", expected=3, found=4)
+
+    assert (error.key, error.expected, error.found) == ("risa:ab", 3, 4)
+    assert str(error) == (
+        "state for key 'risa:ab' was written concurrently: version 3 was read,"
+        " the store holds version 4; the write was rejected"
+    )
+
+
+def test_store_unavailable_error_says_the_state_is_kept_without_naming_a_click() -> None:
+    error = risa.StoreUnavailableError("risa:ab", "ConnectionError: refused")
+
+    assert (error.key, error.reason) == ("risa:ab", "ConnectionError: refused")
+    assert str(error) == (
+        "the store backing key 'risa:ab' could not be reached: ConnectionError: refused;"
+        " the state is not lost, it only cannot be read or written right now"
+    )

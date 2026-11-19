@@ -57,8 +57,9 @@ with an `ERROR` in your log.
 
 ## `ttl`
 
-`ttl` is how many seconds a record lives untouched. Every click restarts the clock, even one that changes nothing, so
-only a poll nobody clicks for a week expires. `ttl=None` keeps a record forever, including one that a deleted message, a
+`ttl` is how many seconds a record lives untouched. Every click restarts the clock, even one that changes nothing, and
+so does every [update from outside](07-fresh-data.md#a-change-with-no-click), so only a poll that gets neither for a
+week expires. `ttl=None` keeps a record forever, including one that a deleted message, a
 view you ended or a failed send leaves behind.
 
 The message stays as it is when the time runs out, and the next click runs

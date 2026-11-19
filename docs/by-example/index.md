@@ -40,7 +40,7 @@ Fourteen chapters that start with a single message and end with the hooks risa s
 
 - [Fresh data](07-fresh-data.md)
 
-    Read a database row on every click instead of saving it.
+    Read a database row on every click instead of saving it, and redraw or change a message with no click.
 
 - [Where state lives](08-where-state-lives.md)
 

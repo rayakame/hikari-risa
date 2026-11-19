@@ -151,10 +151,10 @@ class Store(typing.Protocol):
     def lock(self, key: str, *, timeout: float = DEFAULT_LOCK_TIMEOUT) -> contextlib.AbstractAsyncContextManager[None]:
         """Hold `key` exclusively while the returned context manager is entered.
 
-        risa holds it for the length of a click, so clicks on one view run one after
-        another. A store that several processes share should exclude all of them; when such
-        a lock lapses, the version check of `put_if_version` still decides whose write
-        lands.
+        risa holds it for the length of a click, or of an update through `Client.open`, so
+        clicks and updates on one view run one after another. A store that several processes
+        share should exclude all of them; when such a lock lapses, the version check of
+        `put_if_version` still decides whose write lands.
 
         Parameters
         ----------

@@ -52,6 +52,7 @@ __all__ = (
     "LayoutError",
     "LockTimeoutError",
     "MaxConcurrencyReachedError",
+    "MessageOutdatedError",
     "MissingPermissionsError",
     "MissingRolesError",
     "NoViewError",
@@ -452,6 +453,32 @@ class NoViewError(RisaError):
         )
 
 
+class MessageOutdatedError(RisaError):
+    """Raised when `Client.open` or `Client.rerender` cannot read the view's state from a message.
+
+    The message shows another view or another version of this one, it has no interactive
+    components and so holds no state, or its state cannot be read by this code, as after a
+    field or the placement changed without a raised version. risa logs that last case, in
+    which a click would reach `on_outdated`.
+
+    Attributes
+    ----------
+    view_name
+        The view that was looked for.
+    message_id
+        The message it was looked for on.
+    """
+
+    def __init__(self, view_name: str, message_id: hikari.Snowflake) -> None:
+        self.view_name: str = view_name
+        self.message_id: hikari.Snowflake = message_id
+        super().__init__(
+            f"message {message_id} holds no state of view {view_name!r} that this code can read: it shows another"
+            " view or another version of this one, it has no interactive components, or its state cannot be read"
+            " by this code, which risa logs",
+        )
+
+
 class LayoutError(RisaError):
     """Raised when a layout cannot be built.
 
@@ -521,7 +548,7 @@ class StateError(RisaError):
 
 
 class StateNotFoundError(StateError):
-    """Raised when a view's stored state is gone in the middle of a dispatch.
+    """Raised when a view's stored state is gone, in the middle of a dispatch or when `Client.open` looks for it.
 
     Attributes
     ----------
@@ -537,8 +564,9 @@ class StateNotFoundError(StateError):
 class StateConflictError(StateError):
     """Raised when another process wrote a view's state first.
 
-    By the time it is raised, the view already holds the state that won, so the handler
-    can apply its change again on top of it. A record that cannot be read raises
+    By the time it is raised, the view already holds the state that won, so a handler
+    can apply its change again on top of it. An update through `Client.open` has left
+    its block by then and opens the message again. A record that cannot be read raises
     `StateUnreadableError` instead.
 
     Attributes
@@ -546,7 +574,7 @@ class StateConflictError(StateError):
     key
         The store key of the state.
     expected
-        The version this dispatch read.
+        The version the click or update read.
     found
         The version the store holds.
     """
@@ -556,7 +584,7 @@ class StateConflictError(StateError):
         self.expected: int = expected
         self.found: int = found
         super().__init__(
-            f"state for key {key!r} was written concurrently: this handler read version {expected},"
+            f"state for key {key!r} was written concurrently: version {expected} was read,"
             f" the store holds version {found}; the write was rejected",
         )
 
@@ -584,7 +612,7 @@ class LockTimeoutError(StateError):
     Attributes
     ----------
     key
-        The store key of the state.
+        The store key of the state, or the id of the message for a view that keeps its state there.
     timeout
         How long risa waited, in seconds.
     """
@@ -614,7 +642,7 @@ class StoreUnavailableError(StateError):
         self.reason: str = reason
         super().__init__(
             f"the store backing key {key!r} could not be reached: {reason};"
-            " the state is not lost - the interaction cannot be answered from it right now",
+            " the state is not lost, it only cannot be read or written right now",
         )
 
 

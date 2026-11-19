@@ -320,7 +320,8 @@ class Dispatcher:
             Whether the handler returned without raising, so the click is owed an
             acknowledgement even if a hook after it failed.
         """
-        session = state.session(meta=click.meta, component=click.component, interaction=click.interaction)
+        origin = backend.Origin.from_click(click.interaction, click.component)
+        session = state.session(meta=click.meta, origin=origin)
         try:
             return await self._within(click, record, session, watchdog)
         finally:

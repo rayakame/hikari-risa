@@ -51,7 +51,8 @@ The checks run in the `CHECKS` step. Once anything in the click has failed, they
   none, and every click on it is turned away. For those, keep the user's id in a field and write the check yourself, as
   [Hooks](13-hooks.md#a-check) does.
 - **`expires_after`** gives a view a lifetime without a store. A `ctx.rerender()` is an edit, so the hour above starts
-  over with every claim. A click that answers without it, such as a claim with nothing left, does not restart it. The
+  over with every claim, and with every [update from outside](07-fresh-data.md#a-change-with-no-click). A click that
+  answers without it, such as a claim with nothing left, does not restart it. The
   buttons stay on the message, and a click on them raises `ComponentExpiredError`. For a view whose state lives in a
   store, [`ttl`](09-stores-and-ttl.md#ttl) restarts on every click and also removes the record.
 
