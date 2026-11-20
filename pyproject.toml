@@ -87,7 +87,7 @@ pyright = [
     {include-group = "lightbulb"},
 ]
 ruff = [
-    "ruff==0.17.5",
+    "ruff==0.17.6",
 ]
 slotscheck = [
     "asyncpg~=0.32",
