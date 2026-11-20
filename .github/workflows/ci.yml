@@ -128,7 +128,7 @@ jobs:
           --health-timeout 3s
           --health-retries 15
       postgres:
-        image: postgres:18-alpine
+        image: postgres:19-alpine
         ports:
           - 5432:5432
         env:
@@ -199,7 +199,7 @@ jobs:
           --health-timeout 3s
           --health-retries 15
       postgres:
-        image: postgres:18-alpine
+        image: postgres:19-alpine
         ports:
           - 5432:5432
         env:
