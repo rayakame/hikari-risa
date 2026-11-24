@@ -98,7 +98,7 @@ pytest = [
     {include-group = "images"},
     "asyncpg~=0.32",
     "coverage==7.17.4",
-    "fakeredis[lua]==2.40.0",
+    "fakeredis[lua]==2.41.0",
     "griffe-inherited-docstrings==1.1.4",
     "griffelib==2.4.1",
     "pygments==2.21.0",
