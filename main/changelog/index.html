@@ -365,6 +365,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#140-2026-11-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.4.0 (2026-11-27)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.0 (2026-11-27)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#130-2026-11-19" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -377,7 +405,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#features" class="md-nav__link">
+  <a href="#features_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -405,7 +433,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#features_1" class="md-nav__link">
+  <a href="#features_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -455,7 +483,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#features_2" class="md-nav__link">
+  <a href="#features_3" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -483,7 +511,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#features_3" class="md-nav__link">
+  <a href="#features_4" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -2017,6 +2045,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#140-2026-11-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.4.0 (2026-11-27)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.0 (2026-11-27)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Features
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#130-2026-11-19" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2029,7 +2085,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#features" class="md-nav__link">
+  <a href="#features_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -2057,7 +2113,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#features_1" class="md-nav__link">
+  <a href="#features_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -2107,7 +2163,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#features_2" class="md-nav__link">
+  <a href="#features_3" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -2135,7 +2191,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#features_3" class="md-nav__link">
+  <a href="#features_4" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Features
@@ -2193,13 +2249,19 @@
 <p>What changed in each release of hikari-risa.</p>
 <!-- towncrier release notes start -->
 
-<h2 id="130-2026-11-19">1.3.0 (2026-11-19)<a class="headerlink" href="#130-2026-11-19" title="Permanent link">&para;</a></h2>
+<h2 id="140-2026-11-27">1.4.0 (2026-11-27)<a class="headerlink" href="#140-2026-11-27" title="Permanent link">&para;</a></h2>
 <h3 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>Rendered.send_to</code> and <code>respond_to</code> take <code>content</code> and the other arguments of hikari's <code>create_message</code> and <code>create_interaction_response</code>, such as <code>user_mentions</code> and <code>flags</code>, and <code>respond_to</code> returns what hikari returns. Beside Components V2, <code>content</code> and embeds still raise <code>TypeError</code>. (<a href="https://github.com/rayakame/hikari-risa/pull/116">#116</a>)</li>
+<li><code>ui.render(layout)</code> builds a layout with nothing to click, such as an error card or a notice, into what <code>client.build</code> returns for a view, so it can be sent with no view, no client and no <code>await</code>. (<a href="https://github.com/rayakame/hikari-risa/pull/116">#116</a>)</li>
+</ul>
+<h2 id="130-2026-11-19">1.3.0 (2026-11-19)<a class="headerlink" href="#130-2026-11-19" title="Permanent link">&para;</a></h2>
+<h3 id="features_1">Features<a class="headerlink" href="#features_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>client.open(channel, message, MyView)</code> opens the view a message shows outside of any click: the block changes its fields, and leaving it redraws the message and saves the state. <code>client.rerender(channel, message, MyView)</code> only redraws it, such as when the data behind it changed. (<a href="https://github.com/rayakame/hikari-risa/pull/106">#106</a>)</li>
 </ul>
 <h2 id="121-2026-11-16">1.2.1 (2026-11-16)<a class="headerlink" href="#121-2026-11-16" title="Permanent link">&para;</a></h2>
-<h3 id="features_1">Features<a class="headerlink" href="#features_1" title="Permanent link">&para;</a></h3>
+<h3 id="features_2">Features<a class="headerlink" href="#features_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>@risa.handler(load=False)</code> skips the view's <code>load()</code> for clicks on that handler, for one that uses no prop or fills the props itself. The handler, and a rerender in that click, then get the props at their defaults. (<a href="https://github.com/rayakame/hikari-risa/pull/96">#96</a>)</li>
 </ul>
@@ -2212,13 +2274,13 @@
 <ul>
 <li>Error handlers take the click's <code>ExecutionPipeline</code> and its <code>ComponentContext</code>, as <code>async def on_error(pipeline, ctx) -&gt; bool</code>, and <code>ClickFailure</code> is gone. <code>pipeline.failures</code> lists every failure of the click in order, <code>pipeline.find(SomeError)</code> returns the first of a type, and <code>FailureStage</code> moved to <code>risa.hooks</code> and gained <code>HOOK</code>. A click no error handler takes is logged as one entry with an <code>ExceptionGroup</code>. (<a href="https://github.com/rayakame/hikari-risa/pull/83">#83</a>)</li>
 </ul>
-<h3 id="features_2">Features<a class="headerlink" href="#features_2" title="Permanent link">&para;</a></h3>
+<h3 id="features_3">Features<a class="headerlink" href="#features_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Hooks: functions made with <code>@risa.hook(step)</code> that run in steps around a click's handler, such as a check before it or an audit after it. Attach them with <code>hooks=</code> to the client, <code>@risa.register</code> or <code>@risa.handler</code>, and set the steps with <code>execution_step_order=</code>. (<a href="https://github.com/rayakame/hikari-risa/pull/83">#83</a>)</li>
 <li>Ready-made hooks in <code>risa.prefab</code>: the checks <code>owner_only</code>, <code>invoker_only</code>, <code>has_permissions</code>, <code>bot_has_permissions</code>, <code>has_roles</code> and <code>expires_after</code>, the cooldowns <code>fixed_window</code> and <code>sliding_window</code>, and <code>max_concurrency</code>. Each turns a click away with an exception derived from <code>ClickRejectedError</code>. Cooldowns and <code>max_concurrency</code> count in memory, or in one of the client's stores with <code>store=</code> and <code>key=</code>. (<a href="https://github.com/rayakame/hikari-risa/pull/85">#85</a>)</li>
 </ul>
 <h2 id="110-2026-11-09">1.1.0 (2026-11-09)<a class="headerlink" href="#110-2026-11-09" title="Permanent link">&para;</a></h2>
-<h3 id="features_3">Features<a class="headerlink" href="#features_3" title="Permanent link">&para;</a></h3>
+<h3 id="features_4">Features<a class="headerlink" href="#features_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>InStore(adopt=True)</code> takes over the messages a view sent while it kept its state in the message: switch <code>state=</code> without raising the <code>version</code>, and the first click on an old message moves its state into the store. (<a href="https://github.com/rayakame/hikari-risa/pull/75">#75</a>)</li>
 <li><code>MemoryStore(warn=False)</code> turns off the warning <code>add_view</code> logs about a <code>MemoryStore</code>, for a bot that uses one on purpose. (<a href="https://github.com/rayakame/hikari-risa/pull/76">#76</a>)</li>
