@@ -256,3 +256,25 @@ def test_a_log_preview_names_an_example_and_a_view(tmp_path: pathlib.Path) -> No
     path = _write(tmp_path, '[[preview]]\nkind = "log"\nid = "warned"\nexample = "counter"\nview = "Counter"\n')
 
     assert manifest.load_manifest(path) == [manifest.LogPreview(id="warned", example="counter", view="Counter")]
+
+
+def test_a_layout_preview_names_an_example_a_function_and_its_arguments(tmp_path: pathlib.Path) -> None:
+    path = _write(
+        tmp_path,
+        '[[preview]]\nkind = "layout"\nid = "notice"\nexample = "counter"\nfunction = "notice"\n'
+        'arguments = { title = "Rules" }\n',
+    )
+
+    assert manifest.load_manifest(path) == [
+        manifest.LayoutPreview(id="notice", example="counter", function="notice", arguments={"title": "Rules"}),
+    ]
+
+
+def test_a_layout_preview_needs_an_example_with_a_file(tmp_path: pathlib.Path) -> None:
+    path = _write(
+        tmp_path,
+        '[[preview]]\nkind = "layout"\nid = "notice"\nexample = "missing"\nfunction = "notice"\narguments = {}\n',
+    )
+
+    with pytest.raises(manifest.ManifestError, match="'missing', which has no file"):
+        manifest.load_manifest(path)

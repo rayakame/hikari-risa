@@ -51,6 +51,13 @@ text = "Be kind, and stay on topic."
 ephemeral = true
 
 [[preview]]
+kind = "layout"
+id = "notice"
+example = "ch01_notice"
+function = "notice"
+arguments = { title = "Rules", text = "Be kind, and stay on topic." }
+
+[[preview]]
 kind = "view"
 id = "scoreboard"
 example = "ch02_scoreboard"

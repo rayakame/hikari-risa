@@ -17,7 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""The components a view's layout is built from, Discord's Components V2.
+"""The components a layout is built from, Discord's Components V2.
 
 A layout is one top-level component or a sequence of them. Interactive components
 take the handler a click routes to, bare as `self.save` or with wire arguments as
@@ -92,7 +92,7 @@ type TopLevelComponent = Container | ContainerChild
 """A component that can stand at the top of a message."""
 
 type Layout = TopLevelComponent | collections.abc.Sequence[TopLevelComponent]
-"""What `View.render` returns: one top-level component, or several in order."""
+"""What `View.render` returns and `ui.render` takes: one top-level component, or several in order."""
 
 
 def _or_undefined[T](value: T | None) -> T | hikari.UndefinedType:
@@ -108,8 +108,8 @@ class Component(abc.ABC):
     def build(self, ctx: BuildContext, path: str, /) -> special_endpoints.ComponentBuilder:
         """Turn the component into hikari's builder for it.
 
-        risa calls this while building a view, once to measure the layout and once to emit
-        it; `path` names the component's place in the tree for error messages.
+        risa calls this while building a layout, for a view once to measure it and once to
+        emit it; `path` names the component's place in the tree for error messages.
 
         Parameters
         ----------

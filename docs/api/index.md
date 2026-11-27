@@ -51,15 +51,15 @@ hide:
 
 - [`risa.ui`](ui/index.md)
 
-    The components a view's layout is built from, and `Rendered`, a built view.
+    The components a layout is built from, `render` for a layout without a view, and `Rendered`, the built result.
 
 - [`risa.ui.build`](ui/build.md){ .risa-overview__sub }
 
-    Building a view's layout into the components of a message.
+    Building a layout into the components of a message.
 
 - [`risa.ui.nodes`](ui/nodes.md){ .risa-overview__sub }
 
-    The components a view's layout is built from, Discord's Components V2.
+    The components a layout is built from, Discord's Components V2.
 
 ## Modules
 

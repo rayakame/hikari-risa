@@ -234,6 +234,32 @@ console.log(JSON.stringify(JSON.parse(counts).map((count) => risaLiveCustomId(JS
 """
 
 
+_NOTICE = """
+import risa
+from risa import ui
+
+
+def notice(title: str, text: str = "Stay kind.") -> ui.Layout:
+    return ui.Container(ui.TextDisplay(f"## {title}"), ui.TextDisplay(text))
+
+
+@risa.register(name="clickable")
+class Clickable(risa.View):
+    def render(self) -> ui.Layout:
+        return ui.Row(ui.Button(self.go, label="Go"))
+
+    @risa.handler
+    async def go(self, ctx: risa.ComponentContext) -> None: ...
+
+
+def clickable() -> ui.Layout:
+    return Clickable().render()
+
+
+NOT_A_FUNCTION = 3
+"""
+
+
 def _example(directory: pathlib.Path, name: str = "tiny_example", source: str = _EXAMPLE) -> pathlib.Path:
     path = directory / f"{name}.py"
     path.write_text(source)
@@ -1040,3 +1066,38 @@ async def test_the_diagrams_show_the_ids_a_real_click_leaves(tmp_path: pathlib.P
     assert shown == real[:2]
     assert _script_ids(drawn["l"], [0, 1, 2, 3]) == real
     assert [identifier for _, identifier in _rows(drawn["i"])] == real[:2]
+
+
+def _layout(function: str, **arguments: object) -> manifest.LayoutPreview:
+    return manifest.LayoutPreview(id="n", example="notice_example", function=function, arguments=arguments)
+
+
+def test_a_layout_preview_draws_what_the_function_returns(tmp_path: pathlib.Path) -> None:
+    example = _example(tmp_path, "notice_example", _NOTICE)
+
+    result = render_example.render_previews(example, [_layout("notice", title="Rules")])["n"]
+
+    assert '<p class="dc-h2">Rules</p>' in result
+    assert "Stay kind." in _text(result)
+    assert result.startswith(
+        '<div class="risa-result" data-search-exclude><p class="risa-result__label">In Discord</p>'
+    )
+
+
+@pytest.mark.parametrize("function", ["nope", "NOT_A_FUNCTION"])
+def test_a_layout_preview_of_something_that_is_no_function_fails_the_step(
+    tmp_path: pathlib.Path, function: str
+) -> None:
+    example = _example(tmp_path, "notice_example", _NOTICE)
+
+    with pytest.raises(render_example.RenderError, match=f"no function named '{function}'"):
+        render_example.render_previews(example, [_layout(function)])
+
+
+def test_a_layout_preview_with_something_to_click_fails_the_step(tmp_path: pathlib.Path) -> None:
+    example = _example(tmp_path, "notice_example", _NOTICE)
+
+    with pytest.raises(render_example.RenderError, match="LayoutError") as raised:
+        render_example.render_previews(example, [_layout("clickable")])
+
+    assert raised.value.preview_id == "n"

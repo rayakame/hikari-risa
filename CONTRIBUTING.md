@@ -56,8 +56,9 @@ pyright check; another library's code, such as miru's on the comparison page, st
 `??? example "Full file"` block. For its preview, add an entry to `docs/examples/previews.toml` and put one top-level line,
 `--8<-- "previews/<id>.html"`, directly after the code block, never inside a `div markdown`.
 An example's module-level `add_dependencies(client)` runs once before the first build, the `ids` kind draws the real `custom_id`
-of each component, `content` on a `view` preview draws text above a view made of rows alone, and the `log` kind shows what
-`add_view` warns about. The `live` kind draws the landing page's counter, whose script works out each `custom_id` itself;
+of each component, `content` on a `view` preview draws text above a view made of rows alone, the `layout` kind draws what a
+function of the example returns, built by `ui.render`, and the `log` kind shows what `add_view` warns about.
+The `live` kind draws the landing page's counter, whose script works out each `custom_id` itself;
 a test holds it against `client.build`, which needs `node` and skips without it outside CI.
 
 The changelog page shows `CHANGELOG.md`.
@@ -246,7 +247,7 @@ risa/
     postgres.py     PostgresStore (the [postgres] extra)
     testing.py      verify_store, the conformance kit for Store implementations
   ui/
-    build.py        two-phase build: plan (measure) + emit, and Rendered (the send kwargs)
+    build.py        two-phase build: plan (measure) + emit, render (a layout without a view), and Rendered (the send kwargs)
     nodes.py        the V2 node set
   py.typed
 docs/               site pages, stylesheets, fonts

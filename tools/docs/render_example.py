@@ -48,6 +48,7 @@ from pygments import lexers
 
 import risa
 from risa import errors
+from risa import ui
 from risa.internal import codec
 from risa.internal import registry
 from risa.state import anchor
@@ -89,7 +90,7 @@ def render_previews(
     example
         The example file.
     previews
-        The previews to draw, which name views of that example.
+        The previews to draw, which name views or functions of that example.
 
     Returns
     -------
@@ -193,6 +194,8 @@ async def _draw(client: risa.Client, module: object, example: pathlib.Path, prev
         return discord_html.render_reply(preview.text, ephemeral=preview.ephemeral)
     if isinstance(preview, manifest.ThinkingPreview):
         return discord_html.render_thinking(ephemeral=preview.ephemeral)
+    if isinstance(preview, manifest.LayoutPreview):
+        return discord_html.render_message(_layout_payloads(module, example, preview))
     return await _draw_view(client, _view(client, module, example, preview.view), example, preview)
 
 
@@ -225,6 +228,18 @@ async def _draw_view(
     if isinstance(preview, manifest.IdsDiagram):
         return await _ids(client, cls, example, preview)
     return await _click_path(client, cls, example, preview)
+
+
+def _layout_payloads(
+    module: object,
+    example: pathlib.Path,
+    preview: manifest.LayoutPreview,
+) -> collections.abc.Sequence[collections.abc.Mapping[str, object]]:
+    function = getattr(module, preview.function, None)
+    if not callable(function):
+        raise RenderError(example, f"it has no function named {preview.function!r}")
+    layout = typing.cast("ui.Layout", function(**preview.arguments))
+    return [component.build()[0] for component in ui.render(layout).components]
 
 
 def _view(client: risa.Client, module: object, example: pathlib.Path, name: str) -> type[risa.View]:

@@ -34,6 +34,7 @@ __all__ = (
     "ClickPath",
     "ErrorPreview",
     "IdsDiagram",
+    "LayoutPreview",
     "LivePreview",
     "LogPreview",
     "ManifestError",
@@ -65,6 +66,14 @@ class ViewPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="view"):
     fields: dict[str, object]
     label: str = "In Discord"
     content: str = ""
+
+
+class LayoutPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="layout"):
+    id: str
+    example: str
+    function: str
+    arguments: dict[str, object]
+    label: str = "In Discord"
 
 
 class ReplyPreview(msgspec.Struct, frozen=True, tag_field="kind", tag="reply"):
@@ -124,7 +133,9 @@ class LivePreview(msgspec.Struct, frozen=True, tag_field="kind", tag="live"):
     note: str = ""
 
 
-type StaticPreview = ViewPreview | ReplyPreview | ThinkingPreview | ErrorPreview | LogPreview | ClickPath | IdsDiagram
+type StaticPreview = (
+    ViewPreview | LayoutPreview | ReplyPreview | ThinkingPreview | ErrorPreview | LogPreview | ClickPath | IdsDiagram
+)
 type Preview = StaticPreview | LivePreview
 
 

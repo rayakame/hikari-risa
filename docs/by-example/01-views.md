@@ -77,3 +77,37 @@ Developer Portal.
     ```python
     --8<-- "ch01_welcome.py:20:"
     ```
+
+## A message with nothing to click
+
+Posted as a message of their own, the rules have nothing to click, so no click ever has to find a view for them. Such a
+message needs no class, no name and no `add_view`. A function returns the layout, and
+[`ui.render`](../api/ui/build.md#risa.ui.build.render) turns it into what `client.build` returns for a view. A layout has
+no fields and no [`load()`](07-fresh-data.md), so what it shows comes in as the function's arguments.
+
+```python
+--8<-- "ch01_notice.py:layout"
+```
+
+--8<-- "previews/notice.html"
+
+`ui.render` takes no client and no `await`. It works where no risa client is at hand, such as the error handler of a
+lightbulb command, and its result sends through the three calls under [Send it](#send-it).
+
+```python
+--8<-- "ch01_notice.py:send"
+```
+
+In a lightbulb command or its error handler, and in a risa handler, it reads
+`await ctx.respond(**ui.render(layout), ephemeral=True)`.
+
+The layout may hold a [`ui.LinkButton` or a `ui.PremiumButton`](04-selects-sections-galleries.md#text-with-something-beside-it),
+which take no handler. A button or a select menu with a handler raises
+[`LayoutError`](../api/errors.md#risa.errors.LayoutError), since such a component routes through its view. Return that
+layout from a view's `render()`.
+
+??? example "Full file"
+
+    ```python
+    --8<-- "ch01_notice.py:20:"
+    ```

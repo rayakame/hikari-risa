@@ -5,3 +5,4 @@
       members:
         - BuildContext
         - Rendered
+        - render

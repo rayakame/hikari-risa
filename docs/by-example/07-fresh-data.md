@@ -122,7 +122,8 @@ error handler runs for an update, and `load()` runs in `DEFAULT` alone, as it do
 | No fields | `client.rerender`, or `client.open` to fill a prop in the block. risa fetches nothing, takes no lock, and does not check what the message shows |
 | Fields, and a `render()` that never draws a button or a menu | `rest.edit_message(channel, message, **await client.build(view))`, where `view` is a new instance with its fields passed again |
 
-A message with nothing to click holds no state, which is why the last row builds a new view.
+A message with nothing to click holds no state, which is why the last row builds a new view. A message
+[sent without a view](01-views.md#a-message-with-nothing-to-click) is redrawn the same way, with `**ui.render(layout)`.
 
 !!! warning "Do not edit the message of a view from the first row through `rest.edit_message`."
     risa remembers the state it last saved to a message, and after an edit it did not make, a later click can bring that

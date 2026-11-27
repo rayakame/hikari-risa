@@ -17,7 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""Building a view's layout into the components of a message."""
+"""Building a layout into the components of a message."""
 
 from __future__ import annotations
 
@@ -27,7 +27,9 @@ import typing
 import hikari
 
 from risa import binding as binding_
+from risa import codecs
 from risa import errors
+from risa import view as view_
 from risa.internal import codec
 from risa.state import anchor
 from risa.state import placement
@@ -37,8 +39,6 @@ if typing.TYPE_CHECKING:
     from hikari import snowflakes
     from hikari.api import special_endpoints
 
-    from risa import codecs
-    from risa import view as view_
     from risa.internal import registry
     from risa.ui.nodes import Layout
 
@@ -47,14 +47,17 @@ __all__ = (
     "Plan",
     "Rendered",
     "plan",
+    "render",
 )
 
 
 class BuildContext:
-    """What a component gets while a view is built: the view's routing identity and codec.
+    """What a component gets while a layout is built: the view's routing identity and codec.
 
     risa makes one for each pass over a layout: one to measure it and one for each time it
-    emits, so a component's `build` runs at least twice per `client.build`.
+    emits, so a component's `build` runs at least twice per `client.build`. `ui.render`
+    builds a layout without a view in one pass, and its context's `routing_id` raises
+    `LayoutError`.
 
     Attributes
     ----------
@@ -113,7 +116,7 @@ class BuildContext:
         Raises
         ------
         LayoutError
-            If the handler belongs to another view.
+            If the handler belongs to another view, or the layout is built without a view.
         ArgBindError
             If a wire argument is too long to carry.
         CustomIdOverflowError
@@ -169,13 +172,31 @@ class BuildContext:
         return anchor.Slot(index=min(leaf, codec.MAX_FRAGMENTS - 1), fragment="!" * self._reserve)
 
 
+class _Viewless(BuildContext):
+    """The context of a layout built without a view, on which nothing can route a click."""
+
+    __slots__ = ()
+
+    def __init__(self) -> None:
+        super().__init__("", frozenset(), view_.View, codecs.BASE85)
+
+    @typing.override
+    def routing_id(self, binding: binding_.Binding, path: str) -> str:
+        reason = (
+            f"handler {binding.handler_id!r} (version {binding.version}) routes through its view,"
+            " and ui.render builds a layout without one; return the layout from the view's render()"
+            " and send the view with client.build"
+        )
+        raise errors.LayoutError(path, reason)
+
+
 class Plan:
     """A layout measured for one view, ready to be built with that view's state."""
 
     __slots__ = ("_capacities", "_layout", "_meta")
 
     def __init__(self, layout: Layout, meta: registry.ViewMeta) -> None:
-        self._layout: collections.abc.Sequence[Component] = (layout,) if isinstance(layout, Component) else layout
+        self._layout = _top_level(layout)
         self._meta = meta
         measured = _context(meta, reserve=_reserve(meta))
         _build_all(self._layout, measured)
@@ -212,11 +233,12 @@ class Plan:
 
 
 class Rendered(collections.abc.Mapping[str, typing.Any]):
-    """A built view: the components of a message, ready to send.
+    """The components of a message, built and ready to send.
 
     It is a mapping, so it spreads into any call that takes `components=`:
     `await ctx.respond(**rendered)`. A Components V2 message carries nothing but its
-    components, so there is nothing else to spread. `Client.build` returns one.
+    components, so there is nothing else to spread. `Client.build` returns one for a view,
+    and `ui.render` returns one for a layout with nothing to click.
     """
 
     __slots__ = ("_components",)
@@ -249,7 +271,7 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         channel: snowflakes.SnowflakeishOr[hikari.TextableChannel],
         **forbidden: typing.Never,
     ) -> hikari.Message:
-        """Send the view as a new message in `channel`.
+        """Send the components as a new message in `channel`.
 
         Parameters
         ----------
@@ -258,7 +280,7 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         channel
             The channel, or its id, to send to.
         **forbidden
-            Nothing: a V2 view renders the whole message, so any keyword raises `TypeError`.
+            Nothing: the components are the whole message, so any keyword raises `TypeError`.
 
         Returns
         -------
@@ -276,7 +298,7 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         ephemeral: bool = False,
         **forbidden: typing.Never,
     ) -> None:
-        """Answer `interaction` with the view, as its initial response.
+        """Answer `interaction` with the components, as its initial response.
 
         For interactions risa does not dispatch, such as slash commands. In a risa handler,
         answer with `ctx.respond(**rendered)` instead, which knows whether the interaction
@@ -291,7 +313,7 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         ephemeral
             Show the message only to the user who used the command.
         **forbidden
-            Nothing: a V2 view renders the whole message, so any keyword raises `TypeError`.
+            Nothing: the components are the whole message, so any keyword raises `TypeError`.
         """
         _reject_forbidden(forbidden)
         await rest.create_interaction_response(
@@ -306,8 +328,8 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
 def _reject_forbidden(forbidden: collections.abc.Mapping[str, object]) -> None:
     if forbidden:
         msg = (
-            f"a V2 view renders the whole message; {', '.join(sorted(forbidden))} cannot ride"
-            " alongside it - put text in a ui.TextDisplay inside the view"
+            f"the components are the whole message; {', '.join(sorted(forbidden))} cannot ride"
+            " alongside them - put text in a ui.TextDisplay"
         )
         raise TypeError(msg)
 
@@ -341,6 +363,10 @@ def _context(
     )
 
 
+def _top_level(layout: Layout) -> collections.abc.Sequence[Component]:
+    return (layout,) if isinstance(layout, Component) else layout
+
+
 def _build_all(
     layout: collections.abc.Sequence[Component],
     ctx: BuildContext,
@@ -351,3 +377,42 @@ def _build_all(
 def plan(layout: Layout, meta: registry.ViewMeta) -> Plan:
     """Measure `layout` for the view described by `meta`."""
     return Plan(layout, meta)
+
+
+def render(layout: Layout, /) -> Rendered:
+    """Build the components of a message from a layout with nothing to click, ready to send.
+
+    ```python
+    await ctx.respond(
+        **ui.render(ui.Container(ui.TextDisplay("Saved."))), ephemeral=True
+    )
+    ```
+
+    Such a layout needs no view, so there is no class to register and no client to build it
+    with. The result spreads into any hikari or lightbulb call that takes `components=`, as
+    the result of `Client.build` does. A `LinkButton` or a `PremiumButton` may be part of the
+    layout, since no handler answers them.
+
+    Parameters
+    ----------
+    layout
+        One top-level component, or several in order.
+
+    Returns
+    -------
+    :
+        The components, as a mapping that spreads into a send.
+
+    Raises
+    ------
+    LayoutError
+        If the layout holds a component that runs a handler, such as a `Button` or a select
+        menu, even a disabled one. Such a component routes through its view: return the
+        layout from the view's `render` and send the view with `Client.build`.
+    TypeError
+        If `layout` is a view, which `Client.build` builds.
+    """
+    if isinstance(layout, view_.View):
+        msg = f"ui.render takes a layout, and got the view {type(layout).__name__}; send a view with client.build"
+        raise TypeError(msg)
+    return Rendered(_build_all(_top_level(layout), _Viewless()))
