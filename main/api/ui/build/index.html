@@ -90,7 +90,7 @@
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/main/assets/images/social-preview.png">
 
-  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# API reference › risa.ui\n## risa.ui.build\nBuilding a view's layout into the components of a message."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/main/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/main/api/ui/build/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa main · This preview is a risa view"}]}}</script>
+  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# API reference › risa.ui\n## risa.ui.build\nBuilding a layout into the components of a message."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/main/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the page","url":"https://hikari-risa.rayakame.dev/main/api/ui/build/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa main · This preview is a risa view"}]}}</script>
 </head>
   
   
@@ -1628,6 +1628,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#risa.ui.build.render" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        render
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2053,6 +2064,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#risa.ui.build.render" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        render
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2198,7 +2220,7 @@
 
     <div class="doc doc-contents first">
 
-        <p>Building a view's layout into the components of a message.</p>
+        <p>Building a layout into the components of a message.</p>
 
 
 
@@ -2243,9 +2265,11 @@
 
 
 
-        <p>What a component gets while a view is built: the view's routing identity and codec.</p>
+        <p>What a component gets while a layout is built: the view's routing identity and codec.</p>
 <p>risa makes one for each pass over a layout: one to measure it and one for each time it
-emits, so a component's <code>build</code> runs at least twice per <code>client.build</code>.</p>
+emits, so a component's <code>build</code> runs at least twice per <code>client.build</code>. <code>ui.render</code>
+builds a layout without a view in one pass, and its context's <code>routing_id</code> raises
+<code>LayoutError</code>.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -2385,7 +2409,7 @@ of the state.</p>
               <code><a class="autorefs autorefs-internal" title="            LayoutError (risa.errors.LayoutError)" href="../../errors/#risa.errors.LayoutError">LayoutError</a></code>
             –
           <div class="doc-md-description">
-            <p>If the handler belongs to another view.</p>
+            <p>If the handler belongs to another view, or the layout is built without a view.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2435,10 +2459,12 @@ of the state.</p>
 
 
 
-        <p>A built view: the components of a message, ready to send.</p>
+        <p>The components of a message, built and ready to send.</p>
 <p>It is a mapping, so it spreads into any call that takes <code>components=</code>:
-<code>await ctx.respond(**rendered)</code>. A Components V2 message carries nothing but its
-components, so there is nothing else to spread. <code>Client.build</code> returns one.</p>
+<code>await ctx.respond(**rendered)</code>. A Components V2 message has no content and no
+embeds, so there is nothing else to spread. <code>Client.build</code> returns one for a view,
+and <code>ui.render</code> returns one for a layout with nothing to click. <code>send_to</code> and
+<code>respond_to</code> send it through hikari and take the other arguments of hikari's call.</p>
 
 
 
@@ -2500,15 +2526,17 @@ components, so there is nothing else to spread. <code>Client.build</code> return
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">respond_to</span><span class="p">(</span>
 </span><span id="__span-0-2">    <span class="n">rest</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.api.RESTClient" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient">RESTClient</a></span><span class="p">,</span>
 </span><span id="__span-0-3">    <span class="n">interaction</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.ComponentInteraction" href="https://docs.hikari-py.dev/en/stable/reference/hikari/interactions/component_interactions/#hikari.interactions.component_interactions.ComponentInteraction">ComponentInteraction</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.ModalInteraction" href="https://docs.hikari-py.dev/en/stable/reference/hikari/interactions/modal_interactions/#hikari.interactions.modal_interactions.ModalInteraction">ModalInteraction</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.CommandInteraction" href="https://docs.hikari-py.dev/en/stable/reference/hikari/interactions/command_interactions/#hikari.interactions.command_interactions.CommandInteraction">CommandInteraction</a></span><span class="p">,</span>
-</span><span id="__span-0-4">    <span class="o">*</span><span class="p">,</span>
-</span><span id="__span-0-5">    <span class="n">ephemeral</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-0-6">    <span class="o">**</span><span class="n">forbidden</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Never" href="https://docs.python.org/3/library/typing.html#typing.Never">Never</a></span><span class="p">,</span>
-</span><span id="__span-0-7"><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span><span id="__span-0-4">    <span class="n">content</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.UndefinedOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UndefinedOr">UndefinedOr</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.UNDEFINED" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UNDEFINED">UNDEFINED</a></span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n">ephemeral</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n">flags</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.UndefinedType" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UndefinedType">UndefinedType</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.MessageFlag" href="https://docs.hikari-py.dev/en/stable/reference/hikari/messages/#hikari.messages.MessageFlag">MessageFlag</a></span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.UNDEFINED" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UNDEFINED">UNDEFINED</a></span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="o">**</span><span class="n">options</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Unpack" href="https://docs.python.org/3/library/typing.html#typing.Unpack">Unpack</a></span><span class="p">[</span><span class="n"><span title="risa.ui.build._ResponseOptions">_ResponseOptions</span></span><span class="p">],</span>
+</span><span id="__span-0-9"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.InteractionCallbackResponse" href="https://docs.hikari-py.dev/en/stable/reference/hikari/interactions/base_interactions/#hikari.interactions.base_interactions.InteractionCallbackResponse">InteractionCallbackResponse</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Answer <code>interaction</code> with the view, as its initial response.</p>
+        <p>Answer <code>interaction</code> with the components, as its initial response.</p>
 <p>For interactions risa does not dispatch, such as slash commands. In a risa handler,
 answer with <code>ctx.respond(**rendered)</code> instead, which knows whether the interaction
 has been answered already.</p>
@@ -2533,6 +2561,16 @@ has been answered already.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
+            <b><code>content</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.UndefinedOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UndefinedOr">UndefinedOr</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>]</code>, default:
+                  <code><a class="autorefs autorefs-external" title="hikari.UNDEFINED" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UNDEFINED">UNDEFINED</a></code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Text above the components, which only rows alone can carry.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
             <b><code>ephemeral</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
                   <code>False</code>
@@ -2543,13 +2581,50 @@ has been answered already.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>**forbidden</code></b>
-              (<code><a class="autorefs autorefs-external" title="typing.Never" href="https://docs.python.org/3/library/typing.html#typing.Never">Never</a></code>, default:
+            <b><code>flags</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.UndefinedType" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UndefinedType">UndefinedType</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a> | <a class="autorefs autorefs-external" title="hikari.MessageFlag" href="https://docs.hikari-py.dev/en/stable/reference/hikari/messages/#hikari.messages.MessageFlag">MessageFlag</a></code>, default:
+                  <code><a class="autorefs autorefs-external" title="hikari.UNDEFINED" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UNDEFINED">UNDEFINED</a></code>
+)
+          –
+          <div class="doc-md-description">
+            <p>The flags of the message. <code>ephemeral=True</code> adds <code>EPHEMERAL</code> to them.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>**options</code></b>
+              (<code><a class="autorefs autorefs-external" title="typing.Unpack" href="https://docs.python.org/3/library/typing.html#typing.Unpack">Unpack</a>[<span title="risa.ui.build._ResponseOptions">_ResponseOptions</span>]</code>, default:
                   <code>{}</code>
 )
           –
           <div class="doc-md-description">
-            <p>Nothing: a V2 view renders the whole message, so any keyword raises <code>TypeError</code>.</p>
+            <p>The other keyword arguments of hikari's
+<a class="autorefs autorefs-external" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient.create_interaction_response"><code>create_interaction_response</code></a>,
+such as <code>user_mentions</code> and <code>tts</code>, passed on as they are.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" title="hikari.InteractionCallbackResponse" href="https://docs.hikari-py.dev/en/stable/reference/hikari/interactions/base_interactions/#hikari.interactions.base_interactions.InteractionCallbackResponse">InteractionCallbackResponse</a></code>
+          –
+          <div class="doc-md-description">
+            <p>What hikari returns for the response.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If <code>content</code>, <code>embed</code> or <code>embeds</code> is given beside Components V2, which take their
+place. Put the text in a <code>ui.TextDisplay</code>.</p>
           </div>
         </li>
     </ul>
@@ -2574,13 +2649,16 @@ has been answered already.</p>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">send_to</span><span class="p">(</span>
 </span><span id="__span-0-2">    <span class="n">rest</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.api.RESTClient" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient">RESTClient</a></span><span class="p">,</span>
 </span><span id="__span-0-3">    <span class="n">channel</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.snowflakes.SnowflakeishOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/snowflakes/#hikari.snowflakes.SnowflakeishOr">SnowflakeishOr</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="hikari.TextableChannel" href="https://docs.hikari-py.dev/en/stable/reference/hikari/channels/#hikari.channels.TextableChannel">TextableChannel</a></span><span class="p">],</span>
-</span><span id="__span-0-4">    <span class="o">**</span><span class="n">forbidden</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Never" href="https://docs.python.org/3/library/typing.html#typing.Never">Never</a></span><span class="p">,</span>
-</span><span id="__span-0-5"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.Message" href="https://docs.hikari-py.dev/en/stable/reference/hikari/messages/#hikari.messages.Message">Message</a></span>
+</span><span id="__span-0-4">    <span class="n">content</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.UndefinedOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UndefinedOr">UndefinedOr</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.UNDEFINED" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UNDEFINED">UNDEFINED</a></span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="o">**</span><span class="n">options</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Unpack" href="https://docs.python.org/3/library/typing.html#typing.Unpack">Unpack</a></span><span class="p">[</span><span class="n"><span title="risa.ui.build._MessageOptions">_MessageOptions</span></span><span class="p">],</span>
+</span><span id="__span-0-6"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="hikari.Message" href="https://docs.hikari-py.dev/en/stable/reference/hikari/messages/#hikari.messages.Message">Message</a></span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Send the view as a new message in <code>channel</code>.</p>
+        <p>Send the components as a new message in <code>channel</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="risa.ui.build.Rendered.send_to--__span-0-1"><span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">channel_id</span><span class="p">,</span> <span class="n">user_mentions</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2602,13 +2680,26 @@ has been answered already.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>**forbidden</code></b>
-              (<code><a class="autorefs autorefs-external" title="typing.Never" href="https://docs.python.org/3/library/typing.html#typing.Never">Never</a></code>, default:
+            <b><code>content</code></b>
+              (<code><a class="autorefs autorefs-external" title="hikari.UndefinedOr" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UndefinedOr">UndefinedOr</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>]</code>, default:
+                  <code><a class="autorefs autorefs-external" title="hikari.UNDEFINED" href="https://docs.hikari-py.dev/en/stable/reference/hikari/undefined/#hikari.undefined.UNDEFINED">UNDEFINED</a></code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Text above the components, which only rows alone can carry.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>**options</code></b>
+              (<code><a class="autorefs autorefs-external" title="typing.Unpack" href="https://docs.python.org/3/library/typing.html#typing.Unpack">Unpack</a>[<span title="risa.ui.build._MessageOptions">_MessageOptions</span>]</code>, default:
                   <code>{}</code>
 )
           –
           <div class="doc-md-description">
-            <p>Nothing: a V2 view renders the whole message, so any keyword raises <code>TypeError</code>.</p>
+            <p>The other keyword arguments of hikari's
+<a class="autorefs autorefs-external" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient.create_message"><code>create_message</code></a>, such as
+<code>user_mentions</code>, <code>reply</code> and <code>flags</code>, passed on as they are. One that the installed
+hikari lacks, such as <code>nonce</code> before hikari 2.6, raises hikari's <code>TypeError</code>.</p>
           </div>
         </li>
     </ul>
@@ -2626,6 +2717,19 @@ has been answered already.</p>
     </ul>
 
 
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If <code>content</code>, <code>embed</code> or <code>embeds</code> is given beside Components V2, which take their
+place. Put the text in a <code>ui.TextDisplay</code>.</p>
+          </div>
+        </li>
+    </ul>
+
+
     </div>
 
 </div>
@@ -2638,6 +2742,80 @@ has been answered already.</p>
 
 </div>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="risa.ui.build.render" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">render</span>
+
+
+<a href="#risa.ui.build.render" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">render</span><span class="p">(</span><span class="n">layout</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="            Layout (risa.ui.nodes.Layout)" href="../nodes/#risa.ui.nodes.Layout">Layout</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="            Rendered (risa.ui.build.Rendered)" href="./#risa.ui.build.Rendered">Rendered</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Build the components of a message from a layout with nothing to click, ready to send.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="risa.ui.build.render--__span-0-1"><span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">respond</span><span class="p">(</span>
+</span><span id="risa.ui.build.render--__span-0-2">    <span class="o">**</span><span class="n">ui</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">Container</span><span class="p">(</span><span class="n">ui</span><span class="o">.</span><span class="n">TextDisplay</span><span class="p">(</span><span class="s2">"Saved."</span><span class="p">))),</span> <span class="n">ephemeral</span><span class="o">=</span><span class="kc">True</span>
+</span><span id="risa.ui.build.render--__span-0-3"><span class="p">)</span>
+</span></code></pre></div>
+<p>Such a layout needs no view, so there is no class to register and no client to build it
+with. The result spreads into any hikari or lightbulb call that takes <code>components=</code>, as
+the result of <code>Client.build</code> does. A <code>LinkButton</code> or a <code>PremiumButton</code> may be part of the
+layout, since no handler answers them.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>layout</code></b>
+              (<code><a class="autorefs autorefs-internal" title="            Layout (risa.ui.nodes.Layout)" href="../nodes/#risa.ui.nodes.Layout">Layout</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>One top-level component, or several in order.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            Rendered (risa.ui.build.Rendered)" href="./#risa.ui.build.Rendered">Rendered</a></code>
+          –
+          <div class="doc-md-description">
+            <p>The components, as a mapping that spreads into a send.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="            LayoutError (risa.errors.LayoutError)" href="../../errors/#risa.errors.LayoutError">LayoutError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If the layout holds a component that runs a handler, such as a <code>Button</code> or a select
+menu, even a disabled one. Such a component routes through its view: return the
+layout from the view's <code>render</code> and send the view with <code>Client.build</code>.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError">TypeError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>If <code>layout</code> is a view, which <code>Client.build</code> builds.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
 
 
 

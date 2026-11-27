@@ -2453,16 +2453,12 @@ is the only shape that can carry <code>content</code> beside it.</p>
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">In Discord</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>Ship it?</p></div><div class="dc-row"><span class="dc-btn dc-primary">Yes</span><span class="dc-btn dc-secondary">No</span></div></div></div></div>
 
-<p><code>send_to</code> refuses <code>content</code>, so an event calls hikari directly.</p>
+<p><code>send_to</code> and <code>respond_to</code> take the text after the channel or the interaction.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
 </span><span id="__span-11-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-11-3">    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!shipit"</span><span class="p">:</span>
 </span><span id="__span-11-4">        <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">YesNo</span><span class="p">())</span>
-</span><span id="__span-11-5">        <span class="k">await</span> <span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="o">.</span><span class="n">create_message</span><span class="p">(</span>
-</span><span id="__span-11-6">            <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">,</span>
-</span><span id="__span-11-7">            <span class="s2">"Ship it?"</span><span class="p">,</span>
-</span><span id="__span-11-8">            <span class="o">**</span><span class="n">rendered</span><span class="p">,</span>
-</span><span id="__span-11-9">        <span class="p">)</span>
+</span><span id="__span-11-5">        <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">,</span> <span class="s2">"Ship it?"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>In a lightbulb command, or in a risa handler that takes
 <a href="../06-dependency-injection/#build-another-view"><code>client: risa.Client</code></a> as a parameter after <code>ctx</code>, it reads
@@ -2510,17 +2506,13 @@ is the only shape that can carry <code>content</code> beside it.</p>
 </span><span id="__span-12-39">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-12-40">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!shipit"</span><span class="p">:</span>
 </span><span id="__span-12-41">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">YesNo</span><span class="p">())</span>
-</span><span id="__span-12-42">            <span class="k">await</span> <span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="o">.</span><span class="n">create_message</span><span class="p">(</span>
-</span><span id="__span-12-43">                <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">,</span>
-</span><span id="__span-12-44">                <span class="s2">"Ship it?"</span><span class="p">,</span>
-</span><span id="__span-12-45">                <span class="o">**</span><span class="n">rendered</span><span class="p">,</span>
-</span><span id="__span-12-46">            <span class="p">)</span>
-</span><span id="__span-12-47">
-</span><span id="__span-12-48">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span><span id="__span-12-49">
-</span><span id="__span-12-50">
-</span><span id="__span-12-51"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
-</span><span id="__span-12-52">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-12-42">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">,</span> <span class="s2">"Ship it?"</span><span class="p">)</span>
+</span><span id="__span-12-43">
+</span><span id="__span-12-44">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-12-45">
+</span><span id="__span-12-46">
+</span><span id="__span-12-47"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-12-48">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 </details>
 

@@ -2362,7 +2362,8 @@ error handler runs for an update, and <code>load()</code> runs in <code>DEFAULT<
 </tr>
 </tbody>
 </table>
-<p>A message with nothing to click holds no state, which is why the last row builds a new view.</p>
+<p>A message with nothing to click holds no state, which is why the last row builds a new view. A message
+<a href="../01-views/#a-message-with-nothing-to-click">sent without a view</a> is redrawn the same way, with <code>**ui.render(layout)</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Do not edit the message of a view from the first row through <code>rest.edit_message</code>.</p>
 <p>risa remembers the state it last saved to a message, and after an edit it did not make, a later click can bring that
