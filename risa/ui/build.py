@@ -321,7 +321,8 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         **options
             The other keyword arguments of hikari's
             [`create_message`][hikari.api.rest.RESTClient.create_message], such as
-            `user_mentions`, `reply` and `flags`, passed on as they are.
+            `user_mentions`, `reply` and `flags`, passed on as they are. One that the installed
+            hikari lacks, such as `nonce` before hikari 2.6, raises hikari's `TypeError`.
 
         Returns
         -------
