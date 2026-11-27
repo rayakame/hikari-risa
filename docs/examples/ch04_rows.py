@@ -61,11 +61,7 @@ def main() -> None:
     async def on_message(event: hikari.GuildMessageCreateEvent) -> None:
         if event.content == "!shipit":
             rendered = await client.build(YesNo())
-            await bot.rest.create_message(
-                event.channel_id,
-                "Ship it?",
-                **rendered,
-            )
+            await rendered.send_to(bot.rest, event.channel_id, "Ship it?")
             # --8<-- [end:send]
 
     bot.run()

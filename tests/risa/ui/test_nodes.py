@@ -19,6 +19,7 @@
 # SOFTWARE.
 from __future__ import annotations
 
+import inspect
 import typing
 import unittest.mock
 
@@ -498,23 +499,200 @@ async def test_send_to_sends_the_components() -> None:
     rendered = rendered_text()
     rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
 
-    await rendered.send_to(rest, hikari.Snowflake(123))
+    sent = await rendered.send_to(rest, hikari.Snowflake(123))
 
-    rest.create_message.assert_awaited_once_with(hikari.Snowflake(123), components=rendered.components)
+    assert sent is rest.create_message.return_value
+    rest.create_message.assert_awaited_once_with(
+        hikari.Snowflake(123),
+        hikari.UNDEFINED,
+        components=rendered.components,
+    )
 
 
-async def test_respond_to_answers_with_the_initial_message_create() -> None:
+async def test_send_to_passes_the_other_arguments_of_hikaris_call_on() -> None:
     rendered = rendered_text()
     rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
-    interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
 
-    await rendered.respond_to(rest, interaction, ephemeral=True)
+    await rendered.send_to(
+        rest,
+        hikari.Snowflake(123),
+        user_mentions=True,
+        reply=hikari.Snowflake(7),
+        flags=hikari.MessageFlag.SUPPRESS_NOTIFICATIONS,
+    )
+
+    rest.create_message.assert_awaited_once_with(
+        hikari.Snowflake(123),
+        hikari.UNDEFINED,
+        components=rendered.components,
+        user_mentions=True,
+        reply=hikari.Snowflake(7),
+        flags=hikari.MessageFlag.SUPPRESS_NOTIFICATIONS,
+    )
+
+
+async def test_what_the_send_helpers_pass_on_fits_the_signatures_of_hikaris_calls() -> None:
+    rendered = ui.render(ui.Row(ui.LinkButton("https://example.com", label="Docs")))
+    rest = unittest.mock.create_autospec(hikari.api.RESTClient, instance=True)
+    interaction = unittest.mock.Mock(spec=hikari.CommandInteraction)
+
+    await rendered.send_to(rest, hikari.Snowflake(123), "hi", embeds=[], reply=hikari.Snowflake(7), mentions_reply=True)
+    await rendered.respond_to(rest, interaction, "hi", ephemeral=True, embeds=[], role_mentions=True)
+
+    rest.create_message.assert_awaited_once()
+    rest.create_interaction_response.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ("call", "options", "own"),
+    [
+        ("create_message", build_._MessageOptions, {"channel", "content"}),  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+        (
+            "create_interaction_response",
+            build_._ResponseOptions,  # type: ignore[reportPrivateUsage]  # ruff:ignore[private-member-access]
+            {"interaction", "token", "response_type", "content", "flags"},
+        ),
+    ],
+    ids=["send_to", "respond_to"],
+)
+def test_the_send_helpers_know_every_argument_of_hikaris_calls(call: str, options: type, own: set[str]) -> None:
+    taken = set(inspect.signature(getattr(hikari.api.RESTClient, call)).parameters)
+
+    assert taken - {"self", "component", "components"} - own <= set(options.__annotations__)
+
+
+async def test_rows_alone_carry_content_and_an_embed_through_send_to() -> None:
+    rendered = ui.render(ui.Row(ui.LinkButton("https://example.com", label="Docs")))
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+    embed = hikari.Embed(title="Docs")
+
+    await rendered.send_to(rest, hikari.Snowflake(123), "Read the docs", embed=embed)
+
+    rest.create_message.assert_awaited_once_with(
+        hikari.Snowflake(123),
+        "Read the docs",
+        components=rendered.components,
+        embed=embed,
+    )
+
+
+async def test_rows_alone_carry_content_through_respond_to() -> None:
+    rendered = ui.render(ui.Row(ui.LinkButton("https://example.com", label="Docs")))
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+    interaction = unittest.mock.Mock(spec=hikari.CommandInteraction)
+
+    await rendered.respond_to(rest, interaction, "Read the docs")
 
     call = rest.create_interaction_response.await_args
     assert call is not None
-    assert call.args[2] is hikari.ResponseType.MESSAGE_CREATE
-    assert call.kwargs["components"] == rendered.components
-    assert call.kwargs["flags"] is hikari.MessageFlag.EPHEMERAL
+    assert call.args == (interaction.id, interaction.token, hikari.ResponseType.MESSAGE_CREATE, "Read the docs")
+
+
+async def test_respond_to_passes_the_other_arguments_on_and_returns_what_hikari_returns() -> None:
+    rendered = rendered_text()
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+    interaction = unittest.mock.Mock(spec=hikari.CommandInteraction)
+
+    answered = await rendered.respond_to(rest, interaction, user_mentions=True, tts=True)
+
+    assert answered is rest.create_interaction_response.return_value
+    call = rest.create_interaction_response.await_args
+    assert call is not None
+    assert call.args == (interaction.id, interaction.token, hikari.ResponseType.MESSAGE_CREATE, hikari.UNDEFINED)
+    assert call.kwargs == {
+        "components": rendered.components,
+        "flags": hikari.UNDEFINED,
+        "user_mentions": True,
+        "tts": True,
+    }
+
+
+@pytest.mark.parametrize(
+    ("ephemeral", "flags", "sent"),
+    [
+        (True, hikari.UNDEFINED, hikari.MessageFlag.EPHEMERAL),
+        (False, hikari.MessageFlag.SUPPRESS_EMBEDS, hikari.MessageFlag.SUPPRESS_EMBEDS),
+        (
+            True,
+            hikari.MessageFlag.SUPPRESS_EMBEDS,
+            hikari.MessageFlag.SUPPRESS_EMBEDS | hikari.MessageFlag.EPHEMERAL,
+        ),
+        (True, 4096, hikari.MessageFlag.SUPPRESS_NOTIFICATIONS | hikari.MessageFlag.EPHEMERAL),
+    ],
+    ids=["ephemeral", "flags", "both", "int"],
+)
+async def test_respond_to_adds_ephemeral_to_the_flags_it_is_given(
+    ephemeral: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
+    flags: hikari.UndefinedType | int | hikari.MessageFlag,
+    sent: hikari.MessageFlag,
+) -> None:
+    rendered = rendered_text()
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+    interaction = unittest.mock.Mock(spec=hikari.CommandInteraction)
+
+    await rendered.respond_to(rest, interaction, ephemeral=ephemeral, flags=flags)
+
+    call = rest.create_interaction_response.await_args
+    assert call is not None
+    assert call.kwargs["flags"] == sent
+
+
+@pytest.mark.parametrize(
+    "beside",
+    [
+        {"content": "hi"},
+        {"embed": hikari.Embed(title="x")},
+        {"embeds": [hikari.Embed(title="x")]},
+        {"content": ""},
+        {"embed": None},
+        {"embeds": []},
+    ],
+    ids=["content", "embed", "embeds", "empty-content", "no-embed", "empty-embeds"],
+)
+async def test_text_and_embeds_beside_components_v2_are_refused_before_anything_is_sent(
+    beside: dict[str, typing.Any],
+) -> None:
+    rendered = rendered_text()
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+    interaction = unittest.mock.Mock(spec=hikari.CommandInteraction)
+    (name,) = beside
+
+    with pytest.raises(TypeError, match=f"Components V2.*{name} cannot ride"):
+        await rendered.send_to(rest, hikari.Snowflake(123), **beside)
+    with pytest.raises(TypeError, match=f"Components V2.*{name} cannot ride"):
+        await rendered.respond_to(rest, interaction, **beside)
+
+    rest.create_message.assert_not_called()
+    rest.create_interaction_response.assert_not_called()
+
+
+async def test_the_refusal_names_everything_that_cannot_ride_along() -> None:
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+
+    with pytest.raises(TypeError, match="; content, embeds cannot ride"):
+        await rendered_text().send_to(rest, hikari.Snowflake(123), "hi", embeds=[hikari.Embed(title="x")])
+
+
+async def test_one_component_that_is_no_row_makes_the_message_components_v2() -> None:
+    rendered = ui.render([ui.Row(ui.LinkButton("https://example.com", label="Docs")), ui.TextDisplay("hi")])
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+
+    with pytest.raises(TypeError, match="content cannot ride"):
+        await rendered.send_to(rest, hikari.Snowflake(123), "Read the docs")
+
+    rest.create_message.assert_not_called()
+
+
+async def test_an_argument_left_undefined_is_not_refused_beside_components_v2() -> None:
+    rendered = rendered_text()
+    rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
+    interaction = unittest.mock.Mock(spec=hikari.CommandInteraction)
+
+    await rendered.send_to(rest, hikari.Snowflake(123), hikari.UNDEFINED, embeds=hikari.UNDEFINED)
+    await rendered.respond_to(rest, interaction, hikari.UNDEFINED, embed=hikari.UNDEFINED)
+
+    rest.create_message.assert_awaited_once()
+    rest.create_interaction_response.assert_awaited_once()
 
 
 async def test_content_alongside_a_rendered_view_is_rejected_with_the_v2_message() -> None:
@@ -522,7 +700,7 @@ async def test_content_alongside_a_rendered_view_is_rejected_with_the_v2_message
     rest = unittest.mock.Mock(spec=hikari.api.RESTClient)
 
     with pytest.raises(TypeError, match="TextDisplay"):
-        await rendered.send_to(rest, hikari.Snowflake(123), content="hi")  # type: ignore[reportArgumentType]
+        await rendered.send_to(rest, hikari.Snowflake(123), content="hi")
 
     rest.create_message.assert_not_called()
 
@@ -533,7 +711,7 @@ async def test_embeds_alongside_a_rendered_view_are_rejected_too() -> None:
     interaction = unittest.mock.Mock(spec=hikari.ComponentInteraction)
 
     with pytest.raises(TypeError, match="embeds"):
-        await rendered.respond_to(rest, interaction, embeds=[])  # type: ignore[reportArgumentType]
+        await rendered.respond_to(rest, interaction, embeds=[])
 
     rest.create_interaction_response.assert_not_called()
 

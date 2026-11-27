@@ -51,6 +51,37 @@ __all__ = (
 )
 
 
+class _MessageOptions(typing.TypedDict, total=False):
+    attachment: hikari.UndefinedOr[hikari.Resourceish]
+    attachments: hikari.UndefinedOr[collections.abc.Sequence[hikari.Resourceish]]
+    embed: hikari.UndefinedOr[hikari.Embed]
+    embeds: hikari.UndefinedOr[collections.abc.Sequence[hikari.Embed]]
+    poll: hikari.UndefinedOr[special_endpoints.PollBuilder]
+    sticker: hikari.UndefinedOr[snowflakes.SnowflakeishOr[hikari.PartialSticker]]
+    stickers: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialSticker]]
+    tts: hikari.UndefinedOr[bool]
+    nonce: hikari.UndefinedOr[str]
+    reply: hikari.UndefinedOr[snowflakes.SnowflakeishOr[hikari.PartialMessage]]
+    reply_must_exist: hikari.UndefinedOr[bool]
+    mentions_everyone: hikari.UndefinedOr[bool]
+    mentions_reply: hikari.UndefinedOr[bool]
+    user_mentions: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialUser] | bool]
+    role_mentions: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialRole] | bool]
+    flags: hikari.UndefinedType | int | hikari.MessageFlag
+
+
+class _ResponseOptions(typing.TypedDict, total=False):
+    tts: hikari.UndefinedOr[bool]
+    attachment: hikari.UndefinedNoneOr[hikari.Resourceish]
+    attachments: hikari.UndefinedNoneOr[collections.abc.Sequence[hikari.Resourceish]]
+    embed: hikari.UndefinedNoneOr[hikari.Embed]
+    embeds: hikari.UndefinedNoneOr[collections.abc.Sequence[hikari.Embed]]
+    poll: hikari.UndefinedOr[special_endpoints.PollBuilder]
+    mentions_everyone: hikari.UndefinedOr[bool]
+    user_mentions: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialUser] | bool]
+    role_mentions: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialRole] | bool]
+
+
 class BuildContext:
     """What a component gets while a layout is built: the view's routing identity and codec.
 
@@ -236,9 +267,10 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
     """The components of a message, built and ready to send.
 
     It is a mapping, so it spreads into any call that takes `components=`:
-    `await ctx.respond(**rendered)`. A Components V2 message carries nothing but its
-    components, so there is nothing else to spread. `Client.build` returns one for a view,
-    and `ui.render` returns one for a layout with nothing to click.
+    `await ctx.respond(**rendered)`. A Components V2 message has no content and no
+    embeds, so there is nothing else to spread. `Client.build` returns one for a view,
+    and `ui.render` returns one for a layout with nothing to click. `send_to` and
+    `respond_to` send it through hikari and take the other arguments of hikari's call.
     """
 
     __slots__ = ("_components",)
@@ -269,9 +301,14 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         self,
         rest: hikari.api.RESTClient,
         channel: snowflakes.SnowflakeishOr[hikari.TextableChannel],
-        **forbidden: typing.Never,
+        content: hikari.UndefinedOr[str] = hikari.UNDEFINED,
+        **options: typing.Unpack[_MessageOptions],
     ) -> hikari.Message:
         """Send the components as a new message in `channel`.
+
+        ```python
+        await rendered.send_to(bot.rest, channel_id, user_mentions=True)
+        ```
 
         Parameters
         ----------
@@ -279,25 +316,42 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
             The REST client to send through.
         channel
             The channel, or its id, to send to.
-        **forbidden
-            Nothing: the components are the whole message, so any keyword raises `TypeError`.
+        content
+            Text above the components, which only rows alone can carry.
+        **options
+            The other keyword arguments of hikari's
+            [`create_message`][hikari.api.rest.RESTClient.create_message], such as
+            `user_mentions`, `reply` and `flags`, passed on as they are.
 
         Returns
         -------
         :
             The message sent.
+
+        Raises
+        ------
+        TypeError
+            If `content`, `embed` or `embeds` is given beside Components V2, which take their
+            place. Put the text in a `ui.TextDisplay`.
         """
-        _reject_forbidden(forbidden)
-        return await rest.create_message(channel, components=self._components)
+        _reject_beside_v2(
+            self._components,
+            content=content,
+            embed=options.get("embed", hikari.UNDEFINED),
+            embeds=options.get("embeds", hikari.UNDEFINED),
+        )
+        return await rest.create_message(channel, content, components=self._components, **options)
 
     async def respond_to(
         self,
         rest: hikari.api.RESTClient,
         interaction: hikari.ComponentInteraction | hikari.ModalInteraction | hikari.CommandInteraction,
+        content: hikari.UndefinedOr[str] = hikari.UNDEFINED,
         *,
         ephemeral: bool = False,
-        **forbidden: typing.Never,
-    ) -> None:
+        flags: hikari.UndefinedType | int | hikari.MessageFlag = hikari.UNDEFINED,
+        **options: typing.Unpack[_ResponseOptions],
+    ) -> hikari.InteractionCallbackResponse:
         """Answer `interaction` with the components, as its initial response.
 
         For interactions risa does not dispatch, such as slash commands. In a risa handler,
@@ -310,25 +364,55 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
             The REST client to answer through.
         interaction
             The interaction to answer, which must not have an initial response yet.
+        content
+            Text above the components, which only rows alone can carry.
         ephemeral
             Show the message only to the user who used the command.
-        **forbidden
-            Nothing: the components are the whole message, so any keyword raises `TypeError`.
+        flags
+            The flags of the message. `ephemeral=True` adds `EPHEMERAL` to them.
+        **options
+            The other keyword arguments of hikari's
+            [`create_interaction_response`][hikari.api.rest.RESTClient.create_interaction_response],
+            such as `user_mentions` and `tts`, passed on as they are.
+
+        Returns
+        -------
+        :
+            What hikari returns for the response.
+
+        Raises
+        ------
+        TypeError
+            If `content`, `embed` or `embeds` is given beside Components V2, which take their
+            place. Put the text in a `ui.TextDisplay`.
         """
-        _reject_forbidden(forbidden)
-        await rest.create_interaction_response(
+        _reject_beside_v2(
+            self._components,
+            content=content,
+            embed=options.get("embed", hikari.UNDEFINED),
+            embeds=options.get("embeds", hikari.UNDEFINED),
+        )
+        if ephemeral:
+            flags = hikari.MessageFlag.EPHEMERAL if flags is hikari.UNDEFINED else flags | hikari.MessageFlag.EPHEMERAL
+        return await rest.create_interaction_response(
             interaction.id,
             interaction.token,
             hikari.ResponseType.MESSAGE_CREATE,
+            content,
             components=self._components,
-            flags=hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED,
+            flags=flags,
+            **options,
         )
 
 
-def _reject_forbidden(forbidden: collections.abc.Mapping[str, object]) -> None:
-    if forbidden:
+def _reject_beside_v2(
+    components: collections.abc.Sequence[special_endpoints.ComponentBuilder],
+    **beside: object,
+) -> None:
+    given = [name for name, value in beside.items() if value is not hikari.UNDEFINED]
+    if given and any(component.type != hikari.ComponentType.ACTION_ROW for component in components):
         msg = (
-            f"the components are the whole message; {', '.join(sorted(forbidden))} cannot ride"
+            f"Components V2 take the place of content and embeds; {', '.join(given)} cannot ride"
             " alongside them - put text in a ui.TextDisplay"
         )
         raise TypeError(msg)

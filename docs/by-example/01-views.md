@@ -64,7 +64,14 @@ you send it depends on where your code runs:
 Leave `content` out of a call that spreads a Components V2 view. [Rows alone](04-selects-sections-galleries.md#rows-alone)
 are the one exception.
 
-The example uses the first row: writing `!welcome` in a server channel posts the message. As with `!counter` in
+[`send_to`](../api/ui/build.md#risa.ui.build.Rendered.send_to) and
+[`respond_to`](../api/ui/build.md#risa.ui.build.Rendered.respond_to) also take the other arguments of hikari's
+`create_message` and `create_interaction_response`, such as `flags` or `attachment`, and pass them on. hikari lets a
+mention ping nobody unless the call allows it, so a message that should ping reads
+`await rendered.send_to(bot.rest, event.channel_id, user_mentions=True)`. Beside Components V2, both raise `TypeError`
+for `content` or an embed.
+
+The example uses the first row of the table: writing `!welcome` in a server channel posts the message. As with `!counter` in
 [Your first view](../get-started/first-view.md#send-it), the bot needs **Message Content Intent** turned on in the
 Developer Portal.
 
