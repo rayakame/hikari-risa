@@ -1,4 +1,6 @@
 
+
+
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -10,7 +12,8 @@
       
       
       
-        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.3.0/by-example/04-selects-sections-galleries/">
+        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.4.0/by-example/04-selects-sections-galleries/">
+      
       
       
       
@@ -24,7 +27,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.svg">
-      <meta name="generator" content="zensical-0.1.2">
+      <meta name="generator" content="zensical-0.1.3">
     
     
       
@@ -35,12 +38,13 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
       
       
 
@@ -76,17 +80,17 @@
   <meta property="og:site_name" content="hikari-risa">
   <meta property="og:title" content="04 Selects, sections, galleries - hikari-risa">
   <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.3.0/by-example/04-selects-sections-galleries/">
-  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.3.0/assets/images/social-preview.png">
+  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.4.0/by-example/04-selects-sections-galleries/">
+  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.4.0/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="04 Selects, sections, galleries - hikari-risa">
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.3.0/assets/images/social-preview.png">
+  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.4.0/assets/images/social-preview.png">
 
-  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# By example › Chapter 4\n## Selects, sections, galleries\nA message can hold more than text and buttons: menus to pick from, an image or a button beside the text, galleries and files. Each is one more component for `render()` to return, and `risa.ui.nodes` lists them all with their options."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.3.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the chapter","url":"https://hikari-risa.rayakame.dev/1.3.0/by-example/04-selects-sections-galleries/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.3.0 · This preview is a risa view"}]}}</script>
+  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# By example › Chapter 4\n## Selects, sections, galleries\nA message can hold more than text and buttons: menus to pick from, an image or a button beside the text, galleries and files. Each is one more component for `render()` to return, and `risa.ui.nodes` lists them all with their options."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.4.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the chapter","url":"https://hikari-risa.rayakame.dev/1.4.0/by-example/04-selects-sections-galleries/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.4.0 · This preview is a risa view"}]}}</script>
 </head>
   
   
@@ -2449,16 +2453,12 @@ is the only shape that can carry <code>content</code> beside it.</p>
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">In Discord</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>Ship it?</p></div><div class="dc-row"><span class="dc-btn dc-primary">Yes</span><span class="dc-btn dc-secondary">No</span></div></div></div></div>
 
-<p><code>send_to</code> refuses <code>content</code>, so an event calls hikari directly.</p>
+<p><code>send_to</code> and <code>respond_to</code> take the text after the channel or the interaction.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><span class="nd">@bot</span><span class="o">.</span><span class="n">listen</span><span class="p">()</span>
 </span><span id="__span-11-2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-11-3">    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!shipit"</span><span class="p">:</span>
 </span><span id="__span-11-4">        <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">YesNo</span><span class="p">())</span>
-</span><span id="__span-11-5">        <span class="k">await</span> <span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="o">.</span><span class="n">create_message</span><span class="p">(</span>
-</span><span id="__span-11-6">            <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">,</span>
-</span><span id="__span-11-7">            <span class="s2">"Ship it?"</span><span class="p">,</span>
-</span><span id="__span-11-8">            <span class="o">**</span><span class="n">rendered</span><span class="p">,</span>
-</span><span id="__span-11-9">        <span class="p">)</span>
+</span><span id="__span-11-5">        <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">,</span> <span class="s2">"Ship it?"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>In a lightbulb command, or in a risa handler that takes
 <a href="../06-dependency-injection/#build-another-view"><code>client: risa.Client</code></a> as a parameter after <code>ctx</code>, it reads
@@ -2506,17 +2506,13 @@ is the only shape that can carry <code>content</code> beside it.</p>
 </span><span id="__span-12-39">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_message</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">hikari</span><span class="o">.</span><span class="n">GuildMessageCreateEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-12-40">        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">content</span> <span class="o">==</span> <span class="s2">"!shipit"</span><span class="p">:</span>
 </span><span id="__span-12-41">            <span class="n">rendered</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">YesNo</span><span class="p">())</span>
-</span><span id="__span-12-42">            <span class="k">await</span> <span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="o">.</span><span class="n">create_message</span><span class="p">(</span>
-</span><span id="__span-12-43">                <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">,</span>
-</span><span id="__span-12-44">                <span class="s2">"Ship it?"</span><span class="p">,</span>
-</span><span id="__span-12-45">                <span class="o">**</span><span class="n">rendered</span><span class="p">,</span>
-</span><span id="__span-12-46">            <span class="p">)</span>
-</span><span id="__span-12-47">
-</span><span id="__span-12-48">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span><span id="__span-12-49">
-</span><span id="__span-12-50">
-</span><span id="__span-12-51"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
-</span><span id="__span-12-52">    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-12-42">            <span class="k">await</span> <span class="n">rendered</span><span class="o">.</span><span class="n">send_to</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">rest</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">channel_id</span><span class="p">,</span> <span class="s2">"Ship it?"</span><span class="p">)</span>
+</span><span id="__span-12-43">
+</span><span id="__span-12-44">    <span class="n">bot</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-12-45">
+</span><span id="__span-12-46">
+</span><span id="__span-12-47"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-12-48">    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div>
 </details>
 
@@ -2624,7 +2620,8 @@ is the only shape that can carry <code>content</code> beside it.</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.annotate","content.code.copy","content.tabs.link","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"stable","provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      
       
         <script src="../../javascripts/live-preview.js"></script>
       

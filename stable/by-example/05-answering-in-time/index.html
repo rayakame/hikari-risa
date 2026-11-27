@@ -1,4 +1,6 @@
 
+
+
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -10,7 +12,8 @@
       
       
       
-        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.3.0/by-example/05-answering-in-time/">
+        <link rel="canonical" href="https://hikari-risa.rayakame.dev/1.4.0/by-example/05-answering-in-time/">
+      
       
       
       
@@ -24,7 +27,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.svg">
-      <meta name="generator" content="zensical-0.1.2">
+      <meta name="generator" content="zensical-0.1.3">
     
     
       
@@ -35,12 +38,13 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
       
       
 
@@ -76,17 +80,17 @@
   <meta property="og:site_name" content="hikari-risa">
   <meta property="og:title" content="05 Answering in time - hikari-risa">
   <meta property="og:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.3.0/by-example/05-answering-in-time/">
-  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.3.0/assets/images/social-preview.png">
+  <meta property="og:url" content="https://hikari-risa.rayakame.dev/1.4.0/by-example/05-answering-in-time/">
+  <meta property="og:image" content="https://hikari-risa.rayakame.dev/1.4.0/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta property="og:image:alt" content="Risa, the hikari-risa mascot, beside the logo and the line: Components V2 views for hikari, with state that survives restarts.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="05 Answering in time - hikari-risa">
   <meta name="twitter:description" content="Components V2 views for hikari, with state that survives restarts.">
-  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.3.0/assets/images/social-preview.png">
+  <meta name="twitter:image" content="https://hikari-risa.rayakame.dev/1.4.0/assets/images/social-preview.png">
 
-  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# By example › Chapter 5\n## Answering in time\nDiscord gives a click three seconds. This chapter shows each way to answer, and what to do when the work takes longer."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.3.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the chapter","url":"https://hikari-risa.rayakame.dev/1.3.0/by-example/05-answering-in-time/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.3.0 · This preview is a risa view"}]}}</script>
+  <script id="discord:component-embed" type="application/json">{"component":{"type":17,"spoiler":false,"accent_color":16154785,"components":[{"type":9,"components":[{"type":10,"content":"-# By example › Chapter 5\n## Answering in time\nDiscord gives a click three seconds. This chapter shows each way to answer, and what to do when the work takes longer."}],"accessory":{"type":11,"media":{"url":"https://hikari-risa.rayakame.dev/1.4.0/assets/images/mascot-sticker.webp"},"spoiler":false,"description":"Risa"}},{"type":14,"spacing":1,"divider":true},{"type":1,"components":[{"type":2,"style":5,"disabled":false,"label":"Open the chapter","url":"https://hikari-risa.rayakame.dev/1.4.0/by-example/05-answering-in-time/"},{"type":2,"style":5,"disabled":false,"label":"GitHub","url":"https://github.com/rayakame/hikari-risa"}]},{"type":10,"content":"-# hikari-risa 1.4.0 · This preview is a risa view"}]}}</script>
 </head>
   
   
@@ -2527,6 +2531,8 @@ leaves the click in your log:</p>
 </span></code></pre></div>
 <div class="risa-result"><p class="risa-result__label">After a click on Next city, which raises a KeyError</p><div class="dc"><span class="dc-avatar" role="img" aria-label="Risa Bot"></span><div class="dc-main"><div class="dc-who"><span class="dc-name">Risa Bot</span><span class="dc-app">APP</span><span class="dc-time">Today at 12:00</span></div><div class="dc-text"><p>Something went wrong.</p></div><div class="dc-eph"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg><span>Only you can see this</span><span>&middot;</span><a>Dismiss message</a></div></div></div></div>
 
+<p>Either handler can answer with a layout: <code>await ctx.respond(**ui.render(layout), ephemeral=True)</code> sends a
+<a href="../01-views/#a-message-with-nothing-to-click">message with nothing to click</a>.</p>
 <p><code>@client.error_handler</code> without a priority registers at priority <code>0</code>, and
 <code>client.error_handler(forecast_unavailable, priority=1)</code> registers a function that is defined elsewhere.</p>
 <ul>
@@ -2736,7 +2742,8 @@ leaves the click in your log:</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.annotate","content.code.copy","content.tabs.link","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"stable","provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      
       
         <script src="../../javascripts/live-preview.js"></script>
       
