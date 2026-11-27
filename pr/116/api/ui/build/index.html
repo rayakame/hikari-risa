@@ -2700,7 +2700,8 @@ place. Put the text in a <code>ui.TextDisplay</code>.</p>
           <div class="doc-md-description">
             <p>The other keyword arguments of hikari's
 <a class="autorefs autorefs-external" href="https://docs.hikari-py.dev/en/stable/reference/hikari/api/rest/#hikari.api.rest.RESTClient.create_message"><code>create_message</code></a>, such as
-<code>user_mentions</code>, <code>reply</code> and <code>flags</code>, passed on as they are.</p>
+<code>user_mentions</code>, <code>reply</code> and <code>flags</code>, passed on as they are. One that the installed
+hikari lacks, such as <code>nonce</code> before hikari 2.6, raises hikari's <code>TypeError</code>.</p>
           </div>
         </li>
     </ul>
