@@ -4,6 +4,14 @@ What changed in each release of hikari-risa.
 
 <!-- towncrier release notes start -->
 
+## 1.4.0 (2026-11-27)
+
+### Features
+
+- `Rendered.send_to` and `respond_to` take `content` and the other arguments of hikari's `create_message` and `create_interaction_response`, such as `user_mentions` and `flags`, and `respond_to` returns what hikari returns. Beside Components V2, `content` and embeds still raise `TypeError`. ([#116](https://github.com/rayakame/hikari-risa/pull/116))
+- `ui.render(layout)` builds a layout with nothing to click, such as an error card or a notice, into what `client.build` returns for a view, so it can be sent with no view, no client and no `await`. ([#116](https://github.com/rayakame/hikari-risa/pull/116))
+
+
 ## 1.3.0 (2026-11-19)
 
 ### Features
