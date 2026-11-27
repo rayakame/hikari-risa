@@ -367,7 +367,8 @@ class Context[T: hikari.ComponentInteraction | hikari.ModalInteraction]:
             The files to attach.
         component
             One builder, sent as it is: risa adds no routing or state. To send a view, spread
-            `await client.build(view)`. Not together with `components`.
+            `await client.build(view)`, and for a layout with nothing to click, `ui.render(layout)`.
+            Not together with `components`.
         components
             The builders, sent as they are.
         embed

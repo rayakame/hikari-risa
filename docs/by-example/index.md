@@ -14,7 +14,7 @@ Fourteen chapters that start with a single message and end with the hooks risa s
 
 - [Views](01-views.md)
 
-    Describe a whole message in `render()` and send it.
+    Describe a whole message in `render()` and send it, or send a layout that needs no view.
 
 - [Buttons that remember](02-buttons-that-remember.md)
 

@@ -186,6 +186,9 @@ leaves the click in your log:
 
 --8<-- "previews/something-went-wrong.html"
 
+Either handler can answer with a layout: `await ctx.respond(**ui.render(layout), ephemeral=True)` sends a
+[message with nothing to click](01-views.md#a-message-with-nothing-to-click).
+
 `@client.error_handler` without a priority registers at priority `0`, and
 `client.error_handler(forecast_unavailable, priority=1)` registers a function that is defined elsewhere.
 

@@ -17,7 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-"""Building a view's layout into the components of a message."""
+"""Building a layout into the components of a message."""
 
 from __future__ import annotations
 
@@ -27,7 +27,9 @@ import typing
 import hikari
 
 from risa import binding as binding_
+from risa import codecs
 from risa import errors
+from risa import view as view_
 from risa.internal import codec
 from risa.state import anchor
 from risa.state import placement
@@ -37,8 +39,6 @@ if typing.TYPE_CHECKING:
     from hikari import snowflakes
     from hikari.api import special_endpoints
 
-    from risa import codecs
-    from risa import view as view_
     from risa.internal import registry
     from risa.ui.nodes import Layout
 
@@ -47,14 +47,48 @@ __all__ = (
     "Plan",
     "Rendered",
     "plan",
+    "render",
 )
 
 
+class _MessageOptions(typing.TypedDict, total=False):
+    attachment: hikari.UndefinedOr[hikari.Resourceish]
+    attachments: hikari.UndefinedOr[collections.abc.Sequence[hikari.Resourceish]]
+    embed: hikari.UndefinedOr[hikari.Embed]
+    embeds: hikari.UndefinedOr[collections.abc.Sequence[hikari.Embed]]
+    poll: hikari.UndefinedOr[special_endpoints.PollBuilder]
+    sticker: hikari.UndefinedOr[snowflakes.SnowflakeishOr[hikari.PartialSticker]]
+    stickers: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialSticker]]
+    tts: hikari.UndefinedOr[bool]
+    nonce: hikari.UndefinedOr[str]
+    reply: hikari.UndefinedOr[snowflakes.SnowflakeishOr[hikari.PartialMessage]]
+    reply_must_exist: hikari.UndefinedOr[bool]
+    mentions_everyone: hikari.UndefinedOr[bool]
+    mentions_reply: hikari.UndefinedOr[bool]
+    user_mentions: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialUser] | bool]
+    role_mentions: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialRole] | bool]
+    flags: hikari.UndefinedType | int | hikari.MessageFlag
+
+
+class _ResponseOptions(typing.TypedDict, total=False):
+    tts: hikari.UndefinedOr[bool]
+    attachment: hikari.UndefinedNoneOr[hikari.Resourceish]
+    attachments: hikari.UndefinedNoneOr[collections.abc.Sequence[hikari.Resourceish]]
+    embed: hikari.UndefinedNoneOr[hikari.Embed]
+    embeds: hikari.UndefinedNoneOr[collections.abc.Sequence[hikari.Embed]]
+    poll: hikari.UndefinedOr[special_endpoints.PollBuilder]
+    mentions_everyone: hikari.UndefinedOr[bool]
+    user_mentions: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialUser] | bool]
+    role_mentions: hikari.UndefinedOr[snowflakes.SnowflakeishSequence[hikari.PartialRole] | bool]
+
+
 class BuildContext:
-    """What a component gets while a view is built: the view's routing identity and codec.
+    """What a component gets while a layout is built: the view's routing identity and codec.
 
     risa makes one for each pass over a layout: one to measure it and one for each time it
-    emits, so a component's `build` runs at least twice per `client.build`.
+    emits, so a component's `build` runs at least twice per `client.build`. `ui.render`
+    builds a layout without a view in one pass, and its context's `routing_id` raises
+    `LayoutError`.
 
     Attributes
     ----------
@@ -113,7 +147,7 @@ class BuildContext:
         Raises
         ------
         LayoutError
-            If the handler belongs to another view.
+            If the handler belongs to another view, or the layout is built without a view.
         ArgBindError
             If a wire argument is too long to carry.
         CustomIdOverflowError
@@ -169,13 +203,31 @@ class BuildContext:
         return anchor.Slot(index=min(leaf, codec.MAX_FRAGMENTS - 1), fragment="!" * self._reserve)
 
 
+class _Viewless(BuildContext):
+    """The context of a layout built without a view, on which nothing can route a click."""
+
+    __slots__ = ()
+
+    def __init__(self) -> None:
+        super().__init__("", frozenset(), view_.View, codecs.BASE85)
+
+    @typing.override
+    def routing_id(self, binding: binding_.Binding, path: str) -> str:
+        reason = (
+            f"handler {binding.handler_id!r} (version {binding.version}) routes through its view,"
+            " and ui.render builds a layout without one; return the layout from the view's render()"
+            " and send the view with client.build"
+        )
+        raise errors.LayoutError(path, reason)
+
+
 class Plan:
     """A layout measured for one view, ready to be built with that view's state."""
 
     __slots__ = ("_capacities", "_layout", "_meta")
 
     def __init__(self, layout: Layout, meta: registry.ViewMeta) -> None:
-        self._layout: collections.abc.Sequence[Component] = (layout,) if isinstance(layout, Component) else layout
+        self._layout = _top_level(layout)
         self._meta = meta
         measured = _context(meta, reserve=_reserve(meta))
         _build_all(self._layout, measured)
@@ -212,11 +264,13 @@ class Plan:
 
 
 class Rendered(collections.abc.Mapping[str, typing.Any]):
-    """A built view: the components of a message, ready to send.
+    """The components of a message, built and ready to send.
 
     It is a mapping, so it spreads into any call that takes `components=`:
-    `await ctx.respond(**rendered)`. A Components V2 message carries nothing but its
-    components, so there is nothing else to spread. `Client.build` returns one.
+    `await ctx.respond(**rendered)`. A Components V2 message has no content and no
+    embeds, so there is nothing else to spread. `Client.build` returns one for a view,
+    and `ui.render` returns one for a layout with nothing to click. `send_to` and
+    `respond_to` send it through hikari and take the other arguments of hikari's call.
     """
 
     __slots__ = ("_components",)
@@ -247,9 +301,14 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
         self,
         rest: hikari.api.RESTClient,
         channel: snowflakes.SnowflakeishOr[hikari.TextableChannel],
-        **forbidden: typing.Never,
+        content: hikari.UndefinedOr[str] = hikari.UNDEFINED,
+        **options: typing.Unpack[_MessageOptions],
     ) -> hikari.Message:
-        """Send the view as a new message in `channel`.
+        """Send the components as a new message in `channel`.
+
+        ```python
+        await rendered.send_to(bot.rest, channel_id, user_mentions=True)
+        ```
 
         Parameters
         ----------
@@ -257,26 +316,44 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
             The REST client to send through.
         channel
             The channel, or its id, to send to.
-        **forbidden
-            Nothing: a V2 view renders the whole message, so any keyword raises `TypeError`.
+        content
+            Text above the components, which only rows alone can carry.
+        **options
+            The other keyword arguments of hikari's
+            [`create_message`][hikari.api.rest.RESTClient.create_message], such as
+            `user_mentions`, `reply` and `flags`, passed on as they are. One that the installed
+            hikari lacks, such as `nonce` before hikari 2.6, raises hikari's `TypeError`.
 
         Returns
         -------
         :
             The message sent.
+
+        Raises
+        ------
+        TypeError
+            If `content`, `embed` or `embeds` is given beside Components V2, which take their
+            place. Put the text in a `ui.TextDisplay`.
         """
-        _reject_forbidden(forbidden)
-        return await rest.create_message(channel, components=self._components)
+        _reject_beside_v2(
+            self._components,
+            content=content,
+            embed=options.get("embed", hikari.UNDEFINED),
+            embeds=options.get("embeds", hikari.UNDEFINED),
+        )
+        return await rest.create_message(channel, content, components=self._components, **options)
 
     async def respond_to(
         self,
         rest: hikari.api.RESTClient,
         interaction: hikari.ComponentInteraction | hikari.ModalInteraction | hikari.CommandInteraction,
+        content: hikari.UndefinedOr[str] = hikari.UNDEFINED,
         *,
         ephemeral: bool = False,
-        **forbidden: typing.Never,
-    ) -> None:
-        """Answer `interaction` with the view, as its initial response.
+        flags: hikari.UndefinedType | int | hikari.MessageFlag = hikari.UNDEFINED,
+        **options: typing.Unpack[_ResponseOptions],
+    ) -> hikari.InteractionCallbackResponse:
+        """Answer `interaction` with the components, as its initial response.
 
         For interactions risa does not dispatch, such as slash commands. In a risa handler,
         answer with `ctx.respond(**rendered)` instead, which knows whether the interaction
@@ -288,26 +365,56 @@ class Rendered(collections.abc.Mapping[str, typing.Any]):
             The REST client to answer through.
         interaction
             The interaction to answer, which must not have an initial response yet.
+        content
+            Text above the components, which only rows alone can carry.
         ephemeral
             Show the message only to the user who used the command.
-        **forbidden
-            Nothing: a V2 view renders the whole message, so any keyword raises `TypeError`.
+        flags
+            The flags of the message. `ephemeral=True` adds `EPHEMERAL` to them.
+        **options
+            The other keyword arguments of hikari's
+            [`create_interaction_response`][hikari.api.rest.RESTClient.create_interaction_response],
+            such as `user_mentions` and `tts`, passed on as they are.
+
+        Returns
+        -------
+        :
+            What hikari returns for the response.
+
+        Raises
+        ------
+        TypeError
+            If `content`, `embed` or `embeds` is given beside Components V2, which take their
+            place. Put the text in a `ui.TextDisplay`.
         """
-        _reject_forbidden(forbidden)
-        await rest.create_interaction_response(
+        _reject_beside_v2(
+            self._components,
+            content=content,
+            embed=options.get("embed", hikari.UNDEFINED),
+            embeds=options.get("embeds", hikari.UNDEFINED),
+        )
+        if ephemeral:
+            flags = hikari.MessageFlag.EPHEMERAL if flags is hikari.UNDEFINED else flags | hikari.MessageFlag.EPHEMERAL
+        return await rest.create_interaction_response(
             interaction.id,
             interaction.token,
             hikari.ResponseType.MESSAGE_CREATE,
+            content,
             components=self._components,
-            flags=hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.UNDEFINED,
+            flags=flags,
+            **options,
         )
 
 
-def _reject_forbidden(forbidden: collections.abc.Mapping[str, object]) -> None:
-    if forbidden:
+def _reject_beside_v2(
+    components: collections.abc.Sequence[special_endpoints.ComponentBuilder],
+    **beside: object,
+) -> None:
+    given = [name for name, value in beside.items() if value is not hikari.UNDEFINED]
+    if given and any(component.type != hikari.ComponentType.ACTION_ROW for component in components):
         msg = (
-            f"a V2 view renders the whole message; {', '.join(sorted(forbidden))} cannot ride"
-            " alongside it - put text in a ui.TextDisplay inside the view"
+            f"Components V2 take the place of content and embeds; {', '.join(given)} cannot ride"
+            " alongside them - put text in a ui.TextDisplay"
         )
         raise TypeError(msg)
 
@@ -341,6 +448,10 @@ def _context(
     )
 
 
+def _top_level(layout: Layout) -> collections.abc.Sequence[Component]:
+    return (layout,) if isinstance(layout, Component) else layout
+
+
 def _build_all(
     layout: collections.abc.Sequence[Component],
     ctx: BuildContext,
@@ -351,3 +462,42 @@ def _build_all(
 def plan(layout: Layout, meta: registry.ViewMeta) -> Plan:
     """Measure `layout` for the view described by `meta`."""
     return Plan(layout, meta)
+
+
+def render(layout: Layout, /) -> Rendered:
+    """Build the components of a message from a layout with nothing to click, ready to send.
+
+    ```python
+    await ctx.respond(
+        **ui.render(ui.Container(ui.TextDisplay("Saved."))), ephemeral=True
+    )
+    ```
+
+    Such a layout needs no view, so there is no class to register and no client to build it
+    with. The result spreads into any hikari or lightbulb call that takes `components=`, as
+    the result of `Client.build` does. A `LinkButton` or a `PremiumButton` may be part of the
+    layout, since no handler answers them.
+
+    Parameters
+    ----------
+    layout
+        One top-level component, or several in order.
+
+    Returns
+    -------
+    :
+        The components, as a mapping that spreads into a send.
+
+    Raises
+    ------
+    LayoutError
+        If the layout holds a component that runs a handler, such as a `Button` or a select
+        menu, even a disabled one. Such a component routes through its view: return the
+        layout from the view's `render` and send the view with `Client.build`.
+    TypeError
+        If `layout` is a view, which `Client.build` builds.
+    """
+    if isinstance(layout, view_.View):
+        msg = f"ui.render takes a layout, and got the view {type(layout).__name__}; send a view with client.build"
+        raise TypeError(msg)
+    return Rendered(_build_all(_top_level(layout), _Viewless()))

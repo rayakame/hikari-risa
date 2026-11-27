@@ -265,3 +265,97 @@ def test_state_that_would_crowd_out_a_parked_leaf_is_a_state_overflow() -> None:
 
     with pytest.raises(risa.StateOverflowError):
         plan.emit(state_of(poll))
+
+
+def payloads(builders: typing.Sequence[hikari.api.ComponentBuilder]) -> list[typing.Mapping[str, typing.Any]]:
+    return [builder.build()[0] for builder in builders]
+
+
+def error_card() -> ui.Layout:
+    return ui.Container(
+        ui.TextDisplay("### Something went wrong"),
+        ui.TextDisplay("Try again in a minute."),
+        ui.Row(ui.LinkButton("https://example.com/status", label="Status")),
+        accent_color=0xED4245,
+    )
+
+
+class Probe(ui.TextDisplay):
+    seen: typing.ClassVar[list[str]] = []
+
+    @typing.override
+    def build(self, ctx: ui.BuildContext, path: str) -> hikari.api.TextDisplayComponentBuilder:
+        self.seen.append(path)
+        return super().build(ctx, path)
+
+
+def test_render_builds_a_layout_as_a_view_with_nothing_to_click_would() -> None:
+    rendered = ui.render(error_card())
+
+    assert isinstance(rendered, ui.Rendered)
+    assert dict(rendered) == {"components": rendered.components}
+    assert payloads(rendered.components) == payloads(build_.plan(error_card(), HELP).emit(b""))
+
+
+def test_render_takes_several_top_level_components_in_order() -> None:
+    rendered = ui.render([ui.TextDisplay("first"), ui.Separator(), ui.TextDisplay("second")])
+
+    assert [payload["type"] for payload in payloads(rendered.components)] == [
+        hikari.ComponentType.TEXT_DISPLAY,
+        hikari.ComponentType.SEPARATOR,
+        hikari.ComponentType.TEXT_DISPLAY,
+    ]
+
+
+def test_render_keeps_the_buttons_no_handler_answers() -> None:
+    row = ui.Row(ui.LinkButton("https://example.com", label="Docs"), ui.PremiumButton(hikari.Snowflake(42)))
+
+    (payload,) = payloads(ui.render(row).components)
+
+    assert [button.get("url") or button.get("sku_id") for button in payload["components"]] == [
+        "https://example.com",
+        42,
+    ]
+    assert custom_ids(ui.render(row).components) == []
+
+
+@pytest.mark.parametrize(
+    ("layout", "path"),
+    [
+        (ui.Row(ui.Button(Help().details, label="More")), "Row[0] > Button[0]"),
+        (ui.Row(ui.Button(Help().details, label="More", disabled=True)), "Row[0] > Button[0]"),
+        (
+            ui.Container(ui.TextDisplay("x"), ui.Row(ui.Button(Help().details, label="More"))),
+            "Container[0] > Row[1] > Button[0]",
+        ),
+        (
+            [ui.TextDisplay("x"), ui.Section(ui.TextDisplay("y"), accessory=ui.Button(Help().details, label="More"))],
+            "Section[1] > accessory",
+        ),
+        (ui.Row(ui.TextSelect(Help().details, ui.SelectOption("A"))), "Row[0] > TextSelect[0]"),
+        (ui.Row(ui.UserSelect(Help().details)), "Row[0] > UserSelect[0]"),
+        (ui.Row(ui.ChannelSelect(Help().details)), "Row[0] > ChannelSelect[0]"),
+    ],
+    ids=["button", "disabled-button", "nested-button", "accessory", "text-select", "user-select", "channel-select"],
+)
+def test_render_refuses_a_component_that_runs_a_handler(layout: ui.Layout, path: str) -> None:
+    with pytest.raises(risa.LayoutError) as exc_info:
+        ui.render(layout)
+
+    assert exc_info.value.path == path
+    assert "'details'" in exc_info.value.reason
+    assert "client.build" in exc_info.value.reason
+
+
+def test_render_builds_each_component_once() -> None:
+    Probe.seen.clear()
+
+    (payload,) = payloads(ui.render(Probe("probed")).components)
+
+    assert payload["content"] == "probed"
+    assert Probe.seen == ["Probe[0]"]
+
+
+def test_render_sends_a_view_to_client_build() -> None:
+    with pytest.raises(TypeError, match=r"got the view Help.*client\.build"):
+        ui.render(Help())  # type: ignore[reportArgumentType]

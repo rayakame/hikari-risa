@@ -122,7 +122,7 @@ is the only shape that can carry `content` beside it.
 
 --8<-- "previews/yes-no.html"
 
-`send_to` refuses `content`, so an event calls hikari directly.
+`send_to` and `respond_to` take the text after the channel or the interaction.
 
 ```python
 --8<-- "ch04_rows.py:send"
