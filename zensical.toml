@@ -95,11 +95,13 @@ features = [
 
 [[project.theme.palette]]
 scheme = "risa-night"
+media = "none"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to light mode"
 
 [[project.theme.palette]]
 scheme = "risa-banner"
+media = "none"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to dark mode"
 
